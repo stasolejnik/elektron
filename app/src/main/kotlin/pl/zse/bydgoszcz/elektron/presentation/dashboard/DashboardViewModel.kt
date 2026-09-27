@@ -1,0 +1,277 @@
+package pl.zse.bydgoszcz.elektron.presentation.dashboard
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import pl.zse.bydgoszcz.elektron.domain.model.Announcement
+import pl.zse.bydgoszcz.elektron.domain.model.Lesson
+import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
+import pl.zse.bydgoszcz.elektron.domain.model.Substitution
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
+import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.presentation.common.minuteTicker
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.TextStyle
+import java.util.Locale
+import javax.inject.Inject
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val settings: SettingsRepository,
+    private val substitutionsRepo: SubstitutionsRepository,
+    private val announcementsRepo: AnnouncementsRepository,
+    private val notificationsRepo: NotificationsRepository,
+    private val timetableRepo: TimetableRepository
+) : ViewModel() {
+
+    enum class LessonStatus { Now, Next, None }
+
+    data class State(
+        val selectedClassId: String? = null,
+        val className: String? = null,
+        val isSyncing: Boolean = false,
+        val lastSyncError: String? = null,
+        val loadingTimetable: Boolean = true,
+        val loadingSubs: Boolean = true,
+        val loadingAnns: Boolean = true,
+        val nextLesson: Lesson? = null,
+        val nextLessonDayLabel: String? = null,
+        val nextLessonStatus: LessonStatus = LessonStatus.None,
+        val countdownMinutes: Long? = null,
+        val upcomingSubstitutions: List<Substitution> = emptyList(),
+        val latestAnnouncements: List<Announcement> = emptyList(),
+        val isRefreshing: Boolean = false,
+        val lastSyncAt: Instant? = null,
+        val showNextLesson: Boolean = true,
+        val showSubstitutions: Boolean = true,
+        val showAnnouncements: Boolean = true
+    )
+
+    private data class Core(
+        val cid: String? = null,
+        // Bug #2: classShort MUSI pochodzić z listy klas (dostępnej od razu po sync sidebaru
+        // podczas Setup), a nie z pierwszej zsynchronizowanej lekcji — inaczej, zanim plan
+        // lekcji się załaduje, className jest null i filtr zastępstw przepuszczał WSZYSTKIE
+        // klasy zamiast żadnej.
+        val classShort: String? = null,
+        val lessons: List<Lesson> = emptyList(),
+        val subs: List<Substitution> = emptyList(),
+        val refresh: Boolean = false,
+        val anns: List<Announcement> = emptyList(),
+        val lastSync: Instant? = null,
+        val syncing: Boolean = false,
+        val error: String? = null,
+        val loaded: Set<String> = emptySet(),
+        // Bug #1: sygnał "trwa pierwszy sync" — jaśniejszy niż samo "loaded", bo obejmuje
+        // całe okno między wyborem klasy a zakończeniem (sukcesem lub porażką) syncu.
+        val initialSyncPending: Boolean = false,
+        /** Wybrane grupy zajęciowe dla klasy (przedmiot -> grupa / NONE). */
+        val groups: Map<String, String> = emptyMap(),
+        val showNextLesson: Boolean = true,
+        val showSubstitutions: Boolean = true,
+        val showAnnouncements: Boolean = true
+    )
+
+    private val refreshing = MutableStateFlow(false)
+    private val rangeStart = LocalDate.now()
+    private val rangeEnd = rangeStart.plusDays(21)
+
+    private val selected = settings.selectedClassId
+
+    // Skrót klasy niezależny od tego, czy plan lekcji już się zsynchronizował — pochodzi
+    // z listy klas (observeClasses), dostępnej od razu po sync sidebaru.
+    private val classShortFlow: Flow<String?> = selected.flatMapLatest { cid: String? ->
+        if (cid == null) flowOf(null)
+        else timetableRepo.observeClasses().map { list -> list.firstOrNull { it.id == cid }?.shortName }
+    }
+
+    private val lessonsFlow: Flow<List<Lesson>> = selected.flatMapLatest { cid: String? ->
+        if (cid == null) flowOf(emptyList())
+        else timetableRepo.observeLessons(cid, rangeStart, rangeEnd)
+    }
+
+    private val subsFlow: Flow<List<Substitution>> = substitutionsRepo.observeFrom(rangeStart)
+
+    val state: StateFlow<State> = combine(
+        selected, classShortFlow, lessonsFlow, subsFlow, refreshing
+    ) { cid: String?, classShort: String?, lessons: List<Lesson>, subs: List<Substitution>, refresh: Boolean ->
+        Core(cid = cid, classShort = classShort, lessons = lessons, subs = subs, refresh = refresh)
+    }
+        .combine(announcementsRepo.observeAll()) { core, anns -> core.copy(anns = anns) }
+        .combine(notificationsRepo.observeLastSyncAt()) { core, at -> core.copy(lastSync = at) }
+        .combine(notificationsRepo.observeIsSyncing()) { core, syncing -> core.copy(syncing = syncing) }
+        .combine(notificationsRepo.observeLastSyncError()) { core, err -> core.copy(error = err) }
+        .combine(notificationsRepo.observeLoadedResources()) { core, loaded -> core.copy(loaded = loaded) }
+        .combine(notificationsRepo.observeInitialSyncPending()) { core, pending -> core.copy(initialSyncPending = pending) }
+        .combine(settings.showNextLesson) { core, v -> core.copy(showNextLesson = v) }
+        .combine(settings.showSubstitutions) { core, v -> core.copy(showSubstitutions = v) }
+        .combine(settings.showAnnouncements) { core, v -> core.copy(showAnnouncements = v) }
+        .combine(settings.activeGroupSelections) { core, sel -> core.copy(groups = sel) }
+        .combine(minuteTicker()) { core, _ -> core }
+        .map { core -> compute(core) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
+
+    private fun compute(c: Core): State {
+        val cid = c.cid
+        if (cid == null) {
+            return State(selectedClassId = null, loadingTimetable = false,
+                loadingSubs = false, loadingAnns = false,
+                latestAnnouncements = emptyList(), lastSyncAt = c.lastSync,
+                isSyncing = c.syncing, lastSyncError = c.error,
+                showNextLesson = c.showNextLesson, showSubstitutions = c.showSubstitutions,
+                showAnnouncements = c.showAnnouncements)
+        }
+
+        // Bug #1 (drugorzędny): today/now liczone na nowo przy każdym przeliczeniu, nie raz
+        // przy tworzeniu ViewModelu — appka otwarta przez noc nie pokaże wczorajszej lekcji
+        // jako "trwającej teraz".
+        val today = LocalDate.now()
+        val now = LocalTime.now()
+
+        // Lekcje po odfiltrowaniu grup, na które użytkownik nie chodzi. c.lessons (surowe)
+        // zostają do oceny, czy zastępstwo z numerem grupy dotyczy użytkownika.
+        val lessons = LessonGroups.filter(c.lessons, c.groups)
+        val className = lessons.firstOrNull()?.className ?: c.lessons.firstOrNull()?.className
+
+        val todayLessons = lessons.filter { it.date == today }.sortedBy { it.number }
+        val current = todayLessons.firstOrNull { now in it.timeFrom..it.timeTo }
+        val nextToday = todayLessons.firstOrNull { it.timeFrom > now }
+        val afterToday = lessons.filter { it.date > today }
+            .sortedWith(compareBy({ it.date }, { it.number }))
+
+        val (lesson, status) = when {
+            current != null -> current to LessonStatus.Now
+            nextToday != null -> nextToday to LessonStatus.Next
+            afterToday.isNotEmpty() -> afterToday.first() to LessonStatus.Next
+            else -> null to LessonStatus.None
+        }
+
+        val dayLabel = lesson?.date?.let { d: LocalDate ->
+            if (d == today) "Dziś" else
+                d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pl", "PL"))
+                    .replaceFirstChar { it.titlecase(Locale("pl", "PL")) }
+        }
+
+        val countdownMinutes: Long? = when {
+            lesson == null -> null
+            status != LessonStatus.Next -> null
+            lesson.date != today -> null
+            else -> {
+                val mins = java.time.Duration.between(now, lesson.timeFrom).toMinutes()
+                val hasEarlierToday = todayLessons.any { it.timeTo <= now }
+                if (mins <= 30 || hasEarlierToday) mins.coerceAtLeast(0) else null
+            }
+        }
+
+        val todayLessonEndByNumber: Map<Int, LocalTime> =
+            todayLessons.associate { it.number to it.timeTo }
+
+        // Bug #2, druga część: gdy klasa nie jest jeszcze znana, pokazujemy PUSTĄ listę,
+        // nigdy wszystkie zastępstwa. To bezpieczny domyślny wariant — lepiej chwilę
+        // "Ładowanie" niż zastępstwa cudzej klasy.
+        val upcoming: List<Substitution> = if (c.classShort == null) emptyList() else c.subs
+            .filter { sub: Substitution -> SubstitutionRelevance.matchesClass(sub, c.classShort) }
+            .filter { sub: Substitution -> LessonGroups.substitutionRelevant(sub, c.lessons, c.groups) }
+            .filter { sub: Substitution ->
+                when {
+                    sub.date > today -> true
+                    sub.date < today -> false
+                    else -> {
+                        val end: LocalTime? = todayLessonEndByNumber[sub.lessonNumber]
+                        end == null || now < end
+                    }
+                }
+            }
+            .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
+            .take(10)
+
+        val timetableLoaded = "timetable" in c.loaded
+        val subsLoaded = "subs" in c.loaded
+        val annsLoaded = "anns" in c.loaded
+
+        // Bug #1: dopóki trwa pierwszy sync ALBO zasób jeszcze nie jest oznaczony jako
+        // załadowany, a nie mamy jeszcze danych do pokazania — pokazujemy "Ładowanie",
+        // nie pusty/"brak" stan.
+        val stillLoadingBase = c.initialSyncPending
+
+        return State(
+            selectedClassId = cid,
+            className = className,
+            isSyncing = c.syncing,
+            lastSyncError = c.error,
+            loadingTimetable = (stillLoadingBase || !timetableLoaded) && lesson == null,
+            loadingSubs = (stillLoadingBase || !subsLoaded) && upcoming.isEmpty(),
+            loadingAnns = (stillLoadingBase || !annsLoaded) && c.anns.isEmpty(),
+            nextLesson = lesson,
+            nextLessonDayLabel = dayLabel,
+            nextLessonStatus = status,
+            countdownMinutes = countdownMinutes,
+            upcomingSubstitutions = upcoming,
+            latestAnnouncements = c.anns.take(3),
+            isRefreshing = c.refresh,
+            lastSyncAt = c.lastSync,
+            showNextLesson = c.showNextLesson,
+            showSubstitutions = c.showSubstitutions,
+            showAnnouncements = c.showAnnouncements
+        )
+    }
+
+    fun refresh() {
+        if (refreshing.value) return
+        refreshing.value = true
+        viewModelScope.launch {
+            val cid = selected.first()
+            try {
+                withContext(Dispatchers.IO) {
+                    coroutineScope {
+                        // Lista klas (sidebar) dawniej odświeżała się tylko w tle co 15 min.
+                        launch { timetableRepo.syncSidebar() }
+                        launch {
+                            val r = timetableRepo.syncTimetable(cid ?: return@launch, LocalDate.now())
+                            if (r.isSuccess) notificationsRepo.markLoaded("timetable")
+                        }
+                        launch {
+                            val r = substitutionsRepo.syncAll()
+                            if (r.isSuccess) notificationsRepo.markLoaded("subs")
+                        }
+                        launch {
+                            val r = announcementsRepo.syncAll()
+                            if (r.isSuccess) notificationsRepo.markLoaded("anns")
+                        }
+                    }
+                }
+                notificationsRepo.setLastSyncAt(Instant.now())
+                notificationsRepo.setLastSyncError(null)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                notificationsRepo.setLastSyncError(e.message ?: "Błąd odświeżania")
+            } finally {
+                refreshing.value = false
+            }
+        }
+    }
+}

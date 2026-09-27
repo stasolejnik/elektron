@@ -1,0 +1,37 @@
+package pl.zse.bydgoszcz.elektron.di
+
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import pl.zse.bydgoszcz.elektron.data.repository.AnnouncementsRepositoryImpl
+import pl.zse.bydgoszcz.elektron.data.repository.NotificationsRepositoryImpl
+import pl.zse.bydgoszcz.elektron.data.repository.SettingsRepositoryImpl
+import pl.zse.bydgoszcz.elektron.data.repository.SubstitutionsRepositoryImpl
+import pl.zse.bydgoszcz.elektron.data.repository.TimetableRepositoryImpl
+import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RepositoryModule {
+
+    @Binds @Singleton
+    abstract fun bindTimetableRepository(impl: TimetableRepositoryImpl): TimetableRepository
+
+    @Binds @Singleton
+    abstract fun bindSubstitutionsRepository(impl: SubstitutionsRepositoryImpl): SubstitutionsRepository
+
+    @Binds @Singleton
+    abstract fun bindAnnouncementsRepository(impl: AnnouncementsRepositoryImpl): AnnouncementsRepository
+
+    @Binds @Singleton
+    abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds @Singleton
+    abstract fun bindNotificationsRepository(impl: NotificationsRepositoryImpl): NotificationsRepository
+}

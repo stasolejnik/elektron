@@ -1,0 +1,24 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+app/build/
+
+# Podpis release — klucz i hasła nigdy nie trafiają do repozytorium
+keystore.properties
+*.jks
+*.keystore
+
+# Konfiguracja Firebase — w publicznym repo trzymamy ją lokalnie (kopia zapasowa poza repo).
+# Świeży klon potrzebuje własnego pliku — patrz README / PORADNIK_PUSH.md.
+app/google-services.json
+
+# Pliki lokalne (nie do repozytorium)
+AI_CONTEXT.md
+update*.sh

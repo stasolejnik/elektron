@@ -1,0 +1,48 @@
+package pl.zse.bydgoszcz.elektron.domain.usecase
+
+import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import java.time.LocalDate
+import javax.inject.Inject
+
+/**
+ * Jeden sync = sidebar + plan oddziału + zastępstwa + RSS.
+ * Odporny: jeśli jedno źródło padnie, pozostałe się zapiszą.
+ *
+ * Każde udane źródło jest oznaczane jako "loaded" — dawniej robiły to tylko
+ * Setup/Ustawienia/Start, więc gdy pierwszy sync się nie udał, a później udał się
+ * dopiero w tle (SyncWorker), Start wisiał na "Ładowanie…" w nieskończoność.
+ *
+ * @return ile źródeł zakończyło się sukcesem (0..4)
+ */
+class SyncAllUseCase @Inject constructor(
+    private val timetableRepo: TimetableRepository,
+    private val substitutionsRepo: SubstitutionsRepository,
+    private val announcementsRepo: AnnouncementsRepository,
+    private val notificationsRepo: NotificationsRepository
+) {
+    suspend operator fun invoke(classId: String?, anchorDate: LocalDate = LocalDate.now()): Int =
+        withContext(Dispatchers.IO) {
+            var ok = 0
+            timetableRepo.syncSidebar().onSuccess { ok++ }.onFailure { Log.w(TAG, "sidebar fail", it) }
+            if (classId != null) {
+                timetableRepo.syncTimetable(classId, anchorDate)
+                    .onSuccess { ok++; notificationsRepo.markLoaded("timetable") }
+                    .onFailure { Log.w(TAG, "timetable fail", it) }
+            }
+            substitutionsRepo.syncAll()
+                .onSuccess { ok++; notificationsRepo.markLoaded("subs") }
+                .onFailure { Log.w(TAG, "substitutions fail", it) }
+            announcementsRepo.syncAll()
+                .onSuccess { ok++; notificationsRepo.markLoaded("anns") }
+                .onFailure { Log.w(TAG, "announcements fail", it) }
+            ok
+        }
+
+    companion object { private const val TAG = "SyncAllUseCase" }
+}

@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.Elektron" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/elektron_window_background</item>
+    </style>
+</resources>

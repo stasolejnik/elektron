@@ -1,0 +1,126 @@
+package pl.zse.bydgoszcz.elektron.widget
+
+import android.content.Context
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.glance.GlanceId
+import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
+import androidx.glance.appwidget.provideContent
+import androidx.glance.background
+import androidx.glance.layout.Alignment
+import androidx.glance.layout.Column
+import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.height
+import androidx.glance.layout.padding
+import androidx.glance.layout.size
+import androidx.glance.layout.width
+import androidx.glance.text.FontWeight
+import androidx.glance.text.Text
+import androidx.glance.text.TextStyle
+import pl.zse.bydgoszcz.elektron.R
+
+/**
+ * Widżet "Plan dnia": lekcje dzisiaj (albo najbliższego dnia z lekcjami), bieżąca lub
+ * najbliższa podświetlona, minione przygaszone, zastępstwa na pomarańczowo.
+ */
+class DayPlanWidget : GlanceAppWidget() {
+
+    override val sizeMode: SizeMode = SizeMode.Responsive(
+        setOf(DpSize(250.dp, 110.dp), DpSize(250.dp, 250.dp))
+    )
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val state = WidgetDataLoader.load(context)
+        if (state is WidgetState.Ready) {
+            WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.nextChangeAt)
+        }
+        provideContent { Content(state) }
+    }
+
+    @Composable
+    private fun Content(state: WidgetState) {
+        WidgetContainer {
+            when (state) {
+                WidgetState.NoClass -> WidgetMessage("Otwórz eLektron i wybierz klasę.")
+                is WidgetState.NoLessons -> WidgetMessage("Brak lekcji w najbliższych dniach.")
+                is WidgetState.Ready -> Plan(state)
+            }
+        }
+    }
+
+    @Composable
+    private fun Plan(state: WidgetState.Ready) {
+        Column(GlanceModifier.fillMaxSize()) {
+            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
+                Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(18.dp))
+                Spacer(GlanceModifier.width(6.dp))
+                Text("Plan · ${state.dayLabel}", modifier = GlanceModifier.defaultWeight(),
+                    style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                state.className?.let {
+                    Text(it, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
+                }
+            }
+            Spacer(GlanceModifier.height(8.dp))
+            LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
+                items(state.lessons.withIndex().toList(), itemId = { it.value.number.toLong() }) { (index, lesson) ->
+                    LessonRow(
+                        lesson = lesson,
+                        highlighted = index == state.focusIndex,
+                        past = state.isToday && index < state.focusIndex
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun LessonRow(lesson: WidgetLesson, highlighted: Boolean, past: Boolean) {
+        val numberColor = when {
+            past -> WidgetColors.textFaded
+            lesson.isSubstitution -> WidgetColors.substitution
+            else -> WidgetColors.accent
+        }
+        val titleColor = when {
+            past -> WidgetColors.textFaded
+            lesson.isSubstitution -> WidgetColors.substitution
+            highlighted -> WidgetColors.onAccentContainer
+            else -> WidgetColors.textPrimary
+        }
+        val rowBg = when {
+            !highlighted -> null
+            lesson.isSubstitution -> WidgetColors.substitutionContainer
+            else -> WidgetColors.accentContainer
+        }
+        var rowModifier = GlanceModifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp)
+        if (rowBg != null) rowModifier = GlanceModifier.fillMaxWidth().background(rowBg).cornerRadius(10.dp)
+            .padding(horizontal = 8.dp, vertical = 5.dp)
+        Column(GlanceModifier.fillMaxWidth().padding(bottom = 2.dp)) {
+            Row(rowModifier, verticalAlignment = Alignment.Vertical.CenterVertically) {
+                Text("${lesson.number}", modifier = GlanceModifier.width(22.dp),
+                    style = TextStyle(color = numberColor, fontSize = 15.sp, fontWeight = FontWeight.Bold))
+                Column(GlanceModifier.defaultWeight()) {
+                    Text(lesson.title, style = TextStyle(color = titleColor, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    val meta = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
+                    Text(meta, style = TextStyle(color = if (past) WidgetColors.textFaded else WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+class DayPlanWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = DayPlanWidget()
+}

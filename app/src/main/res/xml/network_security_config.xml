@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">zse.edu.bydgoszcz.pl</domain>
+        <domain includeSubdomains="true">zse.bydgoszcz.pl</domain>
+        <domain includeSubdomains="true">plan.zse.bydgoszcz.pl</domain>
+        <domain includeSubdomains="true">zastepstwa.zse.bydgoszcz.pl</domain>
+    </domain-config>
+</network-security-config>

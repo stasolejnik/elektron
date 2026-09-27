@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">eLektron</string>
+    <string name="sc_subs_short">Zastępstwa</string>
+    <string name="sc_subs_long">Zastępstwa na dziś</string>
+    <string name="sc_ann_short">Ogłoszenia</string>
+    <string name="sc_ann_long">Najnowsze ogłoszenia</string>
+    <string name="widget_next_lesson_name">Następna lekcja</string>
+    <string name="widget_next_lesson_desc">Trwająca lub najbliższa lekcja, z uwzględnieniem Twoich grup i zastępstw.</string>
+    <string name="widget_day_plan_name">Plan dnia</string>
+    <string name="widget_day_plan_desc">Lekcje na dziś lub najbliższy dzień z zajęciami.</string>
+</resources>
