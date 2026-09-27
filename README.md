@@ -6,6 +6,8 @@ prosto z publicznych stron szkoły. Inspirowana aplikacją **Atom** (iOS) Kacpra
 
 Projekt niezależny - niepowiązany z ZSE w Bydgoszczy ani z firmą VULCAN.
 
+Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).
+
 - Repozytorium: https://github.com/stasolejnik/elektron
 - Watcher powiadomień push: https://github.com/stasolejnik/elektron-push-watcher
 - Inspiracja: https://github.com/kacpergorka/atom
