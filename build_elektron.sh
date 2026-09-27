@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Android/Sdk}}"
 JAVA_HOME_17="${JAVA_HOME_17:-/usr/lib/jvm/java-17-openjdk}"
 echo "═══════════════════════════════════════════════════════════════════"
-echo "  ATOMIK — build na Arch Linux"
+echo "  eLektron - build na Arch Linux"
 echo "═══════════════════════════════════════════════════════════════════"
 if [ ! -x "$JAVA_HOME_17/bin/java" ]; then
     echo "→ Brak Javy 17 — instaluję (sudo pacman)..."
