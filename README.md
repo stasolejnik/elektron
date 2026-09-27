@@ -85,4 +85,4 @@ na warunkach Powszechnej Licencji Publicznej GNU (GNU GPL) w wersji 3 lub (wedł
 Twojego wyboru) dowolnej późniejszej. Pełny tekst: `LICENSE`.
 
 eLektron jest napisany od podstaw i nie zawiera kodu aplikacji Atom - korzysta jedynie
-z jej pomysłu. Podziękowania dla autora: `NOTICE`.
+z jej pomysłu. Podziękowania dla Kacpra Górki, autora aplikacji Atom - patrz `NOTICE`.
