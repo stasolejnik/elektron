@@ -39,7 +39,7 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 - Wieczne kółko ładowania tygodnia bez internetu.
 - Plan i strona główna nie przechodziły same na nowy dzień po północy.
 
-## [0.4.0-alpha] (11)
+## 0.4.0-alpha (11)
 
 ### Dodane
 - Widżety „Następna lekcja” i „Plan dnia”, odświeżane z dzwonkiem.
@@ -49,98 +49,6 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 ### Naprawione
 - Aktualizacje nie kasują już lokalnych danych aplikacji.
 
-## [0.3.1-alpha] (10)
-
-### Zmienione
-- Nowe logo z literą „e”.
-- Lista klas w Ustawieniach przewija się niezależnie od reszty ekranu.
-- Usunięto oznaczanie ogłoszeń jako przeczytane.
-- Mniej zapisów do bazy przy powiadomieniach.
-
-### Naprawione
-- Wieczne ładowanie po zmianie klasy.
-- Wiszący komunikat „Synchronizacja” po przerwanym syncu.
-
-## [0.3.0-alpha] (9)
-
-### Dodane
-- Grupy zajęciowe: wybierasz swoje grupy, a plan i strona główna pokazują tylko Twoje lekcje.
-- Przełącznik pokazuj / ukryj dla religii i podobnych zajęć.
-- Zmiana grup w dowolnej chwili w Ustawieniach.
-
-### Zmienione
-- Zastępstwa dla innej grupy nie są pokazywane ani zgłaszane w powiadomieniach.
-- Usunięto panel dewelopera.
-
-## [0.2.1-alpha] (8)
-
-### Zmienione
-- Nowe logo i kolory aplikacji zgodne z logo, w trybie jasnym i ciemnym.
-- Odświeżony wygląd: duże tytuły, nowe karty, płynniejsze przejścia.
-- Ustawienia w formie grupowanej listy, obrazki ogłoszeń na całą szerokość karty.
-- Usunięto zakładkę powiadomień i licznik na Ogłoszeniach.
-
-### Naprawione
-- Link do repozytorium w „O aplikacji”.
-
-## [0.2.0-alpha] (7)
-
-### Dodane
-- Historia powiadomień dostępna ze strony głównej.
-- Pociągnij w dół, aby odświeżyć - także w Ogłoszeniach.
-- Nowa ikona powiadomień na pasku stanu.
-
-### Zmienione
-- „Trwa teraz” i „Za X min” aktualizują się na bieżąco.
-- Mniejszy transfer danych dzięki cache HTTP.
-
-### Naprawione
-- Kliknięcie powiadomienia nie dokłada już kolejnych kopii ekranu.
-
-## [0.1.3-alpha] (6)
-
-### Dodane
-- Pociągnij w dół, aby odświeżyć w Planie lekcji i Zastępstwach.
-
-### Naprawione
-- Nowe zastępstwa od razu pojawiają się na planie i w „Następnej lekcji”.
-- Powtarzające się powiadomienia o tych samych ogłoszeniach.
-- Dzień bez lekcji pokazuje „Brak lekcji” zamiast wiecznego ładowania.
-
-## [0.1.2-alpha] (5)
-
-### Naprawione
-- Brak najbliższej lekcji w weekend i po ostatniej lekcji w piątek.
-- Wieczne ładowanie, gdy pierwszy sync się nie udał.
-- Lista klas przewija się i od razu pokazuje Twoją klasę.
-- Mniej zapytań do serwera szkoły przy przeglądaniu planu.
-
-## [0.1.1-alpha] (4)
-
-### Dodane
-- Powiadomienia push przez Firebase Cloud Messaging.
-
-### Naprawione
-- Zastępstwa wszystkich klas pokazywane tuż po wyborze klasy.
-- Brak najbliższej lekcji podczas pierwszego syncu.
-
-## [0.1.0-alpha] (3)
-
-Pierwsza wersja alpha, po pełnym audycie kodu.
-
-### Naprawione
-- Zastępstwo nakładane na zły dzień w widoku tygodnia.
-- Zastępstwa usunięte na stronie szkoły znikają teraz z aplikacji.
-- Wyścig przy równoległej synchronizacji.
-- Powiadomienie o ogłoszeniu prowadzące donikąd, niepokazujący się dialog „Co nowego”.
-
-## [0.2.0] (2)
-
-- Zmiana nazwy aplikacji na eLektron.
-- Plan lekcji z przełącznikiem Dzień / Tydzień, zastępstwa tylko dla Twojej klasy.
-
-## [0.1.0] (1)
-
-- Pierwsza wersja: plan lekcji, zastępstwa, ogłoszenia.
+Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
 [0.5.0-alpha]: https://github.com/stasolejnik/elektron/releases/tag/v0.5.0-alpha
