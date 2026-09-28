@@ -17,7 +17,7 @@ Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).
 - Inspiracja: https://github.com/kacpergorka/atom
 
 | Strona główna | Plan | Zastępstwa |
-|---|---|---|---|
+|---|---|---|
 | ![Strona główna](docs/screenshots/strona-glowna.png) | ![Plan](docs/screenshots/plan.png) | ![Zastępstwa](docs/screenshots/zastepstwa.png) |
 
 ## Funkcje
