@@ -16,9 +16,9 @@ Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).
 - Watcher powiadomień push: https://github.com/stasolejnik/elektron-push-watcher
 - Inspiracja: https://github.com/kacpergorka/atom
 
-| Strona główna | Plan | Zastępstwa | Widżety |
+| Strona główna | Plan | Zastępstwa |
 |---|---|---|---|
-| ![Strona główna](docs/screenshots/strona-glowna.png) | ![Plan](docs/screenshots/plan.png) | ![Zastępstwa](docs/screenshots/zastepstwa.png) | ![Widżety](docs/screenshots/widzety.png) |
+| ![Strona główna](docs/screenshots/strona-glowna.png) | ![Plan](docs/screenshots/plan.png) | ![Zastępstwa](docs/screenshots/zastepstwa.png) |
 
 ## Funkcje
 
