@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Domyślnie wyłącznie HTTPS. Cała komunikacja aplikacji (plan, zastępstwa, RSS, archiwum)
+  idzie przez https://. Nieszyfrowany HTTP dopuszczony tylko dla hosta obrazków ogłoszeń,
+  gdyby stare wpisy odwoływały się do nich przez http:// (najgorzej: brak obrazka).
+-->
 <network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">zse.edu.bydgoszcz.pl</domain>
-        <domain includeSubdomains="true">zse.bydgoszcz.pl</domain>
-        <domain includeSubdomains="true">plan.zse.bydgoszcz.pl</domain>
-        <domain includeSubdomains="true">zastepstwa.zse.bydgoszcz.pl</domain>
+        <domain includeSubdomains="false">zse.edu.bydgoszcz.pl</domain>
     </domain-config>
 </network-security-config>

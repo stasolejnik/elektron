@@ -8,44 +8,84 @@ Projekt niezależny - niepowiązany z ZSE w Bydgoszczy ani z firmą VULCAN.
 
 Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).
 
+> **Wersja alpha.** Aplikacja działa na co dzień, ale może jeszcze zawierać błędy.
+> Zgłoszenia mile widziane w [Issues](https://github.com/stasolejnik/elektron/issues).
+
 - Repozytorium: https://github.com/stasolejnik/elektron
+- Pobieranie: [Releases](https://github.com/stasolejnik/elektron/releases)
 - Watcher powiadomień push: https://github.com/stasolejnik/elektron-push-watcher
 - Inspiracja: https://github.com/kacpergorka/atom
 
+| Strona główna | Plan | Zastępstwa | Widżety |
+|---|---|---|---|
+| ![Strona główna](docs/screenshots/strona-glowna.png) | ![Plan](docs/screenshots/plan.png) | ![Zastępstwa](docs/screenshots/zastepstwa.png) | ![Widżety](docs/screenshots/widzety.png) |
+
 ## Funkcje
 
-- **Plan lekcji** - widok dnia i tygodnia, przesuwanie palcem między dniami i tygodniami,
-  zastępstwa naniesione na plan, "Trwa teraz" / "Za X min".
-- **Grupy zajęciowe** - wybierasz swoje grupy (językowe, zajęcia praktyczne, religia 1/1...),
-  a plan, Start i powiadomienia pokazują tylko Twoje lekcje.
-- **Zastępstwa** - tylko Twoja klasa i grupa, bez minionych.
-- **Ogłoszenia** - RSS szkoły, otwierane w przeglądarce.
-- **Start** - najbliższa lekcja, nadchodzące zastępstwa, najnowsze ogłoszenia.
-- **Widżety** - "Następna lekcja" (2x2 / 4x2) i "Plan dnia" (4x2 - 4x4), odświeżane z dzwonkiem.
-- **Powiadomienia** - push na bieżąco (Firebase Cloud Messaging) + sprawdzanie w tle
-  co 15 min jako zabezpieczenie.
+- **Plan lekcji** - widok dnia i tygodnia. Przesunięcie w górę to następny dzień, w dół
+  poprzedni. Po ostatniej lekcji plan od razu pokazuje kolejny dzień szkolny.
+- **Zastępstwa na planie** - na pierwszym planie nauczyciel zastępujący, pod nim sala
+  i uwagi ze strony szkoły (np. „za ostatnią lekcję”).
+- **Grupy zajęciowe** - szybki wybór dla całego podziału (np. „1/2” dla wszystkich
+  przedmiotów) albo osobno dla każdego przedmiotu. Plan, strona główna, widżety
+  i powiadomienia pokazują tylko Twoje lekcje.
+- **Strona główna** - trwająca lub najbliższa lekcja z paskiem postępu, przerwy,
+  nadchodzące zastępstwa, najnowsze ogłoszenia.
+- **Ogłoszenia** - najnowsze z RSS szkoły, starsze z archiwum strony, wyszukiwanie
+  bez polskich znaków.
+- **Widżety** - „Następna lekcja”, „Plan dnia” i „Zastępstwa”, w kolorach motywu aplikacji
+  lub tapety, odświeżane z dzwonkiem. Kafelek „Następna lekcja” w szybkich ustawieniach.
+- **Powiadomienia** - o nowych zastępstwach i ogłoszeniach (push w wersji z GitHuba,
+  synchronizacja w tle co 15 min w obu wersjach).
 - **Offline** - wszystko z lokalnej bazy, sieć tylko ją uzupełnia.
-- Jasny i ciemny motyw, skróty z ikony aplikacji.
+- Przesuwanie palcem między sekcjami, jasny i ciemny motyw, kolory z tapety (Android 12+),
+  skróty z ikony aplikacji, w godzinach lekcji start od razu na planie.
 
-## Budowanie (Arch Linux)
+Wymagania: Android 8.0 (API 26) lub nowszy.
 
-Pierwsza konfiguracja - skrypt sam doinstaluje Javę 17 i Android SDK:
+## Instalacja
+
+1. Pobierz `eLektron-<wersja>.apk` z [Releases](https://github.com/stasolejnik/elektron/releases).
+2. Otwórz plik na telefonie i zezwól na instalację z tego źródła.
+3. Kolejne wersje instalują się jako aktualizacja - bez utraty ustawień. Aplikacja sama
+   informuje o nowej wersji na stronie głównej.
+
+Wersja z F-Droid (bez usług Google) jest w przygotowaniu.
+
+## Wersje: GitHub i F-Droid
+
+Aplikacja ma dwa warianty (Gradle product flavors):
+
+| Wariant | Gdzie | Różnice |
+|---|---|---|
+| `gms` | GitHub Releases | powiadomienia push (Firebase Cloud Messaging), sprawdzanie aktualizacji |
+| `foss` | F-Droid | wyłącznie wolne zależności, bez Firebase i bez sprawdzania aktualizacji; powiadomienia z synchronizacji w tle co 15 min |
+
+Kod zależny od Firebase jest tylko w `app/src/gms/`, zaślepki w `app/src/foss/`.
+Metadane dla F-Droid: `fastlane/metadata/android/`.
+
+## Budowanie
+
+Wymagana **Java 17** (Gradle 8.9 nie działa na Javie 23+).
+
+Pierwsza konfiguracja na Arch Linux - skrypt sam doinstaluje Javę 17 i Android SDK:
 
     ./build_elektron.sh
 
 Kolejne buildy:
 
-    JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew :app:assembleDebug :app:testDebugUnitTest
+    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+    ./gradlew :app:testGmsDebugUnitTest :app:assembleGmsDebug
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`, instalacja: `adb install -r <apk>`.
+Wersja F-Droid (nie potrzebuje `google-services.json`):
 
-Gradle 8.9 wymaga **Javy 17** (nie działa na Javie 23+).
+    ./gradlew :app:assembleFossRelease
 
-**Wymagany `app/google-services.json`** (projekt Firebase z aplikacją
-`pl.zse.bydgoszcz.elektron`). Plik nie jest w repozytorium - bez niego build się nie uda.
-Konfiguracja powiadomień push: `PORADNIK_PUSH.md`.
+**Wariant `gms` wymaga `app/google-services.json`** (projekt Firebase z aplikacją
+`pl.zse.bydgoszcz.elektron`). Pliku nie ma w repozytorium. Konfiguracja powiadomień push:
+`PORADNIK_PUSH.md`.
 
-### Build release
+### Build release (podpisany)
 
 1. Wygeneruj klucz (raz, w katalogu głównym projektu):
 
@@ -54,18 +94,28 @@ Konfiguracja powiadomień push: `PORADNIK_PUSH.md`.
 
 2. Skopiuj `keystore.properties.example` do `keystore.properties` i wpisz hasła.
    Oba pliki (`*.jks`, `keystore.properties`) są w `.gitignore`.
-   W haśle unikaj znaku `\` (w plikach `.properties` jest znakiem specjalnym).
-3. `./gradlew :app:assembleRelease` - wynik: `app/build/outputs/apk/release/app-release.apk`
+   Znak `\` w haśle zapisz jako `\\` (w plikach `.properties` jest znakiem specjalnym).
+3. `./gradlew :app:assembleGmsRelease`
+   → `app/build/outputs/apk/gms/release/app-gms-release.apk`
+
+APK przenieś na telefon dowolnie (kabel USB, KDE Connect, chmura) - ADB nie jest potrzebne.
 
 **Zrób kopię zapasową klucza i hasła.** Bez tego samego klucza nie wydasz aktualizacji -
 użytkownicy musieliby odinstalować aplikację.
 
+## Testy
+
+    ./gradlew :app:testGmsDebugUnitTest
+
+Testy jednostkowe (parsery, logika grup, zastępstw, widżetów, wersji) i testy repozytoriów
+na Robolectric. Raport: `app/build/reports/tests/testGmsDebugUnitTest/index.html`.
+
 ## Stack
 
 Kotlin 2.0.20 - Jetpack Compose + Material 3 - Hilt - Room - DataStore - WorkManager -
-OkHttp + Jsoup - Coil - Glance (widżety) - Firebase Cloud Messaging.
+OkHttp + Jsoup - Coil - Glance (widżety) - Firebase Cloud Messaging (tylko `gms`).
 
-Architektura: MVVM + Clean (data / domain / presentation).
+Architektura: MVVM + Clean (data / domain / presentation), Room jako jedyne źródło prawdy.
 
 ## Dane i zasady
 
@@ -73,10 +123,15 @@ Architektura: MVVM + Clean (data / domain / presentation).
 |---|---|
 | plan.zse.bydgoszcz.pl | UTF-8 |
 | zastepstwa.zse.bydgoszcz.pl | ISO-8859-2 (wymuszone) |
-| zse.bydgoszcz.pl (RSS) | UTF-8 |
+| zse.bydgoszcz.pl (RSS i archiwum) | UTF-8 |
 
 Tylko publiczne strony szkoły, bez logowania i danych osobowych, z poszanowaniem
 robots.txt. Zapytania warunkowe (cache HTTP) - niezmieniona strona to krótka odpowiedź 304.
+Szczegóły: [polityka prywatności](PRYWATNOSC.md).
+
+## Zmiany
+
+Historia wersji: [CHANGELOG.md](CHANGELOG.md).
 
 ## Licencja
 

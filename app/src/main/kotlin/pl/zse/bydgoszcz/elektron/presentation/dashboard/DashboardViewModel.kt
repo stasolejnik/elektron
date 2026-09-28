@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
@@ -29,6 +30,9 @@ import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate
+import pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow
 import pl.zse.bydgoszcz.elektron.presentation.common.minuteTicker
 import java.time.Instant
 import java.time.LocalDate
@@ -44,10 +48,12 @@ class DashboardViewModel @Inject constructor(
     private val substitutionsRepo: SubstitutionsRepository,
     private val announcementsRepo: AnnouncementsRepository,
     private val notificationsRepo: NotificationsRepository,
-    private val timetableRepo: TimetableRepository
+    private val timetableRepo: TimetableRepository,
+    private val updateRepo: UpdateRepository
 ) : ViewModel() {
 
-    enum class LessonStatus { Now, Next, None }
+    /** Break = przerwa między dwiema lekcjami dziś (pokazujemy następną lekcję + czas przerwy). */
+    enum class LessonStatus { Now, Break, Next, None }
 
     data class State(
         val selectedClassId: String? = null,
@@ -61,6 +67,13 @@ class DashboardViewModel @Inject constructor(
         val nextLessonDayLabel: String? = null,
         val nextLessonStatus: LessonStatus = LessonStatus.None,
         val countdownMinutes: Long? = null,
+        /** Trwająca lekcja: postęp 0..1 i pozostałe minuty (jak w widżecie). */
+        val lessonProgress: Float? = null,
+        /** Nowa wersja aplikacji na GitHubie (baner), null gdy brak. */
+        val availableUpdate: AppUpdate? = null,
+        /** Czas ostatniej udanej synchronizacji, jeśli dane są starsze niż godzina (offline). */
+        val staleSince: Instant? = null,
+        val minutesLeft: Long? = null,
         val upcomingSubstitutions: List<Substitution> = emptyList(),
         val latestAnnouncements: List<Announcement> = emptyList(),
         val isRefreshing: Boolean = false,
@@ -90,14 +103,16 @@ class DashboardViewModel @Inject constructor(
         val initialSyncPending: Boolean = false,
         /** Wybrane grupy zajęciowe dla klasy (przedmiot -> grupa / NONE). */
         val groups: Map<String, String> = emptyMap(),
+        val update: AppUpdate? = null,
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true
     )
 
     private val refreshing = MutableStateFlow(false)
-    private val rangeStart = LocalDate.now()
-    private val rangeEnd = rangeStart.plusDays(21)
+    // Zakres dat liczony od bieżącej daty (przebudowywany po północy), nie od chwili
+    // utworzenia ViewModelu — ten żyje przez cały czas działania aplikacji.
+    private val todayFlow = currentDateFlow()
 
     private val selected = settings.selectedClassId
 
@@ -108,19 +123,20 @@ class DashboardViewModel @Inject constructor(
         else timetableRepo.observeClasses().map { list -> list.firstOrNull { it.id == cid }?.shortName }
     }
 
-    private val lessonsFlow: Flow<List<Lesson>> = selected.flatMapLatest { cid: String? ->
-        if (cid == null) flowOf(emptyList())
-        else timetableRepo.observeLessons(cid, rangeStart, rangeEnd)
-    }
+    private val lessonsFlow: Flow<List<Lesson>> = combine(selected, todayFlow) { cid, day -> cid to day }
+        .flatMapLatest { (cid, day) ->
+            if (cid == null) flowOf(emptyList())
+            else timetableRepo.observeLessons(cid, day, day.plusDays(21))
+        }
 
-    private val subsFlow: Flow<List<Substitution>> = substitutionsRepo.observeFrom(rangeStart)
+    private val subsFlow: Flow<List<Substitution>> = todayFlow.flatMapLatest { day -> substitutionsRepo.observeFrom(day) }
 
     val state: StateFlow<State> = combine(
         selected, classShortFlow, lessonsFlow, subsFlow, refreshing
     ) { cid: String?, classShort: String?, lessons: List<Lesson>, subs: List<Substitution>, refresh: Boolean ->
         Core(cid = cid, classShort = classShort, lessons = lessons, subs = subs, refresh = refresh)
     }
-        .combine(announcementsRepo.observeAll()) { core, anns -> core.copy(anns = anns) }
+        .combine(announcementsRepo.observeLatest(3)) { core, anns -> core.copy(anns = anns) }
         .combine(notificationsRepo.observeLastSyncAt()) { core, at -> core.copy(lastSync = at) }
         .combine(notificationsRepo.observeIsSyncing()) { core, syncing -> core.copy(syncing = syncing) }
         .combine(notificationsRepo.observeLastSyncError()) { core, err -> core.copy(error = err) }
@@ -130,8 +146,11 @@ class DashboardViewModel @Inject constructor(
         .combine(settings.showSubstitutions) { core, v -> core.copy(showSubstitutions = v) }
         .combine(settings.showAnnouncements) { core, v -> core.copy(showAnnouncements = v) }
         .combine(settings.activeGroupSelections) { core, sel -> core.copy(groups = sel) }
+        .combine(updateRepo.availableUpdate) { core, u -> core.copy(update = u) }
         .combine(minuteTicker()) { core, _ -> core }
         .map { core -> compute(core) }
+        // Przeliczanie stanu (filtry grup, zastępstwa, odliczanie) poza wątkiem UI.
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
     private fun compute(c: Core): State {
@@ -162,17 +181,23 @@ class DashboardViewModel @Inject constructor(
         val afterToday = lessons.filter { it.date > today }
             .sortedWith(compareBy({ it.date }, { it.number }))
 
+        // Ostatnia zakończona dziś lekcja — jeśli jest, a następna jeszcze dziś, trwa przerwa.
+        val previousToday = todayLessons.lastOrNull { it.timeTo <= now }
         val (lesson, status) = when {
             current != null -> current to LessonStatus.Now
+            nextToday != null && previousToday != null -> nextToday to LessonStatus.Break
             nextToday != null -> nextToday to LessonStatus.Next
             afterToday.isNotEmpty() -> afterToday.first() to LessonStatus.Next
             else -> null to LessonStatus.None
         }
 
         val dayLabel = lesson?.date?.let { d: LocalDate ->
-            if (d == today) "Dziś" else
-                d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pl", "PL"))
+            when (d) {
+                today -> "Dziś"
+                today.plusDays(1) -> "Jutro"
+                else -> d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pl", "PL"))
                     .replaceFirstChar { it.titlecase(Locale("pl", "PL")) }
+            }
         }
 
         val countdownMinutes: Long? = when {
@@ -228,7 +253,22 @@ class DashboardViewModel @Inject constructor(
             nextLesson = lesson,
             nextLessonDayLabel = dayLabel,
             nextLessonStatus = status,
+            staleSince = c.lastSync?.takeIf { java.time.Duration.between(it, Instant.now()).toMinutes() >= 60 },
+            availableUpdate = c.update,
             countdownMinutes = countdownMinutes,
+            // Postęp: w trakcie lekcji — lekcji; w przerwie — przerwy (do początku następnej lekcji).
+            lessonProgress = when {
+                lesson == null -> null
+                status == LessonStatus.Now -> progress(lesson.timeFrom, lesson.timeTo, now)
+                status == LessonStatus.Break && previousToday != null -> progress(previousToday.timeTo, lesson.timeFrom, now)
+                else -> null
+            },
+            minutesLeft = when {
+                lesson == null -> null
+                status == LessonStatus.Now -> java.time.Duration.between(now, lesson.timeTo).toMinutes().coerceAtLeast(0)
+                status == LessonStatus.Break -> java.time.Duration.between(now, lesson.timeFrom).toMinutes().coerceAtLeast(0)
+                else -> null
+            },
             upcomingSubstitutions = upcoming,
             latestAnnouncements = c.anns.take(3),
             isRefreshing = c.refresh,
@@ -237,6 +277,15 @@ class DashboardViewModel @Inject constructor(
             showSubstitutions = c.showSubstitutions,
             showAnnouncements = c.showAnnouncements
         )
+    }
+
+    private fun progress(from: LocalTime, to: LocalTime, now: LocalTime): Float {
+        val total = java.time.Duration.between(from, to).seconds.coerceAtLeast(1)
+        return java.time.Duration.between(from, now).seconds.coerceIn(0, total).toFloat() / total
+    }
+
+    fun dismissUpdate(versionName: String) {
+        viewModelScope.launch { updateRepo.dismiss(versionName) }
     }
 
     fun refresh() {

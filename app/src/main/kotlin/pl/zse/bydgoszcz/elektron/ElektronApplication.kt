@@ -9,7 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
-import pl.zse.bydgoszcz.elektron.work.FcmTopicManager
+import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
+import pl.zse.bydgoszcz.elektron.work.PushTopics
 import pl.zse.bydgoszcz.elektron.work.SyncScheduler
 import javax.inject.Inject
 
@@ -18,8 +19,9 @@ class ElektronApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var syncScheduler: SyncScheduler
-    @Inject lateinit var fcmTopicManager: FcmTopicManager
+    @Inject lateinit var pushTopics: PushTopics
     @Inject lateinit var notificationsRepo: NotificationsRepository
+    @Inject lateinit var updateRepo: UpdateRepository
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -42,8 +44,10 @@ class ElektronApplication : Application(), Configuration.Provider {
             notificationsRepo.setIsSyncing(false)
             notificationsRepo.setInitialSyncPending(false)
         }
+        // Nowa wersja na GitHubie (najwyżej co 12 h; wynik trafia do banera na stronie głównej).
+        appScope.launch { updateRepo.check(force = false) }
         syncScheduler.ensurePeriodic()
         // Funkcja #7: subskrypcja tematów FCM (push bez backendu appki).
-        fcmTopicManager.start()
+        pushTopics.start()  // gms: tematy FCM; foss (F-Droid): nic
     }
 }

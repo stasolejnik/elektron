@@ -2,6 +2,8 @@ package pl.zse.bydgoszcz.elektron.presentation.common
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,10 +33,16 @@ fun ChangelogDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 entries.forEach { entry ->
-                    Text(entry.versionName, style = MaterialTheme.typography.titleLarge,
+                    Text(entry.versionName, style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                     entry.items.forEach { item ->
-                        Text("- $item", style = MaterialTheme.typography.bodyLarge)
+                        // Punktor z wcięciem: zawinięte linie zaczynają się pod tekstem, nie pod kropką.
+                        Row {
+                            Text("•", style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 8.dp))
+                            Text(item, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                 }

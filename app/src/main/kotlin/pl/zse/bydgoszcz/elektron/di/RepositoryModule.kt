@@ -30,6 +30,9 @@ abstract class RepositoryModule {
     abstract fun bindAnnouncementsRepository(impl: AnnouncementsRepositoryImpl): AnnouncementsRepository
 
     @Binds @Singleton
+    abstract fun bindUpdateRepository(impl: pl.zse.bydgoszcz.elektron.data.update.UpdateRepositoryImpl): pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
+
+    @Binds @Singleton
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
 
     @Binds @Singleton

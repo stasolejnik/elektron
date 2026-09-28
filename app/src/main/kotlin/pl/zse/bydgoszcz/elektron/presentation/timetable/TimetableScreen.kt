@@ -1,22 +1,30 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.snapshotFlow
+import pl.zse.bydgoszcz.elektron.presentation.common.pressable
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextOverflow
+import pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
+import androidx.compose.foundation.layout.widthIn
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +39,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,12 +53,13 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -73,12 +80,72 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val plLocale = Locale("pl", "PL")
     val dateFmt = DateTimeFormatter.ofPattern("dd.MM", plLocale)
-    // Zegar dla plakietek "Trwa teraz" / "Za X min" — bez niego liczyły się tylko
-    // przy rekompozycji z innego powodu i przy otwartym ekranie stały w miejscu.
+    val scope = rememberCoroutineScope()
+    // Zegar dla plakietek "Trwa teraz" / "Za X min".
     val clock by produceState(LocalTime.now()) {
         while (true) {
             delay(30_000)
             value = LocalTime.now()
+        }
+    }
+
+    // Pager stron (dzień albo tydzień). Nowy stan pagera przy zmianie trybu — strona
+    // startowa odpowiada bieżącej dacie, więc przełączenie Dzień/Tydzień nie gubi miejsca.
+    val base = viewModel.baseDate
+    val pagerState = key(state.mode) {
+        val initial = when (state.mode) {
+            TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, viewModel.currentAnchor)
+            TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, viewModel.currentAnchor)
+        }
+        rememberPagerState(initialPage = initial) { TimetableViewModel.PAGE_COUNT }
+    }
+    LaunchedEffect(pagerState, state.mode) {
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            when (state.mode) {
+                TimetableViewModel.ViewMode.DAY -> viewModel.onDaySettled(TimetableViewModel.dayForPage(base, page))
+                TimetableViewModel.ViewMode.WEEK -> viewModel.onWeekSettled(TimetableViewModel.mondayForPage(base, page))
+            }
+        }
+    }
+    // Nagłówek podąża za stroną w trakcie przesuwania (targetPage), nie dopiero po zatrzymaniu.
+    val shownPage = pagerState.targetPage
+    val headerText = when (state.mode) {
+        TimetableViewModel.ViewMode.DAY -> {
+            val d = TimetableViewModel.dayForPage(base, shownPage)
+            val dn = d.dayOfWeek.getDisplayName(TextStyle.FULL, plLocale).replaceFirstChar { it.titlecase(plLocale) }
+            "$dn • ${d.format(dateFmt)}"
+        }
+        TimetableViewModel.ViewMode.WEEK -> {
+            val monday = TimetableViewModel.mondayForPage(base, shownPage)
+            "Tydzień ${monday.format(dateFmt)}–${monday.plusDays(4).format(dateFmt)}"
+        }
+    }
+    // Bieżąca data (zmienia się po północy). Aplikacja potrafi wisieć w pamięci całymi dniami,
+    // a pager pamięta ostatnio oglądaną stronę — po zmianie daty wracamy do dziś.
+    val today by remember { currentDateFlow() }.collectAsStateWithLifecycle(initialValue = LocalDate.now())
+    val todayPage = when (state.mode) {
+        TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, today)
+        TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, today)
+    }
+    // Przy otwarciu: po ostatniej dzisiejszej lekcji plan pokazuje następny dzień (raz, potem
+    // użytkownik przewija sam; stan przeżywa obrót ekranu).
+    var preferredDayApplied by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!preferredDayApplied) {
+            preferredDayApplied = true
+            val day = viewModel.preferredDay()
+            val target = when (state.mode) {
+                TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, day)
+                TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, day)
+            }
+            if (target != pagerState.currentPage) pagerState.scrollToPage(target)
+        }
+    }
+    var lastSeenDay by rememberSaveable { mutableLongStateOf(today.toEpochDay()) }
+    LaunchedEffect(today) {
+        if (today.toEpochDay() != lastSeenDay) {
+            lastSeenDay = today.toEpochDay()
+            pagerState.scrollToPage(todayPage)
         }
     }
 
@@ -89,29 +156,35 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = viewModel::previous, modifier = Modifier.size(40.dp)) {
-                            Icon(Icons.Filled.ChevronLeft, contentDescription = "Poprzedni")
-                        }
-                        IconButton(onClick = viewModel::next, modifier = Modifier.size(40.dp)) {
-                            Icon(Icons.Filled.ChevronRight, contentDescription = "Następny")
-                        }
+                        IconButton(
+                            onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } },
+                            modifier = Modifier.size(40.dp)
+                        ) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = if (state.mode == TimetableViewModel.ViewMode.DAY) "Poprzedni dzień" else "Poprzedni tydzień") }
+                        IconButton(
+                            onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
+                            modifier = Modifier.size(40.dp)
+                        ) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = if (state.mode == TimetableViewModel.ViewMode.DAY) "Następny dzień" else "Następny tydzień") }
+                        // Dotknięcie tytułu wraca do dziś.
                         Text(
-                            text = when (state.mode) {
-                                TimetableViewModel.ViewMode.DAY -> {
-                                    val dn = state.anchorDate.dayOfWeek
-                                        .getDisplayName(TextStyle.FULL, plLocale)
-                                        .replaceFirstChar { it.titlecase(plLocale) }
-                                    "$dn • ${state.anchorDate.format(dateFmt)}"
-                                }
-                                TimetableViewModel.ViewMode.WEEK -> {
-                                    val monday = state.anchorDate.with(java.time.DayOfWeek.MONDAY)
-                                    "Tydzień ${monday.format(dateFmt)}–${monday.plusDays(4).format(dateFmt)}"
-                                }
-                            },
+                            text = headerText,
                             style = MaterialTheme.typography.titleLarge,
                             maxLines = 1,
-                            modifier = Modifier.padding(start = 4.dp)
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .pressable { scope.launch { pagerState.animateScrollToPage(todayPage) } }
                         )
+                    }
+                },
+                actions = {
+                    // Odświeżanie przyciskiem: przeciągnięcie w dół na górze listy przewija
+                    // teraz do poprzedniego dnia, więc pull-to-refresh tu nie pasuje.
+                    if (state.isRefreshing) {
+                        CircularProgressIndicator(Modifier.padding(12.dp).size(22.dp), strokeWidth = 2.dp)
+                    } else {
+                        IconButton(onClick = viewModel::refresh) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Odśwież")
+                        }
                     }
                 }
             )
@@ -124,158 +197,156 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
             return@Scaffold
         }
 
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = viewModel::refresh,
-            modifier = Modifier.fillMaxSize().padding(padding)
-        ) {
-        Column(Modifier.fillMaxSize()) {
-            SingleChoiceSegmentedButtonRow(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                SegmentedButton(
-                    selected = state.mode == TimetableViewModel.ViewMode.DAY,
-                    onClick = { viewModel.setMode(TimetableViewModel.ViewMode.DAY) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    modifier = Modifier.weight(1f)
-                ) { Text("Dzień") }
-                SegmentedButton(
-                    selected = state.mode == TimetableViewModel.ViewMode.WEEK,
-                    onClick = { viewModel.setMode(TimetableViewModel.ViewMode.WEEK) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    modifier = Modifier.weight(1f)
-                ) { Text("Tydzień") }
-            }
+        val edgePaging = rememberEdgePagingConnection(pagerState)
+        val syncingWeek by viewModel.syncingWeek.collectAsStateWithLifecycle()
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.fillMaxSize()) {
+                SingleChoiceSegmentedButtonRow(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    SegmentedButton(
+                        selected = state.mode == TimetableViewModel.ViewMode.DAY,
+                        onClick = { viewModel.setMode(TimetableViewModel.ViewMode.DAY) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Dzień") }
+                    SegmentedButton(
+                        selected = state.mode == TimetableViewModel.ViewMode.WEEK,
+                        onClick = { viewModel.setMode(TimetableViewModel.ViewMode.WEEK) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Tydzień") }
+                }
 
-            // Przesunięcie palcem w lewo/prawo: następny/poprzedni dzień (albo tydzień).
-            SwipePager(
-                state = state,
-                onPrevious = viewModel::previous,
-                onNext = viewModel::next
-            ) { s ->
-                if (s.mode == TimetableViewModel.ViewMode.DAY) {
-                    LazyColumn(
-                        Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (s.lessonsToday.isEmpty()) {
-                            // Plan tygodnia jest w bazie, a ten dzień po prostu nie ma lekcji —
-                            // to nie jest ładowanie (dawniej spinner kręcił się w nieskończoność).
-                            val weekHasLessons = s.weekDays.any { it.lessons.isNotEmpty() }
-                            item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading() }
-                        } else {
-                            val today = LocalDate.now()
-                            val now = clock
-                            val isToday = s.anchorDate == today
-                            val current = if (isToday) s.lessonsToday.firstOrNull { now in it.timeFrom..it.timeTo } else null
-                            val next = if (isToday) s.lessonsToday.firstOrNull { it.timeFrom > now } else null
-                            val hasEarlier = if (isToday) s.lessonsToday.any { it.timeTo <= now } else false
-                            items(s.lessonsToday, key = { it.id }) { lesson ->
-                                val badge = when {
-                                    !isToday -> null
-                                    current?.id == lesson.id -> "Trwa teraz"
-                                    next?.id == lesson.id -> {
-                                        val mins = Duration.between(now, lesson.timeFrom).toMinutes()
-                                        if (mins <= 30 || hasEarlier) "Za $mins min" else null
-                                    }
-                                    else -> null
-                                }
-                                LessonRow(lesson, badge)
-                            }
+                // Dni/tygodnie jako strony pionowe: przewijasz listę lekcji, a po dojechaniu
+                // do końca dalsze przeciąganie przynosi następny dzień (na początku - poprzedni).
+                // Strony obok są wyrenderowane z wyprzedzeniem.
+                VerticalPager(
+                    state = pagerState,
+                    beyondViewportPageCount = 1,
+                    userScrollEnabled = false,
+                    key = { it },
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val pageModifier = Modifier.fillMaxSize().nestedScroll(edgePaging)
+                    when (state.mode) {
+                        TimetableViewModel.ViewMode.DAY -> {
+                            val date = TimetableViewModel.dayForPage(base, page)
+                            val week by remember(date) { viewModel.week(date.with(java.time.DayOfWeek.MONDAY)) }
+                                .collectAsStateWithLifecycle()
+                            val monday = date.with(java.time.DayOfWeek.MONDAY)
+                            val loading = week == null || syncingWeek == monday || state.isRefreshing
+                            DayPage(date, week, clock, loading, pageModifier)
                         }
-                    }
-                } else {
-                    LazyColumn(
-                        Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        s.weekDays.forEach { day ->
-                            val dayName = day.dayOfWeek.getDisplayName(TextStyle.FULL, plLocale)
-                                .replaceFirstChar { it.titlecase(plLocale) }
-                            item(key = "h_${day.date}") {
-                                Text("$dayName • ${day.date.format(dateFmt)}",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
-                            }
-                            if (day.lessons.isEmpty()) {
-                                item(key = "e_${day.date}") {
-                                    Text("Brak lekcji",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(vertical = 4.dp))
-                                }
-                            } else {
-                                items(day.lessons, key = { it.id }) { LessonRow(it, null) }
-                            }
+                        TimetableViewModel.ViewMode.WEEK -> {
+                            val monday = TimetableViewModel.mondayForPage(base, page)
+                            val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle()
+                            val loading = week == null || syncingWeek == monday || state.isRefreshing
+                            WeekPage(week, plLocale, dateFmt, loading, pageModifier)
                         }
                     }
                 }
             }
-        }
         }
     }
 }
 
-/**
- * Poziomy gest zmiany strony planu. Treść podąża za palcem z oporem (jak w iOS), a po
- * przekroczeniu progu przechodzimy dalej/wstecz z animacją przesunięcia w odpowiednią
- * stronę. Gest przejmujemy dopiero po wyraźnym ruchu w poziomie, więc pionowe przewijanie
- * listy i pull-to-refresh działają jak dotąd.
- */
 @Composable
-private fun SwipePager(
-    state: TimetableViewModel.State,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    content: @Composable (TimetableViewModel.State) -> Unit
+private fun DayPage(
+    date: LocalDate,
+    week: List<TimetableViewModel.DayColumn>?,
+    clock: LocalTime,
+    loading: Boolean,
+    modifier: Modifier
 ) {
-    val scope = rememberCoroutineScope()
-    val offset = remember { Animatable(0f) }
-    val threshold = with(LocalDensity.current) { 64.dp.toPx() }
-    Box(
-        Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                var total = 0f
-                detectHorizontalDragGestures(
-                    onDragStart = { total = 0f },
-                    onDragEnd = {
-                        when {
-                            total <= -threshold -> onNext()
-                            total >= threshold -> onPrevious()
-                        }
-                        scope.launch { offset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow)) }
-                    },
-                    onDragCancel = { scope.launch { offset.animateTo(0f) } },
-                    onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        total += dragAmount
-                        scope.launch { offset.snapTo(total * 0.35f) }
+    val lessons = week?.firstOrNull { it.date == date }?.lessons.orEmpty()
+    LazyColumn(
+        modifier,
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (lessons.isEmpty()) {
+            // Plan tygodnia jest w bazie, a ten dzień po prostu nie ma lekcji — to nie ładowanie.
+            val weekHasLessons = week?.any { it.lessons.isNotEmpty() } == true
+            item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading(loading) }
+        } else {
+            val isToday = date == LocalDate.now()
+            val now = clock
+            val current = if (isToday) lessons.firstOrNull { now in it.timeFrom..it.timeTo } else null
+            val next = if (isToday) lessons.firstOrNull { it.timeFrom > now } else null
+            val hasEarlier = isToday && lessons.any { it.timeTo <= now }
+            items(lessons, key = { it.id }) { lesson ->
+                val badge = when {
+                    !isToday -> null
+                    current?.id == lesson.id -> "Trwa teraz"
+                    next?.id == lesson.id -> {
+                        val mins = Duration.between(now, lesson.timeFrom).toMinutes()
+                        if (mins <= 30 || hasEarlier) "Za $mins min" else null
                     }
+                    else -> null
+                }
+                LessonRow(lesson, badge)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeekPage(
+    week: List<TimetableViewModel.DayColumn>?,
+    plLocale: Locale,
+    dateFmt: DateTimeFormatter,
+    loading: Boolean,
+    modifier: Modifier
+) {
+    LazyColumn(
+        modifier,
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (week == null || week.all { it.lessons.isEmpty() }) {
+            item { EmptyOrLoading(loading) }
+            return@LazyColumn
+        }
+        week.forEach { day ->
+            val dayName = day.dayOfWeek.getDisplayName(TextStyle.FULL, plLocale)
+                .replaceFirstChar { it.titlecase(plLocale) }
+            val isToday = day.date == LocalDate.now()
+            item(key = "h_${day.date}") {
+                Text(
+                    (if (isToday) "Dziś · " else "") + "$dayName • ${day.date.format(dateFmt)}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp).semantics { heading() }
                 )
             }
-    ) {
-        AnimatedContent(
-            targetState = state,
-            // Animujemy tylko zmianę strony (dzień/tydzień/tryb), nie każdą aktualizację danych.
-            contentKey = { it.anchorDate to it.mode },
-            transitionSpec = {
-                val a = initialState.anchorDate
-                val b = targetState.anchorDate
-                if (a == b) {
-                    fadeIn(tween(180)) togetherWith fadeOut(tween(120))
-                } else {
-                    val sign = if (b > a) 1 else -1
-                    (slideInHorizontally(tween(260)) { w -> sign * w / 3 } + fadeIn(tween(260)))
-                        .togetherWith(slideOutHorizontally(tween(200)) { w -> -sign * w / 3 } + fadeOut(tween(160)))
+            if (day.lessons.isEmpty()) {
+                item(key = "e_${day.date}") {
+                    Text("Brak lekcji",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp))
                 }
-            },
-            label = "timetablePage",
-            modifier = Modifier.fillMaxSize().graphicsLayer { translationX = offset.value }
-        ) { s -> content(s) }
+            } else {
+                items(day.lessons, key = { it.id }) { LessonRow(it, null) }
+            }
+        }
+    }
+}
+
+
+/** Mała plakietka grupy przy nazwie przedmiotu, np. "Grupa 2". */
+@Composable
+private fun GroupBadge(text: String) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.padding(start = 6.dp)
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
     }
 }
 
@@ -290,23 +361,33 @@ private fun NoLessonsCard() {
 }
 
 @Composable
-private fun EmptyOrLoading() {
+private fun EmptyOrLoading(loading: Boolean) {
     Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         Column(
             Modifier.padding(16.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CircularProgressIndicator()
-            Text("Ładuję plan…",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Dawniej zawsze kółko — bez internetu kręciło się w nieskończoność.
+            if (loading) {
+                CircularProgressIndicator()
+                Text("Ładuję plan…",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text("Brak zapisanego planu na ten okres.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Odśwież przyciskiem u góry, gdy będzie internet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
 
 @Composable
-private fun LessonRow(lesson: Lesson, badge: String?) {
+private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modifier) {
     val sub = lesson.substitution
     val bg = if (sub != null) MaterialTheme.colorScheme.tertiaryContainer
         else MaterialTheme.colorScheme.surfaceContainerHighest
@@ -314,7 +395,7 @@ private fun LessonRow(lesson: Lesson, badge: String?) {
         else MaterialTheme.colorScheme.onSurface
     val originalSubject = lesson.groups.firstOrNull()?.subject
 
-    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+    Card(modifier = modifier.fillMaxWidth().padding(vertical = 2.dp).semantics(mergeDescendants = true) {},
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = bg)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -322,32 +403,50 @@ private fun LessonRow(lesson: Lesson, badge: String?) {
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = if (sub != null) fg else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.width(28.dp),
+                modifier = Modifier.widthIn(min = 28.dp),
                 textAlign = TextAlign.Center)
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                 if (sub != null) {
-                    Text(sub.roomOrInfo, style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold, color = fg)
-                    Text(sub.substituteTeacher ?: "Bez zastępcy",
-                        style = MaterialTheme.typography.bodyLarge, color = fg)
+                    // Zastępstwo: najważniejszy jest nauczyciel, który zastępuje (nie sala).
+                    Text(SubstitutionDisplay.headline(sub), style = MaterialTheme.typography.titleMedium, color = fg,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    SubstitutionDisplay.place(sub)?.let {
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = fg)
+                    }
                     val forLine = buildString {
                         append("Za: ")
-                        if (originalSubject != null) append("$originalSubject • ")
+                        originalSubject?.let { append("${LessonGroups.parse(it)?.base ?: it} · ") }
                         append(sub.originalTeacher)
                     }
-                    Text(forLine, style = MaterialTheme.typography.labelSmall, color = fg)
+                    Text(forLine, style = MaterialTheme.typography.bodySmall, color = fg.copy(alpha = 0.8f))
+                    // Uwagi ze strony zastępstw ("za ostatnią lekcję", "historia").
+                    SubstitutionDisplay.notes(sub)?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = fg,
+                            fontWeight = FontWeight.Medium)
+                    }
                 } else {
-                    lesson.groups.forEach { g ->
-                        val line = buildString {
-                            g.subject?.let { append(it) }
-                            g.groupLabel?.let { append(" [$it]") }
-                            g.room?.let { append(" • $it") }
-                            g.teacherFullName?.let { append(" • $it") } ?: g.teacherCode?.let { append(" • $it") }
+                    // Każda grupa: pogrubiona nazwa przedmiotu (bez sufiksu grupy z Optivum)
+                    // + plakietka grupy, pod spodem sala i nauczyciel szarą czcionką.
+                    lesson.groups.forEachIndexed { i, g ->
+                        if (i > 0) Spacer(Modifier.height(6.dp))
+                        val parsed = LessonGroups.parse(g.subject)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(parsed?.base ?: g.subject ?: "Lekcja",
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false))
+                            parsed?.label?.let { GroupBadge(LessonGroups.displayLabel(it)) }
                         }
-                        Text(line, style = MaterialTheme.typography.bodyLarge)
+                        val meta = listOfNotNull(g.room?.let { "s. $it" }, g.teacherFullName ?: g.teacherCode)
+                            .joinToString(" · ")
+                        if (meta.isNotBlank()) {
+                            Text(meta, style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                     lesson.note?.let {
-                        Text(it, style = MaterialTheme.typography.labelSmall,
+                        Text(it, style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error)
                     }
                 }
@@ -359,16 +458,18 @@ private fun LessonRow(lesson: Lesson, badge: String?) {
                         color = MaterialTheme.colorScheme.primary)
                 }
             }
+            // Szerokość według treści (min. 52 dp). Dawniej sztywne 52 dp: przy większej czcionce
+            // systemowej godziny były ucinane ("09:5…").
             Column(
-                Modifier.width(52.dp).padding(start = 4.dp),
+                Modifier.widthIn(min = 52.dp).padding(start = 8.dp),
                 horizontalAlignment = Alignment.End
             ) {
                 Text(lesson.timeFrom.toString(),
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium)
+                    fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
                 Text(lesson.timeTo.toString(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium)
+                    style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
+                    color = if (sub != null) fg.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

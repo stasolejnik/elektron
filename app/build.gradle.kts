@@ -6,8 +6,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
-    alias(libs.plugins.google.services)
 }
+
+// F-Droid: wariant "foss" nie może zawierać Firebase ani wtyczki Google Services.
+// Wtyczkę stosujemy więc tylko, gdy budowany jest wariant "gms" (albo wszystkie naraz).
+// Build F-Droid (np. assembleFossRelease) obejdzie się bez niej i bez google-services.json.
+val buildsFossOnly = gradle.startParameter.taskNames.let { tasks ->
+    tasks.isNotEmpty() && tasks.all { it.contains("foss", ignoreCase = true) }
+}
+if (!buildsFossOnly) apply(plugin = "com.google.gms.google-services")
 
 // Podpis release: dane klucza w keystore.properties (w .gitignore, NIGDY w repozytorium).
 // Brak pliku => assembleRelease buduje niepodpisany APK (nie wysypuje się na świeżym klonie).
@@ -24,10 +31,32 @@ android {
         applicationId = "pl.zse.bydgoszcz.elektron"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.4.0-alpha"
+        versionCode = 12
+        versionName = "0.5.0-alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    // Dwa warianty dystrybucji:
+    //  - gms  (GitHub Releases): powiadomienia push przez Firebase + sprawdzanie aktualizacji,
+    //  - foss (F-Droid): wyłącznie wolne zależności, bez Firebase i bez sprawdzania aktualizacji
+    //    (F-Droid sam aktualizuje aplikację i podpisuje ją własnym kluczem).
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("gms") {
+            dimension = "distribution"
+            buildConfigField("boolean", "UPDATE_CHECK", "true")
+        }
+        create("foss") {
+            dimension = "distribution"
+            buildConfigField("boolean", "UPDATE_CHECK", "false")
+        }
+    }
+
+    // F-Droid odrzuca APK z zaszyfrowanym blokiem metadanych zależności (czytelnym tylko dla Google).
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     signingConfigs {
@@ -74,6 +103,8 @@ android {
     testOptions {
         unitTests {
             isReturnDefaultValues = true
+            // Robolectric: zasoby Androida dostępne w testach JVM.
+            isIncludeAndroidResources = true
         }
     }
 }
@@ -115,12 +146,27 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.navigation.compose)
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.messaging)
+    // Firebase tylko w wariancie gms (F-Droid nie dopuszcza zależności niewolnych).
+    "gmsImplementation"(platform(libs.firebase.bom))
+    "gmsImplementation"(libs.firebase.messaging)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
     testImplementation(libs.androidx.room.testing)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Testy repozytoriów na prawdziwej bazie Room w pamięci (SQLite przez Robolectric).
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.work.testing)
+}
+
+// Robolectric rozpakowuje natywne biblioteki (SQLite, dane ICU) do katalogu tymczasowego.
+// Na systemach z /tmp w pamięci RAM (tmpfs, np. CachyOS) kończyło się to awarią JVM
+// (SIGSEGV w SQLiteConnectionNatives.nativeOpen, "Invalid ICU dat file path").
+// Katalog tymczasowy testów leży więc w build/, na dysku.
+tasks.withType<Test>().configureEach {
+    val robolectricTmp = layout.buildDirectory.dir("tmp/robolectric").get().asFile
+    doFirst { robolectricTmp.mkdirs() }
+    systemProperty("java.io.tmpdir", robolectricTmp.absolutePath)
 }

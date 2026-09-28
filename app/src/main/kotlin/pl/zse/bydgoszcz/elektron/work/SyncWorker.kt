@@ -83,8 +83,9 @@ class SyncWorker @AssistedInject constructor(
                             timetableRepo.getLessonsOnce(classId, forClass.minOf { it.date }, forClass.maxOf { it.date })
                         }.getOrDefault(emptyList())
                         val relevant = forClass.filter { LessonGroups.substitutionRelevant(it, lessonsForSubs, groups) }
+                        val visibleLessons = LessonGroups.filter(lessonsForSubs, groups)  // raz, nie w pętli
                         relevant.forEach { sub ->
-                            val subject = LessonGroups.filter(lessonsForSubs, groups)
+                            val subject = visibleLessons
                                 .firstOrNull { it.date == sub.date && it.number == sub.lessonNumber }
                                 ?.groups?.firstOrNull()?.subject
                             sink.postSubstitution(sub, subject)

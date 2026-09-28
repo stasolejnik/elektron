@@ -1,7 +1,5 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -24,12 +22,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.FreeBreakfast
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -49,10 +54,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.foundation.background
+import coil.request.ImageRequest
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
+import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
+import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import pl.zse.bydgoszcz.elektron.presentation.common.SectionTitle
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -62,16 +72,13 @@ import java.time.format.DateTimeFormatter
 fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
-    val openUrl = { url: String ->
-        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-        Unit
-    }
+    val openUrl = { url: String -> SafeUrls.open(ctx, url); Unit }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { LargeTitleBar(title = "Start", scrollBehavior = scrollBehavior) }
+        topBar = { LargeTitleBar(title = "Strona główna", scrollBehavior = scrollBehavior) }
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
@@ -89,6 +96,18 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                             "Nie wybrano jeszcze klasy. Przejdź do Ustawień i wybierz swoją klasę.")
                     }
                 } else {
+                    state.availableUpdate?.let { update ->
+                        item(key = "update") {
+                            UpdateBanner(
+                                update = update,
+                                onDownload = { openUrl(update.pageUrl) },
+                                onLater = { viewModel.dismissUpdate(update.versionName) }
+                            )
+                        }
+                    }
+                    state.staleSince?.let { since ->
+                        item(key = "stale") { StaleNote(since) }
+                    }
                     state.lastSyncError?.let { err ->
                         item(key = "error") { ErrorBanner(err) { viewModel.refresh() } }
                     }
@@ -103,10 +122,12 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                     if (state.showNextLesson) {
                         val icon = when (state.nextLessonStatus) {
                             DashboardViewModel.LessonStatus.Now -> Icons.Filled.PlayArrow
+                            DashboardViewModel.LessonStatus.Break -> Icons.Filled.FreeBreakfast
                             else -> Icons.Filled.Schedule
                         }
                         val title = when (state.nextLessonStatus) {
                             DashboardViewModel.LessonStatus.Now -> "Trwa teraz"
+                            DashboardViewModel.LessonStatus.Break -> "Przerwa · następna lekcja"
                             DashboardViewModel.LessonStatus.Next ->
                                 state.nextLessonDayLabel?.let { "Następna lekcja · $it" } ?: "Następna lekcja"
                             DashboardViewModel.LessonStatus.None -> "Następna lekcja"
@@ -128,7 +149,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                             state.loadingSubs -> item(key = "subs_loading") { LoadingCard("Ładowanie zastępstw…") }
                             state.upcomingSubstitutions.isEmpty() -> item(key = "subs_empty") { EmptyCard("Brak zastępstw") }
                             else -> items(state.upcomingSubstitutions, key = { "sub_${it.id}" }) {
-                                SubstitutionRow(it, Modifier.animateItem())
+                                SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {})
                             }
                         }
                     }
@@ -148,6 +169,46 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
             }
         }
     }
+}
+
+/** Baner o nowej wersji aplikacji na GitHubie. */
+@Composable
+private fun UpdateBanner(update: AppUpdate, onDownload: () -> Unit, onLater: () -> Unit) {
+    ElektronCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.SystemUpdate, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Dostępna nowa wersja ${update.versionName}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = onDownload) { Text("Pobierz") }
+                TextButton(onClick = onLater) { Text("Później") }
+            }
+        }
+    }
+}
+
+/** Subtelna informacja, z kiedy są dane — gdy ostatni udany sync był ponad godzinę temu. */
+@Composable
+private fun StaleNote(since: java.time.Instant) {
+    val zoned = since.atZone(ZoneId.systemDefault())
+    val today = java.time.LocalDate.now()
+    val day = when (zoned.toLocalDate()) {
+        today -> "dziś"
+        today.minusDays(1) -> "wczoraj"
+        else -> zoned.format(DateTimeFormatter.ofPattern("dd.MM"))
+    }
+    Text(
+        "Dane z $day, ${zoned.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 2.dp)
+    )
 }
 
 @Composable
@@ -216,23 +277,53 @@ private fun NextLessonCard(state: DashboardViewModel.State) {
             } else {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
-                        val subject = sub?.roomOrInfo?.takeIf { it.isNotBlank() }
-                            ?: lesson.groups.firstOrNull()?.subject ?: "Lekcja"
-                        Text(subject, style = MaterialTheme.typography.headlineSmall,
-                            color = onContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(4.dp))
-                        val room = lesson.groups.firstOrNull()?.room ?: "—"
-                        Text("${lesson.timeFrom}–${lesson.timeTo} · sala $room",
-                            style = MaterialTheme.typography.bodyLarge, color = onContainer)
-                        val teacher = sub?.substituteTeacher
-                            ?: lesson.groups.firstOrNull()?.teacherFullName
-                            ?: lesson.groups.firstOrNull()?.teacherCode
-                        teacher?.let {
-                            Text(it, style = MaterialTheme.typography.bodyMedium,
-                                color = onContainer.copy(alpha = 0.8f))
+                        val subjectName = lesson.groups.mapNotNull { g -> g.subject?.let { LessonGroups.parse(it)?.base ?: it } }
+                            .distinct().joinToString(" / ").ifBlank { null }
+                        if (sub != null) {
+                            // Zastępstwo: na pierwszym planie nauczyciel zastępujący, potem sala i uwagi.
+                            Text(SubstitutionDisplay.headline(sub), style = MaterialTheme.typography.headlineSmall,
+                                color = onContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(4.dp))
+                            Text(listOfNotNull("${lesson.timeFrom}–${lesson.timeTo}", SubstitutionDisplay.place(sub)).joinToString(" · "),
+                                style = MaterialTheme.typography.bodyLarge, color = onContainer)
+                            Text("Za: " + listOfNotNull(subjectName, sub.originalTeacher).joinToString(" · "),
+                                style = MaterialTheme.typography.bodyMedium, color = onContainer.copy(alpha = 0.8f))
+                            SubstitutionDisplay.notes(sub)?.let {
+                                Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
+                                    color = onContainer)
+                            }
+                        } else {
+                            Text(subjectName ?: "Lekcja", style = MaterialTheme.typography.headlineSmall,
+                                color = onContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(4.dp))
+                            val room = lesson.groups.firstOrNull()?.room ?: "—"
+                            Text("${lesson.timeFrom}–${lesson.timeTo} · sala $room",
+                                style = MaterialTheme.typography.bodyLarge, color = onContainer)
+                            val teacher = lesson.groups.firstOrNull()?.teacherFullName
+                                ?: lesson.groups.firstOrNull()?.teacherCode
+                            teacher?.let {
+                                Text(it, style = MaterialTheme.typography.bodyMedium,
+                                    color = onContainer.copy(alpha = 0.8f))
+                            }
                         }
                     }
                     LessonNumberBadge(lesson.number, onContainer)
+                }
+                if (state.lessonProgress != null && state.minutesLeft != null) {
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        progress = { state.lessonProgress },
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                        color = onContainer,
+                        trackColor = onContainer.copy(alpha = 0.15f),
+                        drawStopIndicator = {}
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        if (state.nextLessonStatus == DashboardViewModel.LessonStatus.Break) "Lekcja za ${state.minutesLeft} min"
+                        else "Zostało ${state.minutesLeft} min",
+                        style = MaterialTheme.typography.labelLarge, color = onContainer
+                    )
                 }
                 state.countdownMinutes?.let { mins ->
                     Spacer(Modifier.height(12.dp))
@@ -263,7 +354,7 @@ private fun LessonNumberBadge(number: Int, color: androidx.compose.ui.graphics.C
 }
 
 @Composable
-private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier) {
+private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier.semantics(mergeDescendants = true) {}) {
     val fmt = DateTimeFormatter.ofPattern("dd.MM")
     ElektronCard(modifier = modifier) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -278,15 +369,18 @@ private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(s.roomOrInfo, style = MaterialTheme.typography.titleMedium,
+                // Nagłówek: nauczyciel zastępujący (bez zastępcy - informacja), pod nim sala.
+                Text(SubstitutionDisplay.headline(s), style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(s.substituteTeacher ?: "Bez zastępcy", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SubstitutionDisplay.place(s)?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text("Za: ${s.originalTeacher}", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                s.notes?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SubstitutionDisplay.notes(s)?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.tertiary)
                 }
             }
         }
@@ -313,11 +407,14 @@ private fun AnnouncementRow(a: Announcement, modifier: Modifier = Modifier, onCl
         a.coverImageUrl?.let { url ->
             // Pełna szerokość, proporcje 16:9, przycięcie — dawniej ContentScale.Fit
             // zostawiał puste pasy po bokach obrazka.
+            // Łagodne pojawienie się obrazka + tło zamiast pustego miejsca podczas wczytywania.
             AsyncImage(
-                model = url, contentDescription = null,
+                model = ImageRequest.Builder(LocalContext.current).data(url).crossfade(250).build(),
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
             )
         }
         Column(Modifier.padding(16.dp)) {

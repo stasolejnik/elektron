@@ -29,6 +29,10 @@ interface SettingsRepository {
     val showAnnouncements: Flow<Boolean>
     suspend fun setShowAnnouncements(enabled: Boolean)
 
+    /** Inteligentny start: w godzinach lekcji aplikacja otwiera się na planie. */
+    val smartStart: Flow<Boolean>
+    suspend fun setSmartStart(enabled: Boolean)
+
     val lastSeenVersionCode: Flow<Int>
     suspend fun setLastSeenVersionCode(code: Int)
 

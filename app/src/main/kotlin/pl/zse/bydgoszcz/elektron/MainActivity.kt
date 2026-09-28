@@ -7,6 +7,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import android.graphics.Color
+import androidx.compose.runtime.DisposableEffect
+import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,6 +27,7 @@ import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
 import pl.zse.bydgoszcz.elektron.presentation.common.ChangelogDialog
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronAppViewModel
 import pl.zse.bydgoszcz.elektron.presentation.common.theme.ElektronTheme
+import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import pl.zse.bydgoszcz.elektron.presentation.groups.GroupsScreen
 import pl.zse.bydgoszcz.elektron.presentation.navigation.ElektronNavHost
 import pl.zse.bydgoszcz.elektron.presentation.setup.SetupScreen
@@ -61,8 +65,18 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
             LaunchedEffect(Unit) { appViewModel.ensureLastSeenInitialized() }
+            // Kolor ikon pasków systemowych wg motywu APLIKACJI, nie systemu. Dawniej przy
+            // ciemnym motywie systemu i jasnym w appce ikony zegara/baterii były białe na
+            // jasnym tle (niewidoczne) — i odwrotnie.
+            DisposableEffect(dark) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                    navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
+                )
+                onDispose { }
+            }
 
-            ElektronTheme(darkTheme = dark) {
+            ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor) {
                 when {
                     !state.isReady -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -72,7 +86,8 @@ class MainActivity : ComponentActivity() {
                     state.groupsConfiguredFor != state.selectedClassId -> GroupsScreen(asSetupStep = true)
                     else -> ElektronNavHost(
                         deepLink = deepLink,
-                        onDeepLinkConsumed = { pendingDeepLink.value = null }
+                        onDeepLinkConsumed = { pendingDeepLink.value = null },
+                        startRoute = state.startRoute
                     )
                 }
 
@@ -97,9 +112,9 @@ class MainActivity : ComponentActivity() {
         val fromNotif = intent.getStringExtra(LocalNotificationSink.EXTRA_DEEP_LINK)
         if (!fromNotif.isNullOrBlank()) {
             if (fromNotif.startsWith("http://") || fromNotif.startsWith("https://")) {
-                runCatching {
-                    startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(fromNotif)))
-                }
+                // MainActivity jest eksportowana — link z intentu mógł podać dowolna aplikacja.
+                // Otwieramy tylko strony szkoły (dawniej: każdy adres).
+                if (SafeUrls.isSchoolUrl(fromNotif)) SafeUrls.open(this, fromNotif)
                 return null
             }
             return fromNotif
@@ -107,7 +122,8 @@ class MainActivity : ComponentActivity() {
         return when (intent.getStringExtra("elektron_shortcut")) {
             "substitutions" -> "substitutions"
             "announcements" -> "announcements"
-            "timetable" -> "timetable" // widżety
+            "timetable" -> "timetable"
+            "dashboard" -> "dashboard" // widżety
             else -> null
         }
     }

@@ -1,7 +1,5 @@
 package pl.zse.bydgoszcz.elektron.presentation.announcements
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +17,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextField
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,9 +50,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.foundation.background
+import coil.request.ImageRequest
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
+import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -69,7 +82,24 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (state.items.isEmpty()) {
+                item(key = "search") {
+                    SearchField(state.query, viewModel::setQuery)
+                }
+                if (state.isSearching && state.items.isEmpty()) {
+                    item(key = "no_results") {
+                        Text("Brak wyników dla „${state.query.trim()}” w pobranych ogłoszeniach.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            textAlign = TextAlign.Center)
+                    }
+                } else if (state.items.isEmpty() && state.isInitialLoading && !state.isRefreshing) {
+                    item(key = "loading") {
+                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (state.items.isEmpty()) {
                     item(key = "empty") {
                         Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -84,13 +114,36 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                 }
                 items(state.items, key = { it.id }) { a ->
                     AnnouncementCard(a, fmt, Modifier.animateItem()) {
-                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(a.url))) }
+                        SafeUrls.open(ctx, a.url)
                     }
                 }
-                if (state.hasMore) {
+                if (state.hasMore && (state.items.isNotEmpty() || state.isSearching)) {
                     item(key = "more") {
-                        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.Center) {
-                            FilledTonalButton(onClick = viewModel::loadMore) { Text("Pokaż więcej") }
+                        Column(
+                            Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (state.isLoadingMore) {
+                                CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+                                Text("Pobieram starsze ogłoszenia…",
+                                    Modifier.padding(top = 6.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                if (state.loadMoreError) {
+                                    Text("Nie udało się pobrać starszych ogłoszeń.",
+                                        Modifier.padding(bottom = 6.dp),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error)
+                                }
+                                FilledTonalButton(onClick = viewModel::loadMore) {
+                                    Text(when {
+                                        state.loadMoreError -> "Spróbuj ponownie"
+                                        state.isSearching -> "Szukaj w starszych ogłoszeniach"
+                                        else -> "Pokaż więcej"
+                                    })
+                                }
+                            }
                         }
                     }
                 }
@@ -108,11 +161,14 @@ private fun AnnouncementCard(
 ) {
     ElektronCard(modifier = modifier, onClick = onClick) {
         a.coverImageUrl?.let { url ->
+            // Łagodne pojawienie się obrazka + tło zamiast pustego miejsca podczas wczytywania.
             AsyncImage(
-                model = url, contentDescription = null,
+                model = ImageRequest.Builder(LocalContext.current).data(url).crossfade(250).build(),
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
             )
         }
         Column(Modifier.padding(16.dp)) {
@@ -131,4 +187,34 @@ private fun AnnouncementCard(
             }
         }
     }
+}
+
+/** Pole wyszukiwania w stylu iOS: zaokrąglone, szare tło, lupa i przycisk czyszczenia. */
+@Composable
+private fun SearchField(query: String, onQuery: (String) -> Unit) {
+    val focus = LocalFocusManager.current
+    TextField(
+        value = query,
+        onValueChange = onQuery,
+        placeholder = { Text("Szukaj w ogłoszeniach") },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQuery(""); focus.clearFocus() }) {
+                    Icon(Icons.Filled.Close, contentDescription = "Wyczyść wyszukiwanie")
+                }
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent
+        ),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+    )
 }

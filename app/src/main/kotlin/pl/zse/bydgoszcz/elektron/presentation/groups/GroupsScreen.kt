@@ -38,10 +38,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -122,14 +124,19 @@ fun GroupsScreen(
                     body = "Grupy możesz ustawić później w Ustawieniach.",
                     actionLabel = if (state.retrying) null else "Spróbuj ponownie",
                     onAction = viewModel::retry)
-                GroupsViewModel.Status.READY -> SubjectList(state, viewModel::setChoice)
+                GroupsViewModel.Status.READY -> SubjectList(state, viewModel::setChoice, viewModel::applyDivision)
             }
         }
     }
 }
 
 @Composable
-private fun SubjectList(state: GroupsViewModel.State, onChoice: (String, String?) -> Unit) {
+private fun SubjectList(
+    state: GroupsViewModel.State,
+    onChoice: (String, String?) -> Unit,
+    onDivision: (String, String?) -> Unit
+) {
+    val divisions = remember(state.subjects) { LessonGroups.divisions(state.subjects) }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -137,13 +144,24 @@ private fun SubjectList(state: GroupsViewModel.State, onChoice: (String, String?
     ) {
         item(key = "intro") {
             Text(
-                "Wybierz grupy, do których należysz. W planie i na Starcie zobaczysz tylko swoje " +
+                "Wybierz grupy, do których należysz. W planie i na stronie głównej zobaczysz tylko swoje " +
                     "zajęcia — lekcje bez podziału są widoczne zawsze." +
                     (state.className?.let { "\nKlasa: $it" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
+        }
+        if (divisions.isNotEmpty()) {
+            item(key = "quick_title") { SectionLabel("Szybki wybór") }
+            items(divisions, key = { "div_${it.key}" }) { division ->
+                DivisionCard(
+                    division = division,
+                    selected = LessonGroups.selectedDivisionOption(division, state.subjects, state.selections),
+                    onSelect = { option -> onDivision(division.key, option) }
+                )
+            }
+            item(key = "each_title") { SectionLabel("Dostosuj osobno") }
         }
         items(state.subjects, key = { it.base }) { subject ->
             SubjectCard(subject, state.selections[subject.base]) { onChoice(subject.base, it) }
@@ -185,7 +203,7 @@ private fun SubjectCard(
                 Text(subject.base, style = MaterialTheme.typography.titleMedium)
                 Text(
                     when (selection) {
-                        null -> "Nie wybrano — widoczne wszystkie grupy"
+                        null -> "Widoczne wszystkie grupy"
                         LessonGroups.NONE -> "Nie chodzisz na te zajęcia"
                         else -> "Twoja grupa: ${LessonGroups.displayLabel(selection)}"
                     },
@@ -194,6 +212,8 @@ private fun SubjectCard(
                 )
                 Spacer(Modifier.height(10.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // "Wszystkie" = chodzisz na wszystkie grupy (np. 1/2 i 2/2) — wszystkie widoczne.
+                    ChoiceChip("Wszystkie", selection == null) { onChoice(null) }
                     subject.labels.forEach { label ->
                         ChoiceChip(LessonGroups.displayLabel(label), selection == label) {
                             onChoice(if (selection == label) null else label)
@@ -246,6 +266,35 @@ private fun CenterMessage(
             if (actionLabel != null) {
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(onClick = onAction) { Text(actionLabel) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text.uppercase(), style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+}
+
+/** Jeden typ podziału (np. "Podział na 2 grupy": Wszystkie · 1/2 · 2/2) dla wszystkich jego przedmiotów. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DivisionCard(division: LessonGroups.Division, selected: String?, onSelect: (String?) -> Unit) {
+    ElektronCard {
+        Column(Modifier.padding(16.dp)) {
+            Text(division.title, style = MaterialTheme.typography.titleMedium)
+            Text(division.subjects.joinToString(", "), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChoiceChip("Wszystkie", selected == "") { onSelect(null) }
+                division.options.forEach { option ->
+                    // Ułamki jak w planie szkoły ("1/2"), grupy literowe numerem ("j1" -> "1").
+                    val label = if ('/' in option) option else (LessonGroups.labelNumber(option)?.toString() ?: option)
+                    ChoiceChip(label, selected == option) { onSelect(option) }
+                }
             }
         }
     }

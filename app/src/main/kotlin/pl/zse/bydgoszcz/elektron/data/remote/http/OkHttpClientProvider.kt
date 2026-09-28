@@ -38,14 +38,20 @@ object OkHttpClientProvider {
             // Własny RetryInterceptor już ponawia przy IOException — wbudowane
             // retryOnConnectionFailure dublowało próby (do 6 połączeń zamiast 3).
             .retryOnConnectionFailure(false)
+            // Nie podążamy za przekierowaniem z HTTPS na HTTP (obniżenie szyfrowania).
+            .followSslRedirects(false)
             .build()
     }
 
     private class HeaderInterceptor(private val userAgent: String) : Interceptor {
         override fun intercept(chain: Interceptor.Chain): Response {
-            val req = chain.request().newBuilder()
+            val original = chain.request()
+            val req = original.newBuilder()
                 .header("User-Agent", userAgent)
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                // Domyślne Accept (strony szkoły) tylko gdy zapytanie nie ma własnego
+                // (np. API GitHuba przy sprawdzaniu aktualizacji).
+                .header("Accept", original.header("Accept")
+                    ?: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "pl,en;q=0.5")
                 // Zawsze rewalidacja u serwera (If-None-Match / If-Modified-Since).
                 // Bez tego OkHttp dla stron z Last-Modified bez Cache-Control liczy

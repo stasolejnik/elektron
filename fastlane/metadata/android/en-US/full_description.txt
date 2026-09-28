@@ -1,0 +1,15 @@
+Unofficial app for students of the Zespół Szkół Elektronicznych (school of electronics) in Bydgoszcz, Poland. It reads the school's public websites directly - no login and no personal data collected. Works offline.
+
+<b>Features</b>
+<ul>
+<li>Daily and weekly timetable with substitutions applied</li>
+<li>Class groups: only the lessons you attend (languages, workshops, PE, religion)</li>
+<li>Substitutions for your class and group</li>
+<li>School news, including older posts from the archive, with search</li>
+<li>Home screen with the next lesson, breaks and substitutions</li>
+<li>Widgets: Next lesson, Day plan, Substitutions, plus a quick settings tile</li>
+<li>Notifications about new substitutions and news</li>
+<li>Light and dark theme, optional wallpaper colors</li>
+</ul>
+
+The app's interface is in Polish. Not affiliated with the school or VULCAN. Inspired by Atom (iOS) by Kacper Górka. Free software under GNU GPL v3.

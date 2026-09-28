@@ -30,12 +30,15 @@ class SettingsRepositoryImpl @Inject constructor(
     private object Keys {
         val SELECTED_CLASS_ID = stringPreferencesKey("selected_class_id")
         val THEME_MODE = stringPreferencesKey("theme_mode")
-        val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        // Nowy klucz (0.5.0): stary "dynamic_color" miał domyślnie true z czasów, gdy opcja
+        // była nieaktywna — podpięcie go zmieniłoby wszystkim wygląd bez pytania.
+        val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color_v2")
         val NOTIF_SUBSTITUTIONS = booleanPreferencesKey("notif_substitutions")
         val NOTIF_ANNOUNCEMENTS = booleanPreferencesKey("notif_announcements")
         val SHOW_NEXT_LESSON = booleanPreferencesKey("show_next_lesson")
         val SHOW_SUBSTITUTIONS = booleanPreferencesKey("show_substitutions")
         val SHOW_ANNOUNCEMENTS = booleanPreferencesKey("show_announcements")
+        val SMART_START = booleanPreferencesKey("smart_start")
         val LAST_SEEN_VERSION = intPreferencesKey("last_seen_version_code")
         val GROUPS_CONFIGURED_FOR = stringPreferencesKey("groups_configured_for")
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
@@ -56,7 +59,7 @@ class SettingsRepositoryImpl @Inject constructor(
         context.elektronSettings.edit { it[Keys.THEME_MODE] = mode.name }
     }
 
-    override val dynamicColor: Flow<Boolean> = prefs.map { it[Keys.DYNAMIC_COLOR] ?: true }
+    override val dynamicColor: Flow<Boolean> = prefs.map { it[Keys.DYNAMIC_COLOR] ?: false }
     override suspend fun setDynamicColor(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.DYNAMIC_COLOR] = enabled }
     }
@@ -86,6 +89,11 @@ class SettingsRepositoryImpl @Inject constructor(
     override val showAnnouncements: Flow<Boolean> = prefs.map { it[Keys.SHOW_ANNOUNCEMENTS] ?: true }
     override suspend fun setShowAnnouncements(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.SHOW_ANNOUNCEMENTS] = enabled }
+    }
+
+    override val smartStart: Flow<Boolean> = prefs.map { it[Keys.SMART_START] ?: true }
+    override suspend fun setSmartStart(enabled: Boolean) {
+        context.elektronSettings.edit { it[Keys.SMART_START] = enabled }
     }
 
     override val lastSeenVersionCode: Flow<Int> = prefs.map { it[Keys.LAST_SEEN_VERSION] ?: 0 }

@@ -8,4 +8,7 @@
     <string name="widget_next_lesson_desc">Trwająca lub najbliższa lekcja, z uwzględnieniem Twoich grup i zastępstw.</string>
     <string name="widget_day_plan_name">Plan dnia</string>
     <string name="widget_day_plan_desc">Lekcje na dziś lub najbliższy dzień z zajęciami.</string>
+    <string name="widget_substitutions_name">Zastępstwa</string>
+    <string name="widget_substitutions_desc">Nadchodzące zastępstwa Twojej klasy i grup.</string>
+    <string name="tile_next_lesson">Następna lekcja</string>
 </resources>

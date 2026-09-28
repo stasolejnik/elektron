@@ -65,6 +65,10 @@ interface LessonDao {
     @Query("DELETE FROM lessons WHERE classId = :classId AND dateEpochDay BETWEEN :fromDay AND :toDay")
     suspend fun deleteForRange(classId: String, fromDay: Long, toDay: Long)
 
+    /** Stare tygodnie planu (grupy lekcji usuwają się kaskadowo — FK CASCADE). */
+    @Query("DELETE FROM lessons WHERE dateEpochDay < :beforeDay")
+    suspend fun deleteOlderThan(beforeDay: Long)
+
     @Query("DELETE FROM lessons WHERE classId = :classId")
     suspend fun deleteForClass(classId: String)
 
@@ -122,11 +126,23 @@ interface AnnouncementDao {
     @Query("SELECT * FROM announcements ORDER BY publishedAtEpochSeconds DESC")
     fun observeAll(): Flow<List<AnnouncementEntity>>
 
+    @Query("SELECT * FROM announcements ORDER BY publishedAtEpochSeconds DESC LIMIT :limit")
+    fun observeLatest(limit: Int): Flow<List<AnnouncementEntity>>
+
     @Query("SELECT * FROM announcements WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): AnnouncementEntity?
 
     @Query("SELECT * FROM announcements WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<String>): List<AnnouncementEntity>
+
+    @Query("SELECT url FROM announcements WHERE url IN (:urls)")
+    suspend fun existingUrls(urls: List<String>): List<String>
+
+    @Query("SELECT COUNT(*) FROM announcements")
+    suspend fun count(): Int
+
+    @Query("SELECT MIN(publishedAtEpochSeconds) FROM announcements")
+    suspend fun oldestEpochSeconds(): Long?
 
     /** Sprzątanie po usuniętym panelu dewelopera (symulowane ogłoszenia "dev_ann_..."). */
     @Query("DELETE FROM announcements WHERE substr(id, 1, 8) = 'dev_ann_'")

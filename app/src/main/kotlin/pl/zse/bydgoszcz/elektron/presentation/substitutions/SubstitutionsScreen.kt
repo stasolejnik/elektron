@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,20 +36,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
     val groups by viewModel.days.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-    val plLocale = Locale("pl", "PL")
-    val dateFmt = DateTimeFormatter.ofPattern("d MMMM", plLocale)
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -67,7 +65,13 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (groups.isEmpty()) {
+                if (groups.isEmpty() && isLoading && !isRefreshing) {
+                    item(key = "loading") {
+                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (groups.isEmpty()) {
                     item(key = "empty") {
                         Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -86,31 +90,22 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                 groups.forEach { group ->
                     item(key = "header_${group.date}") {
                         Text(
-                            dayLabel(group.date, plLocale, dateFmt),
+                            group.label,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 2.dp)
                         )
                     }
-                    items(group.items, key = { it.id }) { SubstitutionRow(it, Modifier.animateItem()) }
+                    items(group.items, key = { it.id }) { SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {}) }
                 }
             }
         }
     }
 }
 
-private fun dayLabel(date: LocalDate, locale: Locale, fmt: DateTimeFormatter): String {
-    val today = LocalDate.now()
-    val prefix = when (date) {
-        today -> "Dziś"
-        today.plusDays(1) -> "Jutro"
-        else -> date.dayOfWeek.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.titlecase(locale) }
-    }
-    return "$prefix · ${date.format(fmt)}"
-}
 
 @Composable
-private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier) {
+private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier.semantics(mergeDescendants = true) {}) {
     ElektronCard(modifier = modifier) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
@@ -121,19 +116,22 @@ private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(s.roomOrInfo, style = MaterialTheme.typography.titleMedium,
+                // Nagłówek: nauczyciel zastępujący (bez zastępcy - informacja), pod nim sala.
+                Text(SubstitutionDisplay.headline(s), style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(s.substituteTeacher ?: "Bez zastępcy", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SubstitutionDisplay.place(s)?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 val forLine = buildString {
                     append("Za: ${s.originalTeacher}")
                     s.groupNumber?.let { append(" · grupa $it") }
                 }
                 Text(forLine, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                s.notes?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SubstitutionDisplay.notes(s)?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.tertiary)
                 }
             }
         }

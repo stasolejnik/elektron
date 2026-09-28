@@ -1,3 +1,10 @@
 <resources>
     <color name="elektron_window_background">#F2F2F7</color>
+    <color name="widget_bg">#FFFFFFFF</color>
+    <color name="widget_text">#FF000000</color>
+    <color name="widget_text2">#FF6C6C70</color>
+    <color name="widget_accent">#FF0091B0</color>
+    <color name="widget_accent_bg">#FFDDF5FB</color>
+    <color name="widget_sub">#FFA85A00</color>
+    <color name="widget_sub_bg">#FFFFF0DB</color>
 </resources>

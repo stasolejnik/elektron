@@ -1,7 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
-import android.content.Intent
-import android.net.Uri
+import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,6 +36,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,10 +62,12 @@ import pl.zse.bydgoszcz.elektron.R
 import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
 import pl.zse.bydgoszcz.elektron.presentation.common.GroupedSection
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
+import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import pl.zse.bydgoszcz.elektron.presentation.common.isolatedVerticalScroll
 import pl.zse.bydgoszcz.elektron.presentation.common.pressable
 
 private const val REPO_URL = "https://github.com/stasolejnik/elektron"
+private const val PRIVACY_URL = "https://github.com/stasolejnik/elektron/blob/main/PRYWATNOSC.md"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +76,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     val linkColor = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -99,13 +106,17 @@ fun SettingsScreen(
                             ) { Text(label) }
                         }
                     }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        RowDivider()
+                        SwitchRow("Kolory z tapety", state.dynamicColor) { viewModel.setDynamicColor(it) }
+                    }
                 }
             }
 
             item {
                 GroupedSection("Klasa", footer = "Plan, zastępstwa i powiadomienia dotyczą wybranej klasy.") {
                     if (state.classes.isEmpty()) {
-                        Text("Brak listy klas. Pociągnij w dół na Starcie, aby odświeżyć.",
+                        Text("Brak listy klas. Pociągnij w dół na stronie głównej, aby odświeżyć.",
                             Modifier.padding(16.dp),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -147,13 +158,13 @@ fun SettingsScreen(
             }
 
             item {
-                GroupedSection("Grupy zajęciowe", footer = "Wybierz swoje grupy (np. językowe, zajęcia praktyczne) — w planie i na Starcie zobaczysz tylko swoje lekcje.") {
+                GroupedSection("Grupy zajęciowe", footer = "Wybierz swoje grupy (np. językowe, zajęcia praktyczne) - w planie i na stronie głównej zobaczysz tylko swoje lekcje.") {
                     ActionRow("Wybierz swoje grupy", trailingChevron = true, onClick = onOpenGroups)
                 }
             }
 
             item {
-                GroupedSection("Ekran Start") {
+                GroupedSection("Strona główna") {
                     SwitchRow("Następna lekcja", state.showNextLesson) { viewModel.setShowNextLesson(it) }
                     RowDivider()
                     SwitchRow("Zastępstwa", state.showSubstitutions) { viewModel.setShowSubstitutions(it) }
@@ -163,10 +174,36 @@ fun SettingsScreen(
             }
 
             item {
+                GroupedSection("Uruchamianie", footer = "W godzinach lekcji aplikacja otwiera się na planie, poza nimi - na stronie głównej.") {
+                    SwitchRow("Otwieraj plan w trakcie lekcji", state.smartStart) { viewModel.setSmartStart(it) }
+                }
+            }
+
+            item {
                 GroupedSection("Powiadomienia") {
                     SwitchRow("Nowe zastępstwa", state.notifSubs) { viewModel.setNotifSubs(it) }
                     RowDivider()
                     SwitchRow("Nowe ogłoszenia", state.notifAnn) { viewModel.setNotifAnn(it) }
+                }
+            }
+
+            item {
+                var confirmReset by remember { mutableStateOf(false) }
+                GroupedSection("Dane", footer = "Pobiera plan, zastępstwa i ogłoszenia od nowa. Klasa, grupy i ustawienia zostają.") {
+                    ActionRow("Wyczyść dane podręczne", destructive = true) { confirmReset = true }
+                }
+                if (confirmReset) {
+                    AlertDialog(
+                        onDismissRequest = { confirmReset = false },
+                        title = { Text("Wyczyścić dane podręczne?") },
+                        text = { Text("Lokalna kopia planu, zastępstw i ogłoszeń zostanie usunięta i pobrana od nowa ze strony szkoły.") },
+                        confirmButton = {
+                            TextButton(onClick = { viewModel.resetCache(); confirmReset = false }) {
+                                Text("Wyczyść", color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Anuluj") } }
+                    )
                 }
             }
 
@@ -191,15 +228,43 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center)
+                    Text(
+                        "eLektron to wolne oprogramowanie: możesz go używać w dowolnym celu, " +
+                            "zajrzeć do kodu, zmieniać go i udostępniać dalej - także zmienione " +
+                            "wersje, na tej samej licencji.",
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                     RowDivider()
+                    // Sprawdzanie aktualizacji (GitHub Releases) — nie w wersji F-Droid.
+                    if (BuildConfig.UPDATE_CHECK) {
+                    ActionRow("Sprawdź aktualizacje") { viewModel.checkForUpdates() }
+                    when (val st = updateStatus) {
+                        SettingsViewModel.UpdateStatus.Idle -> Unit
+                        SettingsViewModel.UpdateStatus.Checking -> UpdateNote("Sprawdzam…")
+                        SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
+                        SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
+                        is SettingsViewModel.UpdateStatus.Available -> {
+                            RowDivider()
+                            ActionRow("Pobierz wersję ${st.update.versionName}", trailingIcon = true) {
+                                SafeUrls.open(ctx, st.update.pageUrl)
+                            }
+                        }
+                    }
+                    RowDivider()
+                    }
                     ActionRow("Kod źródłowy na GitHubie", trailingIcon = true) {
-                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))) }
+                        SafeUrls.open(ctx, REPO_URL)
+                    }
+                    RowDivider()
+                    ActionRow("Polityka prywatności", trailingIcon = true) {
+                        SafeUrls.open(ctx, PRIVACY_URL)
                     }
                     RowDivider()
                     ActionRow("Licencja: GNU GPL v3.0 lub nowsza", trailingIcon = true) {
-                        runCatching {
-                            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.gnu.org/licenses/gpl-3.0.html")))
-                        }
+                        SafeUrls.open(ctx, "https://www.gnu.org/licenses/gpl-3.0.html")
                     }
                 }
             }
@@ -224,7 +289,8 @@ private fun aboutText(linkColor: Color): AnnotatedString =
         link("Atom", "https://github.com/kacpergorka/atom", linkColor)
         append(" autorstwa ")
         link("Kacpra Górki", "https://github.com/kacpergorka", linkColor)
-        append(", przeznaczony na Androida. Projekt niezależny, niepowiązany z ZSE w Bydgoszczy ani z firmą VULCAN.")
+        append(", przeznaczony na Androida. Projekt niezależny, niepowiązany z ZSE w Bydgoszczy ani z firmą VULCAN. ")
+        append("Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).")
     }
 
 private fun AnnotatedString.Builder.link(text: String, url: String, color: Color) {
@@ -285,4 +351,11 @@ private fun ActionRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         }
     }
+}
+
+@Composable
+private fun UpdateNote(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp))
 }

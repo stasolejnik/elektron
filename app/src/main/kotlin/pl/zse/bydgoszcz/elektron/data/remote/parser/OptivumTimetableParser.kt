@@ -125,34 +125,29 @@ object OptivumTimetableParser {
         var absent = false
 
         fun flush() { cur?.let { groups += it.build() }; cur = null }
+        // Bieżąca grupa albo nowa — bez operatora !! (dawniej cur!! w każdej gałęzi).
+        fun group(): MutableGroup = cur ?: MutableGroup().also { cur = it }
 
         for (tok in tokens) {
             when (tok) {
                 is Token.Break -> flush()
-                is Token.Subject -> {
-                    if (cur == null) cur = MutableGroup()
-                    cur!!.subject = tok.text
+                is Token.Subject -> group().subject = tok.text
+                is Token.Teacher -> group().apply {
+                    teacherCode = tok.code
+                    teacherUrl = tok.url
                 }
-                is Token.Teacher -> {
-                    if (cur == null) cur = MutableGroup()
-                    cur!!.teacherCode = tok.code
-                    cur!!.teacherUrl = tok.url
+                is Token.Room -> group().apply {
+                    room = tok.name
+                    roomUrl = tok.url
                 }
-                is Token.Room -> {
-                    if (cur == null) cur = MutableGroup()
-                    cur!!.room = tok.name
-                    cur!!.roomUrl = tok.url
-                }
-                is Token.ClassRef -> {
-                    if (cur == null) cur = MutableGroup()
-                    cur!!.classRef = tok.name
-                }
+                is Token.ClassRef -> group().classRef = tok.name
                 is Token.RawText -> {
                     val t = tok.text.trim()
+                    val g = cur
                     if (t.length == 1 && t.equals("N", ignoreCase = true)) {
                         absent = true
-                    } else if (t.isNotEmpty() && cur != null) {
-                        cur!!.subject = (cur!!.subject ?: "") + t
+                    } else if (t.isNotEmpty() && g != null) {
+                        g.subject = (g.subject ?: "") + t
                     }
                 }
             }

@@ -11,9 +11,9 @@ import javax.inject.Singleton
  * uruchomieniu jest bezpieczne i nie wymaga śledzenia stanu.
  */
 @Singleton
-class FcmTopicManager @Inject constructor() {
+class FcmTopicManager @Inject constructor() : PushTopics {
 
-    fun start() {
+    override fun start() {
         val fm = FirebaseMessaging.getInstance()
         fm.subscribeToTopic(SUBS_TOPIC).addOnFailureListener { Log.w(TAG, "Nie udało się zasubskrybować $SUBS_TOPIC", it) }
         fm.subscribeToTopic(ANNS_TOPIC).addOnFailureListener { Log.w(TAG, "Nie udało się zasubskrybować $ANNS_TOPIC", it) }

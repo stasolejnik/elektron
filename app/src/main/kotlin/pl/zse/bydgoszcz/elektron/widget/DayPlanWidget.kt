@@ -2,11 +2,13 @@ package pl.zse.bydgoszcz.elektron.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.action.clickable
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.appwidget.GlanceAppWidget
@@ -45,9 +47,12 @@ class DayPlanWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val state = WidgetDataLoader.load(context)
         if (state is WidgetState.Ready) {
-            WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.nextChangeAt)
+            WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.refreshAt)
         }
-        provideContent { Content(state) }
+        val palette = WidgetDataLoader.palette(context)
+        provideContent {
+            CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
+        }
     }
 
     @Composable
@@ -73,13 +78,24 @@ class DayPlanWidget : GlanceAppWidget() {
                     Text(it, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
                 }
             }
-            Spacer(GlanceModifier.height(8.dp))
+            // Dziś: minione lekcje schowane (licznik w nagłówku) — mały widżet od razu
+            // pokazuje to, co ważne, zamiast listy od pierwszej lekcji.
+            val visible = if (state.isToday) state.lessons.drop(state.focusIndex) else state.lessons
+            val pastCount = if (state.isToday) state.focusIndex else 0
+            if (pastCount > 0) {
+                Text(
+                    "$pastCount ${lessonsWord(pastCount)} za Tobą",
+                    style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp),
+                    modifier = GlanceModifier.padding(top = 2.dp)
+                )
+            }
+            Spacer(GlanceModifier.height(6.dp))
             LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
-                items(state.lessons.withIndex().toList(), itemId = { it.value.number.toLong() }) { (index, lesson) ->
+                items(visible, itemId = { it.number.toLong() }) { lesson ->
                     LessonRow(
                         lesson = lesson,
-                        highlighted = index == state.focusIndex,
-                        past = state.isToday && index < state.focusIndex
+                        highlighted = lesson.number == state.focus.number,
+                        past = false
                     )
                 }
             }
@@ -99,15 +115,18 @@ class DayPlanWidget : GlanceAppWidget() {
             highlighted -> WidgetColors.onAccentContainer
             else -> WidgetColors.textPrimary
         }
+        // Tło ZAWSZE ustawione (przezroczyste bez podświetlenia). Widżety z listą ponownie używają
+        // widoków wierszy — tło ustawiane tylko warunkowo zostawało na innych lekcjach
+        // ("losowe" niebieskie tła).
         val rowBg = when {
-            !highlighted -> null
+            !highlighted -> WidgetColors.transparent
             lesson.isSubstitution -> WidgetColors.substitutionContainer
             else -> WidgetColors.accentContainer
         }
-        var rowModifier = GlanceModifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp)
-        if (rowBg != null) rowModifier = GlanceModifier.fillMaxWidth().background(rowBg).cornerRadius(10.dp)
+        val rowModifier = GlanceModifier.fillMaxWidth().background(rowBg).cornerRadius(10.dp)
             .padding(horizontal = 8.dp, vertical = 5.dp)
-        Column(GlanceModifier.fillMaxWidth().padding(bottom = 2.dp)) {
+        // Dotknięcie lekcji otwiera aplikację (na obszarze listy klik całego widżetu nie działa).
+        Column(GlanceModifier.fillMaxWidth().padding(bottom = 2.dp).clickable(openAppAction())) {
             Row(rowModifier, verticalAlignment = Alignment.Vertical.CenterVertically) {
                 Text("${lesson.number}", modifier = GlanceModifier.width(22.dp),
                     style = TextStyle(color = numberColor, fontSize = 15.sp, fontWeight = FontWeight.Bold))
@@ -115,10 +134,20 @@ class DayPlanWidget : GlanceAppWidget() {
                     Text(lesson.title, style = TextStyle(color = titleColor, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                     val meta = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
                     Text(meta, style = TextStyle(color = if (past) WidgetColors.textFaded else WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
+                    lesson.note?.let {
+                        Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    }
                 }
             }
         }
     }
+}
+
+/** Polska odmiana: 1 lekcja, 2-4 lekcje, 5+ lekcji (12-14 lekcji). */
+internal fun lessonsWord(n: Int): String = when {
+    n == 1 -> "lekcja"
+    n % 10 in 2..4 && n % 100 !in 12..14 -> "lekcje"
+    else -> "lekcji"
 }
 
 class DayPlanWidgetReceiver : GlanceAppWidgetReceiver() {

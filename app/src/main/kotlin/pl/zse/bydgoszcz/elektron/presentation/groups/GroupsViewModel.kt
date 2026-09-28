@@ -12,11 +12,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import java.time.LocalDate
 import javax.inject.Inject
@@ -46,8 +49,6 @@ class GroupsViewModel @Inject constructor(
     )
 
     private val retrying = MutableStateFlow(false)
-    private val rangeStart = LocalDate.now().minusDays(7)
-    private val rangeEnd = LocalDate.now().plusDays(28)
 
     private data class Inputs(
         val classId: String?,
@@ -55,10 +56,11 @@ class GroupsViewModel @Inject constructor(
         val selections: Map<String, String>
     )
 
-    private val inputs = settings.selectedClassId.flatMapLatest { cid ->
+    // Zakres od bieżącej daty (ViewModel żyje przez cały czas działania aplikacji).
+    private val inputs = combine(settings.selectedClassId, currentDateFlow()) { cid, day -> cid to day }.flatMapLatest { (cid, day) ->
         if (cid == null) flowOf(Inputs(null, emptyList(), emptyMap()))
         else combine(
-            timetableRepo.observeLessons(cid, rangeStart, rangeEnd),
+            timetableRepo.observeLessons(cid, day.minusDays(7), day.plusDays(28)),
             settings.groupSelections(cid)
         ) { lessons, sel -> Inputs(cid, lessons, sel) }
     }
@@ -85,13 +87,28 @@ class GroupsViewModel @Inject constructor(
             selections = inp.selections,
             retrying = retry
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
     /** choice == null: pokazuj wszystkie grupy; LessonGroups.NONE: nie chodzę. */
     fun setChoice(subject: String, choice: String?) {
         val cid = state.value.classId ?: return
         viewModelScope.launch {
             settings.setGroupSelection(cid, subject, choice)
+            widgetUpdater.requestUpdate()
+        }
+    }
+
+    /**
+     * Szybki wybór dla całego typu podziału (np. "1/2" dla wszystkich przedmiotów dzielonych
+     * na 2 grupy). [option] == null -> "Wszystkie".
+     */
+    fun applyDivision(key: String, option: String?) {
+        val s = state.value
+        val cid = s.classId ?: return
+        viewModelScope.launch {
+            LessonGroups.applyDivision(s.subjects, key, option).forEach { (subject, choice) ->
+                settings.setGroupSelection(cid, subject, choice)
+            }
             widgetUpdater.requestUpdate()
         }
     }

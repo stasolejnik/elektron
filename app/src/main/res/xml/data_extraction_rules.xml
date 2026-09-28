@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kopia zapasowa (Android 12+): ustawienia (DataStore: klasa, grupy, motyw, powiadomienia)
+  są przywracane na nowym telefonie. Baza Room to tylko cache ze strony szkoły + stan
+  synchronizacji — wykluczona, żeby po przywróceniu nie było starych danych, a pierwszy sync
+  zbudował stan od nowa (bez lawiny powiadomień).
+-->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
     </device-transfer>
 </data-extraction-rules>

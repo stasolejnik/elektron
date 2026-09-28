@@ -3,6 +3,8 @@
      updatePeriodMillis (30 min) to tylko zabezpieczenie. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_next_lesson_desc"
+    android:previewLayout="@layout/widget_preview_next_lesson"
+    android:previewImage="@drawable/ic_logo"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="110dp"
     android:minHeight="110dp"

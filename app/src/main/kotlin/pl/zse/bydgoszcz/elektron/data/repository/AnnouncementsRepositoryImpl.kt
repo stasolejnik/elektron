@@ -3,8 +3,13 @@ package pl.zse.bydgoszcz.elektron.data.repository
 import android.util.Log
 import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import pl.zse.bydgoszcz.elektron.data.local.AnnouncementDao
@@ -48,12 +53,19 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                 dao.upsertAll(entities)
                 dao.deleteDevEntries()
             }
-            dao.deleteOlderThan(Instant.now().minusSeconds(60L * 60 * 24 * 180).epochSecond)
+            // 2 lata (dawniej 180 dni) — inaczej sync kasowałby starsze ogłoszenia
+            // wczytane z archiwum przez "Pokaż więcej".
+            dao.deleteOlderThan(Instant.now().minusSeconds(60L * 60 * 24 * 730).epochSecond)
         }
     }
 
     override fun observeAll(): Flow<List<Announcement>> =
-        dao.observeAll().map { list -> list.map(AnnouncementMapper::toDomain) }
+        dao.observeAll().map { list -> list.map(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
+
+    override fun observeLatest(limit: Int): Flow<List<Announcement>> =
+        dao.observeLatest(limit).map { list -> list.map(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
+
+    override suspend fun count(): Int = withContext(Dispatchers.IO) { dao.count() }
 
 
     override suspend fun loadFullArticle(id: String): Result<Unit> = withContext(Dispatchers.IO) {
@@ -87,5 +99,64 @@ class AnnouncementsRepositoryImpl @Inject constructor(
         )))
     }
 
-    companion object { private const val TAG = "AnnouncementsRepositoryImpl" }
+    // Następna strona archiwum do pobrania (w pamięci procesu; po restarcie szacowana z bazy).
+    private var nextArchivePage: Int? = null
+    private val archiveMutex = kotlinx.coroutines.sync.Mutex()
+
+    override suspend fun loadOlder(): Result<AnnouncementsRepository.OlderResult> = withContext(Dispatchers.IO) {
+        runCatching {
+            archiveMutex.withLock {
+                // Pierwsze strony archiwum pokrywają się z RSS. Startujemy od strony wynikającej
+                // z liczby zapisanych ogłoszeń (5 wpisów na stronę), z zapasem 2 stron.
+                var page = nextArchivePage ?: maxOf(1, dao.count() / ARCHIVE_PAGE_SIZE - 2)
+                var added = 0
+                var pagesChecked = 0
+                while (added == 0 && pagesChecked < MAX_PAGES_PER_CALL) {
+                    val items = source.fetchArchivePage(page)
+                    pagesChecked++
+                    if (items.isEmpty()) {
+                        nextArchivePage = page
+                        return@withLock AnnouncementsRepository.OlderResult(0, exhausted = true)
+                    }
+                    val known = dao.existingUrls(items.map { it.url }).toSet()
+                    val fresh = items.filter { it.url !in known }
+                    if (fresh.isNotEmpty()) {
+                        // Daty tylko dla nowych wpisów, równolegle (najwyżej 5 zapytań).
+                        val dates = coroutineScope {
+                            fresh.map { item -> async { runCatching { source.fetchArticleDate(item.url) }.getOrNull() } }
+                                .awaitAll()
+                        }
+                        val entities = fresh.mapIndexed { i, item ->
+                            AnnouncementEntity(
+                                id = item.url,
+                                title = item.title,
+                                url = item.url,
+                                // Bez daty: tuż przed najstarszym znanym, żeby zachować kolejność listy.
+                                publishedAtEpochSeconds = (dates[i] ?: fallbackDate()).epochSecond,
+                                excerpt = item.excerpt,
+                                coverImageUrl = item.imageUrl,
+                                fullHtml = null,
+                                isRead = false,
+                                source = AnnouncementSource.RSS_NEWS.name
+                            )
+                        }
+                        dao.upsertAll(entities)
+                        added = entities.size
+                    }
+                    page++
+                }
+                nextArchivePage = page
+                AnnouncementsRepository.OlderResult(added, exhausted = false)
+            }
+        }
+    }
+
+    private suspend fun fallbackDate(): Instant =
+        dao.oldestEpochSeconds()?.let { Instant.ofEpochSecond(it - 60) } ?: Instant.now()
+
+    companion object {
+        private const val TAG = "AnnouncementsRepositoryImpl"
+        private const val ARCHIVE_PAGE_SIZE = 5
+        private const val MAX_PAGES_PER_CALL = 6
+    }
 }

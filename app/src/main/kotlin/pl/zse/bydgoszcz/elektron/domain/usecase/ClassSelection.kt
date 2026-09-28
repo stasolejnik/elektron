@@ -39,7 +39,8 @@ class ClassSelection @Inject constructor(
     private val substitutionsRepo: SubstitutionsRepository,
     private val announcementsRepo: AnnouncementsRepository,
     private val notificationsRepo: NotificationsRepository,
-    private val widgetUpdater: WidgetUpdater
+    private val widgetUpdater: WidgetUpdater,
+    private val db: pl.zse.bydgoszcz.elektron.data.local.AppDatabase
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
@@ -52,6 +53,22 @@ class ClassSelection @Inject constructor(
             // Czekamy na pełne zakończenie poprzedniego (łącznie z finally), żeby jego
             // "pending = false" nie nadpisało "pending = true" nowego syncu.
             previous?.cancelAndJoin()
+            run(classId)
+        }
+    }
+
+    /**
+     * Czyści lokalną bazę (cache ze strony szkoły + stan synchronizacji) i pobiera dane
+     * od nowa. Ustawienia (DataStore: klasa, grupy, motyw) zostają. Wyczyszczony stan
+     * synchronizacji oznacza, że pierwszy sync tylko go odbuduje — bez lawiny powiadomień.
+     */
+    @Synchronized
+    fun resetCacheAndResync(classId: String) {
+        val previous = job
+        job = scope.launch {
+            previous?.cancelAndJoin()
+            db.clearAllTables()
+            timetableRepo.syncSidebar()
             run(classId)
         }
     }

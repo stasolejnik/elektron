@@ -12,26 +12,66 @@ import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.BuildConfig
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
+import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
+import pl.zse.bydgoszcz.elektron.presentation.navigation.ElektronRoutes
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 @HiltViewModel
 class ElektronAppViewModel @Inject constructor(
-    private val settings: SettingsRepository
+    private val settings: SettingsRepository,
+    private val timetableRepo: TimetableRepository
 ) : ViewModel() {
 
     data class AppState(
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
-        val dynamicColor: Boolean = true,
+        val dynamicColor: Boolean = false,
         val selectedClassId: String? = null,
         /** Klasa, dla której przeszedł krok wyboru grup — różna od selectedClassId => pokaż krok. */
         val groupsConfiguredFor: String? = null,
         val isReady: Boolean = false,
-        val changelogToShow: List<Changelog.Entry> = emptyList()
+        val changelogToShow: List<Changelog.Entry> = emptyList(),
+        /** Sekcja otwierana przy starcie (inteligentny start). */
+        val startRoute: String = ElektronRoutes.DASHBOARD
     )
 
     private val currentVersionCode = BuildConfig.VERSION_CODE
 
+    // Sekcja startowa ustalana raz, przy utworzeniu (uruchomieniu aplikacji). Ekran ładowania
+    // czeka na nią, żeby nie było mignięcia strony głównej i przeskoku na plan.
+    private val startRoute = MutableStateFlow<String?>(null)
+
+    init {
+        viewModelScope.launch {
+            startRoute.value = withTimeoutOrNull(1_500) { decideStartRoute() } ?: ElektronRoutes.DASHBOARD
+        }
+    }
+
+    /**
+     * Inteligentny start: w godzinach lekcji (od 10 min przed pierwszą do końca ostatniej,
+     * po filtrze grup) — Plan lekcji; poza nimi — Strona główna.
+     */
+    private suspend fun decideStartRoute(): String = runCatching {
+        if (!settings.smartStart.first()) return@runCatching ElektronRoutes.DASHBOARD
+        val cid = settings.selectedClassId.first() ?: return@runCatching ElektronRoutes.DASHBOARD
+        val today = LocalDate.now()
+        val now = LocalTime.now()
+        val lessons = LessonGroups.filter(
+            timetableRepo.getLessonsOnce(cid, today, today),
+            settings.groupSelections(cid).first()
+        )
+        if (lessons.isEmpty()) return@runCatching ElektronRoutes.DASHBOARD
+        val from = lessons.minOf { it.timeFrom }.minusMinutes(10)
+        val to = lessons.maxOf { it.timeTo }
+        if (now in from..to) ElektronRoutes.TIMETABLE else ElektronRoutes.DASHBOARD
+    }.getOrDefault(ElektronRoutes.DASHBOARD)
+
     val state: StateFlow<AppState> = combine(
+        combine(
         settings.themeMode,
         settings.dynamicColor,
         settings.selectedClassId,
@@ -43,6 +83,10 @@ class ElektronAppViewModel @Inject constructor(
         } else emptyList()
         AppState(themeMode = theme, dynamicColor = dynamic, selectedClassId = classId,
             groupsConfiguredFor = groupsFor, isReady = true, changelogToShow = entriesToShow)
+    },
+        startRoute
+    ) { app, route ->
+        if (route == null) app.copy(isReady = false) else app.copy(startRoute = route)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppState(isReady = false))
 
     fun markChangelogSeen() {

@@ -1,24 +1,44 @@
-*.iml
+# --- Gradle / Android Studio ---
 .gradle/
-/local.properties
-/.idea/
-.DS_Store
-/build
+.kotlin/
+build/
 /captures
 .externalNativeBuild
 .cxx
+*.iml
+/.idea/
 local.properties
-app/build/
 
-# Podpis release — klucz i hasła nigdy nie trafiają do repozytorium
+# --- Gotowe paczki (trafiają do GitHub Releases, nie do repo) ---
+*.apk
+*.aab
+*.idsig
+/app/release/
+/app/gms/
+/app/foss/
+
+# --- Podpis release: klucz i hasła nigdy nie trafiają do repozytorium ---
 keystore.properties
 *.jks
 *.keystore
 
-# Konfiguracja Firebase — w publicznym repo trzymamy ją lokalnie (kopia zapasowa poza repo).
-# Świeży klon potrzebuje własnego pliku — patrz README / PORADNIK_PUSH.md.
+# --- Konfiguracja Firebase: trzymana lokalnie (kopia zapasowa poza repo) ---
+# Świeży klon potrzebuje własnego pliku - patrz README / PORADNIK_PUSH.md.
 app/google-services.json
 
-# Pliki lokalne (nie do repozytorium)
+# --- Pliki lokalne ---
 AI_CONTEXT.md
 update*.sh
+fix_*.sh
+*.txrt
+
+# --- Zrzuty i raporty awarii JVM (mogą mieć setki MB) ---
+hs_err_pid*.log
+replay_pid*.log
+core.[0-9]*
+*.hprof
+
+# --- System ---
+.DS_Store
+Thumbs.db
+*~

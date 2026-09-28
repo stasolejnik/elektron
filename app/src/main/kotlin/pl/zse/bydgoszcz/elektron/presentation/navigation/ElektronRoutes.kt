@@ -6,5 +6,4 @@ object ElektronRoutes {
     const val SUBSTITUTIONS = "substitutions"
     const val ANNOUNCEMENTS = "announcements"
     const val SETTINGS = "settings"
-    const val GROUPS = "groups"
 }

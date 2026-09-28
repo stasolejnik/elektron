@@ -34,6 +34,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.Job
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.runtime.rememberCoroutineScope
@@ -58,7 +61,7 @@ fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit): Modifier =
     val alpha by animateFloatAsState(if (pressed) 0.85f else 1f, label = "pressAlpha")
     this
         .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
-        .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
+        .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
 }
 
 /** Karta z domyślnym tłem powierzchni (biała / #1C1C1E), bez cienia. */
@@ -83,7 +86,8 @@ fun ElektronCard(
 @Composable
 fun SectionTitle(title: String, icon: ImageVector? = null, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().padding(start = 4.dp, top = 20.dp, bottom = 8.dp),
+        modifier.fillMaxWidth().padding(start = 4.dp, top = 20.dp, bottom = 8.dp)
+            .semantics(mergeDescendants = true) { heading() },
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {
@@ -140,7 +144,7 @@ fun LargeTitleBar(
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
 ) {
     LargeTopAppBar(
-        title = { Text(title) },
+        title = { Text(title, modifier = Modifier.semantics { heading() }) },
         actions = actions,
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.largeTopAppBarColors(

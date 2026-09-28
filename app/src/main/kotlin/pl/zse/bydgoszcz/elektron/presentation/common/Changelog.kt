@@ -6,6 +6,22 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 12,
+            versionName = "0.5.0-alpha",
+            items = listOf(
+                "Przesuń palcem w lewo lub prawo, aby przejść do innej sekcji",
+                "Plan: przesuń w górę - następny dzień, w dół - poprzedni; po lekcjach od razu następny dzień",
+                "Grupy: szybki wybór dla całego podziału, np. 1/2 dla wszystkich przedmiotów",
+                "Strona główna (dawniej Start): pasek postępu lekcji i przerwy, informacja o nowej wersji",
+                "Widżety: nowy widżet Zastępstwa, przerwy, kolory motywu i tapety, dotknięcie lekcji otwiera aplikację",
+                "Kafelek w szybkich ustawieniach; w godzinach lekcji aplikacja otwiera się na planie",
+                "Ogłoszenia: wyszukiwanie i starsze wpisy z archiwum strony szkoły",
+                "Zastępstwa: na pierwszym planie nauczyciel zastępujący, uwagi widoczne w planie i widżetach",
+                "Ustawienia: kolory z tapety i Wyczyść dane podręczne",
+                "Wersja bez usług Google (dla F-Droid), płynniejsze działanie i poprawki"
+            )
+        ),
+        Entry(
             versionCode = 11,
             versionName = "0.4.0-alpha",
             items = listOf(

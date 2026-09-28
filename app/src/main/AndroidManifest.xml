@@ -22,6 +22,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:exported="true"
             android:theme="@style/Theme.Elektron"
             android:windowSoftInputMode="adjustResize">
@@ -58,12 +59,31 @@
                 android:resource="@xml/widget_day_plan_info" />
         </receiver>
 
-        <service
-            android:name=".work.ElektronFirebaseMessagingService"
-            android:exported="false">
+        <receiver
+            android:name=".widget.SubstitutionsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_substitutions_name">
             <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_substitutions_info" />
+        </receiver>
+
+        <!-- Kafelek w szybkich ustawieniach: najbliższa lekcja. -->
+        <service
+            android:name=".widget.NextLessonTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_elektron"
+            android:label="@string/tile_next_lesson"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="false" />
         </service>
 
         <provider

@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import androidx.room.withTransaction
@@ -78,6 +79,10 @@ class TimetableRepositoryImpl @Inject constructor(
                     lessonDao.upsertAll(lessons)
                     lessonGroupDao.upsertAll(groups)
                 }
+                // Dawniej stare tygodnie zostawały w bazie na zawsze (tysiące wierszy po roku).
+                // Nigdy nie kasujemy właśnie synchronizowanego tygodnia (przewinięcie daleko wstecz).
+                val cutoff = minOf(monday, LocalDate.now().minusWeeks(KEEP_PAST_WEEKS))
+                lessonDao.deleteOlderThan(cutoff.toEpochDay())
             }
         }
 
@@ -102,7 +107,7 @@ class TimetableRepositoryImpl @Inject constructor(
             substitutionDao.observeForRange(fromDay, toDay)
         ) { lessonEntities, subEntities ->
             assembleLessons(lessonEntities, subEntities)
-        }
+        }.flowOn(Dispatchers.Default) // składanie lekcji poza wątkiem UI (płynność pagera)
     }
 
     override fun observeAllLessons(from: LocalDate, to: LocalDate): Flow<List<Lesson>> {
@@ -113,7 +118,7 @@ class TimetableRepositoryImpl @Inject constructor(
             substitutionDao.observeForRange(fromDay, toDay)
         ) { lessonEntities, subEntities ->
             assembleLessons(lessonEntities, subEntities)
-        }
+        }.flowOn(Dispatchers.Default) // składanie lekcji poza wątkiem UI (płynność pagera)
     }
 
     private suspend fun assembleLessons(
@@ -166,6 +171,8 @@ class TimetableRepositoryImpl @Inject constructor(
         private const val TAG = "TimetableRepositoryImpl"
         /** Ile tygodni do przodu zapisujemy szablon planu (4 tyg. > 21-dniowy zakres Startu). */
         private const val WEEKS_AHEAD = 4
+        /** Ile tygodni wstecz trzymamy plan (przeglądanie poprzednich tygodni w planie). */
+        private const val KEEP_PAST_WEEKS = 8L
         private val CLASS_COMPARATOR = Comparator<SchoolClass> { a, b ->
             val (na, la, ra) = classKey(a.fullName)
             val (nb, lb, rb) = classKey(b.fullName)

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
+import androidx.glance.action.Action
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
@@ -24,12 +25,12 @@ import pl.zse.bydgoszcz.elektron.MainActivity
 private val ShortcutKey = ActionParameters.Key<String>("elektron_shortcut")
 
 /**
- * Tło widżetu: zaokrąglona karta (22 dp jak widżety iOS), dotknięcie otwiera Plan lekcji.
+ * Tło widżetu: zaokrąglona karta (22 dp jak widżety iOS), dotknięcie otwiera stronę główną.
  * actionStartActivity z jawnie podanymi parametrami — to jednoznacznie wybiera stabilne
  * przeciążenie (bez parametru Intent, na którym wyłożyły się poprzednie widżety).
  */
 @Composable
-fun WidgetContainer(content: @Composable () -> Unit) {
+fun WidgetContainer(target: String = "dashboard", content: @Composable () -> Unit) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -37,7 +38,7 @@ fun WidgetContainer(content: @Composable () -> Unit) {
             .background(WidgetColors.background)
             .cornerRadius(22.dp)
             .padding(14.dp)
-            .clickable(actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to "timetable"))),
+            .clickable(actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to target))),
         content = content
     )
 }
@@ -51,3 +52,7 @@ fun WidgetMessage(text: String) {
         )
     }
 }
+
+/** Otwarcie aplikacji na stronie głównej — także z wierszy list w widżetach. */
+fun openAppAction(): Action =
+    actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to "dashboard"))

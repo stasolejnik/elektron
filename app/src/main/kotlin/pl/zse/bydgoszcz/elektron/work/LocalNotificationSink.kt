@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import pl.zse.bydgoszcz.elektron.MainActivity
 import pl.zse.bydgoszcz.elektron.R
+import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import javax.inject.Inject
@@ -57,21 +58,38 @@ class LocalNotificationSink @Inject constructor(
         val roomShort = sub.roomOrInfo.take(40)
         val subName = sub.substituteTeacher ?: "brak zastępcy"
         val title = "Nowe zastępstwo - ${sub.lessonNumber} lekcja, $subName, $roomShort"
+        val day = dayLabel(sub.date)
+        // Zwinięte: jedna linia z dniem. Rozwinięte: pełne szczegóły w osobnych liniach.
         val detail = buildString {
-            append("Zastępuje: ${sub.originalTeacher}")
+            append("$day • Zastępuje: ${sub.originalTeacher}")
             originalSubject?.let { append(" • $it") }
             sub.notes?.let { append(" • $it") }
         }
+        val expanded = buildString {
+            append("Kiedy: $day, ${sub.lessonNumber} lekcja")
+            sub.groupNumber?.let { append(" (grupa $it)") }
+            append("\nZastępuje: ${sub.originalTeacher}")
+            originalSubject?.let { append(" • $it") }
+            append("\nZastępca: $subName")
+            append("\nSala / informacja: ${sub.roomOrInfo}")
+            sub.notes?.let { append("\nUwagi: $it") }
+        }
         val pi = PendingIntent.getActivity(
             context, sub.id.hashCode(), deepLinkIntent("substitutions"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val showInPlan = PendingIntent.getActivity(
+            context, sub.id.hashCode() xor 0x5A5A, deepLinkIntent("timetable"),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val n = NotificationCompat.Builder(context, CHANNEL_SUBSTITUTIONS)
             .setSmallIcon(R.drawable.ic_stat_elektron)
             .setContentTitle(title)
             .setContentText(detail)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
             .setContentIntent(pi)
+            .addAction(0, "Pokaż w planie", showInPlan)
+            .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
@@ -83,10 +101,14 @@ class LocalNotificationSink @Inject constructor(
         val body = ann.excerpt ?: ann.title
         // Bezpośrednio do przeglądarki — dawniej przez MainActivity, która najpierw
         // uruchamiała appkę, a potem przekierowywała (mignięcie ekranu appki).
-        val browser = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(ann.url))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Tylko bezpieczne adresy http(s); inaczej otwieramy sekcję Ogłoszeń w aplikacji.
+        val target = if (SafeUrls.isWebUrl(ann.url)) {
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(ann.url.trim()))
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        } else deepLinkIntent("announcements")
         val pi = PendingIntent.getActivity(
-            context, ann.id.hashCode(), browser,
+            context, ann.id.hashCode(), target,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val n = NotificationCompat.Builder(context, CHANNEL_ANNOUNCEMENTS)
@@ -117,6 +139,17 @@ class LocalNotificationSink @Inject constructor(
             .setAutoCancel(true)
             .build()
         safeNotify(title.hashCode(), n)
+    }
+
+    private fun dayLabel(date: java.time.LocalDate): String {
+        val today = java.time.LocalDate.now()
+        val pl = java.util.Locale("pl", "PL")
+        return when (date) {
+            today -> "Dziś"
+            today.plusDays(1) -> "Jutro"
+            else -> date.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, pl)
+                .replaceFirstChar { it.titlecase(pl) } + " " + date.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM"))
+        }
     }
 
     private fun deepLinkIntent(route: String): Intent =

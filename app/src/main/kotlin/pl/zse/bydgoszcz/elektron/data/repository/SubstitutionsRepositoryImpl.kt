@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import pl.zse.bydgoszcz.elektron.data.local.AppDatabase
@@ -49,7 +50,7 @@ class SubstitutionsRepositoryImpl @Inject constructor(
         dao.observeForDay(day.toEpochDay()).map { it.map(SubstitutionMapper::toDomain) }
 
     override fun observeFrom(day: LocalDate): Flow<List<Substitution>> =
-        dao.observeFromDay(day.toEpochDay()).map { it.map(SubstitutionMapper::toDomain) }
+        dao.observeFromDay(day.toEpochDay()).map { it.map(SubstitutionMapper::toDomain) }.flowOn(Dispatchers.Default)
 
     override suspend fun getForClassAndDay(classShortName: String, day: LocalDate): List<Substitution> =
         withContext(Dispatchers.IO) {

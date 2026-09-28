@@ -46,6 +46,8 @@ class WidgetUpdater @Inject constructor(
         runCatching {
             NextLessonWidget().updateAll(context)
             DayPlanWidget().updateAll(context)
+            SubstitutionsWidget().updateAll(context)
+            NextLessonTileService.requestUpdate(context)
         }.onFailure { Log.w(TAG, "Nie udało się odświeżyć widżetów", it) }
     }
 

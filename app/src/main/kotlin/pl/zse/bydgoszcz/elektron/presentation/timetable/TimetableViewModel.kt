@@ -17,18 +17,28 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
-import pl.zse.bydgoszcz.elektron.domain.model.SchoolClass
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
+/**
+ * Plan lekcji jako strony (HorizontalPager): każda strona to dzień szkolny albo tydzień.
+ *
+ * Dane tygodnia są udostępniane na żądanie ([week]) i buforowane per poniedziałek, więc
+ * sąsiednie strony są gotowe, zanim palec do nich dojedzie, a powrót jest natychmiastowy.
+ * Strona startowa ([START_PAGE]) odpowiada [baseDate] — dniowi otwarcia ekranu.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class TimetableViewModel @Inject constructor(
@@ -44,75 +54,79 @@ class TimetableViewModel @Inject constructor(
 
     data class State(
         val selectedClassId: String? = null,
-        val className: String? = null,
         val mode: ViewMode = ViewMode.DAY,
         val anchorDate: LocalDate = LocalDate.now(),
-        val lessonsToday: List<Lesson> = emptyList(),
-        val weekDays: List<DayColumn> = emptyList(),
-        val isLoading: Boolean = true,
-        val classes: List<SchoolClass> = emptyList(),
         val isRefreshing: Boolean = false
     )
 
-    private val anchor = MutableStateFlow(initialAnchor())
+    /** Dzień szkolny, od którego liczone są strony (dziś; w weekend — najbliższy poniedziałek). */
+    val baseDate: LocalDate = initialAnchor()
+
+    private val anchor = MutableStateFlow(baseDate)
     private val mode = MutableStateFlow(ViewMode.DAY)
     private val refreshing = MutableStateFlow(false)
 
+    private val _syncingWeek = MutableStateFlow<LocalDate?>(null)
+    /** Poniedziałek tygodnia, który właśnie się pobiera (brakował w bazie) — do stanu "ładowanie". */
+    val syncingWeek: StateFlow<LocalDate?> = _syncingWeek
+
+    /** Bieżąca data (do ustawienia strony startowej pagera po zmianie trybu). */
+    val currentAnchor: LocalDate get() = anchor.value
+
     init {
-        // Bug audytu #10: sync sieciowy odpalany jako efekt uboczny wewnątrz flatMapLatest
-        // był trudny do przetestowania i kruchy przy zmianach wyżej w łańcuchu Flow.
-        // Osobny strumień (cid, poniedziałek tygodnia) z distinctUntilChanged synchronizuje
-        // dokładnie wtedy, gdy klasa albo oglądany tydzień faktycznie się zmienia.
+        // Sync tylko gdy oglądanego tygodnia brakuje w bazie (plan zapisywany jest na
+        // 4 tygodnie naraz, świeżość zapewnia SyncWorker i odświeżanie ręczne).
         combine(settings.selectedClassId, anchor) { cid, day -> cid to day.with(JavaDayOfWeek.MONDAY) }
             .distinctUntilChanged()
             .onEach { (cid, monday) ->
                 if (cid == null) return@onEach
-                // Optymalizacja: plan zapisywany jest na 4 tygodnie naraz, a świeżość
-                // zapewnia SyncWorker (15 min) + odświeżanie ręczne. Do serwera szkoły
-                // idziemy tylko gdy oglądanego tygodnia faktycznie brakuje w bazie.
-                if (!repo.hasLessons(cid, monday, monday.plusDays(4))) repo.syncTimetable(cid, monday)
+                if (!repo.hasLessons(cid, monday, monday.plusDays(4))) {
+                    _syncingWeek.value = monday
+                    try { repo.syncTimetable(cid, monday) } finally { _syncingWeek.value = null }
+                }
             }
             .launchIn(viewModelScope)
     }
 
-    val state: StateFlow<State> = combine(
-        settings.selectedClassId,
-        anchor,
-        mode,
-        repo.observeClasses()
-    ) { cid, day, m, classes -> Quad(cid, day, m, classes) }
-        .flatMapLatest { q ->
-            val cid = q.cid
-            if (cid == null) {
-                flowOf(State(selectedClassId = null, anchorDate = q.day, mode = q.mode,
-                    isLoading = false, classes = q.classes))
-            } else {
-                val monday = q.day.with(JavaDayOfWeek.MONDAY)
-                val friday = monday.plusDays(4)
-                // Tylko grupy, na które użytkownik chodzi (lekcje bez podziału zawsze).
-                combine(
-                    repo.observeLessons(cid, monday, friday),
-                    settings.activeGroupSelections
-                ) { raw, sel -> LessonGroups.filter(raw, sel) }.map { lessons ->
-                    val days = (0L..4L).map { i ->
-                        val d = monday.plusDays(i)
-                        DayColumn(d, d.dayOfWeek, lessons.filter { it.date == d }.sortedBy { it.number })
-                    }
-                    State(
-                        selectedClassId = cid,
-                        className = lessons.firstOrNull()?.className,
-                        mode = q.mode,
-                        anchorDate = q.day,
-                        lessonsToday = lessons.filter { it.date == q.day }.sortedBy { it.number },
-                        weekDays = days,
-                        isLoading = false,
-                        classes = q.classes
-                    )
+    val state: StateFlow<State> = combine(settings.selectedClassId, anchor, mode, refreshing) { cid, day, m, r ->
+        State(selectedClassId = cid, mode = m, anchorDate = day, isRefreshing = r)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State(anchorDate = baseDate))
+
+    private val weekCache = HashMap<LocalDate, StateFlow<List<DayColumn>?>>()
+
+    /**
+     * Lekcje tygodnia od [monday] (po filtrze grup). null = jeszcze nie wczytane.
+     * Buforowane per poniedziałek — sąsiednie strony pagera korzystają z gotowych danych.
+     */
+    fun week(monday: LocalDate): StateFlow<List<DayColumn>?> = weekCache.getOrPut(monday) {
+        settings.selectedClassId.flatMapLatest { cid ->
+            if (cid == null) flowOf(emptyList())
+            else combine(
+                repo.observeLessons(cid, monday, monday.plusDays(4)),
+                settings.activeGroupSelections
+            ) { raw, sel -> LessonGroups.filter(raw, sel) }.map { lessons ->
+                (0L..4L).map { i ->
+                    val d = monday.plusDays(i)
+                    DayColumn(d, d.dayOfWeek, lessons.filter { it.date == d }.sortedBy { it.number })
                 }
             }
-        }
-        .combine(refreshing) { s, r -> s.copy(isRefreshing = r) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
+
+    fun setMode(m: ViewMode) {
+        if (mode.value != m) mode.value = m
+    }
+
+    /** Pager zatrzymał się na stronie dnia [date]. */
+    fun onDaySettled(date: LocalDate) {
+        anchor.value = date
+    }
+
+    /** Pager zatrzymał się na tygodniu od [monday] — zachowujemy dzień tygodnia z poprzedniej daty. */
+    fun onWeekSettled(monday: LocalDate) {
+        val weekdayIndex = (anchor.value.dayOfWeek.value - 1).coerceIn(0, 4)
+        anchor.value = monday.plusDays(weekdayIndex.toLong())
+    }
 
     /**
      * Pull-to-refresh: wymusza pobranie planu dla oglądanego tygodnia (pomija cache)
@@ -140,46 +154,70 @@ class TimetableViewModel @Inject constructor(
         }
     }
 
-    private data class Quad(val cid: String?, val day: LocalDate, val mode: ViewMode, val classes: List<SchoolClass>)
+    private fun initialAnchor(): LocalDate = nextSchoolDay(LocalDate.now())
 
-    fun setMode(m: ViewMode) {
-        if (mode.value == m) return
-        mode.value = m
+    /** Dzień otwierany domyślnie: dziś, a po ostatniej dzisiejszej lekcji (według grup) — następny. */
+    suspend fun preferredDay(): LocalDate {
+        val today = LocalDate.now()
+        val now = LocalTime.now()
+        val cid = settings.selectedClassId.first() ?: return nextSchoolDay(today)
+        val lessons = runCatching {
+            LessonGroups.filter(repo.getLessonsOnce(cid, today, today), settings.groupSelections(cid).first())
+        }.getOrDefault(emptyList())
+        return preferredDay(today, now, lessons.maxOfOrNull { it.timeTo })
     }
 
-    fun previous() {
-        anchor.value = when (mode.value) {
-            ViewMode.DAY -> skipWeekendBack(anchor.value.minusDays(1))
-            ViewMode.WEEK -> anchor.value.minusWeeks(1)
+    companion object {
+        /** Środek zakresu stron — wystarczy na lata przewijania w obie strony. */
+        const val START_PAGE = 5_000
+        const val PAGE_COUNT = START_PAGE * 2
+
+        /**
+         * Czysta reguła dnia domyślnego: weekend -> poniedziałek; dziś po ostatniej lekcji
+         * ([lastLessonEnd]) -> następny dzień szkolny; inaczej dziś.
+         */
+        fun preferredDay(today: LocalDate, now: LocalTime, lastLessonEnd: LocalTime?): LocalDate {
+            val start = nextSchoolDay(today)
+            if (start != today) return start
+            return if (lastLessonEnd != null && now >= lastLessonEnd) nextSchoolDay(today.plusDays(1)) else today
         }
-    }
 
-    fun next() {
-        anchor.value = when (mode.value) {
-            ViewMode.DAY -> skipWeekendFwd(anchor.value.plusDays(1))
-            ViewMode.WEEK -> anchor.value.plusWeeks(1)
+        fun nextSchoolDay(d: LocalDate): LocalDate = when (d.dayOfWeek) {
+            JavaDayOfWeek.SATURDAY -> d.plusDays(2)
+            JavaDayOfWeek.SUNDAY -> d.plusDays(1)
+            else -> d
         }
-    }
 
-    fun goToToday() { anchor.value = initialAnchor() }
+        /** Data dnia szkolnego dla strony (tryb dnia): weekendy pomijane. */
+        fun dayForPage(base: LocalDate, page: Int): LocalDate = addSchoolDays(base, page - START_PAGE)
 
-    private fun initialAnchor(): LocalDate {
-        val t = LocalDate.now()
-        return when (t.dayOfWeek) {
-            JavaDayOfWeek.SATURDAY -> t.plusDays(2)
-            JavaDayOfWeek.SUNDAY -> t.plusDays(1)
-            else -> t
+        fun pageForDay(base: LocalDate, date: LocalDate): Int =
+            START_PAGE + schoolDaysBetween(base, nextSchoolDay(date))
+
+        /** Poniedziałek tygodnia dla strony (tryb tygodnia). */
+        fun mondayForPage(base: LocalDate, page: Int): LocalDate =
+            base.with(JavaDayOfWeek.MONDAY).plusWeeks((page - START_PAGE).toLong())
+
+        fun pageForWeek(base: LocalDate, date: LocalDate): Int =
+            START_PAGE + ChronoUnit.WEEKS.between(base.with(JavaDayOfWeek.MONDAY), date.with(JavaDayOfWeek.MONDAY)).toInt()
+
+        private fun addSchoolDays(start: LocalDate, n: Int): LocalDate {
+            // Pełne tygodnie od razu, reszta dniami — szybkie także dla odległych stron.
+            var d = start.plusWeeks((n / 5).toLong())
+            var rest = n % 5
+            val step = if (rest >= 0) 1L else -1L
+            while (rest != 0) {
+                d = d.plusDays(step)
+                if (d.dayOfWeek != JavaDayOfWeek.SATURDAY && d.dayOfWeek != JavaDayOfWeek.SUNDAY) {
+                    rest -= step.toInt()
+                }
+            }
+            return d
         }
-    }
 
-    private fun skipWeekendFwd(d: LocalDate): LocalDate {
-        var x = d
-        while (x.dayOfWeek == JavaDayOfWeek.SATURDAY || x.dayOfWeek == JavaDayOfWeek.SUNDAY) x = x.plusDays(1)
-        return x
-    }
-    private fun skipWeekendBack(d: LocalDate): LocalDate {
-        var x = d
-        while (x.dayOfWeek == JavaDayOfWeek.SATURDAY || x.dayOfWeek == JavaDayOfWeek.SUNDAY) x = x.minusDays(1)
-        return x
+        private fun schoolDaysBetween(from: LocalDate, to: LocalDate): Int {
+            val weeks = ChronoUnit.WEEKS.between(from.with(JavaDayOfWeek.MONDAY), to.with(JavaDayOfWeek.MONDAY)).toInt()
+            return weeks * 5 + (to.dayOfWeek.value - from.dayOfWeek.value)
+        }
     }
 }

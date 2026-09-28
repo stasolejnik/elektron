@@ -7,8 +7,14 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.first
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
+import java.time.Duration
+import pl.zse.bydgoszcz.elektron.domain.model.ClassNames
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
+import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -22,6 +28,7 @@ import java.util.Locale
 interface WidgetEntryPoint {
     fun settings(): SettingsRepository
     fun timetable(): TimetableRepository
+    fun substitutions(): SubstitutionsRepository
     fun widgetUpdater(): WidgetUpdater
 }
 
@@ -33,9 +40,25 @@ data class WidgetLesson(
     val room: String?,
     val timeFrom: LocalTime,
     val timeTo: LocalTime,
-    val isSubstitution: Boolean
+    val isSubstitution: Boolean,
+    /** Zastępstwo: informacja zamiast sali i uwagi ze strony ("za ostatnią lekcję"). */
+    val note: String? = null
 ) {
     val timeRange: String get() = "$timeFrom–$timeTo"
+}
+
+/** Zastępstwo przygotowane do widżetu. */
+data class WidgetSubstitution(
+    val dayLabel: String,
+    val lessonNumber: Int,
+    val title: String,
+    val detail: String,
+    val note: String? = null
+)
+
+sealed interface SubsWidgetState {
+    data object NoClass : SubsWidgetState
+    data class Ready(val className: String?, val items: List<WidgetSubstitution>) : SubsWidgetState
 }
 
 sealed interface WidgetState {
@@ -57,8 +80,15 @@ sealed interface WidgetState {
         val focusIsNow: Boolean,
         /** true = wyświetlany dzień to dziś (minione lekcje można przygaszać). */
         val isToday: Boolean,
-        /** Kiedy stan widżetu się zmieni (dzwonek / północ) — do zaplanowania odświeżenia. */
-        val nextChangeAt: LocalDateTime
+        /** Trwa przerwa: koniec poprzedniej lekcji (do paska postępu przerwy), inaczej null. */
+        val breakFrom: LocalTime?,
+        /** Kiedy stan widżetu się zmieni (dzwonek / północ). */
+        val nextChangeAt: LocalDateTime,
+        /**
+         * Kiedy odświeżyć widżet: przy zmianie stanu, a w trakcie lekcji i na godzinę przed
+         * zmianą co 5 min (pasek postępu i "Zostało X min" pozostają aktualne).
+         */
+        val refreshAt: LocalDateTime
     ) : WidgetState {
         val focus: WidgetLesson get() = lessons[focusIndex]
         val following: WidgetLesson? get() = lessons.getOrNull(focusIndex + 1)
@@ -72,15 +102,35 @@ object WidgetDataLoader {
     fun entryPoint(context: Context): WidgetEntryPoint =
         EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
 
+    /** Kolory widżetów według ustawień aplikacji (motyw, kolory z tapety). */
+    suspend fun palette(context: Context): WidgetPalette {
+        val ep = entryPoint(context)
+        val mode = runCatching { ep.settings().themeMode.first() }.getOrDefault(ThemeMode.SYSTEM)
+        val dynamic = runCatching { ep.settings().dynamicColor.first() }.getOrDefault(false)
+        return WidgetPalettes.create(context, mode, dynamic)
+    }
+
     suspend fun load(context: Context): WidgetState {
         val ep = entryPoint(context)
         val classId = ep.settings().selectedClassId.first() ?: return WidgetState.NoClass
         val groups = ep.settings().groupSelections(classId).first()
-        val today = LocalDate.now()
-        val now = LocalTime.now()
+        val nowDt = LocalDateTime.now()
+        val today = nowDt.toLocalDate()
         val lessons = runCatching {
             LessonGroups.filter(ep.timetable().getLessonsOnce(classId, today, today.plusDays(7)), groups)
         }.getOrDefault(emptyList())
+        return buildState(lessons, nowDt)
+    }
+
+    /**
+     * Czysta logika stanu widżetu (bez bazy i Androida — testowalna): który dzień pokazać,
+     * trwająca/najbliższa lekcja, przerwa, kiedy stan się zmieni i kiedy odświeżyć.
+     * Jeden odczyt czasu ([nowDt]) — dawniej data i godzina były pobierane osobno.
+     * [lessons] muszą być już po filtrze grup.
+     */
+    internal fun buildState(lessons: List<Lesson>, nowDt: LocalDateTime): WidgetState {
+        val today = nowDt.toLocalDate()
+        val now = nowDt.toLocalTime()
         val className = lessons.firstOrNull()?.className
 
         // Dzień do pokazania: dziś, jeśli zostały jeszcze lekcje; inaczej najbliższy dzień z lekcjami.
@@ -101,6 +151,9 @@ object WidgetDataLoader {
             else -> day.atTime(focusLesson.timeFrom)              // początek najbliższej
         }
 
+        val refreshAt = if (Duration.between(nowDt, nextChangeAt) <= Duration.ofMinutes(60))
+            minOf(nextChangeAt, nowDt.plusMinutes(5)) else nextChangeAt
+
         return WidgetState.Ready(
             className = className,
             dayLabel = dayLabel(day, today),
@@ -108,8 +161,44 @@ object WidgetDataLoader {
             focusIndex = focusIndex,
             focusIsNow = focusIsNow,
             isToday = isToday,
-            nextChangeAt = nextChangeAt
+            breakFrom = if (isToday && !focusIsNow && focusIndex > 0)
+                dayLessons[focusIndex - 1].timeTo.takeIf { it <= now } else null,
+            nextChangeAt = nextChangeAt,
+            refreshAt = refreshAt
         )
+    }
+
+    /**
+     * Nadchodzące zastępstwa dla klasy i grup użytkownika (do widżetu "Zastępstwa").
+     * Dzisiejsze po zakończeniu lekcji znikają, jak w aplikacji.
+     */
+    suspend fun loadSubstitutions(context: Context): SubsWidgetState {
+        val ep = entryPoint(context)
+        val classId = ep.settings().selectedClassId.first() ?: return SubsWidgetState.NoClass
+        val short = ep.timetable().observeClasses().first().firstOrNull { it.id == classId }?.shortName
+            ?: return SubsWidgetState.NoClass
+        val groups = ep.settings().groupSelections(classId).first()
+        val today = LocalDate.now()
+        val now = LocalTime.now()
+        val lessons = runCatching { ep.timetable().getLessonsOnce(classId, today, today.plusDays(14)) }
+            .getOrDefault(emptyList())
+        val endByToday = lessons.filter { it.date == today }.associate { it.number to it.timeTo }
+        val subs = runCatching { ep.substitutions().getAllFrom(today) }.getOrDefault(emptyList())
+            .asSequence()
+            .filter { SubstitutionRelevance.matchesClass(it, short) }
+            .filter { LessonGroups.substitutionRelevant(it, lessons, groups) }
+            .filter { it.date > today || endByToday[it.lessonNumber]?.let { end -> now < end } ?: true }
+            .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
+            .map { s ->
+                WidgetSubstitution(
+                    dayLabel = dayLabel(s.date, today),
+                    lessonNumber = s.lessonNumber,
+                    title = SubstitutionDisplay.headline(s),
+                    detail = SubstitutionDisplay.place(s) ?: "za ${s.originalTeacher}",
+                    note = SubstitutionDisplay.notes(s)
+                )
+            }.toList()
+        return SubsWidgetState.Ready(ClassNames.clean(short), subs)
     }
 
     private fun dayLabel(day: LocalDate, today: LocalDate): String = when (day) {
@@ -121,13 +210,19 @@ object WidgetDataLoader {
     private fun toWidgetLesson(l: Lesson): WidgetLesson {
         val sub = l.substitution
         if (sub != null) {
+            // Na pierwszym planie nauczyciel zastępujący (nie sala) — jak w aplikacji.
+            val hasSubstitute = !sub.substituteTeacher.isNullOrBlank()
+            val info = sub.roomOrInfo.trim()
+            val isRoom = hasSubstitute && SubstitutionDisplay.isRoom(info)
             return WidgetLesson(
                 number = l.number,
-                title = sub.roomOrInfo.ifBlank { "Zastępstwo" },
-                detail = "Zastępstwo · ${sub.substituteTeacher ?: "bez zastępcy"}",
-                room = null,
+                title = SubstitutionDisplay.headline(sub),
+                detail = "Zastępstwo za ${sub.originalTeacher}",
+                room = info.takeIf { isRoom },
                 timeFrom = l.timeFrom, timeTo = l.timeTo,
-                isSubstitution = true
+                isSubstitution = true,
+                note = listOfNotNull(info.takeIf { hasSubstitute && !isRoom && it.isNotEmpty() }, SubstitutionDisplay.notes(sub))
+                    .joinToString(" · ").ifBlank { null }
             )
         }
         // Nazwa bez sufiksu grupy ("zaj.prakt-2/3" -> "zaj.prakt") — grupy są już odfiltrowane.

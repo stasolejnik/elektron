@@ -1,0 +1,1 @@
+Swipe between sections, new day/week timetable, quick group selection, breaks and lesson progress, Substitutions widget and quick settings tile, older news with search, wallpaper colors. Build without Google services.

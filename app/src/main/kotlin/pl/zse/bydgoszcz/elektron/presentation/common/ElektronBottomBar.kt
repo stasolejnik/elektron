@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import pl.zse.bydgoszcz.elektron.presentation.navigation.ElektronRoutes
 
 data class BottomDestination(
@@ -33,7 +34,7 @@ data class BottomDestination(
 )
 
 val bottomDestinations = listOf(
-    BottomDestination(ElektronRoutes.DASHBOARD, "Start", Icons.Outlined.Home, Icons.Filled.Home),
+    BottomDestination(ElektronRoutes.DASHBOARD, "Strona główna", Icons.Outlined.Home, Icons.Filled.Home),
     BottomDestination(ElektronRoutes.TIMETABLE, "Plan", Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth),
     BottomDestination(ElektronRoutes.SUBSTITUTIONS, "Zastępstwa", Icons.Outlined.EventBusy, Icons.Filled.EventBusy),
     BottomDestination(ElektronRoutes.ANNOUNCEMENTS, "Ogłoszenia", Icons.Outlined.Campaign, Icons.Filled.Campaign),
@@ -55,9 +56,13 @@ fun ElektronBottomBar(currentRoute: String?, onNavigate: (String) -> Unit) {
                     selected = selected,
                     onClick = { onNavigate(dest.route) },
                     icon = {
-                        Icon(if (selected) dest.selectedIcon else dest.icon, contentDescription = dest.label)
+                        Icon(if (selected) dest.selectedIcon else dest.icon, contentDescription = null) // etykieta niżej — bez dublowania w TalkBack
                     },
-                    label = { Text(dest.label, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
+                    label = {
+                        // Rozmiar dopasowany do miejsca: przy większej czcionce systemowej etykiety
+                        // były ucinane ("Zastępstw", "Ogłoszeni").
+                        FitText(dest.label, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = (-0.2).sp))
+                    },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,

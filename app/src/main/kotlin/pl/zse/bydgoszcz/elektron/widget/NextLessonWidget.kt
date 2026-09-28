@@ -2,6 +2,7 @@ package pl.zse.bydgoszcz.elektron.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +31,10 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.background
+import androidx.glance.appwidget.LinearProgressIndicator
+import androidx.glance.appwidget.cornerRadius
+import java.time.Duration
+import java.time.LocalTime
 import pl.zse.bydgoszcz.elektron.R
 
 /**
@@ -43,9 +48,12 @@ class NextLessonWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val state = WidgetDataLoader.load(context)
         if (state is WidgetState.Ready) {
-            WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.nextChangeAt)
+            WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.refreshAt)
         }
-        provideContent { Content(state) }
+        val palette = WidgetDataLoader.palette(context)
+        provideContent {
+            CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
+        }
     }
 
     @Composable
@@ -79,6 +87,7 @@ class NextLessonWidget : GlanceAppWidget() {
         val accent = if (lesson.isSubstitution) WidgetColors.substitution else WidgetColors.accent
         val label = when {
             state.focusIsNow -> "TERAZ"
+            state.breakFrom != null -> "PRZERWA"
             state.isToday -> "NASTĘPNA"
             else -> state.dayLabel.uppercase()
         }
@@ -94,8 +103,46 @@ class NextLessonWidget : GlanceAppWidget() {
             Spacer(GlanceModifier.height(2.dp))
             val where = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
             Text(where, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
-            lesson.detail?.let {
+            // Przy trwającej lekcji miejsce zajmuje pasek postępu — nazwisko tylko przed lekcją
+            // (i zawsze przy zastępstwie, bo to kluczowa informacja).
+            if ((!state.focusIsNow && state.breakFrom == null) || lesson.isSubstitution) lesson.detail?.let {
                 Text(it, style = TextStyle(color = if (lesson.isSubstitution) accent else WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
+            }
+            lesson.note?.let {
+                Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+            }
+            // Czas: w trakcie lekcji pasek postępu + "Zostało X min", przed lekcją "Za X min".
+            val now = LocalTime.now()
+            if (state.focusIsNow) {
+                val total = Duration.between(lesson.timeFrom, lesson.timeTo).seconds.coerceAtLeast(1)
+                val done = Duration.between(lesson.timeFrom, now).seconds.coerceIn(0, total)
+                Spacer(GlanceModifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = done.toFloat() / total,
+                    modifier = GlanceModifier.fillMaxWidth().height(4.dp).cornerRadius(2.dp),
+                    color = accent,
+                    backgroundColor = WidgetColors.accentContainer
+                )
+                val left = Duration.between(now, lesson.timeTo).toMinutes().coerceAtLeast(0)
+                Text("Zostało $left min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+            } else if (state.breakFrom != null) {
+                // Przerwa: pasek postępu przerwy i ile do następnej lekcji.
+                val total = Duration.between(state.breakFrom, lesson.timeFrom).seconds.coerceAtLeast(1)
+                val done = Duration.between(state.breakFrom, now).seconds.coerceIn(0, total)
+                Spacer(GlanceModifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = done.toFloat() / total,
+                    modifier = GlanceModifier.fillMaxWidth().height(4.dp).cornerRadius(2.dp),
+                    color = accent,
+                    backgroundColor = WidgetColors.accentContainer
+                )
+                val until = Duration.between(now, lesson.timeFrom).toMinutes().coerceAtLeast(0)
+                Text("Lekcja za $until min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+            } else if (state.isToday) {
+                val until = Duration.between(now, lesson.timeFrom).toMinutes()
+                if (until in 0..60) {
+                    Text("Za $until min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                }
             }
         }
     }

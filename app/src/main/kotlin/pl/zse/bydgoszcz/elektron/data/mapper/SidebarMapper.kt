@@ -4,6 +4,7 @@ import pl.zse.bydgoszcz.elektron.data.local.RoomEntity
 import pl.zse.bydgoszcz.elektron.data.local.SchoolClassEntity
 import pl.zse.bydgoszcz.elektron.data.local.TeacherEntity
 import pl.zse.bydgoszcz.elektron.data.remote.dto.ClassListItemDto
+import pl.zse.bydgoszcz.elektron.domain.model.ClassNames
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolClass
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolRoom
 import pl.zse.bydgoszcz.elektron.domain.model.Teacher
@@ -31,7 +32,8 @@ object SidebarMapper {
         url = dto.url
     )
 
-    fun classToDomain(e: SchoolClassEntity) = SchoolClass(e.id, e.fullName, e.shortName, e.url)
+    // ClassNames.clean: "1D 1D" -> "1D" (także dla danych zapisanych przed poprawką).
+    fun classToDomain(e: SchoolClassEntity) = SchoolClass(e.id, ClassNames.cleanNonNull(e.fullName), e.shortName, e.url)
     fun teacherToDomain(e: TeacherEntity) = Teacher(e.code, e.fullName, e.url)
     fun roomToDomain(e: RoomEntity) = SchoolRoom(e.id, e.name, e.url)
 }

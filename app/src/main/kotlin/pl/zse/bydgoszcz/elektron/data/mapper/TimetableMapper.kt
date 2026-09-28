@@ -4,6 +4,7 @@ import pl.zse.bydgoszcz.elektron.data.local.LessonEntity
 import pl.zse.bydgoszcz.elektron.data.local.LessonGroupEntity
 import pl.zse.bydgoszcz.elektron.data.remote.dto.TimetableDto
 import pl.zse.bydgoszcz.elektron.domain.model.DayOfWeek
+import pl.zse.bydgoszcz.elektron.domain.model.ClassNames
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroup
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
@@ -28,7 +29,7 @@ object TimetableMapper {
             lessons += LessonEntity(
                 id = lessonId,
                 classId = dto.classId,
-                className = dto.className,
+                className = ClassNames.cleanNonNull(dto.className),
                 dateEpochDay = date.toEpochDay(),
                 dayOfWeekIso = cell.dayIndex,
                 number = cell.number,
@@ -72,7 +73,7 @@ object TimetableMapper {
         return Lesson(
             id = lesson.id,
             classId = lesson.classId,
-            className = lesson.className,
+            className = ClassNames.cleanNonNull(lesson.className),
             date = date,
             dayOfWeek = dow,
             number = lesson.number,

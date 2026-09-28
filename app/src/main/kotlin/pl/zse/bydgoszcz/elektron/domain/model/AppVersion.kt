@@ -1,0 +1,53 @@
+package pl.zse.bydgoszcz.elektron.domain.model
+
+/**
+ * Porównywanie wersji aplikacji: "0.5.0-alpha" < "0.5.0-beta" < "0.5.0-rc1" < "0.5.0" < "0.5.1".
+ * Akceptuje tagi z GitHuba ("v0.5.0-alpha") i wersje debug ("0.5.0-alpha-debug").
+ */
+object AppVersion {
+
+    private data class Parsed(val core: List<Int>, val preWord: String?, val preNumber: Int)
+
+    private val PRE_WORD = Regex("^([a-z]+)")
+    private val PRE_NUMBER = Regex("(\\d+)")
+
+    private fun parse(version: String): Parsed {
+        var s = version.trim().removePrefix("v").removePrefix("V").removeSuffix("-debug")
+        val dash = s.indexOf('-')
+        val coreText = if (dash < 0) s else s.substring(0, dash)
+        val core = coreText.split('.').map { it.toIntOrNull() ?: 0 }
+        val pre = if (dash < 0) null else s.substring(dash + 1).lowercase().ifBlank { null }
+        s = pre.orEmpty()
+        return Parsed(
+            core = core,
+            preWord = pre?.let { PRE_WORD.find(it)?.groupValues?.get(1) ?: it },
+            preNumber = PRE_NUMBER.find(s)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        )
+    }
+
+    private fun preRank(word: String): Int = when (word) {
+        "alpha" -> 0
+        "beta" -> 1
+        "rc" -> 2
+        else -> -1
+    }
+
+    /** < 0: a starsza, 0: równe, > 0: a nowsza. */
+    fun compare(a: String, b: String): Int {
+        val pa = parse(a)
+        val pb = parse(b)
+        for (i in 0 until maxOf(pa.core.size, pb.core.size, 3)) {
+            val c = pa.core.getOrElse(i) { 0 }.compareTo(pb.core.getOrElse(i) { 0 })
+            if (c != 0) return c
+        }
+        // Ta sama wersja bazowa: wydanie stabilne jest nowsze od każdej przedpremierowej.
+        if (pa.preWord == null && pb.preWord == null) return 0
+        if (pa.preWord == null) return 1
+        if (pb.preWord == null) return -1
+        val rank = preRank(pa.preWord).compareTo(preRank(pb.preWord))
+        if (rank != 0) return rank
+        return pa.preNumber.compareTo(pb.preNumber)
+    }
+
+    fun isNewer(candidate: String, current: String): Boolean = compare(candidate, current) > 0
+}
