@@ -45,4 +45,8 @@ class SubjectStylesTest {
         val decoded = SubjectStyles.decode("\n\tbez klucza\t\nmat\tMatma\tZZZ\n")
         assertEquals(mapOf("mat" to SubjectStyle("Matma", null)), decoded)
     }
+
+    @Test fun everyColorHasName() {
+        assertEquals(SubjectStyles.PALETTE.size, SubjectStyles.COLOR_NAMES.size)
+    }
 }

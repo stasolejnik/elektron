@@ -43,6 +43,7 @@ class WidgetUpdater @Inject constructor(
     }
 
     suspend fun updateNow() {
+        WidgetDataVersion.bump()     // otwarte sesje Glance wczytają dane od nowa
         runCatching {
             NextLessonWidget().updateAll(context)
             DayPlanWidget().updateAll(context)

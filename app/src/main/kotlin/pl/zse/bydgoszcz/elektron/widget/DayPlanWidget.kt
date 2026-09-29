@@ -45,12 +45,16 @@ class DayPlanWidget : GlanceAppWidget() {
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val state = WidgetDataLoader.load(context)
-        if (state is WidgetState.Ready) {
-            WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.refreshAt)
+        val load: suspend () -> Pair<WidgetState, WidgetPalette> = {
+            val state = WidgetDataLoader.load(context)
+            if (state is WidgetState.Ready) {
+                WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.refreshAt)
+            }
+            state to WidgetDataLoader.palette(context)
         }
-        val palette = WidgetDataLoader.palette(context)
+        val initial = loadSnapshot(load)
         provideContent {
+            val (state, palette) = rememberLiveWidgetData(initial, load)
             CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
         }
     }

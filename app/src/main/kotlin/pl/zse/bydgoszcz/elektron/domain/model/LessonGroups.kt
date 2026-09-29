@@ -61,6 +61,23 @@ object LessonGroups {
         return byBase.map { (base, labels) -> DividedSubject(base, labels.toList()) }
     }
 
+    /**
+     * Kolejność w "Dostosuj osobno": najpierw religia, potem WF (tu wybór zależy od ucznia,
+     * nie od podziału klasy), dalej reszta alfabetycznie.
+     */
+    fun orderForCustomizing(subjects: List<DividedSubject>): List<DividedSubject> =
+        subjects.sortedWith(compareBy({ customizePriority(it.base) }, { it.base.lowercase() }))
+
+    private fun customizePriority(base: String): Int {
+        val b = base.lowercase().replace(" ", "")
+        return when {
+            b.startsWith("relig") -> 0
+            b == "wf" || b == "w-f" || b == "w.f." || b == "w.f" || b.startsWith("wf.") ||
+                b.startsWith("wych.fiz") || b.startsWith("wychowaniefiz") -> 1
+            else -> 2
+        }
+    }
+
     // --- Szybki wybór według typu podziału (jak w altplanie: "1/2 2/2", "1/3 2/3 3/3", WF) ---
 
     /** Typ podziału etykiety: "2/3" -> "/3" (wszystkie podziały na 3 grupy), "j2" -> "j". */

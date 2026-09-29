@@ -158,30 +158,27 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } },
-                            modifier = Modifier.size(40.dp)
-                        ) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = if (state.mode == TimetableViewModel.ViewMode.DAY) "Poprzedni dzień" else "Poprzedni tydzień") }
-                        IconButton(
-                            onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
-                            modifier = Modifier.size(40.dp)
-                        ) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = if (state.mode == TimetableViewModel.ViewMode.DAY) "Następny dzień" else "Następny tydzień") }
-                        // Dotknięcie tytułu wraca do dziś.
-                        Text(
-                            text = headerText,
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .padding(start = 4.dp)
-                                .pressable { scope.launch { pagerState.animateScrollToPage(todayPage) } }
-                        )
-                    }
+                    // Dotknięcie tytułu wraca do dziś.
+                    Text(
+                        text = headerText,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.pressable { scope.launch { pagerState.animateScrollToPage(todayPage) } }
+                    )
                 },
                 actions = {
-                    // Odświeżanie przyciskiem: przeciągnięcie w dół na górze listy przewija
-                    // teraz do poprzedniego dnia, więc pull-to-refresh tu nie pasuje.
+                    val dayMode = state.mode == TimetableViewModel.ViewMode.DAY
+                    IconButton(
+                        onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } },
+                        modifier = Modifier.size(40.dp)
+                    ) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = if (dayMode) "Poprzedni dzień" else "Poprzedni tydzień") }
+                    IconButton(
+                        onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
+                        modifier = Modifier.size(40.dp)
+                    ) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = if (dayMode) "Następny dzień" else "Następny tydzień") }
+                    // Odświeżanie przyciskiem (zawsze skrajnie po prawej): przeciągnięcie w dół
+                    // na górze listy przewija do poprzedniego dnia, więc pull-to-refresh tu nie pasuje.
                     if (state.isRefreshing) {
                         CircularProgressIndicator(Modifier.padding(12.dp).size(22.dp), strokeWidth = 2.dp)
                     } else {

@@ -46,4 +46,11 @@ class LessonGroupsDivisionsTest {
         assertEquals("", LessonGroups.selectedDivisionOption(d, subjects, emptyMap()))
         assertNull(LessonGroups.selectedDivisionOption(d, subjects, mapOf("ang" to "1/2", "inf" to "2/2")))
     }
+
+    @Test
+    fun customizingStartsWithReligionAndPe() {
+        val subjects = listOf("ang", "wf", "fiz", "religia", "inf").map { LessonGroups.DividedSubject(it, listOf("1/2", "2/2")) }
+        assertEquals(listOf("religia", "wf", "ang", "fiz", "inf"),
+            LessonGroups.orderForCustomizing(subjects).map { it.base })
+    }
 }

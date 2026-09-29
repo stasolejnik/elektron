@@ -27,6 +27,12 @@ object SubjectStyles {
         0xFF757575  // szary
     )
 
+    /** Nazwy kolorów palety (czytnik ekranu), w tej samej kolejności co [PALETTE]. */
+    val COLOR_NAMES: List<String> = listOf(
+        "czerwony", "pomarańczowy", "żółty", "zielony", "morski", "błękitny",
+        "granatowy", "fioletowy", "różowy", "brązowy", "szary"
+    )
+
     private const val MAX_NAME = 40
 
     /** Klucz przedmiotu: nazwa bez sufiksu grupy. */

@@ -137,6 +137,7 @@ private fun SubjectList(
     onDivision: (String, String?) -> Unit
 ) {
     val divisions = remember(state.subjects) { LessonGroups.divisions(state.subjects) }
+    val customizable = remember(state.subjects) { LessonGroups.orderForCustomizing(state.subjects) }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -163,7 +164,7 @@ private fun SubjectList(
             }
             item(key = "each_title") { SectionLabel("Dostosuj osobno") }
         }
-        items(state.subjects, key = { it.base }) { subject ->
+        items(customizable, key = { it.base }) { subject ->
             SubjectCard(subject, state.selections[subject.base]) { onChoice(subject.base, it) }
         }
     }

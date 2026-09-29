@@ -121,56 +121,6 @@ fun SettingsScreen(
             }
 
             item {
-                GroupedSection("Klasa", footer = "Plan, zastępstwa i powiadomienia dotyczą wybranej klasy.") {
-                    if (state.classes.isEmpty()) {
-                        Text("Brak listy klas. Pociągnij w dół na stronie głównej, aby odświeżyć.",
-                            Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        // Przewijana lista o ograniczonej wysokości, od razu przy wybranej klasie.
-                        val listState = rememberLazyListState()
-                        val selectedIndex = state.classes.indexOfFirst { it.id == state.selectedClassId }
-                        LaunchedEffect(selectedIndex) {
-                            if (selectedIndex > 0) listState.scrollToItem((selectedIndex - 1).coerceAtLeast(0))
-                        }
-                        // Przewija się TYLKO lista klas — ekran Ustawień i duży tytuł stoją
-                        // w miejscu, także po dojechaniu do początku/końca listy.
-                        LazyColumn(
-                            state = listState,
-                            userScrollEnabled = false,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 264.dp)
-                                .isolatedVerticalScroll(listState)
-                        ) {
-                            items(state.classes, key = { it.id }) { c ->
-                                val selected = state.selectedClassId == c.id
-                                Row(
-                                    Modifier.fillMaxWidth()
-                                        .pressable { viewModel.setClass(c.id) }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(c.fullName, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
-                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                                    if (selected) {
-                                        Icon(Icons.Filled.Check, contentDescription = "Wybrana",
-                                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                                HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                GroupedSection("Grupy zajęciowe", footer = "Wybierz swoje grupy (np. językowe, zajęcia praktyczne) - w planie i na stronie głównej zobaczysz tylko swoje lekcje.") {
-                    ActionRow("Wybierz swoje grupy", trailingChevron = true, onClick = onOpenGroups)
-                }
-            }
-
-            item {
                 val look = state.look
                 GroupedSection("Wygląd planu", footer = "Widok kompaktowy mieści więcej lekcji na ekranie.") {
                     ActionRow("Nazwy i kolory przedmiotów", trailingChevron = true, onClick = onOpenSubjects)
@@ -247,6 +197,56 @@ fun SettingsScreen(
                             SafeUrls.open(ctx, BackgroundWork.GUIDE_URL)
                         }
                     }
+                }
+            }
+
+            item {
+                GroupedSection("Klasa", footer = "Plan, zastępstwa i powiadomienia dotyczą wybranej klasy.") {
+                    if (state.classes.isEmpty()) {
+                        Text("Brak listy klas. Pociągnij w dół na stronie głównej, aby odświeżyć.",
+                            Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        // Przewijana lista o ograniczonej wysokości, od razu przy wybranej klasie.
+                        val listState = rememberLazyListState()
+                        val selectedIndex = state.classes.indexOfFirst { it.id == state.selectedClassId }
+                        LaunchedEffect(selectedIndex) {
+                            if (selectedIndex > 0) listState.scrollToItem((selectedIndex - 1).coerceAtLeast(0))
+                        }
+                        // Przewija się TYLKO lista klas — ekran Ustawień i duży tytuł stoją
+                        // w miejscu, także po dojechaniu do początku/końca listy.
+                        LazyColumn(
+                            state = listState,
+                            userScrollEnabled = false,
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 264.dp)
+                                .isolatedVerticalScroll(listState)
+                        ) {
+                            items(state.classes, key = { it.id }) { c ->
+                                val selected = state.selectedClassId == c.id
+                                Row(
+                                    Modifier.fillMaxWidth()
+                                        .pressable { viewModel.setClass(c.id) }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(c.fullName, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                    if (selected) {
+                                        Icon(Icons.Filled.Check, contentDescription = "Wybrana",
+                                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                                HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                GroupedSection("Grupy zajęciowe", footer = "Wybierz swoje grupy (np. językowe, zajęcia praktyczne) - w planie i na stronie głównej zobaczysz tylko swoje lekcje.") {
+                    ActionRow("Wybierz swoje grupy", trailingChevron = true, onClick = onOpenGroups)
                 }
             }
 

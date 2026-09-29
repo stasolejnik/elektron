@@ -176,8 +176,9 @@ private fun EditSubjectDialog(
                 Spacer(Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ColorChoice(null, selected = color == null, label = "Bez koloru") { color = null }
-                    SubjectStyles.PALETTE.forEach { c ->
-                        ColorChoice(c, selected = color == c, label = "Kolor") { color = c }
+                    SubjectStyles.PALETTE.forEachIndexed { i, c ->
+                        val label = "Kolor " + (SubjectStyles.COLOR_NAMES.getOrNull(i) ?: "${i + 1}")
+                        ColorChoice(c, selected = color == c, label = label) { color = c }
                     }
                 }
             }

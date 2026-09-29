@@ -12,9 +12,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
-import kotlin.math.sign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalDensity
 
 /**
  * Pionowe przechodzenie między dniami/tygodniami w planie: przesunięcie w górę = następny,
@@ -30,94 +27,51 @@ import androidx.compose.ui.platform.LocalDensity
  * od zera prędkości, więc ruch był ucinany i "szarpał".)
  *
  * Pager musi mieć userScrollEnabled = false (steruje nim wyłącznie ten mechanizm).
- * Zasady chroniące przed przypadkowym przełączeniem - patrz EdgePagingConnection.
+ * Ochrona przed przypadkowym przełączeniem - patrz EdgePagingConnection.
  */
 @Composable
 fun rememberEdgePagingConnection(pagerState: PagerState): NestedScrollConnection {
     val fling = PagerDefaults.flingBehavior(
         state = pagerState,
-        // 40% strony przy spokojnym ruchu. Dawniej 15% - przeglądanie lekcji dnia co chwilę
-        // przypadkiem przerzucało na następny dzień.
-        snapPositionalThreshold = 0.4f,
+        // 25% strony przy spokojnym ruchu (w 0.5: 15% - za łatwo; domyślnie 50% - za trudno).
+        snapPositionalThreshold = 0.25f,
         snapAnimationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
     )
-    val deadZonePx = with(LocalDensity.current) { DEAD_ZONE.toPx() }
-    return remember(pagerState, fling, deadZonePx) { EdgePagingConnection(pagerState, fling, deadZonePx) }
+    return remember(pagerState, fling) { EdgePagingConnection(pagerState, fling) }
 }
 
-/** Tyle trzeba przeciągnąć za koniec listy, zanim ruszy strona (przypadkowe dociągnięcia). */
-private val DEAD_ZONE = 56.dp
-
-/** Poniżej tego przesunięcia strony szybki rzut nie zmienia dnia - strona wraca. */
-private const val MIN_FRACTION_FOR_FLING = 0.15f
-
 /**
- * Zasady (poprawka 0.6 - przypadkowe przełączanie dni):
- *  1. Gest, który przewinął listę lekcji, nie zmienia dnia - nawet gdy dojedzie do jej końca.
- *     Żeby zmienić dzień, trzeba zacząć NOWY gest przy końcu listy.
- *  2. Strona rusza dopiero po przeciągnięciu [DEAD_ZONE] za koniec listy.
- *  3. Przy małym przesunięciu strony rzut palcem nie przełącza (tylko pozycja - 40%).
+ * Ochrona przed przypadkowym przełączeniem dnia: gest, który przewinął listę lekcji, nie
+ * zmienia dnia - nawet gdy lista dojedzie do końca. Żeby przejść dalej, trzeba puścić palec
+ * i przeciągnąć od nowa przy końcu listy. (Dawniej nadmiar tego samego ruchu przewijał stronę.)
  */
 private class EdgePagingConnection(
     private val pager: PagerState,
-    private val fling: FlingBehavior,
-    private val deadZonePx: Float
+    private val fling: FlingBehavior
 ) : NestedScrollConnection {
 
-    /** Lista przewinęła się w bieżącym geście - ten gest nie zmienia dnia. */
+    /** Lista przewinęła się w bieżącym geście. */
     private var listMoved = false
-    /** Nadmiar ruchu zebrany w martwej strefie (znak = kierunek). */
-    private var slack = 0f
-
-    private val pagerMoved: Boolean get() = abs(pager.currentPageOffsetFraction) > 0.001f
-
-    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        // Strona już przesunięta: ruch (także w drugą stronę) najpierw wraca/przesuwa stronę,
-        // zamiast przewijać listę pod spodem.
-        if (source != NestedScrollSource.UserInput || available.y == 0f || !pagerMoved) return Offset.Zero
-        val used = pager.dispatchRawDelta(-available.y)
-        return Offset(0f, -used)
-    }
 
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
         if (source != NestedScrollSource.UserInput) return Offset.Zero
-        if (consumed.y != 0f && !pagerMoved) {
-            listMoved = true
-            slack = 0f
-        }
+        if (consumed.y != 0f) listMoved = true
         if (available.y == 0f || listMoved) return Offset.Zero
-
-        // Martwa strefa: zbieramy nadmiar, zmiana kierunku zaczyna liczenie od nowa.
-        if (!pagerMoved) {
-            val dir: Float = available.y
-            if (slack != 0f && slack.sign != dir.sign) slack = 0f
-            slack += available.y
-            // W martwej strefie nic nie zużywamy - lista pokazuje zwykłe "rozciągnięcie" na końcu.
-            if (abs(slack) < deadZonePx) return Offset.Zero
-            val beyond: Float = slack - slack.sign * deadZonePx
-            slack = 0f
-            val used = pager.dispatchRawDelta(-beyond)
-            return Offset(0f, -used)
-        }
+        // Przestrzeń gestu -> przestrzeń przewijania: palec w górę (y < 0) = następna strona.
         val used = pager.dispatchRawDelta(-available.y)
         return Offset(0f, -used)
     }
 
     override suspend fun onPreFling(available: Velocity): Velocity {
-        // Koniec gestu - następny zaczyna od zera.
-        listMoved = false
-        slack = 0f
-        if (!pagerMoved) return Velocity.Zero
-        // Domknięcie strony natywnym rzutem pagera, z prędkością palca (+ = do przodu);
-        // przy małym przesunięciu bez prędkości - decyduje sama pozycja.
-        val velocity = if (abs(pager.currentPageOffsetFraction) < MIN_FRACTION_FOR_FLING) 0f else -available.y
-        pager.scroll { with(fling) { performFling(velocity) } }
+        listMoved = false       // koniec gestu - następny zaczyna od zera
+        if (abs(pager.currentPageOffsetFraction) < 0.001f) return Velocity.Zero
+        // Domknięcie strony natywnym rzutem pagera, z prędkością palca (+ = do przodu).
+        pager.scroll { with(fling) { performFling(-available.y) } }
         return available
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
         listMoved = false
-        slack = 0f
         return Velocity.Zero
     }
 }

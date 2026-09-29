@@ -47,9 +47,12 @@ class SubstitutionsWidget : GlanceAppWidget() {
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val state = WidgetDataLoader.loadSubstitutions(context)
-        val palette = WidgetDataLoader.palette(context)
+        val load: suspend () -> Pair<SubsWidgetState, WidgetPalette> = {
+            WidgetDataLoader.loadSubstitutions(context) to WidgetDataLoader.palette(context)
+        }
+        val initial = loadSnapshot(load)
         provideContent {
+            val (state, palette) = rememberLiveWidgetData(initial, load)
             CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
         }
     }

@@ -57,8 +57,8 @@ object WidgetPalettes {
     fun create(context: Context?, mode: ThemeMode, dynamic: Boolean, opacity: Int = 100): WidgetPalette {
         val bgAlpha = opacity.coerceIn(20, 100) / 100f
         val useDynamic = dynamic && context != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-        val light: ColorScheme? = if (useDynamic && context != null) dynamicLightColorScheme(context) else null
-        val dark: ColorScheme? = if (useDynamic && context != null) dynamicDarkColorScheme(context) else null
+        val light: ColorScheme? = if (useDynamic) dynamicLightColorScheme(context) else null
+        val dark: ColorScheme? = if (useDynamic) dynamicDarkColorScheme(context) else null
 
         fun role(brandDay: Long, brandNight: Long, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider {
             val base = if (light != null && dark != null) Pair2(fromScheme(light), fromScheme(dark))
