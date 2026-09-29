@@ -16,12 +16,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -40,7 +37,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -69,7 +65,6 @@ import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
 import pl.zse.bydgoszcz.elektron.presentation.common.GroupedSection
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
 import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
-import pl.zse.bydgoszcz.elektron.presentation.common.isolatedVerticalScroll
 import pl.zse.bydgoszcz.elektron.presentation.common.pressable
 
 private const val REPO_URL = "https://github.com/stasolejnik/elektron"
@@ -113,6 +108,11 @@ fun SettingsScreen(
                             ) { Text(label) }
                         }
                     }
+                    // Paleta akcentu - nie dotyczy kolorów z tapety (wtedy ukryta).
+                    if (!state.dynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                        RowDivider()
+                        AccentPicker(state.accent) { viewModel.setAccent(it) }
+                    }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         RowDivider()
                         SwitchRow("Kolory z tapety", state.dynamicColor) { viewModel.setDynamicColor(it) }
@@ -122,10 +122,8 @@ fun SettingsScreen(
 
             item {
                 val look = state.look
-                GroupedSection("Wygląd planu", footer = "Widok kompaktowy mieści więcej lekcji na ekranie.") {
+                GroupedSection("Wygląd planu") {
                     ActionRow("Nazwy i kolory przedmiotów", trailingChevron = true, onClick = onOpenSubjects)
-                    RowDivider()
-                    SwitchRow("Widok kompaktowy", look.compact) { viewModel.setTimetableLook(look.copy(compact = it)) }
                     RowDivider()
                     SwitchRow("Pokazuj salę", look.showRoom) { viewModel.setTimetableLook(look.copy(showRoom = it)) }
                     RowDivider()
@@ -200,49 +198,7 @@ fun SettingsScreen(
                 }
             }
 
-            item {
-                GroupedSection("Klasa", footer = "Plan, zastępstwa i powiadomienia dotyczą wybranej klasy.") {
-                    if (state.classes.isEmpty()) {
-                        Text("Brak listy klas. Pociągnij w dół na stronie głównej, aby odświeżyć.",
-                            Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        // Przewijana lista o ograniczonej wysokości, od razu przy wybranej klasie.
-                        val listState = rememberLazyListState()
-                        val selectedIndex = state.classes.indexOfFirst { it.id == state.selectedClassId }
-                        LaunchedEffect(selectedIndex) {
-                            if (selectedIndex > 0) listState.scrollToItem((selectedIndex - 1).coerceAtLeast(0))
-                        }
-                        // Przewija się TYLKO lista klas — ekran Ustawień i duży tytuł stoją
-                        // w miejscu, także po dojechaniu do początku/końca listy.
-                        LazyColumn(
-                            state = listState,
-                            userScrollEnabled = false,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 264.dp)
-                                .isolatedVerticalScroll(listState)
-                        ) {
-                            items(state.classes, key = { it.id }) { c ->
-                                val selected = state.selectedClassId == c.id
-                                Row(
-                                    Modifier.fillMaxWidth()
-                                        .pressable { viewModel.setClass(c.id) }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(c.fullName, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
-                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                                    if (selected) {
-                                        Icon(Icons.Filled.Check, contentDescription = "Wybrana",
-                                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                                HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                    }
-                }
-            }
+            item { ClassSection(state.classes, state.selectedClassId) { viewModel.setClass(it) } }
 
             item {
                 GroupedSection("Grupy zajęciowe", footer = "Wybierz swoje grupy (np. językowe, zajęcia praktyczne) - w planie i na stronie głównej zobaczysz tylko swoje lekcje.") {
@@ -391,7 +347,8 @@ internal fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> U
                 checkedThumbColor = Color.White,
                 checkedBorderColor = Color.Transparent,
                 uncheckedBorderColor = Color.Transparent,
-                uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant,
+                // outline, nie outlineVariant: wyłączony przełącznik był prawie niewidoczny na białej karcie.
+                uncheckedTrackColor = MaterialTheme.colorScheme.outline,
                 uncheckedThumbColor = Color.White
             ),
             thumbContent = null

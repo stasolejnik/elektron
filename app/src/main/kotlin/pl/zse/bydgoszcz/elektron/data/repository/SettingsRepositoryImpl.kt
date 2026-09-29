@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import java.time.LocalTime
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderMode
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
@@ -54,11 +55,12 @@ class SettingsRepositoryImpl @Inject constructor(
         val QUIET_ENABLED = booleanPreferencesKey("quiet_enabled")
         val QUIET_FROM = intPreferencesKey("quiet_from_min")
         val QUIET_TO = intPreferencesKey("quiet_to_min")
+        val ACCENT = stringPreferencesKey("accent_color")
         val WIDGET_OPACITY = intPreferencesKey("widget_opacity")
         val WIDGET_TEACHER = booleanPreferencesKey("widget_show_teacher")
         val WIDGET_ROOM = booleanPreferencesKey("widget_show_room")
         val SUBJECT_STYLES = stringPreferencesKey("subject_styles")
-        val LOOK_COMPACT = booleanPreferencesKey("timetable_compact")
+        val LOOK_WEEK = booleanPreferencesKey("timetable_week_view")
         val LOOK_ROOM = booleanPreferencesKey("timetable_show_room")
         val LOOK_TEACHER = booleanPreferencesKey("timetable_show_teacher")
         val LAST_SEEN_VERSION = intPreferencesKey("last_seen_version_code")
@@ -147,6 +149,12 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
+    override val accentColor: Flow<AccentColor> =
+        prefs.map { AccentColor.fromKey(it[Keys.ACCENT]) }.distinctUntilChanged()
+    override suspend fun setAccentColor(value: AccentColor) {
+        context.elektronSettings.edit { it[Keys.ACCENT] = value.key }
+    }
+
     override val widgetLook: Flow<WidgetLook> = prefs.map {
         WidgetLook(
             opacity = (it[Keys.WIDGET_OPACITY] ?: 100).coerceIn(20, 100),
@@ -175,7 +183,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val timetableLook: Flow<TimetableLook> = prefs.map {
         TimetableLook(
-            compact = it[Keys.LOOK_COMPACT] ?: false,
+            weekView = it[Keys.LOOK_WEEK] ?: false,
             showRoom = it[Keys.LOOK_ROOM] ?: true,
             showTeacher = it[Keys.LOOK_TEACHER] ?: true
         )
@@ -183,7 +191,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTimetableLook(look: TimetableLook) {
         context.elektronSettings.edit {
-            it[Keys.LOOK_COMPACT] = look.compact
+            it[Keys.LOOK_WEEK] = look.weekView
             it[Keys.LOOK_ROOM] = look.showRoom
             it[Keys.LOOK_TEACHER] = look.showTeacher
         }

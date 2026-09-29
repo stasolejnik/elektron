@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import androidx.glance.unit.ColorProvider
+import androidx.compose.ui.graphics.Color
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -89,6 +91,9 @@ class NextLessonWidget : GlanceAppWidget() {
     private fun Focus(state: WidgetState.Ready) {
         val lesson = state.focus
         val accent = if (lesson.isSubstitution) WidgetColors.substitution else WidgetColors.accent
+        // Numer i pasek postępu w kolorze przedmiotu (Ustawienia -> Przedmioty), jak w planie.
+        val lessonColor = if (lesson.isSubstitution) accent
+            else lesson.color?.let { ColorProvider(Color(it)) } ?: accent
         val label = when {
             state.focusIsNow -> "TERAZ"
             state.breakFrom != null -> "PRZERWA"
@@ -102,7 +107,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 Text(label, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             }
             Spacer(GlanceModifier.defaultWeight())
-            Text("${lesson.number}", style = TextStyle(color = accent, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+            Text("${lesson.number}", style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             Text(lesson.title, style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 2)
             Spacer(GlanceModifier.height(2.dp))
             val where = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
@@ -124,7 +129,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 LinearProgressIndicator(
                     progress = done.toFloat() / total,
                     modifier = GlanceModifier.fillMaxWidth().height(4.dp).cornerRadius(2.dp),
-                    color = accent,
+                    color = lessonColor,
                     backgroundColor = WidgetColors.accentContainer
                 )
                 val left = Duration.between(now, lesson.timeTo).toMinutes().coerceAtLeast(0)
@@ -137,7 +142,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 LinearProgressIndicator(
                     progress = done.toFloat() / total,
                     modifier = GlanceModifier.fillMaxWidth().height(4.dp).cornerRadius(2.dp),
-                    color = accent,
+                    color = lessonColor,
                     backgroundColor = WidgetColors.accentContainer
                 )
                 val until = Duration.between(now, lesson.timeFrom).toMinutes().coerceAtLeast(0)

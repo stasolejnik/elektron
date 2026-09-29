@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.presentation.common.theme.Accents
+import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import android.content.Context
 import android.os.Build
 import androidx.compose.material3.ColorScheme
@@ -54,15 +56,26 @@ object WidgetPalettes {
     private class Pair2(val day: Color, val night: Color)
 
     /** [opacity] - krycie tła widżetu w procentach (Ustawienia -> Widżety). */
-    fun create(context: Context?, mode: ThemeMode, dynamic: Boolean, opacity: Int = 100): WidgetPalette {
+    fun create(
+        context: Context?,
+        mode: ThemeMode,
+        dynamic: Boolean,
+        opacity: Int = 100,
+        accent: AccentColor = AccentColor.BLUE
+    ): WidgetPalette {
+        val dayAccent = Accents.light(accent)
+        val nightAccent = Accents.dark(accent)
         val bgAlpha = opacity.coerceIn(20, 100) / 100f
         val useDynamic = dynamic && context != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val light: ColorScheme? = if (useDynamic) dynamicLightColorScheme(context) else null
         val dark: ColorScheme? = if (useDynamic) dynamicDarkColorScheme(context) else null
 
-        fun role(brandDay: Long, brandNight: Long, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider {
+        fun role(brandDay: Long, brandNight: Long, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider =
+            role(Color(brandDay), Color(brandNight), alpha, fromScheme)
+
+        fun role(brandDay: Color, brandNight: Color, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider {
             val base = if (light != null && dark != null) Pair2(fromScheme(light), fromScheme(dark))
-            else Pair2(Color(brandDay), Color(brandNight))
+            else Pair2(brandDay, brandNight)
             val pair = if (alpha >= 1f) base else Pair2(base.day.copy(alpha = alpha), base.night.copy(alpha = alpha))
             return when (mode) {
                 ThemeMode.LIGHT -> ColorProvider(pair.day)
@@ -76,9 +89,10 @@ object WidgetPalettes {
             textPrimary = role(0xFF000000, 0xFFFFFFFF) { it.onSurface },
             textSecondary = role(0xFF6C6C70, 0xFF8E8E93) { it.onSurfaceVariant },
             textFaded = role(0xFF8E8E93, 0xFF6E6E73) { it.outline },
-            accent = role(0xFF0091B0, 0xFF3DCFEF) { it.primary },
-            accentContainer = role(0xFFDDF5FB, 0xFF0B3440) { it.primaryContainer },
-            onAccentContainer = role(0xFF003845, 0xFFBDF0FB) { it.onPrimaryContainer },
+            // Akcent z Ustawień -> Wygląd (ten sam co w aplikacji).
+            accent = role(dayAccent.primary, nightAccent.primary) { it.primary },
+            accentContainer = role(dayAccent.container, nightAccent.container) { it.primaryContainer },
+            onAccentContainer = role(dayAccent.onContainer, nightAccent.onContainer) { it.onPrimaryContainer },
             substitution = role(0xFFA85A00, 0xFFFF9F0A) { it.tertiary },
             substitutionContainer = role(0xFFFFF0DB, 0xFF3A2A12) { it.tertiaryContainer }
         )

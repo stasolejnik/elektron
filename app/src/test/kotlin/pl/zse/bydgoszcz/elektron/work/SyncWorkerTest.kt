@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
 import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
@@ -111,6 +112,8 @@ class SyncWorkerTest {
         override suspend fun setReminderSettings(value: ReminderSettings) {}
         override val quietHours: Flow<QuietHours> = flowOf(QuietHours())
         override suspend fun setQuietHours(value: QuietHours) {}
+        override val accentColor: Flow<AccentColor> = flowOf(AccentColor.BLUE)
+        override suspend fun setAccentColor(value: AccentColor) {}
         override val widgetLook: Flow<WidgetLook> = flowOf(WidgetLook())
         override suspend fun setWidgetLook(value: WidgetLook) {}
         override val subjectStyles: Flow<Map<String, SubjectStyle>> = flowOf(emptyMap())

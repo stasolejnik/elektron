@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { }
             }
 
-            ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor) {
+            ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor, accent = state.accent) {
                 CompositionLocalProvider(LocalPersonalization provides personalization) {
                     when {
                         !state.isReady -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

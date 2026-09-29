@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import androidx.glance.unit.ColorProvider
+import androidx.compose.ui.graphics.Color
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -111,7 +113,7 @@ class DayPlanWidget : GlanceAppWidget() {
         val numberColor = when {
             past -> WidgetColors.textFaded
             lesson.isSubstitution -> WidgetColors.substitution
-            else -> WidgetColors.accent
+            else -> lesson.color?.let { ColorProvider(Color(it)) } ?: WidgetColors.accent
         }
         val titleColor = when {
             past -> WidgetColors.textFaded

@@ -9,7 +9,8 @@ import androidx.compose.ui.graphics.Color
  * (systemGroupedBackground, secondaryLabel, separator).
  *
  * #00B6DD ma na białym za słaby kontrast dla tekstu (~2.3:1), więc w trybie jasnym
- * akcent jest przyciemniony (#0091B0), a w ciemnym rozjaśniony (#3DCFEF).
+ * akcent jest przyciemniony (#007C98), a w ciemnym rozjaśniony (#3DCFEF).
+ * Akcent można zmienić w Ustawieniach - patrz Accents.
  */
 object ElektronColors {
     val Brand = Color(0xFF00B6DD)
@@ -20,7 +21,7 @@ object ElektronColors {
 }
 
 val LightColors = lightColorScheme(
-    primary = Color(0xFF0091B0),
+    primary = Color(0xFF007C98),     // kontrast 4.8:1 na białym (dawniej #0091B0 - 3.7:1)
     onPrimary = Color.White,
     primaryContainer = Color(0xFFDDF5FB),
     onPrimaryContainer = Color(0xFF003845),

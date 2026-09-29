@@ -65,6 +65,8 @@ class TimetableViewModel @Inject constructor(
 
     private val anchor = MutableStateFlow(baseDate)
     private val mode = MutableStateFlow(ViewMode.DAY)
+    /** Użytkownik przełączył tryb, zanim wczytał się zapamiętany - jego wybór wygrywa. */
+    private var modeChosenByUser = false
     private val refreshing = MutableStateFlow(false)
 
     private val _syncingWeek = MutableStateFlow<LocalDate?>(null)
@@ -75,6 +77,10 @@ class TimetableViewModel @Inject constructor(
     val currentAnchor: LocalDate get() = anchor.value
 
     init {
+        // Ostatnio wybrany tryb (Dzień/Tydzień) - zapamiętany w ustawieniach.
+        viewModelScope.launch {
+            if (settings.timetableLook.first().weekView && !modeChosenByUser) mode.value = ViewMode.WEEK
+        }
         // Sync tylko gdy oglądanego tygodnia brakuje w bazie (plan zapisywany jest na
         // 4 tygodnie naraz, świeżość zapewnia SyncWorker i odświeżanie ręczne).
         combine(settings.selectedClassId, anchor) { cid, day -> cid to day.with(JavaDayOfWeek.MONDAY) }
@@ -115,7 +121,13 @@ class TimetableViewModel @Inject constructor(
     }
 
     fun setMode(m: ViewMode) {
-        if (mode.value != m) mode.value = m
+        modeChosenByUser = true
+        if (mode.value == m) return
+        mode.value = m
+        viewModelScope.launch {
+            val look = settings.timetableLook.first()
+            settings.setTimetableLook(look.copy(weekView = m == ViewMode.WEEK))
+        }
     }
 
     /** Pager zatrzymał się na stronie dnia [date]. */

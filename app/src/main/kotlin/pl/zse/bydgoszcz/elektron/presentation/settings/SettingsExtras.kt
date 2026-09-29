@@ -1,5 +1,23 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import pl.zse.bydgoszcz.elektron.presentation.common.theme.Accents
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolClass
+import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -184,6 +202,68 @@ internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit)
     }
 }
 
+private val ACCENT_LABELS = mapOf(
+    AccentColor.BLUE to "Niebieski",
+    AccentColor.INDIGO to "Indygo",
+    AccentColor.PURPLE to "Fioletowy",
+    AccentColor.GREEN to "Zielony",
+    AccentColor.PINK to "Różowy",
+    AccentColor.GRAPHITE to "Grafitowy"
+)
+
+/** Kółka z paletami akcentu (pod Auto/Jasny/Ciemny). */
+@Composable
+internal fun AccentPicker(current: AccentColor, onChange: (AccentColor) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Kolor akcentu", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text(ACCENT_LABELS[current].orEmpty(), style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp).selectableGroup(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            AccentColor.entries.forEach { accent ->
+                val selected = accent == current
+                Box(
+                    Modifier.size(36.dp).clip(CircleShape)
+                        .background(Accents.swatch(accent))
+                        .selectable(selected = selected, role = Role.RadioButton) { onChange(accent) }
+                        .semantics { contentDescription = ACCENT_LABELS[accent].orEmpty() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selected) {
+                        Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White,
+                            modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Klasa: wiersz z wybraną klasą, wybór w oknie (bez przewijanej listy wewnątrz Ustawień). */
+@Composable
+internal fun ClassSection(classes: List<SchoolClass>, selectedId: String?, onSelect: (String) -> Unit) {
+    var choosing by remember { mutableStateOf(false) }
+    GroupedSection("Klasa", footer = "Plan, zastępstwa i powiadomienia dotyczą wybranej klasy.") {
+        if (classes.isEmpty()) {
+            Text("Brak listy klas. Pociągnij w dół na stronie głównej, aby odświeżyć.",
+                Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            val current = classes.firstOrNull { it.id == selectedId }
+            ValueRow("Twoja klasa", current?.fullName ?: "wybierz") { choosing = true }
+        }
+    }
+    if (choosing) {
+        ChoiceDialog("Twoja klasa", classes.map { it.id to it.fullName }, selectedId ?: "",
+            onSelect = { onSelect(it); choosing = false }, onDismiss = { choosing = false })
+    }
+}
+
 /** Wiersz "etykieta ... wartość" otwierający wybór. */
 @Composable
 private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
@@ -208,8 +288,12 @@ private fun <T> ChoiceDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(Modifier.selectableGroup()) {
-                options.forEach { (value, label) ->
+            // Długie listy (klasy) przewijają się wewnątrz okna, od razu przy zaznaczonej pozycji.
+            val listState = rememberLazyListState(
+                initialFirstVisibleItemIndex = (options.indexOfFirst { it.first == selected } - 2).coerceAtLeast(0)
+            )
+            LazyColumn(Modifier.selectableGroup(), state = listState) {
+                items(options) { (value, label) ->
                     Row(
                         Modifier.fillMaxWidth()
                             .selectable(selected = value == selected, role = Role.RadioButton) { onSelect(value) }

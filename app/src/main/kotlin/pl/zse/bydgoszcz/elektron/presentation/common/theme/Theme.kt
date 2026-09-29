@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.common.theme
 
+import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
+import androidx.compose.runtime.remember
 import android.os.Build
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -28,14 +30,16 @@ fun ElektronTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     /** Kolory z tapety (Material You, Android 12+). Domyślnie wyłączone — paleta z logo. */
     dynamicColor: Boolean = false,
+    /** Kolor akcentu (Ustawienia -> Wygląd); nie dotyczy kolorów z tapety. */
+    accent: AccentColor = AccentColor.BLUE,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val scheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        darkTheme -> DarkColors
-        else -> LightColors
+        darkTheme -> remember(accent) { Accents.apply(DarkColors, Accents.dark(accent)) }
+        else -> remember(accent) { Accents.apply(LightColors, Accents.light(accent)) }
     }
     MaterialTheme(
         colorScheme = scheme,

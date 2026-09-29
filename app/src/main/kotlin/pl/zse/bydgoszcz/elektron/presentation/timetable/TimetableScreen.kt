@@ -399,7 +399,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
     // Kolor przedmiotu (Ustawienia -> Przedmioty): pasek przy lewej krawędzi karty i numer lekcji.
     val subjectColor = if (sub == null) personal.subjectColor(originalSubject) else null
 
-    Card(modifier = modifier.fillMaxWidth().padding(vertical = if (look.compact) 1.dp else 2.dp)
+    Card(modifier = modifier.fillMaxWidth().padding(vertical = 1.dp)
             .semantics(mergeDescendants = true) {},
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = bg)) {
@@ -408,11 +408,11 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 .drawBehind {
                     subjectColor?.let { drawRect(it, size = Size(5.dp.toPx(), size.height)) }
                 }
-                .padding(horizontal = 14.dp, vertical = if (look.compact) 7.dp else 12.dp),
+                .padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("${lesson.number}",
-                style = if (look.compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (sub != null) fg else subjectColor ?: MaterialTheme.colorScheme.primary,
                 modifier = Modifier.widthIn(min = 28.dp),
@@ -440,7 +440,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                     // Każda grupa: pogrubiona nazwa przedmiotu (bez sufiksu grupy z Optivum)
                     // + plakietka grupy, pod spodem sala i nauczyciel szarą czcionką.
                     lesson.groups.forEachIndexed { i, g ->
-                        if (i > 0) Spacer(Modifier.height(if (look.compact) 3.dp else 6.dp))
+                        if (i > 0) Spacer(Modifier.height(3.dp))
                         val parsed = LessonGroups.parse(g.subject)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(personal.subjectName(g.subject) ?: "Lekcja",
@@ -479,19 +479,10 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 horizontalAlignment = Alignment.End
             ) {
                 val timeColor = if (sub != null) fg.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
-                if (look.compact) {
-                    // Kompaktowo: obie godziny w jednej linii, np. "8:00–8:45".
-                    Text("${lesson.timeFrom}–${lesson.timeTo}",
-                        style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
-                        color = timeColor)
-                } else {
-                    Text(lesson.timeFrom.toString(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
-                    Text(lesson.timeTo.toString(),
-                        style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
-                        color = timeColor)
-                }
+                // Obie godziny w jednej linii, np. "08:00–08:45".
+                Text("${lesson.timeFrom}–${lesson.timeTo}",
+                    style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
+                    color = timeColor)
             }
         }
     }

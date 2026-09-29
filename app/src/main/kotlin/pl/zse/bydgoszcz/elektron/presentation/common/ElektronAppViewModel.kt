@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
+import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -36,6 +37,7 @@ class ElektronAppViewModel @Inject constructor(
     data class AppState(
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
         val dynamicColor: Boolean = false,
+        val accent: AccentColor = AccentColor.BLUE,
         val selectedClassId: String? = null,
         /** Klasa, dla której przeszedł krok wyboru grup — różna od selectedClassId => pokaż krok. */
         val groupsConfiguredFor: String? = null,
@@ -101,9 +103,11 @@ class ElektronAppViewModel @Inject constructor(
         AppState(themeMode = theme, dynamicColor = dynamic, selectedClassId = classId,
             groupsConfiguredFor = groupsFor, isReady = true, changelogToShow = entriesToShow)
     },
-        startRoute
-    ) { app, route ->
-        if (route == null) app.copy(isReady = false) else app.copy(startRoute = route)
+        startRoute,
+        settings.accentColor
+    ) { app, route, accent ->
+        val withAccent = app.copy(accent = accent)
+        if (route == null) withAccent.copy(isReady = false) else withAccent.copy(startRoute = route)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppState(isReady = false))
 
     /** Nazwy/kolory przedmiotów i wygląd planu - podawane całemu UI przez LocalPersonalization. */

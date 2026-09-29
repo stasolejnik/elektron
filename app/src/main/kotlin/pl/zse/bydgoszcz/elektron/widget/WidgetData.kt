@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
@@ -45,7 +46,9 @@ data class WidgetLesson(
     val timeTo: LocalTime,
     val isSubstitution: Boolean,
     /** Zastępstwo: informacja zamiast sali i uwagi ze strony ("za ostatnią lekcję"). */
-    val note: String? = null
+    val note: String? = null,
+    /** Własny kolor przedmiotu (ARGB) z Ustawień -> Przedmioty; null = akcent. */
+    val color: Long? = null
 ) {
     val timeRange: String get() = "$timeFrom–$timeTo"
 }
@@ -111,7 +114,8 @@ object WidgetDataLoader {
         val mode = runCatching { ep.settings().themeMode.first() }.getOrDefault(ThemeMode.SYSTEM)
         val dynamic = runCatching { ep.settings().dynamicColor.first() }.getOrDefault(false)
         val opacity = runCatching { ep.settings().widgetLook.first().opacity }.getOrDefault(100)
-        return WidgetPalettes.create(context, mode, dynamic, opacity)
+        val accent = runCatching { ep.settings().accentColor.first() }.getOrDefault(AccentColor.BLUE)
+        return WidgetPalettes.create(context, mode, dynamic, opacity, accent)
     }
 
     suspend fun load(context: Context): WidgetState {
@@ -247,7 +251,8 @@ object WidgetDataLoader {
             detail = teacher,
             room = l.groups.mapNotNull { it.room }.distinct().joinToString(", ").ifBlank { null }?.takeIf { look.showRoom },
             timeFrom = l.timeFrom, timeTo = l.timeTo,
-            isSubstitution = false
+            isSubstitution = false,
+            color = SubjectStyles.colorOf(l.groups.firstOrNull()?.subject, styles)
         )
     }
 }

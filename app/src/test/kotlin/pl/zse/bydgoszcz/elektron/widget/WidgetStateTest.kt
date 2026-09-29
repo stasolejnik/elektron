@@ -107,4 +107,15 @@ class WidgetStateTest {
         assertEquals(null, st.focus.detail)
         assertEquals(null, st.focus.room)
     }
+
+    @Test
+    fun customSubjectColorReachesWidget() {
+        // Kolor z Ustawień -> Przedmioty trafia do widżetów; zastępstwo zostaje w kolorze zastępstw.
+        val lessons = listOf(lesson(friday, 3, "09:50", "10:35", subject = "wf-j1"))
+        val styles = mapOf("wf" to pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle(color = 0xFF7CB342))
+        val st = WidgetDataLoader.buildState(lessons, LocalDateTime.of(friday, LocalTime.of(9, 0)), styles) as WidgetState.Ready
+        assertEquals(0xFF7CB342, st.focus.color)
+        assertEquals(null, (WidgetDataLoader.buildState(listOf(lesson(friday, 3, "09:50", "10:35")),
+            LocalDateTime.of(friday, LocalTime.of(9, 0)), styles) as WidgetState.Ready).focus.color)
+    }
 }
