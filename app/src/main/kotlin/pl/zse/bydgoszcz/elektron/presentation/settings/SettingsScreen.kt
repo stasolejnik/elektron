@@ -1,5 +1,11 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork
+import pl.zse.bydgoszcz.elektron.crash.CrashReport
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.runtime.DisposableEffect
 import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -73,6 +79,7 @@ private const val PRIVACY_URL = "https://github.com/stasolejnik/elektron/blob/ma
 @Composable
 fun SettingsScreen(
     onOpenGroups: () -> Unit = {},
+    onOpenSubjects: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -164,6 +171,19 @@ fun SettingsScreen(
             }
 
             item {
+                val look = state.look
+                GroupedSection("Wygląd planu", footer = "Widok kompaktowy mieści więcej lekcji na ekranie.") {
+                    ActionRow("Nazwy i kolory przedmiotów", trailingChevron = true, onClick = onOpenSubjects)
+                    RowDivider()
+                    SwitchRow("Widok kompaktowy", look.compact) { viewModel.setTimetableLook(look.copy(compact = it)) }
+                    RowDivider()
+                    SwitchRow("Pokazuj salę", look.showRoom) { viewModel.setTimetableLook(look.copy(showRoom = it)) }
+                    RowDivider()
+                    SwitchRow("Pokazuj nauczyciela", look.showTeacher) { viewModel.setTimetableLook(look.copy(showTeacher = it)) }
+                }
+            }
+
+            item {
                 GroupedSection("Strona główna") {
                     SwitchRow("Następna lekcja", state.showNextLesson) { viewModel.setShowNextLesson(it) }
                     RowDivider()
@@ -173,17 +193,60 @@ fun SettingsScreen(
                 }
             }
 
-            item {
-                GroupedSection("Uruchamianie", footer = "W godzinach lekcji aplikacja otwiera się na planie, poza nimi - na stronie głównej.") {
-                    SwitchRow("Otwieraj plan w trakcie lekcji", state.smartStart) { viewModel.setSmartStart(it) }
-                }
-            }
+            item { WidgetsSection(state.widgetLook) { viewModel.setWidgetLook(it) } }
+
+            item { StartScreenSection(state.startScreen) { viewModel.setStartScreen(it) } }
 
             item {
                 GroupedSection("Powiadomienia") {
                     SwitchRow("Nowe zastępstwa", state.notifSubs) { viewModel.setNotifSubs(it) }
                     RowDivider()
                     SwitchRow("Nowe ogłoszenia", state.notifAnn) { viewModel.setNotifAnn(it) }
+                }
+            }
+
+            item { RemindersSection(state.reminder) { viewModel.setReminder(it) } }
+
+            item { QuietHoursSection(state.quiet) { viewModel.setQuietHours(it) } }
+
+            item {
+                // Stan sprawdzany przy każdym powrocie na ekran - użytkownik zmienia go
+                // w ustawieniach systemu i wraca tutaj.
+                var unrestricted by remember { mutableStateOf(BackgroundWork.isUnrestricted(ctx)) }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) unrestricted = BackgroundWork.isUnrestricted(ctx)
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+                GroupedSection(
+                    "Działanie w tle",
+                    footer = if (unrestricted)
+                        "Widżety i powiadomienia działają bez ograniczeń."
+                    else
+                        "Telefon może usypiać aplikację w tle - widżety przestają się wtedy odświeżać, " +
+                            "a powiadomienia przychodzą z opóźnieniem. Ustaw eLektron na „Bez ograniczeń”."
+                ) {
+                    if (unrestricted) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Optymalizacja baterii", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Text("Wyłączona", style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        ActionRow("Wyłącz optymalizację baterii", trailingChevron = true) {
+                            BackgroundWork.openSettings(ctx)
+                        }
+                        RowDivider()
+                        ActionRow("Poradnik dla Twojego telefonu", trailingIcon = true) {
+                            SafeUrls.open(ctx, BackgroundWork.GUIDE_URL)
+                        }
+                    }
                 }
             }
 
@@ -259,6 +322,14 @@ fun SettingsScreen(
                         SafeUrls.open(ctx, REPO_URL)
                     }
                     RowDivider()
+                    ActionRow("Zgłoś problem", trailingIcon = true) {
+                        SafeUrls.open(ctx, CrashReport.feedbackUrl(
+                            BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.FLAVOR,
+                            Build.VERSION.RELEASE ?: "?", Build.VERSION.SDK_INT,
+                            "${Build.MANUFACTURER} ${Build.MODEL}"
+                        ))
+                    }
+                    RowDivider()
                     ActionRow("Polityka prywatności", trailingIcon = true) {
                         SafeUrls.open(ctx, PRIVACY_URL)
                     }
@@ -301,12 +372,12 @@ private fun AnnotatedString.Builder.link(text: String, url: String, color: Color
 }
 
 @Composable
-private fun RowDivider() {
+internal fun RowDivider() {
     HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -329,7 +400,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 }
 
 @Composable
-private fun ActionRow(
+internal fun ActionRow(
     label: String,
     destructive: Boolean = false,
     trailingIcon: Boolean = false,

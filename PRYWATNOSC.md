@@ -16,6 +16,10 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
 - **Ustawienia:** wybrana klasa, grupy zajęciowe, motyw, ustawienia powiadomień.
 - **Kopia danych ze strony szkoły:** plan lekcji, zastępstwa i ogłoszenia (żeby aplikacja
   działała bez internetu).
+- **Raport ostatniej awarii** (tylko jeśli aplikacja się zamknęła z powodu błędu): wersja
+  aplikacji, model telefonu, wersja Androida i techniczny opis błędu. Przy następnym
+  uruchomieniu możesz go zgłosić na GitHubie lub udostępnić albo pominąć - w każdym
+  przypadku raport jest potem usuwany. Aplikacja nigdy nie wysyła go sama.
 
 Dane te nie są nigdzie wysyłane. Ustawienia mogą trafić do kopii zapasowej Androida
 (Google), jeśli masz ją włączoną w telefonie - kopia danych ze strony szkoły jest z niej

@@ -1,5 +1,11 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
+import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
+import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
+import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
+import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
+import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,7 +31,8 @@ class SettingsViewModel @Inject constructor(
     private val timetableRepo: TimetableRepository,
     private val classSelection: ClassSelection,
     private val updateRepo: UpdateRepository,
-    private val widgetUpdater: WidgetUpdater
+    private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler
 ) : ViewModel() {
 
     data class State(
@@ -37,16 +44,24 @@ class SettingsViewModel @Inject constructor(
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true,
-        val smartStart: Boolean = true,
-        val classes: List<SchoolClass> = emptyList()
+        val startScreen: StartScreen = StartScreen.SMART,
+        val classes: List<SchoolClass> = emptyList(),
+        val look: TimetableLook = TimetableLook(),
+        val reminder: ReminderSettings = ReminderSettings(),
+        val quiet: QuietHours = QuietHours(),
+        val widgetLook: WidgetLook = WidgetLook()
     )
 
     val state: StateFlow<State> = combine(
         settings.themeMode, settings.dynamicColor, settings.selectedClassId,
         settings.notificationsSubstitutions, settings.notificationsAnnouncements,
         settings.showNextLesson, settings.showSubstitutions, settings.showAnnouncements,
-        settings.smartStart,
-        timetableRepo.observeClasses()
+        settings.startScreen,
+        timetableRepo.observeClasses(),
+        settings.timetableLook,
+        settings.reminderSettings,
+        settings.quietHours,
+        settings.widgetLook
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -58,8 +73,12 @@ class SettingsViewModel @Inject constructor(
             showNextLesson = values[5] as Boolean,
             showSubstitutions = values[6] as Boolean,
             showAnnouncements = values[7] as Boolean,
-            smartStart = values[8] as Boolean,
-            classes = values[9] as List<SchoolClass>
+            startScreen = values[8] as StartScreen,
+            classes = values[9] as List<SchoolClass>,
+            look = values[10] as TimetableLook,
+            reminder = values[11] as ReminderSettings,
+            quiet = values[12] as QuietHours,
+            widgetLook = values[13] as WidgetLook
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -104,7 +123,21 @@ class SettingsViewModel @Inject constructor(
         widgetUpdater.requestUpdate()   // widżety w kolorach z tapety
     }
 
-    fun setSmartStart(enabled: Boolean) = viewModelScope.launch { settings.setSmartStart(enabled) }
+    fun setStartScreen(screen: StartScreen) = viewModelScope.launch { settings.setStartScreen(screen) }
+
+    fun setReminder(value: ReminderSettings) = viewModelScope.launch {
+        settings.setReminderSettings(value)
+        reminders.reschedule()
+    }
+
+    fun setQuietHours(value: QuietHours) = viewModelScope.launch { settings.setQuietHours(value) }
+
+    fun setWidgetLook(value: WidgetLook) = viewModelScope.launch {
+        settings.setWidgetLook(value)
+        widgetUpdater.requestUpdate()
+    }
+
+    fun setTimetableLook(look: TimetableLook) = viewModelScope.launch { settings.setTimetableLook(look) }
 
     fun resetCache() {
         state.value.selectedClassId?.let { classSelection.resetCacheAndResync(it) }

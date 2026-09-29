@@ -1,11 +1,18 @@
 package pl.zse.bydgoszcz.elektron
 
+import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
+import androidx.compose.runtime.CompositionLocalProvider
 import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import pl.zse.bydgoszcz.elektron.crash.CrashReporter
+import pl.zse.bydgoszcz.elektron.crash.CrashReportDialog
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.activity.enableEdgeToEdge
 import android.graphics.Color
 import androidx.compose.runtime.DisposableEffect
@@ -59,6 +66,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by appViewModel.state.collectAsStateWithLifecycle()
             val deepLink by pendingDeepLink.collectAsStateWithLifecycle()
+            val personalization by appViewModel.personalization.collectAsStateWithLifecycle()
+            // Raport z poprzedniej awarii (jeśli była) - pokazywany raz, potem usuwany.
+            var crashReport by remember { mutableStateOf(CrashReporter.pending(this@MainActivity)) }
             val dark = when (state.themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
@@ -77,25 +87,34 @@ class MainActivity : ComponentActivity() {
             }
 
             ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor) {
-                when {
-                    !state.isReady -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                CompositionLocalProvider(LocalPersonalization provides personalization) {
+                    when {
+                        !state.isReady -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                        state.selectedClassId == null -> SetupScreen()
+                        // Po wyborze klasy (w Setup albo w Ustawieniach) — krok wyboru grup.
+                        state.groupsConfiguredFor != state.selectedClassId -> GroupsScreen(asSetupStep = true)
+                        else -> ElektronNavHost(
+                            deepLink = deepLink,
+                            onDeepLinkConsumed = { pendingDeepLink.value = null },
+                            startRoute = state.startRoute
+                        )
                     }
-                    state.selectedClassId == null -> SetupScreen()
-                    // Po wyborze klasy (w Setup albo w Ustawieniach) — krok wyboru grup.
-                    state.groupsConfiguredFor != state.selectedClassId -> GroupsScreen(asSetupStep = true)
-                    else -> ElektronNavHost(
-                        deepLink = deepLink,
-                        onDeepLinkConsumed = { pendingDeepLink.value = null },
-                        startRoute = state.startRoute
-                    )
-                }
 
-                if (state.changelogToShow.isNotEmpty()) {
-                    ChangelogDialog(
-                        entries = state.changelogToShow,
-                        onDismiss = { appViewModel.markChangelogSeen() }
-                    )
+                    crashReport?.let { report ->
+                        CrashReportDialog(report = report, onDismiss = {
+                            CrashReporter.clear(this@MainActivity)
+                            crashReport = null
+                        })
+                    }
+
+                    if (crashReport == null && state.changelogToShow.isNotEmpty()) {
+                        ChangelogDialog(
+                            entries = state.changelogToShow,
+                            onDismiss = { appViewModel.markChangelogSeen() }
+                        )
+                    }
                 }
             }
         }

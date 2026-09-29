@@ -1,0 +1,109 @@
+package pl.zse.bydgoszcz.elektron.work
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.util.Log
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
+import pl.zse.bydgoszcz.elektron.domain.model.LessonReminders
+import pl.zse.bydgoszcz.elektron.domain.model.ReminderMode
+import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import java.time.LocalDateTime
+import java.time.ZoneId
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Przypomnienia przed lekcją. Zawsze ustawiony jest najwyżej JEDEN alarm - na najbliższe
+ * przypomnienie. Przeliczany po każdej synchronizacji (co 15 min - uwzględnia nowe zastępstwa,
+ * zmianę grup i restart telefonu), po zmianie ustawień i po wyświetleniu przypomnienia.
+ *
+ * Dokładne alarmy tylko, gdy system na to pozwala (Android 12+: "Alarmy i przypomnienia");
+ * inaczej alarm może przyjść z kilkuminutowym opóźnieniem.
+ */
+@Singleton
+class LessonReminderScheduler @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val settings: SettingsRepository,
+    private val timetableRepo: TimetableRepository
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val mutex = Mutex()
+
+    /** Przelicz w tle (bez czekania). */
+    fun requestReschedule() {
+        scope.launch { reschedule() }
+    }
+
+    suspend fun reschedule(now: LocalDateTime = LocalDateTime.now()) = mutex.withLock {
+        runCatching { rescheduleLocked(now) }.onFailure { Log.w(TAG, "Nie udało się ustawić przypomnienia", it) }
+    }
+
+    private suspend fun rescheduleLocked(now: LocalDateTime) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        val reminderSettings = settings.reminderSettings.first()
+        val classId = settings.selectedClassId.first()
+        val reminder = if (reminderSettings.mode == ReminderMode.OFF || classId == null) null else {
+            val today = now.toLocalDate()
+            val lessons = LessonGroups.filter(
+                timetableRepo.getLessonsOnce(classId, today, today.plusDays(7)),
+                settings.groupSelections(classId).first()
+            )
+            LessonReminders.next(lessons, now, reminderSettings)
+        }
+
+        if (reminder == null) {
+            PendingIntent.getBroadcast(context, REQUEST_CODE, baseIntent(),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)?.let { am.cancel(it) }
+            return
+        }
+
+        val (what, body) = LessonReminders.describe(reminder.lesson, settings.subjectStyles.first())
+        val zone = ZoneId.systemDefault()
+        val intent = baseIntent()
+            .putExtra(EXTRA_ID, reminder.lesson.id.hashCode())
+            .putExtra(EXTRA_WHAT, what)
+            .putExtra(EXTRA_BODY, body)
+            .putExtra(EXTRA_START, reminder.lessonStart.atZone(zone).toInstant().toEpochMilli())
+            .putExtra(EXTRA_END, LocalDateTime.of(reminder.lesson.date, reminder.lesson.timeTo)
+                .atZone(zone).toInstant().toEpochMilli())
+        val pi = PendingIntent.getBroadcast(context, REQUEST_CODE, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val at = reminder.at.atZone(zone).toInstant().toEpochMilli()
+        try {
+            if (canUseExactAlarms(context)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        } catch (e: SecurityException) {
+            // Uprawnienie cofnięte w międzyczasie - alarm niedokładny.
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        }
+    }
+
+    private fun baseIntent() = Intent(context, LessonReminderReceiver::class.java)
+
+    companion object {
+        private const val TAG = "LessonReminders"
+        private const val REQUEST_CODE = 4101
+        const val EXTRA_ID = "reminder_id"
+        const val EXTRA_WHAT = "reminder_what"
+        const val EXTRA_BODY = "reminder_body"
+        const val EXTRA_START = "reminder_start"
+        const val EXTRA_END = "reminder_end"
+
+        fun canUseExactAlarms(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+            return context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
+        }
+    }
+}

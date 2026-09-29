@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.first
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -24,7 +26,8 @@ import javax.inject.Singleton
 
 @Singleton
 class LocalNotificationSink @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val settings: SettingsRepository
 ) : NotificationSink {
 
     init { ensureChannels() }
@@ -48,6 +51,12 @@ class LocalNotificationSink @Inject constructor(
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_ANNOUNCEMENTS, "Ogłoszenia", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Powiadomienia o nowych ogłoszeniach z RSS szkoły."
+                group = GROUP_ELEKTRON
+            }
+        )
+        mgr.createNotificationChannel(
+            NotificationChannel(CHANNEL_REMINDERS, "Przypomnienia o lekcjach", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Przypomnienia przed lekcją (Ustawienia -> Powiadomienia)."
                 group = GROUP_ELEKTRON
             }
         )
@@ -91,6 +100,7 @@ class LocalNotificationSink @Inject constructor(
             .addAction(0, "Pokaż w planie", showInPlan)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setAutoCancel(true)
+            .setSilent(isQuietNow())
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         safeNotify(sub.id.hashCode(), n)
@@ -118,6 +128,7 @@ class LocalNotificationSink @Inject constructor(
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(pi)
             .setAutoCancel(true)
+            .setSilent(isQuietNow())
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         safeNotify(ann.id.hashCode(), n)
@@ -137,9 +148,35 @@ class LocalNotificationSink @Inject constructor(
             .setContentText(body)
             .setContentIntent(pi)
             .setAutoCancel(true)
+            .setSilent(isQuietNow())
             .build()
         safeNotify(title.hashCode(), n)
     }
+
+    /** Przypomnienie przed lekcją (LessonReminderReceiver). Znika samo po końcu lekcji. */
+    suspend fun postReminder(id: Int, title: String, body: String, timeoutMs: Long) {
+        if (!canNotify()) return
+        val pi = PendingIntent.getActivity(
+            context, id xor 0x3C3C, deepLinkIntent("timetable"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val n = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+            .setSmallIcon(R.drawable.ic_stat_elektron)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(pi)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .setSilent(isQuietNow())
+            .setTimeoutAfter(timeoutMs)
+            .build()
+        safeNotify(REMINDER_ID_BASE + (id and 0xFFFF), n)
+    }
+
+    /** Ciche godziny z Ustawień: powiadomienie bez dźwięku i wibracji. */
+    private suspend fun isQuietNow(): Boolean =
+        runCatching { settings.quietHours.first().isQuiet(java.time.LocalTime.now()) }.getOrDefault(false)
 
     private fun dayLabel(date: java.time.LocalDate): String {
         val today = java.time.LocalDate.now()
@@ -175,6 +212,8 @@ class LocalNotificationSink @Inject constructor(
         const val GROUP_ELEKTRON = "elektron"
         const val CHANNEL_SUBSTITUTIONS = "elektron_substitutions"
         const val CHANNEL_ANNOUNCEMENTS = "elektron_announcements"
+        const val CHANNEL_REMINDERS = "elektron_reminders"
+        private const val REMINDER_ID_BASE = 0x7E000000
         const val EXTRA_DEEP_LINK = "elektron_deep_link"
         private const val TAG = "LocalNotificationSink"
     }

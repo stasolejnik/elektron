@@ -9,9 +9,11 @@
     <cloud-backup>
         <exclude domain="sharedpref" path="." />
         <exclude domain="database" path="." />
+        <exclude domain="file" path="last_crash.txt" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="." />
         <exclude domain="database" path="." />
+        <exclude domain="file" path="last_crash.txt" />
     </device-transfer>
 </data-extraction-rules>

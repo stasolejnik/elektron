@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -142,6 +143,10 @@ class TimetableViewModel @Inject constructor(
                     launch {
                         repo.syncTimetable(cid, anchor.value)
                             .onSuccess { notificationsRepo.markLoaded("timetable") }
+                            .onFailure {
+                                if (it is SchoolPageChangedException)
+                                    notificationsRepo.setLastSyncError(SchoolPageChangedException.USER_MESSAGE)
+                            }
                     }
                     launch {
                         substitutionsRepo.syncAll()

@@ -1,0 +1,53 @@
+name: Build i testy
+
+# Przy każdym pushu i pull requeście: testy jednostkowe + build wersji F-Droid (foss).
+# Wariant gms wymaga app/google-services.json, którego celowo nie ma w repozytorium,
+# dlatego CI buduje foss - to przy okazji pilnuje, że build dla F-Droid działa.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", "fastlane/**"]
+  pull_request:
+    paths-ignore: ["**.md", "docs/**", "fastlane/**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Testy i build wersji F-Droid
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testFossDebugUnitTest :app:assembleFossDebug
+
+      - name: Raport testów (przy błędzie)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raport-testow
+          path: app/build/reports/tests/
+          retention-days: 7
+
+      - name: APK (debug, foss)
+        uses: actions/upload-artifact@v4
+        with:
+          name: eLektron-foss-debug
+          path: app/build/outputs/apk/foss/debug/*.apk
+          retention-days: 7

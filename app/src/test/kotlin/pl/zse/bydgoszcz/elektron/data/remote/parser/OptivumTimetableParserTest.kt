@@ -86,4 +86,21 @@ class OptivumTimetableParserTest {
         val dto = OptivumTimetableParser.parse(doc, "o1")
         assertTrue("Puste komórki nie powinny być lekcjami", dto.lessons.all { it.groups.isEmpty() })
     }
+
+    @Test
+    fun unknownLayoutIsReported() {
+        // Szkoła zmieniła układ strony (brak table.tabela) - parser nie może udawać,
+        // że klasa po prostu nie ma lekcji.
+        val doc = Jsoup.parse("<html><head><title>Plan lekcji oddziału - 1A</title></head>" +
+            "<body><div class=\"nowy-plan\">Poniedziałek</div></body></html>")
+        val dto = OptivumTimetableParser.parse(doc, "o1")
+        assertTrue(!dto.layoutOk)
+        assertTrue(dto.lessons.isEmpty())
+    }
+
+    @Test
+    fun tableWithoutLessonRowsIsReported() {
+        val doc = Jsoup.parse("<html><body><table class=\"tabela\"><tr><th>Nr</th></tr></table></body></html>")
+        assertTrue(!OptivumTimetableParser.parse(doc, "o1").layoutOk)
+    }
 }

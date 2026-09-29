@@ -1,5 +1,11 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
+import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
+import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
+import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
+import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
+import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
@@ -99,8 +105,18 @@ class SyncWorkerTest {
         override suspend fun setShowSubstitutions(enabled: Boolean) {}
         override val showAnnouncements: Flow<Boolean> = flowOf(true)
         override suspend fun setShowAnnouncements(enabled: Boolean) {}
-        override val smartStart: Flow<Boolean> = flowOf(true)
-        override suspend fun setSmartStart(enabled: Boolean) {}
+        override val startScreen: Flow<StartScreen> = flowOf(StartScreen.SMART)
+        override suspend fun setStartScreen(screen: StartScreen) {}
+        override val reminderSettings: Flow<ReminderSettings> = flowOf(ReminderSettings())
+        override suspend fun setReminderSettings(value: ReminderSettings) {}
+        override val quietHours: Flow<QuietHours> = flowOf(QuietHours())
+        override suspend fun setQuietHours(value: QuietHours) {}
+        override val widgetLook: Flow<WidgetLook> = flowOf(WidgetLook())
+        override suspend fun setWidgetLook(value: WidgetLook) {}
+        override val subjectStyles: Flow<Map<String, SubjectStyle>> = flowOf(emptyMap())
+        override suspend fun setSubjectStyle(subject: String, style: SubjectStyle) {}
+        override val timetableLook: Flow<TimetableLook> = flowOf(TimetableLook())
+        override suspend fun setTimetableLook(look: TimetableLook) {}
         override val lastSeenVersionCode: Flow<Int> = flowOf(0)
         override suspend fun setLastSeenVersionCode(code: Int) {}
         override fun groupSelections(classId: String): Flow<Map<String, String>> = flowOf(emptyMap())
@@ -136,7 +152,8 @@ class SyncWorkerTest {
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
                 SyncWorker(appContext, workerParameters, syncAll, settings, substitutionsRepo, announcementsRepo,
-                    notificationsRepo, sink, timetableRepo, WidgetUpdater(appContext))
+                    notificationsRepo, sink, timetableRepo, WidgetUpdater(appContext),
+                    LessonReminderScheduler(appContext, settings, timetableRepo))
         }
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).setWorkerFactory(factory).build()
         return runBlocking { worker.doWork() }

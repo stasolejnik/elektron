@@ -1,5 +1,14 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import java.time.LocalTime
+import pl.zse.bydgoszcz.elektron.domain.model.ReminderMode
+import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
+import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
+import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
+import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
+import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
+import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
+import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -39,6 +48,19 @@ class SettingsRepositoryImpl @Inject constructor(
         val SHOW_SUBSTITUTIONS = booleanPreferencesKey("show_substitutions")
         val SHOW_ANNOUNCEMENTS = booleanPreferencesKey("show_announcements")
         val SMART_START = booleanPreferencesKey("smart_start")
+        val START_SCREEN = stringPreferencesKey("start_screen")
+        val REMINDER_MODE = stringPreferencesKey("reminder_mode")
+        val REMINDER_MINUTES = intPreferencesKey("reminder_minutes")
+        val QUIET_ENABLED = booleanPreferencesKey("quiet_enabled")
+        val QUIET_FROM = intPreferencesKey("quiet_from_min")
+        val QUIET_TO = intPreferencesKey("quiet_to_min")
+        val WIDGET_OPACITY = intPreferencesKey("widget_opacity")
+        val WIDGET_TEACHER = booleanPreferencesKey("widget_show_teacher")
+        val WIDGET_ROOM = booleanPreferencesKey("widget_show_room")
+        val SUBJECT_STYLES = stringPreferencesKey("subject_styles")
+        val LOOK_COMPACT = booleanPreferencesKey("timetable_compact")
+        val LOOK_ROOM = booleanPreferencesKey("timetable_show_room")
+        val LOOK_TEACHER = booleanPreferencesKey("timetable_show_teacher")
         val LAST_SEEN_VERSION = intPreferencesKey("last_seen_version_code")
         val GROUPS_CONFIGURED_FOR = stringPreferencesKey("groups_configured_for")
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
@@ -91,9 +113,80 @@ class SettingsRepositoryImpl @Inject constructor(
         context.elektronSettings.edit { it[Keys.SHOW_ANNOUNCEMENTS] = enabled }
     }
 
-    override val smartStart: Flow<Boolean> = prefs.map { it[Keys.SMART_START] ?: true }
-    override suspend fun setSmartStart(enabled: Boolean) {
-        context.elektronSettings.edit { it[Keys.SMART_START] = enabled }
+    // Bez zapisanego wyboru: z dawnego przełącznika "Otwieraj plan w trakcie lekcji" (0.5).
+    override val startScreen: Flow<StartScreen> = prefs.map {
+        StartScreen.fromKey(it[Keys.START_SCREEN])
+            ?: if (it[Keys.SMART_START] ?: true) StartScreen.SMART else StartScreen.DASHBOARD
+    }.distinctUntilChanged()
+    override suspend fun setStartScreen(screen: StartScreen) {
+        context.elektronSettings.edit { it[Keys.START_SCREEN] = screen.key }
+    }
+
+    override val reminderSettings: Flow<ReminderSettings> = prefs.map {
+        ReminderSettings(ReminderMode.fromKey(it[Keys.REMINDER_MODE]), it[Keys.REMINDER_MINUTES] ?: 10)
+    }.distinctUntilChanged()
+    override suspend fun setReminderSettings(value: ReminderSettings) {
+        context.elektronSettings.edit {
+            it[Keys.REMINDER_MODE] = value.mode.key
+            it[Keys.REMINDER_MINUTES] = value.minutesBefore
+        }
+    }
+
+    override val quietHours: Flow<QuietHours> = prefs.map {
+        QuietHours(
+            enabled = it[Keys.QUIET_ENABLED] ?: false,
+            from = LocalTime.ofSecondOfDay(((it[Keys.QUIET_FROM] ?: (22 * 60)).coerceIn(0, 1439) * 60).toLong()),
+            to = LocalTime.ofSecondOfDay(((it[Keys.QUIET_TO] ?: (7 * 60)).coerceIn(0, 1439) * 60).toLong())
+        )
+    }.distinctUntilChanged()
+    override suspend fun setQuietHours(value: QuietHours) {
+        context.elektronSettings.edit {
+            it[Keys.QUIET_ENABLED] = value.enabled
+            it[Keys.QUIET_FROM] = value.from.hour * 60 + value.from.minute
+            it[Keys.QUIET_TO] = value.to.hour * 60 + value.to.minute
+        }
+    }
+
+    override val widgetLook: Flow<WidgetLook> = prefs.map {
+        WidgetLook(
+            opacity = (it[Keys.WIDGET_OPACITY] ?: 100).coerceIn(20, 100),
+            showTeacher = it[Keys.WIDGET_TEACHER] ?: true,
+            showRoom = it[Keys.WIDGET_ROOM] ?: true
+        )
+    }.distinctUntilChanged()
+    override suspend fun setWidgetLook(value: WidgetLook) {
+        context.elektronSettings.edit {
+            it[Keys.WIDGET_OPACITY] = value.opacity
+            it[Keys.WIDGET_TEACHER] = value.showTeacher
+            it[Keys.WIDGET_ROOM] = value.showRoom
+        }
+    }
+
+    override val subjectStyles: Flow<Map<String, SubjectStyle>> =
+        prefs.map { SubjectStyles.decode(it[Keys.SUBJECT_STYLES]) }.distinctUntilChanged()
+
+    override suspend fun setSubjectStyle(subject: String, style: SubjectStyle) {
+        context.elektronSettings.edit {
+            val current = SubjectStyles.decode(it[Keys.SUBJECT_STYLES]).toMutableMap()
+            if (style.isDefault) current.remove(subject) else current[subject] = style
+            it[Keys.SUBJECT_STYLES] = SubjectStyles.encode(current)
+        }
+    }
+
+    override val timetableLook: Flow<TimetableLook> = prefs.map {
+        TimetableLook(
+            compact = it[Keys.LOOK_COMPACT] ?: false,
+            showRoom = it[Keys.LOOK_ROOM] ?: true,
+            showTeacher = it[Keys.LOOK_TEACHER] ?: true
+        )
+    }.distinctUntilChanged()
+
+    override suspend fun setTimetableLook(look: TimetableLook) {
+        context.elektronSettings.edit {
+            it[Keys.LOOK_COMPACT] = look.compact
+            it[Keys.LOOK_ROOM] = look.showRoom
+            it[Keys.LOOK_TEACHER] = look.showTeacher
+        }
     }
 
     override val lastSeenVersionCode: Flow<Int> = prefs.map { it[Keys.LAST_SEEN_VERSION] ?: 0 }

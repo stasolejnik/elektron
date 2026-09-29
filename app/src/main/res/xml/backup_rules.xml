@@ -5,4 +5,5 @@
     <exclude domain="database" path="elektron.db-wal" />
     <exclude domain="database" path="elektron.db-shm" />
     <exclude domain="sharedpref" path="." />
+    <exclude domain="file" path="last_crash.txt" />
 </full-backup-content>

@@ -1,5 +1,8 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
+import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
+import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import android.content.Context
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -107,7 +110,8 @@ object WidgetDataLoader {
         val ep = entryPoint(context)
         val mode = runCatching { ep.settings().themeMode.first() }.getOrDefault(ThemeMode.SYSTEM)
         val dynamic = runCatching { ep.settings().dynamicColor.first() }.getOrDefault(false)
-        return WidgetPalettes.create(context, mode, dynamic)
+        val opacity = runCatching { ep.settings().widgetLook.first().opacity }.getOrDefault(100)
+        return WidgetPalettes.create(context, mode, dynamic, opacity)
     }
 
     suspend fun load(context: Context): WidgetState {
@@ -119,7 +123,9 @@ object WidgetDataLoader {
         val lessons = runCatching {
             LessonGroups.filter(ep.timetable().getLessonsOnce(classId, today, today.plusDays(7)), groups)
         }.getOrDefault(emptyList())
-        return buildState(lessons, nowDt)
+        val styles = runCatching { ep.settings().subjectStyles.first() }.getOrDefault(emptyMap())
+        val look = runCatching { ep.settings().widgetLook.first() }.getOrDefault(WidgetLook())
+        return buildState(lessons, nowDt, styles, look)
     }
 
     /**
@@ -128,7 +134,12 @@ object WidgetDataLoader {
      * Jeden odczyt czasu ([nowDt]) — dawniej data i godzina były pobierane osobno.
      * [lessons] muszą być już po filtrze grup.
      */
-    internal fun buildState(lessons: List<Lesson>, nowDt: LocalDateTime): WidgetState {
+    internal fun buildState(
+        lessons: List<Lesson>,
+        nowDt: LocalDateTime,
+        styles: Map<String, SubjectStyle> = emptyMap(),
+        look: WidgetLook = WidgetLook()
+    ): WidgetState {
         val today = nowDt.toLocalDate()
         val now = nowDt.toLocalTime()
         val className = lessons.firstOrNull()?.className
@@ -157,7 +168,7 @@ object WidgetDataLoader {
         return WidgetState.Ready(
             className = className,
             dayLabel = dayLabel(day, today),
-            lessons = dayLessons.map(::toWidgetLesson),
+            lessons = dayLessons.map { toWidgetLesson(it, styles, look) },
             focusIndex = focusIndex,
             focusIsNow = focusIsNow,
             isToday = isToday,
@@ -207,7 +218,7 @@ object WidgetDataLoader {
         else -> day.dayOfWeek.getDisplayName(TextStyle.FULL, PL).replaceFirstChar { it.titlecase(PL) }
     }
 
-    private fun toWidgetLesson(l: Lesson): WidgetLesson {
+    private fun toWidgetLesson(l: Lesson, styles: Map<String, SubjectStyle>, look: WidgetLook): WidgetLesson {
         val sub = l.substitution
         if (sub != null) {
             // Na pierwszym planie nauczyciel zastępujący (nie sala) — jak w aplikacji.
@@ -225,15 +236,16 @@ object WidgetDataLoader {
                     .joinToString(" · ").ifBlank { null }
             )
         }
-        // Nazwa bez sufiksu grupy ("zaj.prakt-2/3" -> "zaj.prakt") — grupy są już odfiltrowane.
-        val title = l.groups.mapNotNull { g -> LessonGroups.parse(g.subject)?.base }
+        // Nazwa bez sufiksu grupy ("zaj.prakt-2/3" -> "zaj.prakt") albo własna z Ustawień.
+        val title = l.groups.mapNotNull { g -> SubjectStyles.displayName(g.subject, styles) }
             .distinct().joinToString(" / ").ifBlank { l.note ?: "Lekcja" }
-        val teacher = l.groups.firstOrNull()?.let { it.teacherFullName ?: it.teacherCode }
+        // Zastępstwa zawsze w pełni (wyżej); zwykła lekcja - według Ustawień -> Widżety.
+        val teacher = l.groups.firstOrNull()?.let { it.teacherFullName ?: it.teacherCode }?.takeIf { look.showTeacher }
         return WidgetLesson(
             number = l.number,
             title = title,
             detail = teacher,
-            room = l.groups.mapNotNull { it.room }.distinct().joinToString(", ").ifBlank { null },
+            room = l.groups.mapNotNull { it.room }.distinct().joinToString(", ").ifBlank { null }?.takeIf { look.showRoom },
             timeFrom = l.timeFrom, timeTo = l.timeTo,
             isSubstitution = false
         )

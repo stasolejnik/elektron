@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import pl.zse.bydgoszcz.elektron.crash.CrashReporter
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
 import pl.zse.bydgoszcz.elektron.work.PushTopics
@@ -33,6 +34,8 @@ class ElektronApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // Jako pierwsze: raport awarii ma powstać także wtedy, gdy wysypie się reszta onCreate.
+        CrashReporter.install(this)
         // Tylko harmonogram cykliczny. Sync "na żądanie" odpala:
         //  - ClassSelection po wyborze klasy (Setup i Ustawienia),
         //  - pull-to-refresh na Starcie, w Planie, Zastępstwach i Ogłoszeniach,

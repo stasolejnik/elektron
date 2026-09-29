@@ -1,5 +1,10 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.distinctUntilChanged
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
+import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +29,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ElektronAppViewModel @Inject constructor(
     private val settings: SettingsRepository,
-    private val timetableRepo: TimetableRepository
+    private val timetableRepo: TimetableRepository,
+    reminders: LessonReminderScheduler
 ) : ViewModel() {
 
     data class AppState(
@@ -46,28 +52,39 @@ class ElektronAppViewModel @Inject constructor(
     private val startRoute = MutableStateFlow<String?>(null)
 
     init {
+        // Przypomnienia przeliczane przy starcie i przy każdej zmianie, która zmienia ich
+        // termin lub treść (klasa, grupy, nazwy przedmiotów, ustawienia przypomnień) -
+        // nie trzeba czekać na najbliższą synchronizację.
+        combine(
+            settings.selectedClassId, settings.activeGroupSelections,
+            settings.subjectStyles, settings.reminderSettings
+        ) { a, b, c, d -> listOf(a, b, c, d) }
+            .distinctUntilChanged()
+            .onEach { reminders.requestReschedule() }
+            .launchIn(viewModelScope)
         viewModelScope.launch {
             startRoute.value = withTimeoutOrNull(1_500) { decideStartRoute() } ?: ElektronRoutes.DASHBOARD
         }
     }
 
     /**
-     * Inteligentny start: w godzinach lekcji (od 10 min przed pierwszą do końca ostatniej,
-     * po filtrze grup) — Plan lekcji; poza nimi — Strona główna.
+     * Ekran startowy z Ustawień. "Automatycznie": w godzinach lekcji (od 10 min przed pierwszą
+     * do końca ostatniej, po filtrze grup) Plan lekcji, poza nimi Strona główna.
      */
     private suspend fun decideStartRoute(): String = runCatching {
-        if (!settings.smartStart.first()) return@runCatching ElektronRoutes.DASHBOARD
-        val cid = settings.selectedClassId.first() ?: return@runCatching ElektronRoutes.DASHBOARD
-        val today = LocalDate.now()
-        val now = LocalTime.now()
-        val lessons = LessonGroups.filter(
-            timetableRepo.getLessonsOnce(cid, today, today),
-            settings.groupSelections(cid).first()
-        )
-        if (lessons.isEmpty()) return@runCatching ElektronRoutes.DASHBOARD
-        val from = lessons.minOf { it.timeFrom }.minusMinutes(10)
-        val to = lessons.maxOf { it.timeTo }
-        if (now in from..to) ElektronRoutes.TIMETABLE else ElektronRoutes.DASHBOARD
+        val chosen = settings.startScreen.first()
+        val todayLessons = if (chosen != StartScreen.SMART) emptyList() else {
+            val cid = settings.selectedClassId.first()
+            if (cid == null) emptyList() else {
+                val today = LocalDate.now()
+                LessonGroups.filter(timetableRepo.getLessonsOnce(cid, today, today), settings.groupSelections(cid).first())
+            }
+        }
+        when (chosen.resolve(todayLessons, LocalTime.now())) {
+            StartScreen.TIMETABLE -> ElektronRoutes.TIMETABLE
+            StartScreen.SUBSTITUTIONS -> ElektronRoutes.SUBSTITUTIONS
+            else -> ElektronRoutes.DASHBOARD
+        }
     }.getOrDefault(ElektronRoutes.DASHBOARD)
 
     val state: StateFlow<AppState> = combine(
@@ -88,6 +105,11 @@ class ElektronAppViewModel @Inject constructor(
     ) { app, route ->
         if (route == null) app.copy(isReady = false) else app.copy(startRoute = route)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppState(isReady = false))
+
+    /** Nazwy/kolory przedmiotów i wygląd planu - podawane całemu UI przez LocalPersonalization. */
+    val personalization: StateFlow<Personalization> =
+        combine(settings.subjectStyles, settings.timetableLook) { styles, look -> Personalization(styles, look) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, Personalization())
 
     fun markChangelogSeen() {
         viewModelScope.launch { settings.setLastSeenVersionCode(currentVersionCode) }

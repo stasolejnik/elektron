@@ -43,7 +43,7 @@ object OptivumTimetableParser {
         val tables = doc.select("table.tabela")
         if (tables.isEmpty()) {
             Log.w(TAG, "Brak table.tabela — struktura planu mogła się zmienić (classId=$classId)")
-            return TimetableDto(classId, className, null, null, emptyList())
+            return TimetableDto(classId, className, null, null, emptyList(), layoutOk = false)
         }
         if (tables.size > 1) {
             Log.w(TAG, "Znaleziono ${tables.size} table.tabela — oczekiwano 1, biorę pierwszą")
@@ -96,7 +96,8 @@ object OptivumTimetableParser {
             dataRows++
         }
         Log.i(TAG, "Sparsowano $classId: wierszy=$dataRows, komórek=${lessons.size}, ostrzeżeń=$warnings")
-        return TimetableDto(classId, className, generatedAt, validFrom, lessons)
+        // Tabela bez ani jednego wiersza z godzinami lekcji = inny układ niż znany.
+        return TimetableDto(classId, className, generatedAt, validFrom, lessons, layoutOk = dataRows > 0)
     }
 
     private fun parseTime(raw: String): Pair<String, String> {

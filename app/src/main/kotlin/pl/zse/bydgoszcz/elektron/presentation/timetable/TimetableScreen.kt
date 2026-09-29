@@ -1,5 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -394,15 +397,27 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
     val fg = if (sub != null) MaterialTheme.colorScheme.onTertiaryContainer
         else MaterialTheme.colorScheme.onSurface
     val originalSubject = lesson.groups.firstOrNull()?.subject
+    val personal = LocalPersonalization.current
+    val look = personal.look
+    // Kolor przedmiotu (Ustawienia -> Przedmioty): pasek przy lewej krawędzi karty i numer lekcji.
+    val subjectColor = if (sub == null) personal.subjectColor(originalSubject) else null
 
-    Card(modifier = modifier.fillMaxWidth().padding(vertical = 2.dp).semantics(mergeDescendants = true) {},
+    Card(modifier = modifier.fillMaxWidth().padding(vertical = if (look.compact) 1.dp else 2.dp)
+            .semantics(mergeDescendants = true) {},
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = bg)) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .drawBehind {
+                    subjectColor?.let { drawRect(it, size = Size(5.dp.toPx(), size.height)) }
+                }
+                .padding(horizontal = 14.dp, vertical = if (look.compact) 7.dp else 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("${lesson.number}",
-                style = MaterialTheme.typography.titleLarge,
+                style = if (look.compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (sub != null) fg else MaterialTheme.colorScheme.primary,
+                color = if (sub != null) fg else subjectColor ?: MaterialTheme.colorScheme.primary,
                 modifier = Modifier.widthIn(min = 28.dp),
                 textAlign = TextAlign.Center)
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
@@ -415,7 +430,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                     }
                     val forLine = buildString {
                         append("Za: ")
-                        originalSubject?.let { append("${LessonGroups.parse(it)?.base ?: it} · ") }
+                        personal.subjectName(originalSubject)?.let { append("$it · ") }
                         append(sub.originalTeacher)
                     }
                     Text(forLine, style = MaterialTheme.typography.bodySmall, color = fg.copy(alpha = 0.8f))
@@ -428,17 +443,19 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                     // Każda grupa: pogrubiona nazwa przedmiotu (bez sufiksu grupy z Optivum)
                     // + plakietka grupy, pod spodem sala i nauczyciel szarą czcionką.
                     lesson.groups.forEachIndexed { i, g ->
-                        if (i > 0) Spacer(Modifier.height(6.dp))
+                        if (i > 0) Spacer(Modifier.height(if (look.compact) 3.dp else 6.dp))
                         val parsed = LessonGroups.parse(g.subject)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(parsed?.base ?: g.subject ?: "Lekcja",
+                            Text(personal.subjectName(g.subject) ?: "Lekcja",
                                 style = MaterialTheme.typography.titleMedium,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false))
                             parsed?.label?.let { GroupBadge(LessonGroups.displayLabel(it)) }
                         }
-                        val meta = listOfNotNull(g.room?.let { "s. $it" }, g.teacherFullName ?: g.teacherCode)
-                            .joinToString(" · ")
+                        val meta = listOfNotNull(
+                            g.room?.takeIf { look.showRoom }?.let { "s. $it" },
+                            (g.teacherFullName ?: g.teacherCode)?.takeIf { look.showTeacher }
+                        ).joinToString(" · ")
                         if (meta.isNotBlank()) {
                             Text(meta, style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -464,12 +481,20 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 Modifier.widthIn(min = 52.dp).padding(start = 8.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                Text(lesson.timeFrom.toString(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
-                Text(lesson.timeTo.toString(),
-                    style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
-                    color = if (sub != null) fg.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                val timeColor = if (sub != null) fg.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                if (look.compact) {
+                    // Kompaktowo: obie godziny w jednej linii, np. "8:00–8:45".
+                    Text("${lesson.timeFrom}–${lesson.timeTo}",
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
+                        color = timeColor)
+                } else {
+                    Text(lesson.timeFrom.toString(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+                    Text(lesson.timeTo.toString(),
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
+                        color = timeColor)
+                }
             }
         }
     }

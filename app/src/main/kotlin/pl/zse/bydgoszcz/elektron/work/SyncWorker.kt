@@ -18,6 +18,7 @@ import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import pl.zse.bydgoszcz.elektron.domain.usecase.SyncAllUseCase
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import java.time.Instant
@@ -34,7 +35,8 @@ class SyncWorker @AssistedInject constructor(
     private val notificationsRepo: NotificationsRepository,
     private val sink: NotificationSink,
     private val timetableRepo: TimetableRepository,
-    private val widgetUpdater: WidgetUpdater
+    private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler
 ) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
@@ -53,7 +55,10 @@ class SyncWorker @AssistedInject constructor(
                 return if (runAttemptCount >= MAX_RETRY_ATTEMPTS) Result.failure() else Result.retry()
             }
 
-            notificationsRepo.setLastSyncError(null)
+            // Reszta danych się pobrała, ale plan ma nieznany układ - komunikat na stronie głównej.
+            notificationsRepo.setLastSyncError(
+                if (syncAll.pageChanged) SchoolPageChangedException.USER_MESSAGE else null
+            )
             notificationsRepo.setLastSyncAt(Instant.now())
 
             // Blokada dzielona z ElektronFirebaseMessagingService — patrz komentarz przy
@@ -120,6 +125,9 @@ class SyncWorker @AssistedInject constructor(
                 notificationsRepo.setInitialSyncPending(false)
             }
             widgetUpdater.requestUpdate()
+            // Przypomnienia przed lekcją: nowe zastępstwa/plan, a po restarcie telefonu
+            // (system kasuje alarmy) ponowne ustawienie najpóźniej przy następnym syncu.
+            reminders.requestReschedule()
         }
     }
 

@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -58,6 +59,9 @@ class TimetableRepositoryImpl @Inject constructor(
             runCatching {
                 val monday = anchorDate.with(JavaDayOfWeek.MONDAY)
                 val dto = source.fetchTimetable(classId)
+                // Zmieniony układ strony: zapisany plan zostaje, ale sync kończy się błędem,
+                // żeby użytkownik dostał komunikat zamiast cichego braku aktualizacji.
+                if (!dto.layoutOk) throw SchoolPageChangedException("plan lekcji")
                 if (dto.lessons.isEmpty()) return@runCatching
                 // Plan Optivum to szablon tygodniowy. Dawniej zapisywaliśmy go tylko dla
                 // tygodnia anchorDate — w weekend cały zapisany tydzień był w przeszłości

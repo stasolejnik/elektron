@@ -53,14 +53,17 @@ object WidgetPalettes {
     /** Para kolorów (jasny, ciemny) jednej roli. */
     private class Pair2(val day: Color, val night: Color)
 
-    fun create(context: Context?, mode: ThemeMode, dynamic: Boolean): WidgetPalette {
+    /** [opacity] - krycie tła widżetu w procentach (Ustawienia -> Widżety). */
+    fun create(context: Context?, mode: ThemeMode, dynamic: Boolean, opacity: Int = 100): WidgetPalette {
+        val bgAlpha = opacity.coerceIn(20, 100) / 100f
         val useDynamic = dynamic && context != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val light: ColorScheme? = if (useDynamic && context != null) dynamicLightColorScheme(context) else null
         val dark: ColorScheme? = if (useDynamic && context != null) dynamicDarkColorScheme(context) else null
 
-        fun role(brandDay: Long, brandNight: Long, fromScheme: (ColorScheme) -> Color): ColorProvider {
-            val pair = if (light != null && dark != null) Pair2(fromScheme(light), fromScheme(dark))
+        fun role(brandDay: Long, brandNight: Long, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider {
+            val base = if (light != null && dark != null) Pair2(fromScheme(light), fromScheme(dark))
             else Pair2(Color(brandDay), Color(brandNight))
+            val pair = if (alpha >= 1f) base else Pair2(base.day.copy(alpha = alpha), base.night.copy(alpha = alpha))
             return when (mode) {
                 ThemeMode.LIGHT -> ColorProvider(pair.day)
                 ThemeMode.DARK -> ColorProvider(pair.night)
@@ -69,7 +72,7 @@ object WidgetPalettes {
         }
 
         return WidgetPalette(
-            background = role(0xFFFFFFFF, 0xFF1C1C1E) { it.surface },
+            background = role(0xFFFFFFFF, 0xFF1C1C1E, bgAlpha) { it.surface },
             textPrimary = role(0xFF000000, 0xFFFFFFFF) { it.onSurface },
             textSecondary = role(0xFF6C6C70, 0xFF8E8E93) { it.onSurfaceVariant },
             textFaded = role(0xFF8E8E93, 0xFF6E6E73) { it.outline },

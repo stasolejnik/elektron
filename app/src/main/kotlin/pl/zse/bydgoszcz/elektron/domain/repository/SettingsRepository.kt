@@ -1,5 +1,11 @@
 package pl.zse.bydgoszcz.elektron.domain.repository
 
+import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
+import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
+import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
+import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
+import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
+import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import kotlinx.coroutines.flow.Flow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -29,9 +35,27 @@ interface SettingsRepository {
     val showAnnouncements: Flow<Boolean>
     suspend fun setShowAnnouncements(enabled: Boolean)
 
-    /** Inteligentny start: w godzinach lekcji aplikacja otwiera się na planie. */
-    val smartStart: Flow<Boolean>
-    suspend fun setSmartStart(enabled: Boolean)
+    /** Ekran startowy; domyślnie SMART (w godzinach lekcji plan). */
+    val startScreen: Flow<StartScreen>
+    suspend fun setStartScreen(screen: StartScreen)
+
+    /** Przypomnienia przed lekcją. */
+    val reminderSettings: Flow<ReminderSettings>
+    suspend fun setReminderSettings(value: ReminderSettings)
+
+    /** Ciche godziny: powiadomienia bez dźwięku i wibracji. */
+    val quietHours: Flow<QuietHours>
+    suspend fun setQuietHours(value: QuietHours)
+
+    val widgetLook: Flow<WidgetLook>
+    suspend fun setWidgetLook(value: WidgetLook)
+
+    /** Własne nazwy i kolory przedmiotów (klucz: przedmiot bez sufiksu grupy). */
+    val subjectStyles: Flow<Map<String, SubjectStyle>>
+    suspend fun setSubjectStyle(subject: String, style: SubjectStyle)
+
+    val timetableLook: Flow<TimetableLook>
+    suspend fun setTimetableLook(look: TimetableLook)
 
     val lastSeenVersionCode: Flow<Int>
     suspend fun setLastSeenVersionCode(code: Int)

@@ -89,4 +89,22 @@ class WidgetStateTest {
         assertEquals("211", st.focus.room)
         assertEquals("za ostatnią lekcję", st.focus.note)
     }
+
+    @Test
+    fun customSubjectNameIsUsed() {
+        // Własna nazwa z Ustawień -> Przedmioty trafia też do widżetów (dla każdej grupy przedmiotu).
+        val lessons = listOf(lesson(friday, 3, "09:50", "10:35", subject = "wf-j1"))
+        val styles = mapOf("wf" to pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle(name = "WF"))
+        val st = WidgetDataLoader.buildState(lessons, LocalDateTime.of(friday, LocalTime.of(9, 0)), styles) as WidgetState.Ready
+        assertEquals("WF", st.focus.title)
+    }
+
+    @Test
+    fun widgetLookHidesTeacherAndRoom() {
+        val lessons = listOf(lesson(friday, 3, "09:50", "10:35"))
+        val look = pl.zse.bydgoszcz.elektron.domain.model.WidgetLook(showTeacher = false, showRoom = false)
+        val st = WidgetDataLoader.buildState(lessons, LocalDateTime.of(friday, LocalTime.of(9, 0)), emptyMap(), look) as WidgetState.Ready
+        assertEquals(null, st.focus.detail)
+        assertEquals(null, st.focus.room)
+    }
 }

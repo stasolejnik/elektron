@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -69,5 +70,20 @@ class TimetableRepositoryImplTest {
     fun classNameHasNoDuplicates() = runTest {
         repo.syncTimetable("o3", monday)
         assertEquals("1D PBŚ", repo.getLessonsOnce("o3", monday, monday).single().className)
+    }
+
+    @Test
+    fun changedPageLayoutKeepsSavedPlanAndFails() = runTest {
+        repo.syncTimetable("o3", monday)
+        val broken = TimetableRepositoryImpl(object : TimetableSource {
+            override suspend fun fetchSidebar() = emptyList<ClassListItemDto>()
+            override suspend fun fetchTimetable(classId: String) =
+                TimetableDto(classId, classId, null, null, emptyList(), layoutOk = false)
+        }, db.schoolClassDao(), db.teacherDao(), db.roomDao(),
+            db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+
+        val result = broken.syncTimetable("o3", monday)
+        assertTrue(result.exceptionOrNull() is SchoolPageChangedException)
+        assertTrue(repo.hasLessons("o3", monday, monday.plusDays(4)))   // stary plan nietknięty
     }
 }

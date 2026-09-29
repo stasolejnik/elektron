@@ -3,6 +3,7 @@ package pl.zse.bydgoszcz.elektron.domain.usecase
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
@@ -26,14 +27,22 @@ class SyncAllUseCase @Inject constructor(
     private val announcementsRepo: AnnouncementsRepository,
     private val notificationsRepo: NotificationsRepository
 ) {
+    /** Czy w ostatnim przebiegu strona z planem miała nieznany układ (patrz SchoolPageChangedException). */
+    var pageChanged: Boolean = false
+        private set
+
     suspend operator fun invoke(classId: String?, anchorDate: LocalDate = LocalDate.now()): Int =
         withContext(Dispatchers.IO) {
             var ok = 0
+            pageChanged = false
             timetableRepo.syncSidebar().onSuccess { ok++ }.onFailure { Log.w(TAG, "sidebar fail", it) }
             if (classId != null) {
                 timetableRepo.syncTimetable(classId, anchorDate)
                     .onSuccess { ok++; notificationsRepo.markLoaded("timetable") }
-                    .onFailure { Log.w(TAG, "timetable fail", it) }
+                    .onFailure {
+                        Log.w(TAG, "timetable fail", it)
+                        if (it is SchoolPageChangedException) pageChanged = true
+                    }
             }
             substitutionsRepo.syncAll()
                 .onSuccess { ok++; notificationsRepo.markLoaded("subs") }

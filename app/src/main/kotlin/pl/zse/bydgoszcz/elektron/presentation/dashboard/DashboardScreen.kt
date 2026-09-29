@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -57,7 +58,6 @@ import coil.compose.AsyncImage
 import androidx.compose.foundation.background
 import coil.request.ImageRequest
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
-import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
@@ -277,7 +277,8 @@ private fun NextLessonCard(state: DashboardViewModel.State) {
             } else {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
-                        val subjectName = lesson.groups.mapNotNull { g -> g.subject?.let { LessonGroups.parse(it)?.base ?: it } }
+                        val personal = LocalPersonalization.current
+                        val subjectName = lesson.groups.mapNotNull { g -> personal.subjectName(g.subject) }
                             .distinct().joinToString(" / ").ifBlank { null }
                         if (sub != null) {
                             // Zastępstwo: na pierwszym planie nauczyciel zastępujący, potem sala i uwagi.
