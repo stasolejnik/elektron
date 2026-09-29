@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -173,6 +174,28 @@ class TimetableViewModel @Inject constructor(
 
     private fun initialAnchor(): LocalDate = nextSchoolDay(LocalDate.now())
 
+    // Dzień otwierany przy wejściu: przy pierwszym wyświetleniu i po powrocie do aplikacji
+    // po co najmniej 3 minutach (krótkie wyjście, np. odpisanie na wiadomość, nie gubi dnia).
+    private var openingDayPending = true
+    private var leftAppAt = 0L
+
+    fun onLeftApp() {
+        leftAppAt = System.currentTimeMillis()
+    }
+
+    fun consumeOpeningDay(): Boolean {
+        val back = leftAppAt != 0L && System.currentTimeMillis() - leftAppAt >= RETURN_RESET_MS
+        leftAppAt = 0L
+        val apply = openingDayPending || back
+        openingDayPending = false
+        return apply
+    }
+
+    /** Pager ustawiony na dzień startowy - kotwica też (tryb tygodnia po przełączeniu). */
+    fun onOpeningDay(day: LocalDate) {
+        anchor.value = day
+    }
+
     /** Dzień otwierany domyślnie: dziś, a po ostatniej dzisiejszej lekcji (według grup) — następny. */
     suspend fun preferredDay(): LocalDate {
         val today = LocalDate.now()
@@ -181,13 +204,16 @@ class TimetableViewModel @Inject constructor(
         val lessons = runCatching {
             LessonGroups.filter(repo.getLessonsOnce(cid, today, today), settings.groupSelections(cid).first())
         }.getOrDefault(emptyList())
-        return preferredDay(today, now, lessons.maxOfOrNull { it.timeTo })
+        // "Po lekcjach" liczone od ostatniej lekcji, która się odbywa (zwolnienie z ostatnich
+        // lekcji = koniec dnia wcześniej).
+        return preferredDay(today, now, lessons.filter(SubstitutionDisplay::takesPlace).maxOfOrNull { it.timeTo })
     }
 
     companion object {
         /** Środek zakresu stron — wystarczy na lata przewijania w obie strony. */
         const val START_PAGE = 5_000
         const val PAGE_COUNT = START_PAGE * 2
+        private const val RETURN_RESET_MS = 3 * 60_000L
 
         /**
          * Czysta reguła dnia domyślnego: weekend -> poniedziałek; dziś po ostatniej lekcji

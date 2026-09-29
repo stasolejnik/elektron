@@ -64,4 +64,13 @@ class LessonRemindersTest {
         assertEquals("WF", what)
         assertEquals("1. lekcja, 08:00–08:45 · s. sg · J. Kowalski", body)
     }
+
+    @Test fun exemptLessonsAreSkipped() {
+        // Klasa przychodzi później: pierwsza lekcja zwolniona - przypomnienie przed drugą.
+        val late = Substitution("s", mon, 1, "1D", null, "Uczniowie przychodzą później", null, null, "X")
+        val list = listOf(lesson(mon, 1, "08:00", "08:45").copy(substitution = late), lesson(mon, 2, "08:50", "09:35"))
+        val r = LessonReminders.next(list, at(mon, "06:00"), ReminderSettings(ReminderMode.FIRST, 10))!!
+        assertEquals("$mon-2", r.lesson.id)
+        assertEquals(at(mon, "08:40"), r.at)
+    }
 }

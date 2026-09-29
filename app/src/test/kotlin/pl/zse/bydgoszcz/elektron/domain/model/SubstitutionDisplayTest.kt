@@ -33,4 +33,17 @@ class SubstitutionDisplayTest {
         assertNull(SubstitutionDisplay.place(s))
         assertNull(SubstitutionDisplay.notes(sub("211", "M. Zelek", "  ")))
     }
+
+    @Test
+    fun exemptionsAreDetected() {
+        listOf("Uczniowie zwolnieni do domu", "Uczniowie przychodzą później", "Uczniowie przychodza pozniej",
+            "Lekcja odwołana", "zajęcia nie odbywają się").forEach {
+            assertTrue(it, SubstitutionDisplay.freesLesson(sub(it, null)))
+        }
+        // Świetlica i zwykłe zastępstwo - lekcja (zajęcia) się odbywa.
+        assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null)))
+        assertFalse(SubstitutionDisplay.freesLesson(sub("211", "M. Zelek")))
+        // Zastępca wpisany - to nie zwolnienie, nawet przy dziwnej uwadze.
+        assertFalse(SubstitutionDisplay.freesLesson(sub("211", "M. Zelek", "uczniowie zwolnieni z 1 lekcji")))
+    }
 }

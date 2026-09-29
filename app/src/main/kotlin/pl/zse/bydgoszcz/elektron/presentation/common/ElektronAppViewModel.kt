@@ -1,6 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
-import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
+import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -37,7 +37,7 @@ class ElektronAppViewModel @Inject constructor(
     data class AppState(
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
         val dynamicColor: Boolean = false,
-        val accent: AccentColor = AccentColor.BLUE,
+        val accent: AccentSetting = AccentSetting(),
         val selectedClassId: String? = null,
         /** Klasa, dla której przeszedł krok wyboru grup — różna od selectedClassId => pokaż krok. */
         val groupsConfiguredFor: String? = null,
@@ -104,7 +104,7 @@ class ElektronAppViewModel @Inject constructor(
             groupsConfiguredFor = groupsFor, isReady = true, changelogToShow = entriesToShow)
     },
         startRoute,
-        settings.accentColor
+        settings.accent
     ) { app, route, accent ->
         val withAccent = app.copy(accent = accent)
         if (route == null) withAccent.copy(isReady = false) else withAccent.copy(startRoute = route)

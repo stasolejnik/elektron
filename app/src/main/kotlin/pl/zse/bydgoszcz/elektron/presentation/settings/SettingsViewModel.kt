@@ -1,6 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
-import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
+import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
 import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
@@ -51,7 +51,7 @@ class SettingsViewModel @Inject constructor(
         val reminder: ReminderSettings = ReminderSettings(),
         val quiet: QuietHours = QuietHours(),
         val widgetLook: WidgetLook = WidgetLook(),
-        val accent: AccentColor = AccentColor.BLUE
+        val accent: AccentSetting = AccentSetting()
     )
 
     val state: StateFlow<State> = combine(
@@ -64,7 +64,7 @@ class SettingsViewModel @Inject constructor(
         settings.reminderSettings,
         settings.quietHours,
         settings.widgetLook,
-        settings.accentColor
+        settings.accent
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -82,7 +82,7 @@ class SettingsViewModel @Inject constructor(
             reminder = values[11] as ReminderSettings,
             quiet = values[12] as QuietHours,
             widgetLook = values[13] as WidgetLook,
-            accent = values[14] as AccentColor
+            accent = values[14] as AccentSetting
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -136,8 +136,8 @@ class SettingsViewModel @Inject constructor(
 
     fun setQuietHours(value: QuietHours) = viewModelScope.launch { settings.setQuietHours(value) }
 
-    fun setAccent(value: AccentColor) = viewModelScope.launch {
-        settings.setAccentColor(value)
+    fun setAccent(value: AccentSetting) = viewModelScope.launch {
+        settings.setAccent(value)
         widgetUpdater.requestUpdate()   // widżety w nowym kolorze
     }
 

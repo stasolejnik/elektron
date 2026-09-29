@@ -13,9 +13,10 @@ enum class StartScreen(val key: String) {
     /** Ekran do otwarcia teraz; SMART rozstrzyga według dzisiejszych lekcji (po filtrze grup). */
     fun resolve(todayLessons: List<Lesson>, now: LocalTime): StartScreen {
         if (this != SMART) return this
-        if (todayLessons.isEmpty()) return DASHBOARD
-        val from = todayLessons.minOf { it.timeFrom }.minusMinutes(10)
-        val to = todayLessons.maxOf { it.timeTo }
+        val held = todayLessons.filter(SubstitutionDisplay::takesPlace)   // bez zwolnionych lekcji
+        if (held.isEmpty()) return DASHBOARD
+        val from = held.minOf { it.timeFrom }.minusMinutes(10)
+        val to = held.maxOf { it.timeTo }
         return if (now in from..to) TIMETABLE else DASHBOARD
     }
 

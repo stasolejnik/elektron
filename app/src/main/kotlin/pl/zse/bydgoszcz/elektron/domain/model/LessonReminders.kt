@@ -26,14 +26,16 @@ object LessonReminders {
     val MINUTE_OPTIONS = listOf(5, 10, 15, 30)
 
     /**
-     * Najbliższe przypomnienie po [now]. Lekcje powinny być już po filtrze grup.
+     * Najbliższe przypomnienie po [now]. Lekcje powinny być już po filtrze grup. Lekcje, z których
+     * klasa jest zwolniona ("Uczniowie przychodzą później"), są pomijane - przypomnienie "przed
+     * pierwszą lekcją" dotyczy pierwszej lekcji, która się odbywa.
      * Przy "przed każdą lekcją" przypomnienie nie wypada w trakcie poprzedniej lekcji -
      * przesuwa się na początek przerwy (np. 10 min przed, a przerwa ma 5 min).
      */
     fun next(lessons: List<Lesson>, now: LocalDateTime, settings: ReminderSettings): LessonReminder? {
         if (settings.mode == ReminderMode.OFF) return null
         val minutes = settings.minutesBefore.toLong().coerceIn(1, 120)
-        return lessons.groupBy { it.date }.flatMap { (date, dayLessons) ->
+        return lessons.filter(SubstitutionDisplay::takesPlace).groupBy { it.date }.flatMap { (date, dayLessons) ->
             val sorted = dayLessons.sortedBy { it.timeFrom }
             val targets = if (settings.mode == ReminderMode.FIRST) sorted.take(1) else sorted
             targets.mapIndexed { i, l ->

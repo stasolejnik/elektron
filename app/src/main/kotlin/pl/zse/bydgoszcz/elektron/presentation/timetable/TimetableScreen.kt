@@ -1,5 +1,13 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.presentation.common.findActivity
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.DisposableEffect
 import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawBehind
@@ -18,7 +26,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.style.TextOverflow
 import pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow
@@ -130,19 +137,35 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
         TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, today)
         TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, today)
     }
-    // Przy otwarciu: po ostatniej dzisiejszej lekcji plan pokazuje następny dzień (raz, potem
-    // użytkownik przewija sam; stan przeżywa obrót ekranu).
-    var preferredDayApplied by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (!preferredDayApplied) {
-            preferredDayApplied = true
-            val day = viewModel.preferredDay()
-            val target = when (state.mode) {
-                TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, day)
-                TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, day)
+    // Przy wejściu do aplikacji: dziś, a po ostatniej dzisiejszej lekcji - następny dzień.
+    // Sprawdzane przy każdym powrocie (po >= 3 min poza aplikacją), nie tylko przy pierwszym
+    // uruchomieniu - aplikacja zwykle zostaje w pamięci. Obrót ekranu nie resetuje dnia.
+    val activity = LocalContext.current.findActivity()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var openTick by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> openTick++
+                Lifecycle.Event.ON_STOP -> if (activity?.isChangingConfigurations != true) viewModel.onLeftApp()
+                else -> Unit
             }
-            if (target != pagerState.currentPage) pagerState.scrollToPage(target)
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    // Aktualny pager i tryb (tryb wczytuje się z ustawień asynchronicznie i tworzy nowy pager).
+    val currentPager by rememberUpdatedState(pagerState)
+    val currentMode by rememberUpdatedState(state.mode)
+    LaunchedEffect(openTick) {
+        if (openTick == 0 || !viewModel.consumeOpeningDay()) return@LaunchedEffect
+        val day = viewModel.preferredDay()
+        val target = when (currentMode) {
+            TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, day)
+            TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, day)
+        }
+        if (target != currentPager.currentPage) currentPager.scrollToPage(target)
+        viewModel.onOpeningDay(day)
     }
     var lastSeenDay by rememberSaveable { mutableLongStateOf(today.toEpochDay()) }
     LaunchedEffect(today) {

@@ -1,6 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
-import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
+import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
@@ -114,7 +114,7 @@ object WidgetDataLoader {
         val mode = runCatching { ep.settings().themeMode.first() }.getOrDefault(ThemeMode.SYSTEM)
         val dynamic = runCatching { ep.settings().dynamicColor.first() }.getOrDefault(false)
         val opacity = runCatching { ep.settings().widgetLook.first().opacity }.getOrDefault(100)
-        val accent = runCatching { ep.settings().accentColor.first() }.getOrDefault(AccentColor.BLUE)
+        val accent = runCatching { ep.settings().accent.first() }.getOrDefault(AccentSetting())
         return WidgetPalettes.create(context, mode, dynamic, opacity, accent)
     }
 

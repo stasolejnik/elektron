@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import androidx.datastore.preferences.core.longPreferencesKey
+import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import java.time.LocalTime
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderMode
@@ -56,6 +58,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val QUIET_FROM = intPreferencesKey("quiet_from_min")
         val QUIET_TO = intPreferencesKey("quiet_to_min")
         val ACCENT = stringPreferencesKey("accent_color")
+        val ACCENT_CUSTOM = longPreferencesKey("accent_custom")
         val WIDGET_OPACITY = intPreferencesKey("widget_opacity")
         val WIDGET_TEACHER = booleanPreferencesKey("widget_show_teacher")
         val WIDGET_ROOM = booleanPreferencesKey("widget_show_room")
@@ -149,10 +152,14 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
-    override val accentColor: Flow<AccentColor> =
-        prefs.map { AccentColor.fromKey(it[Keys.ACCENT]) }.distinctUntilChanged()
-    override suspend fun setAccentColor(value: AccentColor) {
-        context.elektronSettings.edit { it[Keys.ACCENT] = value.key }
+    override val accent: Flow<AccentSetting> = prefs.map {
+        AccentSetting(AccentColor.fromKey(it[Keys.ACCENT]), it[Keys.ACCENT_CUSTOM] ?: AccentSetting.DEFAULT_CUSTOM)
+    }.distinctUntilChanged()
+    override suspend fun setAccent(value: AccentSetting) {
+        context.elektronSettings.edit {
+            it[Keys.ACCENT] = value.color.key
+            it[Keys.ACCENT_CUSTOM] = value.custom
+        }
     }
 
     override val widgetLook: Flow<WidgetLook> = prefs.map {

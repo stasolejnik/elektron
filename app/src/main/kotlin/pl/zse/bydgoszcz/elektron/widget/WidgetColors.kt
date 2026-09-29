@@ -1,7 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
 import pl.zse.bydgoszcz.elektron.presentation.common.theme.Accents
-import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
+import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import android.content.Context
 import android.os.Build
 import androidx.compose.material3.ColorScheme
@@ -61,7 +61,7 @@ object WidgetPalettes {
         mode: ThemeMode,
         dynamic: Boolean,
         opacity: Int = 100,
-        accent: AccentColor = AccentColor.BLUE
+        accent: AccentSetting = AccentSetting()
     ): WidgetPalette {
         val dayAccent = Accents.light(accent)
         val nightAccent = Accents.dark(accent)

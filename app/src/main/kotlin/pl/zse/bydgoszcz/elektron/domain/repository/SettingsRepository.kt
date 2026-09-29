@@ -1,6 +1,6 @@
 package pl.zse.bydgoszcz.elektron.domain.repository
 
-import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
+import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
 import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
@@ -49,8 +49,8 @@ interface SettingsRepository {
     suspend fun setQuietHours(value: QuietHours)
 
     /** Kolor akcentu aplikacji i widżetów. */
-    val accentColor: Flow<AccentColor>
-    suspend fun setAccentColor(value: AccentColor)
+    val accent: Flow<AccentSetting>
+    suspend fun setAccent(value: AccentSetting)
 
     val widgetLook: Flow<WidgetLook>
     suspend fun setWidgetLook(value: WidgetLook)

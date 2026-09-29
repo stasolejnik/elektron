@@ -28,4 +28,20 @@ object SubstitutionDisplay {
     }
 
     fun notes(sub: Substitution): String? = sub.notes?.trim()?.takeIf { it.isNotEmpty() }
+
+    /**
+     * Wpisy, po których lekcja się dla ucznia NIE odbywa (zwolnienie klasy/grupy): bez zastępcy
+     * i z informacją typu "Uczniowie zwolnieni do domu", "Uczniowie przychodzą później",
+     * "lekcja odwołana". "Zajęcia świetlicowe" to NIE zwolnienie - uczniowie są w szkole.
+     */
+    private val FREES = Regex(
+        "zwolnien|przychodz\\p{L}* p[oó]\\p{L}*niej|odwo[lł]an|do domu|nie odbywa|wolne od zaj",
+        RegexOption.IGNORE_CASE
+    )
+
+    fun freesLesson(sub: Substitution): Boolean =
+        sub.substituteTeacher.isNullOrBlank() && FREES.containsMatchIn(sub.roomOrInfo + " " + (sub.notes ?: ""))
+
+    /** Lekcja odbywa się (nie ma zwolnienia) - do przypomnień, "po lekcjach", startu aplikacji. */
+    fun takesPlace(lesson: Lesson): Boolean = lesson.substitution?.let { !freesLesson(it) } ?: true
 }

@@ -1,18 +1,31 @@
 package pl.zse.bydgoszcz.elektron.domain.model
 
 /**
- * Kolor akcentu aplikacji i widżetów (Ustawienia -> Wygląd). BLUE = kolor z logo eLektronu.
- * Celowo bez pomarańczowego i czerwonego - te kolory oznaczają zastępstwa i błędy.
+ * Kolor akcentu aplikacji i widżetów (Ustawienia -> Wygląd). Najpopularniejsze kolory
+ * akcentu, ułożone w kole barw (zielony -> niebieski -> fioletowy -> różowy -> czerwony),
+ * plus własny. BLUE = kolor z logo eLektronu. Bez pomarańczowego - oznacza zastępstwa.
  */
 enum class AccentColor(val key: String) {
-    BLUE("blue"),
-    INDIGO("indigo"),
-    PURPLE("purple"),
     GREEN("green"),
+    BLUE("blue"),
+    PURPLE("purple"),
     PINK("pink"),
-    GRAPHITE("graphite");
+    RED("red"),
+    /** Własny kolor z próbnika - odcienie liczone przez [AccentMath]. */
+    CUSTOM("custom");
 
     companion object {
         fun fromKey(key: String?): AccentColor = entries.firstOrNull { it.key == key } ?: BLUE
+    }
+}
+
+/** Wybór akcentu: paleta + własny kolor (pamiętany także, gdy wybrana jest inna paleta). */
+data class AccentSetting(
+    val color: AccentColor = AccentColor.BLUE,
+    val custom: Long = DEFAULT_CUSTOM
+) {
+    companion object {
+        /** Startowy kolor próbnika: turkus. */
+        const val DEFAULT_CUSTOM = 0xFF1EA896
     }
 }
