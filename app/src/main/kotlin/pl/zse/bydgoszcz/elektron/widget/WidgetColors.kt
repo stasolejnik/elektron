@@ -70,10 +70,8 @@ object WidgetPalettes {
         val light: ColorScheme? = if (useDynamic) dynamicLightColorScheme(context) else null
         val dark: ColorScheme? = if (useDynamic) dynamicDarkColorScheme(context) else null
 
-        fun role(brandDay: Long, brandNight: Long, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider =
-            role(Color(brandDay), Color(brandNight), alpha, fromScheme)
-
-        fun role(brandDay: Color, brandNight: Color, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider {
+        // Funkcje lokalne: widoczne dopiero po deklaracji i bez przeciążeń - stąd dwie nazwy.
+        fun colorRole(brandDay: Color, brandNight: Color, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider {
             val base = if (light != null && dark != null) Pair2(fromScheme(light), fromScheme(dark))
             else Pair2(brandDay, brandNight)
             val pair = if (alpha >= 1f) base else Pair2(base.day.copy(alpha = alpha), base.night.copy(alpha = alpha))
@@ -84,15 +82,18 @@ object WidgetPalettes {
             }
         }
 
+        fun role(brandDay: Long, brandNight: Long, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider =
+            colorRole(Color(brandDay), Color(brandNight), alpha, fromScheme)
+
         return WidgetPalette(
             background = role(0xFFFFFFFF, 0xFF1C1C1E, bgAlpha) { it.surface },
             textPrimary = role(0xFF000000, 0xFFFFFFFF) { it.onSurface },
             textSecondary = role(0xFF6C6C70, 0xFF8E8E93) { it.onSurfaceVariant },
             textFaded = role(0xFF8E8E93, 0xFF6E6E73) { it.outline },
             // Akcent z Ustawień -> Wygląd (ten sam co w aplikacji).
-            accent = role(dayAccent.primary, nightAccent.primary) { it.primary },
-            accentContainer = role(dayAccent.container, nightAccent.container) { it.primaryContainer },
-            onAccentContainer = role(dayAccent.onContainer, nightAccent.onContainer) { it.onPrimaryContainer },
+            accent = colorRole(dayAccent.primary, nightAccent.primary) { it.primary },
+            accentContainer = colorRole(dayAccent.container, nightAccent.container) { it.primaryContainer },
+            onAccentContainer = colorRole(dayAccent.onContainer, nightAccent.onContainer) { it.onPrimaryContainer },
             substitution = role(0xFFA85A00, 0xFFFF9F0A) { it.tertiary },
             substitutionContainer = role(0xFFFFF0DB, 0xFF3A2A12) { it.tertiaryContainer }
         )
