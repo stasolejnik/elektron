@@ -6,7 +6,7 @@
 
 **Plan lekcji, zastępstwa i ogłoszenia Zespołu Szkół Elektronicznych w Bydgoszczy**
 
-Nieoficjalna aplikacja na Androida · wolne oprogramowanie
+Nieoficjalna aplikacja na Androida · FOSS
 
 [![Wydanie](https://img.shields.io/github/v/release/stasolejnik/elektron?include_prereleases&label=wydanie)](https://github.com/stasolejnik/elektron/releases)
 [![Build i testy](https://github.com/stasolejnik/elektron/actions/workflows/ci.yml/badge.svg)](https://github.com/stasolejnik/elektron/actions/workflows/ci.yml)
