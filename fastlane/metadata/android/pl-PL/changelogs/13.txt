@@ -1,0 +1,1 @@
+Przypomnienia przed lekcją, własne nazwy i kolory przedmiotów, kolor akcentu (także własny), ciche godziny, wybór ekranu startowego i ustawienia widżetów. Po lekcjach plan pokazuje następny dzień, zwolnienia z lekcji są rozpoznawane. Raporty awarii i wiele poprawek.

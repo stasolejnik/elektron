@@ -1,139 +1,102 @@
+<div align="center">
+
+<img src="fastlane/metadata/android/pl-PL/images/icon.png" alt="eLektron" width="112">
+
 # eLektron
 
-Nieoficjalna aplikacja na Androida z planem lekcji, zastępstwami i ogłoszeniami dla
-**Zespołu Szkół Elektronicznych w Bydgoszczy**. Inspirowana aplikacją **Atom** (iOS) Kacpra Górki.
+**Plan lekcji, zastępstwa i ogłoszenia Zespołu Szkół Elektronicznych w Bydgoszczy**
 
-eLektron to [wolne oprogramowanie](https://www.gnu.org/philosophy/free-sw.pl.html) na licencji
-[GNU GPL v3 lub nowszej](LICENSE) - możesz go swobodnie używać, poznawać, zmieniać
-i rozpowszechniać.
+Nieoficjalna aplikacja na Androida · wolne oprogramowanie
 
-Projekt niezależny - niepowiązany z ZSE w Bydgoszczy ani z firmą VULCAN.
+[![Wydanie](https://img.shields.io/github/v/release/stasolejnik/elektron?include_prereleases&label=wydanie)](https://github.com/stasolejnik/elektron/releases)
+[![Build i testy](https://github.com/stasolejnik/elektron/actions/workflows/ci.yml/badge.svg)](https://github.com/stasolejnik/elektron/actions/workflows/ci.yml)
+[![Licencja: GPL v3+](https://img.shields.io/badge/licencja-GPL--3.0--or--later-blue)](LICENSE)
+![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
-Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).
+[**Pobierz najnowszą wersję**](https://github.com/stasolejnik/elektron/releases)
 
-- Watcher powiadomień push: https://github.com/stasolejnik/elektron-push-watcher
-- Inspiracja: https://github.com/kacpergorka/atom
+</div>
+
+> Aplikacja w pełni napisana przez bezduszne AI, głównie Claude (Anthropic).
 
 ## Funkcje
 
-- **Plan lekcji** - widok dnia i tygodnia. Przesunięcie w górę to następny dzień, w dół
-  poprzedni. Po ostatniej lekcji plan od razu pokazuje kolejny dzień szkolny.
-- **Zastępstwa na planie** - na pierwszym planie nauczyciel zastępujący, pod nim sala
-  i uwagi ze strony szkoły (np. „za ostatnią lekcję”).
-- **Grupy zajęciowe** - szybki wybór dla całego podziału (np. „1/2” dla wszystkich
-  przedmiotów) albo osobno dla każdego przedmiotu. Plan, strona główna, widżety
-  i powiadomienia pokazują tylko Twoje lekcje.
-- **Strona główna** - trwająca lub najbliższa lekcja z paskiem postępu, przerwy,
-  nadchodzące zastępstwa, najnowsze ogłoszenia.
-- **Ogłoszenia** - najnowsze z RSS szkoły, starsze z archiwum strony, wyszukiwanie
-  bez polskich znaków.
-- **Widżety** - „Następna lekcja”, „Plan dnia” i „Zastępstwa”, w kolorach motywu aplikacji
-  lub tapety, odświeżane z dzwonkiem. Kafelek „Następna lekcja” w szybkich ustawieniach.
-- **Powiadomienia** - o nowych zastępstwach i ogłoszeniach (push w wersji z GitHuba,
-  synchronizacja w tle co 15 min w obu wersjach).
-- **Offline** - wszystko z lokalnej bazy, sieć tylko ją uzupełnia.
-- Przesuwanie palcem między sekcjami, jasny i ciemny motyw, kolory z tapety (Android 12+),
-  skróty z ikony aplikacji, w godzinach lekcji start od razu na planie.
+**Plan i zastępstwa**
+- Plan dnia i tygodnia z naniesionymi zastępstwami; po lekcjach od razu następny dzień.
+- Grupy zajęciowe - widać tylko Twoje lekcje (języki, zajęcia praktyczne, WF, religia).
+- Zastępstwa Twojej klasy i grupy, z rozpoznawaniem zwolnień z lekcji.
+- Strona główna z trwającą lub najbliższą lekcją, przerwą i nadchodzącymi zmianami.
+- Ogłoszenia szkoły, także starsze z archiwum, z wyszukiwaniem.
 
-Wymagania: Android 8.0 (API 26) lub nowszy.
+**Powiadomienia**
+- Nowe zastępstwa i ogłoszenia.
+- Przypomnienia przed lekcją i ciche godziny.
+
+**Personalizacja**
+- Własne nazwy i kolory przedmiotów.
+- Kolor akcentu (pięć palet lub własny), jasny i ciemny motyw, kolory z tapety.
+- Widżety: Następna lekcja, Plan dnia, Zastępstwa oraz kafelek w szybkich ustawieniach.
+
+**Prywatność**
+- Bez logowania i bez konta - dane pochodzą z publicznych stron szkoły.
+- Działa offline; nie zbiera danych osobowych ani statystyk.
 
 ## Instalacja
 
-1. Pobierz `eLektron-<wersja>.apk` z [Releases](https://github.com/stasolejnik/elektron/releases).
-2. Otwórz plik na telefonie i zezwól na instalację z tego źródła.
-3. Kolejne wersje instalują się jako aktualizacja - bez utraty ustawień. Aplikacja sama
-   informuje o nowej wersji na stronie głównej.
+1. Pobierz plik `eLektron-<wersja>.apk` z [Releases](https://github.com/stasolejnik/elektron/releases).
+2. Otwórz go na telefonie i zezwól na instalację z tego źródła.
 
-Wersja z F-Droid (bez usług Google) jest w przygotowaniu.
+Kolejne wersje instalują się jako aktualizacja, bez utraty ustawień. Aplikacja sama informuje
+o nowym wydaniu. Wersja w F-Droid jest w przygotowaniu.
 
-## Wersje: GitHub i F-Droid
+## Warianty
 
-Aplikacja ma dwa warianty (Gradle product flavors):
-
-| Wariant | Gdzie | Różnice |
+| Wariant | Dystrybucja | Różnice |
 |---|---|---|
 | `gms` | GitHub Releases | powiadomienia push (Firebase Cloud Messaging), sprawdzanie aktualizacji |
-| `foss` | F-Droid | wyłącznie wolne zależności, bez Firebase i bez sprawdzania aktualizacji; powiadomienia z synchronizacji w tle co 15 min |
-
-Kod zależny od Firebase jest tylko w `app/src/gms/`, zaślepki w `app/src/foss/`.
-Metadane dla F-Droid: `fastlane/metadata/android/`.
+| `foss` | F-Droid | tylko wolne zależności; powiadomienia z synchronizacji w tle co 15 minut |
 
 ## Budowanie
 
-Wymagana **Java 17** (Gradle 8.9 nie działa na Javie 23+).
+Wymagania: JDK 17, Android SDK.
 
-Pierwsza konfiguracja na Arch Linux - skrypt sam doinstaluje Javę 17 i Android SDK:
+```sh
+./gradlew :app:testFossDebugUnitTest :app:assembleFossDebug
+```
 
-    ./build_elektron.sh
+Wariant `gms` wymaga pliku `app/google-services.json` (projekt Firebase, nie ma go
+w repozytorium - patrz [PORADNIK_PUSH.md](PORADNIK_PUSH.md)). Podpisane wydania korzystają
+z `keystore.properties` - wzór w [keystore.properties.example](keystore.properties.example).
 
-Kolejne buildy:
+Kotlin · Jetpack Compose · Material 3 · Hilt · Room · DataStore · WorkManager · Glance · OkHttp · Jsoup
 
-    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
-    ./gradlew :app:testGmsDebugUnitTest :app:assembleGmsDebug
+## Zgłaszanie błędów
 
-Wersja F-Droid (nie potrzebuje `google-services.json`):
+Błędy i propozycje zgłaszaj w [Issues](https://github.com/stasolejnik/elektron/issues) -
+najprościej przyciskiem **Zgłoś problem** w Ustawieniach aplikacji, który dołącza wersję
+aplikacji, Androida i model telefonu. Po awarii aplikacja sama proponuje wysłanie raportu.
 
-    ./gradlew :app:assembleFossRelease
+## Prywatność
 
-**Wariant `gms` wymaga `app/google-services.json`** (projekt Firebase z aplikacją
-`pl.zse.bydgoszcz.elektron`). Pliku nie ma w repozytorium. Konfiguracja powiadomień push:
-`PORADNIK_PUSH.md`.
-
-### Build release (podpisany)
-
-1. Wygeneruj klucz (raz, w katalogu głównym projektu):
-
-       keytool -genkeypair -v -keystore elektron-release.jks -alias elektron \
-         -keyalg RSA -keysize 4096 -validity 10000
-
-2. Skopiuj `keystore.properties.example` do `keystore.properties` i wpisz hasła.
-   Oba pliki (`*.jks`, `keystore.properties`) są w `.gitignore`.
-   Znak `\` w haśle zapisz jako `\\` (w plikach `.properties` jest znakiem specjalnym).
-3. `./gradlew :app:assembleGmsRelease`
-   → `app/build/outputs/apk/gms/release/app-gms-release.apk`
-
-APK przenieś na telefon dowolnie (kabel USB, KDE Connect, chmura) - ADB nie jest potrzebne.
-
-**Zrób kopię zapasową klucza i hasła.** Bez tego samego klucza nie wydasz aktualizacji -
-użytkownicy musieliby odinstalować aplikację.
-
-## Testy
-
-    ./gradlew :app:testGmsDebugUnitTest
-
-Testy jednostkowe (parsery, logika grup, zastępstw, widżetów, wersji) i testy repozytoriów
-na Robolectric. Raport: `app/build/reports/tests/testGmsDebugUnitTest/index.html`.
-
-## Stack
-
-Kotlin 2.0.20 - Jetpack Compose + Material 3 - Hilt - Room - DataStore - WorkManager -
-OkHttp + Jsoup - Coil - Glance (widżety) - Firebase Cloud Messaging (tylko `gms`).
-
-Architektura: MVVM + Clean (data / domain / presentation), Room jako jedyne źródło prawdy.
-
-## Dane i zasady
-
-| Źródło | Kodowanie |
-|---|---|
-| plan.zse.bydgoszcz.pl | UTF-8 |
-| zastepstwa.zse.bydgoszcz.pl | ISO-8859-2 (wymuszone) |
-| zse.bydgoszcz.pl (RSS i archiwum) | UTF-8 |
-
-Tylko publiczne strony szkoły, bez logowania i danych osobowych, z poszanowaniem
-robots.txt. Zapytania warunkowe (cache HTTP) - niezmieniona strona to krótka odpowiedź 304.
+eLektron łączy się wyłącznie z publicznymi stronami ZSE w Bydgoszczy (oraz, w wariancie
+`gms`, z usługą powiadomień push i GitHubem w celu sprawdzenia aktualizacji).
 Szczegóły: [polityka prywatności](PRYWATNOSC.md).
 
-## Zmiany
+## Powiązane projekty
 
-Historia wersji: [CHANGELOG.md](CHANGELOG.md).
+- [elektron-push-watcher](https://github.com/stasolejnik/elektron-push-watcher) - usługa
+  wysyłająca powiadomienia push o zastępstwach i ogłoszeniach.
+- [Atom](https://github.com/kacpergorka/atom) - aplikacja na iOS autorstwa Kacpra Górki,
+  inspiracja dla eLektronu.
 
 ## Licencja
 
-Copyright (C) 2026 Stanisław Olejnik
+Copyright © 2026 Stanisław Olejnik
 
-Ten program jest wolnym oprogramowaniem: możesz go rozpowszechniać i/lub modyfikować
-na warunkach Powszechnej Licencji Publicznej GNU (GNU GPL) w wersji 3 lub (według
-Twojego wyboru) dowolnej późniejszej. Pełny tekst: `LICENSE`.
+eLektron jest wolnym oprogramowaniem: możesz go rozpowszechniać i modyfikować na warunkach
+[GNU General Public License](LICENSE) w wersji 3 lub (według Twojego wyboru) dowolnej
+późniejszej. Aplikacja jest napisana od podstaw i nie zawiera kodu aplikacji Atom -
+szczegóły w [NOTICE](NOTICE).
 
-eLektron jest napisany od podstaw i nie zawiera kodu aplikacji Atom - korzysta jedynie
-z jej pomysłu. Podziękowania dla Kacpra Górki, autora aplikacji Atom - patrz `NOTICE`.
+Projekt niezależny - niepowiązany z Zespołem Szkół Elektronicznych w Bydgoszczy
+ani z firmą VULCAN.

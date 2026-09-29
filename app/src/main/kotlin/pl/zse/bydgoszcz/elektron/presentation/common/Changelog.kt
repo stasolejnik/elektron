@@ -6,6 +6,22 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 13,
+            versionName = "0.6.0-beta",
+            items = listOf(
+                "Przypomnienia przed lekcją - przed pierwszą albo każdą lekcją, 5-30 minut wcześniej",
+                "Własne nazwy i kolory przedmiotów - w planie, na stronie głównej i w widżetach",
+                "Kolor akcentu aplikacji i widżetów: pięć palet albo własny kolor",
+                "Ciche godziny: powiadomienia bez dźwięku, np. w nocy",
+                "Wybór ekranu startowego, zapamiętany widok dnia lub tygodnia",
+                "Widżety: przezroczystość tła, nauczyciel i sala do wyboru",
+                "Plan po lekcjach od razu pokazuje następny dzień, a zwolnienia z lekcji nie liczą się jako lekcje",
+                "Przewijanie lekcji nie przełącza już przypadkiem dnia",
+                "Raporty awarii i przycisk Zgłoś problem w Ustawieniach",
+                "Czytelniejszy jasny motyw, uporządkowane Ustawienia i wiele poprawek"
+            )
+        ),
+        Entry(
             versionCode = 12,
             versionName = "0.5.0-alpha",
             items = listOf(

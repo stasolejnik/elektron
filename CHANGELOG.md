@@ -4,6 +4,42 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [0.6.0-beta] - 2026-09-29 (13)
+
+Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.6.x to poprawki.
+
+### Dodane
+- Przypomnienia przed lekcją: przed pierwszą lub każdą lekcją, 5-30 minut wcześniej,
+  z salą i nauczycielem albo zastępcą; nie wypadają w trakcie poprzedniej lekcji.
+- Ciche godziny: powiadomienia w wybranym przedziale przychodzą bez dźwięku i wibracji.
+- Własne nazwy i kolory przedmiotów (wspólne dla wszystkich grup przedmiotu) - w planie,
+  na stronie głównej i w widżetach.
+- Kolor akcentu aplikacji i widżetów: niebieski, fioletowy, różowy, czerwony, zielony albo
+  własny kolor z próbnika; odcienie dobierane automatycznie z czytelnym kontrastem.
+- Wybór ekranu startowego (automatycznie, strona główna, plan, zastępstwa).
+- Widżety: krycie tła, pokazywanie nauczyciela i sali.
+- Rozpoznawanie zwolnień z lekcji („Uczniowie zwolnieni do domu”, „przychodzą później”):
+  nie liczą się do przypomnień, końca lekcji ani inteligentnego startu.
+- Raporty awarii (udostępnij lub zgłoś na GitHubie - nic nie jest wysyłane samo),
+  „Zgłoś problem” i sekcja „Działanie w tle” w Ustawieniach.
+- Wykrywanie zmiany układu strony szkoły z planem - zapisany plan zostaje nietknięty.
+- CI na GitHubie: testy i build wersji F-Droid przy każdym pushu.
+
+### Zmienione
+- Plan: dzień startowy (dziś, po lekcjach następny) przy każdym wejściu w plan i powrocie
+  do aplikacji; widok tygodnia przewija się do tego dnia; tryb dnia/tygodnia jest pamiętany.
+- Plan zawsze w zwartym widoku; strzałki dnia obok przycisku odświeżania.
+- Zakładka Zastępstwa: dzisiejsze wpisy znikają po lekcjach (zostają w planie).
+- Grupy: w „Dostosuj osobno” najpierw religia i WF.
+- Ustawienia uporządkowane; wybór klasy w oknie zamiast listy.
+- Jasny motyw: mocniejszy akcent (kontrast 4,8:1), zaznaczenia w kolorze akcentu,
+  widoczne wyłączone przełączniki.
+
+### Naprawione
+- Przewijanie lekcji dnia przypadkiem przełączało na następny dzień.
+- Widżety nie odświeżały się od razu po zmianie ustawień.
+- Po powrocie do aplikacji po lekcjach plan nadal pokazywał bieżący dzień zamiast następnego.
+
 ## [0.5.0-alpha] - 2026-09-28 (12)
 
 ### Dodane
@@ -51,4 +87,5 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[0.6.0-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.0-beta
 [0.5.0-alpha]: https://github.com/stasolejnik/elektron/releases/tag/v0.5.0-alpha
