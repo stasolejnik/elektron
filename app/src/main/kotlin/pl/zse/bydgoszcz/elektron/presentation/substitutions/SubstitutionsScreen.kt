@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
     val groups by viewModel.days.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val todayHidden by viewModel.todayHidden.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -80,9 +82,14 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                                     modifier = Modifier.size(48.dp))
                                 Spacer(Modifier.size(12.dp))
                                 Text("Brak zastępstw", style = MaterialTheme.typography.titleMedium)
-                                Text("Dla Twojej klasy nie ma zaplanowanych zmian.",
+                                Text(
+                                    if (todayHidden) "Lekcje na dziś się skończyły - dzisiejsze zastępstwa są w planie lekcji."
+                                    else "Dla Twojej klasy nie ma zaplanowanych zmian.",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 32.dp)
+                                )
                             }
                         }
                     }

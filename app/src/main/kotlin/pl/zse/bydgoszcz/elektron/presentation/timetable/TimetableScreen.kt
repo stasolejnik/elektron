@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.lazy.rememberLazyListState
 import pl.zse.bydgoszcz.elektron.presentation.common.findActivity
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
@@ -86,7 +88,11 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
+fun TimetableScreen(
+    /** Plan jest aktualnie wybraną zakładką (zmiana -> dzień startowy, patrz niżej). */
+    isShown: Boolean = true,
+    viewModel: TimetableViewModel = hiltViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val plLocale = Locale("pl", "PL")
     val dateFmt = DateTimeFormatter.ofPattern("dd.MM", plLocale)
@@ -154,6 +160,19 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    // Wejście w zakładkę planu i wyjście z niej też ustawia dzień startowy. Przy wyjściu -
+    // w tle, więc po powrocie plan już stoi na właściwym dniu (bez widocznego przeskoku);
+    // przy wejściu sprawdzamy jeszcze raz (mógł minąć koniec lekcji).
+    var wasShown by remember { mutableStateOf(isShown) }
+    LaunchedEffect(isShown) {
+        if (isShown != wasShown) {
+            wasShown = isShown
+            viewModel.requestOpeningDay()
+            openTick++
+        }
+    }
+    // Widok tygodnia przewija listę do dnia startowego (np. po lekcjach w środę - do czwartku).
+    var weekFocus by remember { mutableStateOf<Pair<LocalDate, Int>?>(null) }
     // Aktualny pager i tryb (tryb wczytuje się z ustawień asynchronicznie i tworzy nowy pager).
     val currentPager by rememberUpdatedState(pagerState)
     val currentMode by rememberUpdatedState(state.mode)
@@ -166,6 +185,7 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
         }
         if (target != currentPager.currentPage) currentPager.scrollToPage(target)
         viewModel.onOpeningDay(day)
+        weekFocus = day to ((weekFocus?.second ?: 0) + 1)
     }
     var lastSeenDay by rememberSaveable { mutableLongStateOf(today.toEpochDay()) }
     LaunchedEffect(today) {
@@ -265,7 +285,7 @@ fun TimetableScreen(viewModel: TimetableViewModel = hiltViewModel()) {
                             val monday = TimetableViewModel.mondayForPage(base, page)
                             val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle()
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
-                            WeekPage(week, plLocale, dateFmt, loading, pageModifier)
+                            WeekPage(week, plLocale, dateFmt, loading, pageModifier, weekFocus)
                         }
                     }
                 }
@@ -320,10 +340,21 @@ private fun WeekPage(
     plLocale: Locale,
     dateFmt: DateTimeFormatter,
     loading: Boolean,
-    modifier: Modifier
+    modifier: Modifier,
+    /** Dzień startowy (data, numer żądania) - lista tygodnia przewija się do jego nagłówka. */
+    focus: Pair<LocalDate, Int>? = null
 ) {
+    val listState = rememberLazyListState()
+    var handledFocus by remember { mutableIntStateOf(0) }
+    LaunchedEffect(focus, week) {
+        val (date, tick) = focus ?: return@LaunchedEffect
+        if (week == null || tick == handledFocus) return@LaunchedEffect
+        handledFocus = tick
+        weekHeaderIndex(week, date)?.let { listState.scrollToItem(it) }
+    }
     LazyColumn(
         modifier,
+        state = listState,
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -358,6 +389,20 @@ private fun WeekPage(
     }
 }
 
+
+/**
+ * Indeks nagłówka dnia na liście tygodnia (musi odpowiadać układowi WeekPage: nagłówek +
+ * lekcje albo "Brak lekcji"). null - dnia nie ma w tym tygodniu albo tydzień jest pusty.
+ */
+internal fun weekHeaderIndex(week: List<TimetableViewModel.DayColumn>, date: LocalDate): Int? {
+    if (week.all { it.lessons.isEmpty() }) return null
+    var index = 0
+    for (day in week) {
+        if (day.date == date) return index
+        index += 1 + maxOf(day.lessons.size, 1)
+    }
+    return null
+}
 
 /** Mała plakietka grupy przy nazwie przedmiotu, np. "Grupa 2". */
 @Composable

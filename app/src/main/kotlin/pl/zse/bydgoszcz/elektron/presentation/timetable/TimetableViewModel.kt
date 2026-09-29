@@ -179,6 +179,11 @@ class TimetableViewModel @Inject constructor(
     private var openingDayPending = true
     private var leftAppAt = 0L
 
+    /** Wejście w zakładkę planu / wyjście z niej - ustaw dzień startowy od nowa. */
+    fun requestOpeningDay() {
+        openingDayPending = true
+    }
+
     fun onLeftApp() {
         leftAppAt = System.currentTimeMillis()
     }

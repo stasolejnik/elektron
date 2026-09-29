@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,11 +53,11 @@ import pl.zse.bydgoszcz.elektron.presentation.common.theme.AccentTones
 import pl.zse.bydgoszcz.elektron.presentation.common.theme.Accents
 
 private val ACCENT_LABELS = mapOf(
-    AccentColor.GREEN to "Zielony",
     AccentColor.BLUE to "Niebieski",
     AccentColor.PURPLE to "Fioletowy",
     AccentColor.PINK to "Różowy",
     AccentColor.RED to "Czerwony",
+    AccentColor.GREEN to "Zielony",
     AccentColor.CUSTOM to "Własny"
 )
 
@@ -67,7 +66,8 @@ private val RAINBOW = listOf(0f, 60f, 120f, 180f, 240f, 300f, 360f).map { Color(
 
 /**
  * Kółka palet akcentu pod Auto/Jasny/Ciemny: pięć popularnych kolorów w kolejności koła barw
- * i na szóstym miejscu własny kolor (tęczowe kółko; po wybraniu - wybrany kolor z ołówkiem).
+ * i na szóstym miejscu własny kolor (kółko z plusem; po wybraniu - wybrany kolor, ponowne
+ * stuknięcie otwiera próbnik).
  */
 @Composable
 internal fun AccentPicker(current: AccentSetting, onChange: (AccentSetting) -> Unit) {
@@ -85,27 +85,29 @@ internal fun AccentPicker(current: AccentSetting, onChange: (AccentSetting) -> U
             AccentColor.entries.forEach { accent ->
                 val selected = accent == current.color
                 val isCustom = accent == AccentColor.CUSTOM
-                val fill = if (isCustom && !selected) Brush.sweepGradient(RAINBOW)
-                    else Brush.linearGradient(List(2) { Accents.swatch(accent, current.custom) })
+                val swatch = Accents.swatch(accent, current.custom)
+                // Własny kolor przed wybraniem: spokojne kółko z obwódką i plusem (bez tęczy -
+                // nie odciąga uwagi od palet); po wybraniu wygląda jak pozostałe.
+                val neutral = isCustom && !selected
                 Box(
-                    Modifier.size(38.dp).clip(CircleShape).background(fill)
+                    Modifier.size(38.dp).clip(CircleShape)
+                        .background(if (neutral) MaterialTheme.colorScheme.surfaceContainerHighest else swatch)
+                        .then(if (neutral) Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape) else Modifier)
                         .selectable(selected = selected, role = Role.RadioButton) {
                             if (isCustom) editing = true else onChange(current.copy(color = accent))
                         }
-                        .semantics { contentDescription = ACCENT_LABELS[accent].orEmpty() },
+                        .semantics {
+                            contentDescription = if (isCustom && selected) "Własny kolor, stuknij, aby zmienić"
+                                else ACCENT_LABELS[accent].orEmpty()
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    val icon = when {
-                        isCustom && selected -> Icons.Filled.Edit     // wybrany własny: stuknij, by zmienić
-                        isCustom -> Icons.Filled.Add
-                        selected -> Icons.Filled.Check
-                        else -> null
-                    }
-                    if (icon != null) {
-                        val swatch = Accents.swatch(accent, current.custom)
-                        val tint = if (isCustom && !selected) Color.White
-                            else if (swatch.luminance() > 0.5f) Color.Black else Color.White
-                        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+                    when {
+                        neutral -> Icon(Icons.Filled.Add, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                        selected -> Icon(Icons.Filled.Check, contentDescription = null,
+                            tint = if (swatch.luminance() > 0.5f) Color.Black else Color.White,
+                            modifier = Modifier.size(20.dp))
                     }
                 }
             }

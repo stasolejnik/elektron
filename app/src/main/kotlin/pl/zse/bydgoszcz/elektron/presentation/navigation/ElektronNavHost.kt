@@ -119,7 +119,7 @@ fun ElektronNavHost(
             ) { page ->
                 when (bottomDestinations[page].route) {
                     ElektronRoutes.DASHBOARD -> DashboardScreen()
-                    ElektronRoutes.TIMETABLE -> TimetableScreen()
+                    ElektronRoutes.TIMETABLE -> TimetableScreen(isShown = pagerState.settledPage == page)
                     ElektronRoutes.SUBSTITUTIONS -> SubstitutionsScreen()
                     ElektronRoutes.ANNOUNCEMENTS -> AnnouncementsScreen()
                     ElektronRoutes.SETTINGS -> SettingsScreen(

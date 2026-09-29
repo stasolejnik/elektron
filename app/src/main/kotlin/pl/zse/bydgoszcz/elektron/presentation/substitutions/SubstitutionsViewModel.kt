@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import java.time.LocalTime
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -65,6 +66,9 @@ class SubstitutionsViewModel @Inject constructor(
     /** [label]: "Dziś · 28 września" — liczone tu, żeby po północy zmieniło się samo. */
     data class DayGroup(val date: LocalDate, val label: String, val items: List<Substitution>)
 
+    /** Lista + czy schowano dzisiejsze zastępstwa (lekcje już się skończyły). */
+    private data class Content(val days: List<DayGroup>, val todayHidden: Boolean)
+
     private val classIdFlow = settings.selectedClassId
     // Bieżąca data (przebudowywana po północy) — ViewModel żyje przez cały czas działania appki.
     private val startDay = currentDateFlow()
@@ -87,25 +91,37 @@ class SubstitutionsViewModel @Inject constructor(
     // Optymalizacja: dawniej observeFrom(2000-01-01) — cała 60-dniowa historia była
     // czytana z bazy przy każdej zmianie, a potem i tak odrzucana (sub.date < today).
     // Ticker przelicza listę co 30 s, żeby zakończone dziś lekcje znikały na bieżąco.
-    val days: StateFlow<List<DayGroup>> = combine(
+    private val content: StateFlow<Content> = combine(
         classInfoFlow,
         startDay.flatMapLatest { day -> repo.observeFrom(day) },
         lessonsFlow,
         settings.activeGroupSelections,
         minuteTicker()
     ) { (_, short), subs, lessons, groups, _ ->
-        if (short == null) return@combine emptyList()
+        if (short == null) return@combine Content(emptyList(), false)
         val today = LocalDate.now()
-        // Wszystkie dzisiejsze i przyszłe — także z zakończonych już lekcji. Szkoła publikuje
-        // zastępstwa tylko na bieżący dzień, więc dawniej po lekcjach lista była pusta, choć
-        // na stronie zastępstwa wciąż były. (Strona główna nadal pokazuje tylko nadchodzące.)
-        subs.filter { SubstitutionRelevance.matchesClass(it, short) }
+        // Po zakończeniu dzisiejszych lekcji (ostatnia lekcja w planie, po filtrze grup)
+        // dzisiejsze zastępstwa znikają z zakładki - zostają w planie lekcji.
+        val todayLessons = LessonGroups.filter(lessons.filter { it.date == today }, groups)
+        val hideToday = SubstitutionRelevance.todayFinished(todayLessons, LocalTime.now())
+        val relevant = subs.filter { SubstitutionRelevance.matchesClass(it, short) }
             .filter { LessonGroups.substitutionRelevant(it, lessons, groups) }
             .filter { sub -> sub.date >= today }
-            .groupBy { it.date }
-            .toSortedMap()
-            .map { (d, list) -> DayGroup(d, dayLabel(d, today), list.sortedWith(compareBy({ it.lessonNumber }))) }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        val shown = if (hideToday) relevant.filter { it.date != today } else relevant
+        Content(
+            days = shown.groupBy { it.date }
+                .toSortedMap()
+                .map { (d, list) -> DayGroup(d, dayLabel(d, today), list.sortedWith(compareBy({ it.lessonNumber }))) },
+            todayHidden = hideToday && relevant.any { it.date == today }
+        )
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Content(emptyList(), false))
+
+    val days: StateFlow<List<DayGroup>> = content.map { it.days }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Dzisiejsze zastępstwa schowane po lekcjach - ekran mówi, gdzie ich szukać. */
+    val todayHidden: StateFlow<Boolean> = content.map { it.todayHidden }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 }
 
 private val PL = java.util.Locale("pl", "PL")

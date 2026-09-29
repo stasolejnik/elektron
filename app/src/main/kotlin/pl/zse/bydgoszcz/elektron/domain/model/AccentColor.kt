@@ -2,15 +2,16 @@ package pl.zse.bydgoszcz.elektron.domain.model
 
 /**
  * Kolor akcentu aplikacji i widżetów (Ustawienia -> Wygląd). Najpopularniejsze kolory
- * akcentu, ułożone w kole barw (zielony -> niebieski -> fioletowy -> różowy -> czerwony),
- * plus własny. BLUE = kolor z logo eLektronu. Bez pomarańczowego - oznacza zastępstwa.
+ * akcentu w kolejności koła barw, od domyślnego niebieskiego (logo eLektronu):
+ * niebieski -> fioletowy -> różowy -> czerwony -> zielony (-> z powrotem niebieski),
+ * na końcu własny. Bez pomarańczowego - oznacza zastępstwa. Kolejność = kolejność kółek.
  */
 enum class AccentColor(val key: String) {
-    GREEN("green"),
     BLUE("blue"),
     PURPLE("purple"),
     PINK("pink"),
     RED("red"),
+    GREEN("green"),
     /** Własny kolor z próbnika - odcienie liczone przez [AccentMath]. */
     CUSTOM("custom");
 
