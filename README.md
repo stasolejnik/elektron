@@ -1,18 +1,16 @@
 # eLektron
 
 Nieoficjalna aplikacja na Androida z planem lekcji, zastępstwami i ogłoszeniami dla
-**Zespołu Szkół Elektronicznych w Bydgoszczy** - bez logowania, działa offline, dane pobiera
-prosto z publicznych stron szkoły. Inspirowana aplikacją **Atom** (iOS) Kacpra Górki.
+**Zespołu Szkół Elektronicznych w Bydgoszczy**. Inspirowana aplikacją **Atom** (iOS) Kacpra Górki.
+
+eLektron to [wolne oprogramowanie](https://www.gnu.org/philosophy/free-sw.pl.html) na licencji
+[GNU GPL v3 lub nowszej](LICENSE) - możesz go swobodnie używać, poznawać, zmieniać
+i rozpowszechniać.
 
 Projekt niezależny - niepowiązany z ZSE w Bydgoszczy ani z firmą VULCAN.
 
 Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).
 
-> **Wersja alpha.** Aplikacja działa na co dzień, ale może jeszcze zawierać błędy.
-> Zgłoszenia mile widziane w [Issues](https://github.com/stasolejnik/elektron/issues).
-
-- Repozytorium: https://github.com/stasolejnik/elektron
-- Pobieranie: [Releases](https://github.com/stasolejnik/elektron/releases)
 - Watcher powiadomień push: https://github.com/stasolejnik/elektron-push-watcher
 - Inspiracja: https://github.com/kacpergorka/atom
 
