@@ -6,6 +6,15 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 15,
+            versionName = "0.6.2-beta",
+            items = listOf(
+                "Plan: brakujące lekcje wpisane na stronie szkoły tekstem (np. zajęcia wojskowe w klasach F, zajęcia 5B i 5D)",
+                "Zajęcia łączone pokazują, z którą klasą są (np. łączona z 1A)",
+                "Poprawiona nazwa zajęć bez przypisanej sali (zaj.woj. zamiast zaj.woj.@)"
+            )
+        ),
+        Entry(
             versionCode = 14,
             versionName = "0.6.1-beta",
             items = listOf(

@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.lazy.rememberLazyListState
 import pl.zse.bydgoszcz.elektron.presentation.common.findActivity
@@ -517,9 +518,13 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                                 modifier = Modifier.weight(1f, fill = false))
                             parsed?.label?.let { GroupBadge(LessonGroups.displayLabel(it)) }
                         }
+                        // Zajęcia łączone ("wf-j2 #1AF") nie mają na stronie nauczyciela -
+                        // zamiast niego "łączona z 1A".
+                        val teacherOrJoint = (g.teacherFullName ?: g.teacherCode)
+                            ?: JointGroups.describe(g.classRef, lesson.className)
                         val meta = listOfNotNull(
                             g.room?.takeIf { look.showRoom }?.let { "s. $it" },
-                            (g.teacherFullName ?: g.teacherCode)?.takeIf { look.showTeacher }
+                            teacherOrJoint?.takeIf { look.showTeacher }
                         ).joinToString(" · ")
                         if (meta.isNotBlank()) {
                             Text(meta, style = MaterialTheme.typography.bodyMedium,

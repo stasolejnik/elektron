@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
@@ -244,7 +245,9 @@ object WidgetDataLoader {
         val title = l.groups.mapNotNull { g -> SubjectStyles.displayName(g.subject, styles) }
             .distinct().joinToString(" / ").ifBlank { l.note ?: "Lekcja" }
         // Zastępstwa zawsze w pełni (wyżej); zwykła lekcja - według Ustawień -> Widżety.
-        val teacher = l.groups.firstOrNull()?.let { it.teacherFullName ?: it.teacherCode }?.takeIf { look.showTeacher }
+        val teacher = l.groups.firstOrNull()
+            ?.let { it.teacherFullName ?: it.teacherCode ?: JointGroups.describe(it.classRef, l.className) }
+            ?.takeIf { look.showTeacher }
         return WidgetLesson(
             number = l.number,
             title = title,

@@ -63,7 +63,8 @@ object LessonReminders {
         val what = lesson.groups.mapNotNull { SubjectStyles.displayName(it.subject, styles) }
             .distinct().joinToString(" / ").ifBlank { lesson.note ?: "lekcja" }
         val rooms = lesson.groups.mapNotNull { it.room }.distinct().joinToString(", ").ifBlank { null }
-        val teacher = lesson.groups.firstOrNull()?.let { it.teacherFullName ?: it.teacherCode }
+        val teacher = lesson.groups.firstOrNull()
+            ?.let { it.teacherFullName ?: it.teacherCode ?: JointGroups.describe(it.classRef, lesson.className) }
         return what to listOfNotNull(hours, rooms?.let { "s. $it" }, teacher).joinToString(" · ")
     }
 

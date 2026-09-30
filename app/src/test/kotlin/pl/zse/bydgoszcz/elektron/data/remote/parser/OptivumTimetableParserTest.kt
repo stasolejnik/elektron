@@ -128,4 +128,41 @@ class OptivumTimetableParserTest {
         assertEquals("Hala4", tuesday.groups[0].room)
         assertEquals("Kr", tuesday.groups[3].teacherCode)
     }
+
+    /** Komórki wpisane zwykłym tekstem (prawdziwe przykłady ze strony ZSE). */
+    @Test
+    fun plainTextCells() {
+        val military = OptivumTimetableParser.parseTextCell("St WP1 zaj wojskowe")!!
+        assertEquals("zaj wojskowe", military.subject)
+        assertEquals("St", military.teacherCode)
+        assertEquals("WP1", military.room)
+        // Podwójna spacja jak na stronie ("Cd  WP1 zaj wojskowe").
+        assertEquals("Cd", OptivumTimetableParser.parseTextCell("Cd  WP1 zaj wojskowe")!!.teacherCode)
+
+        val uni = OptivumTimetableParser.parseTextCell("5B,5D zaj uni")!!
+        assertEquals("zaj uni", uni.subject)
+        assertEquals("5B,5D", uni.classRef)
+
+        assertEquals(null, OptivumTimetableParser.parseTextCell("---"))
+        assertEquals("Wycieczka klasowa", OptivumTimetableParser.parseTextCell("Wycieczka klasowa")!!.subject)
+    }
+
+    /** "@" w <span class="s"> = brak sali - nie może trafić do nazwy przedmiotu. */
+    @Test
+    fun noRoomMarkIsNotAppendedToSubject() {
+        val html = """
+            <html><head><title>Plan lekcji oddziału - 2F Woj</title></head><body>
+            <table class="tabela">
+              <tr><th>Nr</th><th>Godz</th><th>Poniedziałek</th><th>Wtorek</th><th>Środa</th><th>Czwartek</th><th>Piątek</th></tr>
+              <tr><td class="nr">3</td><td class="g"> 9:50-10:35</td>
+                <td class="l">&nbsp;</td><td class="l">&nbsp;</td>
+                <td class="l"><span class="p">zaj.woj.</span> <a href="n19.html" class="n">Cd</a> <span class="s">@</span></td>
+                <td class="l">&nbsp;</td><td class="l">&nbsp;</td></tr>
+            </table></body></html>
+        """.trimIndent()
+        val g = OptivumTimetableParser.parse(Jsoup.parse(html), "o10").lessons.first { it.dayIndex == 3 }.groups.single()
+        assertEquals("zaj.woj.", g.subject)
+        assertEquals("Cd", g.teacherCode)
+        assertEquals(null, g.room)
+    }
 }

@@ -4,6 +4,21 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [0.6.2-beta] - 2026-09-30 (15)
+
+Poprawki z analizy wszystkich 29 planów oddziałów ZSE (stan z 30.09.2026).
+
+### Zmienione
+- Zajęcia łączone bez nauczyciela na stronie (np. WF j2, religia) pokazują w planie, widżetach
+  i przypomnieniach „łączona z 1A” albo „grupa łączona”.
+
+### Naprawione
+- Brakujące lekcje: komórki planu wpisane w Optivum zwykłym tekstem (np. „St WP1 zaj wojskowe”
+  w klasach F, „5B,5D zaj uni”) były pomijane - 19 lekcji w 7 klasach. Są rozpoznawane
+  (nauczyciel, sala, oddziały), a „---” traktowane jako brak lekcji.
+- „zaj.woj.@”: znak braku sali („@”) doklejał się do nazwy przedmiotu.
+- Testy regresji na prawdziwych planach szkoły.
+
 ## [0.6.1-beta] - 2026-09-30 (14)
 
 ### Dodane
@@ -109,6 +124,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[0.6.2-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.2-beta
 [0.6.1-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.1-beta
 [0.6.0-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.0-beta
 [0.5.0-alpha]: https://github.com/stasolejnik/elektron/releases/tag/v0.5.0-alpha

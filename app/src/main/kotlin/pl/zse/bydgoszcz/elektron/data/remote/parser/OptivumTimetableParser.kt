@@ -121,6 +121,14 @@ object OptivumTimetableParser {
         td.childNodes().forEach { tokenize(it, tokens) }
         if (tokens.isEmpty()) return emptyList<LessonGroupDto>() to null
 
+        // Komórka wpisana w Optivum zwykłym tekstem, bez przedmiotu/nauczyciela/sali jako
+        // pól, np. "St WP1 zaj wojskowe" (klasy F, środa) albo "5B,5D zaj uni". Dawniej
+        // takie lekcje znikały z planu.
+        if (tokens.all { it is Token.RawText }) {
+            val text = tokens.joinToString(" ") { (it as Token.RawText).text }
+            if (!isAbsentMark(text)) return listOfNotNull(parseTextCell(text)) to null
+        }
+
         val groups = mutableListOf<LessonGroupDto>()
         var cur: MutableGroup? = null
         var absent = false
@@ -153,7 +161,7 @@ object OptivumTimetableParser {
                 is Token.RawText -> {
                     val t = tok.text.trim()
                     val g = cur
-                    if (t.length == 1 && t.equals("N", ignoreCase = true)) {
+                    if (isAbsentMark(t)) {
                         absent = true
                     } else if (t.isNotEmpty()) {
                         // Np. "-j2 #1AF" po <span class="p">wf</span>: dopisek do przedmiotu
@@ -182,11 +190,16 @@ object OptivumTimetableParser {
                 when (node.tagName().lowercase()) {
                     "br" -> out += Token.Break
                     "span" -> {
-                        if (node.hasClass("p")) {
-                            val txt = node.text().trim()
-                            if (txt.isNotEmpty()) out += Token.Subject(txt)
-                        } else {
-                            node.childNodes().forEach { tokenize(it, out) }
+                        val txt = node.text().trim()
+                        when {
+                            node.hasClass("p") -> if (txt.isNotEmpty()) out += Token.Subject(txt)
+                            // Nauczyciel / sala / oddział bez linku (np. <span class="s">@</span>).
+                            // "@" = brak przypisanej sali - dawniej doklejał się do przedmiotu
+                            // ("zaj.woj.@").
+                            node.hasClass("n") -> if (txt.isNotEmpty()) out += Token.Teacher(txt, null)
+                            node.hasClass("s") -> if (txt.isNotEmpty() && txt != NO_ROOM) out += Token.Room(txt, null)
+                            node.hasClass("o") -> if (txt.isNotEmpty()) out += Token.ClassRef(txt, null)
+                            else -> node.childNodes().forEach { tokenize(it, out) }
                         }
                     }
                     "a" -> {
@@ -215,6 +228,35 @@ object OptivumTimetableParser {
                 }
             }
             else -> {}
+        }
+    }
+
+    private const val NO_ROOM = "@"
+    // Kod nauczyciela: zawsze 2 litery ("St", "KŁ", "dA", "Pń").
+    private val TEACHER_CODE = Regex("^\\p{L}{2}$")
+    // Sala w komórce tekstowej: krótka i z cyfrą ("WP1", "211", "Hala2").
+    private val ROOM_CODE = Regex("^(?=.*\\d)[\\p{L}\\d-]{1,6}$")
+    // Lista oddziałów: "5B,5D".
+    private val CLASS_LIST = Regex("^\\d\\p{L}{1,2}(,\\d\\p{L}{1,2})+$")
+
+    private fun isAbsentMark(text: String) = text.trim().equals("N", ignoreCase = true)
+
+    /**
+     * Lekcja zapisana samym tekstem. "---" (i puste) = brak lekcji. Rozpoznajemy dwa wzory
+     * spotykane na stronie ZSE, a resztę pokazujemy w całości jako nazwę zajęć:
+     *  - "St WP1 zaj wojskowe" -> nauczyciel St, sala WP1, przedmiot "zaj wojskowe",
+     *  - "5B,5D zaj uni"       -> oddziały 5B,5D (classRef), przedmiot "zaj uni".
+     */
+    internal fun parseTextCell(raw: String): LessonGroupDto? {
+        val text = raw.replace('\u00A0', ' ').trim().replace(Regex("\\s+"), " ")
+        if (text.isEmpty() || text.all { it == '-' }) return null
+        val w = text.split(' ')
+        return when {
+            w.size >= 3 && TEACHER_CODE.matches(w[0]) && ROOM_CODE.matches(w[1]) ->
+                LessonGroupDto(w.drop(2).joinToString(" "), w[0], null, w[1], null, null, null)
+            w.size >= 2 && CLASS_LIST.matches(w[0]) ->
+                LessonGroupDto(w.drop(1).joinToString(" "), null, null, null, null, w[0], null)
+            else -> LessonGroupDto(text, null, null, null, null, null, null)
         }
     }
 
