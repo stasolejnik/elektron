@@ -4,6 +4,15 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [0.6.4-beta] - 2026-09-30 (17)
+
+### Naprawione
+- **Krytyczne: gubione zastępstwa.** Parser rozpoznawał wiersze strony zastępstw po nazwach
+  klas CSS (st7/st10), które Optivum nadaje od nowa przy każdym eksporcie. 30.09.2026 z 32
+  zastępstw odczytane zostało 1 - pozostałe nie trafiały ani do aplikacji, ani do powiadomień
+  (także push z watchera). Teraz rozpoznawanie po strukturze tabeli, z testem na prawdziwej
+  stronie szkoły.
+
 ## [0.6.3-beta] - 2026-09-30 (16)
 
 Płynny interfejs: bez migania przy przełączaniu zakładek i otwieraniu ekranów.
@@ -141,6 +150,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[0.6.4-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.4-beta
 [0.6.3-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.3-beta
 [0.6.2-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.2-beta
 [0.6.1-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.1-beta

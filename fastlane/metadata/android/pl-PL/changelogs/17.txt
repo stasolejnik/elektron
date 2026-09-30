@@ -1,0 +1,1 @@
+Pilna poprawka: zastępstwa są odczytywane w całości - część zastępstw i powiadomień mogła dotąd nie docierać.

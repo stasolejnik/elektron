@@ -6,6 +6,13 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 17,
+            versionName = "0.6.4-beta",
+            items = listOf(
+                "WAŻNE: zastępstwa odczytywane w całości - część zastępstw i powiadomień mogła dotąd nie docierać"
+            )
+        ),
+        Entry(
             versionCode = 16,
             versionName = "0.6.3-beta",
             items = listOf(
