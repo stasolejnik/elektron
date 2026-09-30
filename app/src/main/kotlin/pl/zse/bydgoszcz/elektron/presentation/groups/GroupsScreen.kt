@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.groups
 
+import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
+import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
@@ -149,7 +151,7 @@ fun GroupsScreen(
             targetState = state.status,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             label = "groupsStatus",
-            modifier = Modifier.fillMaxSize().padding(padding)
+            modifier = Modifier.fillMaxSize().padding(padding).revealWhen(state.ready)
         ) { status ->
             when (status) {
                 GroupsViewModel.Status.LOADING -> CenterMessage(loading = true,
@@ -295,7 +297,7 @@ private fun CenterMessage(
 ) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            if (loading) CircularProgressIndicator()
+            if (loading) DelayedLoading { CircularProgressIndicator() }
             else Icon(Icons.Outlined.Groups, contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp))
             Spacer(Modifier.height(16.dp))

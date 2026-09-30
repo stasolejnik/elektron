@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
+import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
 import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import androidx.compose.animation.AnimatedVisibility
@@ -93,7 +95,7 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().revealWhen(state.ready),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -140,7 +142,7 @@ fun DashboardScreen(
                         }
                         item(key = "h_next") { SectionTitle(title, icon) }
                         item(key = "next") {
-                            if (state.loadingTimetable) LoadingCard("Ładowanie planu lekcji…")
+                            if (state.loadingTimetable) DelayedLoading { LoadingCard("Ładowanie planu lekcji…") }
                             else NextLessonCard(state, onOpenTimetable)
                         }
                     }
@@ -152,7 +154,7 @@ fun DashboardScreen(
                             SectionTitle(t, Icons.Filled.EventBusy)
                         }
                         when {
-                            state.loadingSubs -> item(key = "subs_loading") { LoadingCard("Ładowanie zastępstw…") }
+                            state.loadingSubs -> item(key = "subs_loading") { DelayedLoading { LoadingCard("Ładowanie zastępstw…") } }
                             state.upcomingSubstitutions.isEmpty() -> item(key = "subs_empty") { EmptyCard("Brak zastępstw") }
                             else -> items(state.upcomingSubstitutions, key = { "sub_${it.id}" }) {
                                 SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {}, onOpenSubstitutions)
@@ -169,7 +171,7 @@ fun DashboardScreen(
                         }
                     } else if (state.loadingAnns) {
                         item(key = "h_anns") { SectionTitle("Najnowsze ogłoszenia", Icons.Filled.Campaign) }
-                        item(key = "anns_loading") { LoadingCard("Ładowanie ogłoszeń…") }
+                        item(key = "anns_loading") { DelayedLoading { LoadingCard("Ładowanie ogłoszeń…") } }
                     }
                 }
             }

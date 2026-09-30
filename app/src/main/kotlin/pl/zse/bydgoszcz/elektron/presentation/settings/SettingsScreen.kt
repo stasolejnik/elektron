@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import androidx.compose.foundation.layout.Box
 import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
 import pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork
@@ -91,7 +92,7 @@ fun SettingsScreen(
         topBar = { LargeTitleBar(title = "Ustawienia", scrollBehavior = scrollBehavior) }
     ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.fillMaxSize().padding(padding).revealWhen(state.ready),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {

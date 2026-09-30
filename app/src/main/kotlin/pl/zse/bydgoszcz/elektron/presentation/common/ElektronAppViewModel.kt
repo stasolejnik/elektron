@@ -111,9 +111,11 @@ class ElektronAppViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppState(isReady = false))
 
     /** Nazwy/kolory przedmiotów i wygląd planu - podawane całemu UI przez LocalPersonalization. */
-    val personalization: StateFlow<Personalization> =
+    // null = jeszcze nie wczytano: aplikacja czeka na to (MainActivity), żeby nazwy/kolory
+    // przedmiotów i tryb planu nie przeskakiwały z domyślnych na własne po pierwszej klatce.
+    val personalization: StateFlow<Personalization?> =
         combine(settings.subjectStyles, settings.timetableLook) { styles, look -> Personalization(styles, look) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, Personalization())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun markChangelogSeen() {
         viewModelScope.launch { settings.setLastSeenVersionCode(currentVersionCode) }

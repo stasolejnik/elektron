@@ -51,7 +51,9 @@ class SettingsViewModel @Inject constructor(
         val reminder: ReminderSettings = ReminderSettings(),
         val quiet: QuietHours = QuietHours(),
         val widgetLook: WidgetLook = WidgetLook(),
-        val accent: AccentSetting = AccentSetting()
+        val accent: AccentSetting = AccentSetting(),
+        /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
+        val ready: Boolean = false
     )
 
     val state: StateFlow<State> = combine(
@@ -68,6 +70,7 @@ class SettingsViewModel @Inject constructor(
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
+            ready = true,
             themeMode = values[0] as ThemeMode,
             dynamicColor = values[1] as Boolean,
             selectedClassId = values[2] as String?,

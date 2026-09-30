@@ -1,0 +1,1 @@
+Płynniejszy interfejs: bez migania przy przełączaniu zakładek, plan otwiera się od razu na właściwym dniu, kółka ładowania tylko przy dłuższym wczytywaniu.

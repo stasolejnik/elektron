@@ -1,7 +1,10 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
 import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.lazy.rememberLazyListState
 import pl.zse.bydgoszcz.elektron.presentation.common.findActivity
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -95,6 +98,10 @@ fun TimetableScreen(
     viewModel: TimetableViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Zapamiętany tryb (Dzień/Tydzień) znany od pierwszej klatki - bez mignięcia widoku dnia.
+    val savedWeekView = LocalPersonalization.current.look.weekView
+    remember { viewModel.initSavedMode(savedWeekView) }
+    val mode by viewModel.viewMode.collectAsStateWithLifecycle()
     val plLocale = Locale("pl", "PL")
     val dateFmt = DateTimeFormatter.ofPattern("dd.MM", plLocale)
     val scope = rememberCoroutineScope()
@@ -109,16 +116,16 @@ fun TimetableScreen(
     // Pager stron (dzień albo tydzień). Nowy stan pagera przy zmianie trybu — strona
     // startowa odpowiada bieżącej dacie, więc przełączenie Dzień/Tydzień nie gubi miejsca.
     val base = viewModel.baseDate
-    val pagerState = key(state.mode) {
-        val initial = when (state.mode) {
+    val pagerState = key(mode) {
+        val initial = when (mode) {
             TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, viewModel.currentAnchor)
             TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, viewModel.currentAnchor)
         }
         rememberPagerState(initialPage = initial) { TimetableViewModel.PAGE_COUNT }
     }
-    LaunchedEffect(pagerState, state.mode) {
+    LaunchedEffect(pagerState, mode) {
         snapshotFlow { pagerState.settledPage }.collect { page ->
-            when (state.mode) {
+            when (mode) {
                 TimetableViewModel.ViewMode.DAY -> viewModel.onDaySettled(TimetableViewModel.dayForPage(base, page))
                 TimetableViewModel.ViewMode.WEEK -> viewModel.onWeekSettled(TimetableViewModel.mondayForPage(base, page))
             }
@@ -126,7 +133,7 @@ fun TimetableScreen(
     }
     // Nagłówek podąża za stroną w trakcie przesuwania (targetPage), nie dopiero po zatrzymaniu.
     val shownPage = pagerState.targetPage
-    val headerText = when (state.mode) {
+    val headerText = when (mode) {
         TimetableViewModel.ViewMode.DAY -> {
             val d = TimetableViewModel.dayForPage(base, shownPage)
             val dn = d.dayOfWeek.getDisplayName(TextStyle.FULL, plLocale).replaceFirstChar { it.titlecase(plLocale) }
@@ -140,20 +147,18 @@ fun TimetableScreen(
     // Bieżąca data (zmienia się po północy). Aplikacja potrafi wisieć w pamięci całymi dniami,
     // a pager pamięta ostatnio oglądaną stronę — po zmianie daty wracamy do dziś.
     val today by remember { currentDateFlow() }.collectAsStateWithLifecycle(initialValue = LocalDate.now())
-    val todayPage = when (state.mode) {
+    val todayPage = when (mode) {
         TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, today)
         TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, today)
     }
-    // Przy wejściu do aplikacji: dziś, a po ostatniej dzisiejszej lekcji - następny dzień.
-    // Sprawdzane przy każdym powrocie (po >= 3 min poza aplikacją), nie tylko przy pierwszym
-    // uruchomieniu - aplikacja zwykle zostaje w pamięci. Obrót ekranu nie resetuje dnia.
+    // Powrót do aplikacji po dłuższej nieobecności - dzień startowy od nowa (ViewModel).
+    // Obrót ekranu to nie wyjście z aplikacji.
     val activity = LocalContext.current.findActivity()
     val lifecycleOwner = LocalLifecycleOwner.current
-    var openTick by remember { mutableIntStateOf(0) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> openTick++
+                Lifecycle.Event.ON_START -> viewModel.onAppStart()
                 Lifecycle.Event.ON_STOP -> if (activity?.isChangingConfigurations != true) viewModel.onLeftApp()
                 else -> Unit
             }
@@ -161,32 +166,29 @@ fun TimetableScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    // Wejście w zakładkę planu i wyjście z niej też ustawia dzień startowy. Przy wyjściu -
-    // w tle, więc po powrocie plan już stoi na właściwym dniu (bez widocznego przeskoku);
-    // przy wejściu sprawdzamy jeszcze raz (mógł minąć koniec lekcji).
-    var wasShown by remember { mutableStateOf(isShown) }
-    LaunchedEffect(isShown) {
-        if (isShown != wasShown) {
-            wasShown = isShown
-            viewModel.requestOpeningDay()
-            openTick++
+    // Dzień startowy liczy ViewModel (patrz OpeningJump). Pager tworzony później startuje już
+    // od właściwego dnia; istniejący pager przewija się - niewidocznie, gdy plan nie jest na
+    // ekranie, a na ekranie przez krótkie przejście zamiast skoku.
+    val jump by viewModel.openingJump.collectAsStateWithLifecycle()
+    val fade = remember { Animatable(1f) }
+    val shown by rememberUpdatedState(isShown)
+    LaunchedEffect(jump?.id, pagerState) {
+        val j = jump ?: return@LaunchedEffect
+        if (j.id <= viewModel.handledJumpId) return@LaunchedEffect
+        val target = when (mode) {
+            TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, j.day)
+            TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, j.day)
         }
-    }
-    // Widok tygodnia przewija listę do dnia startowego (np. po lekcjach w środę - do czwartku).
-    var weekFocus by remember { mutableStateOf<Pair<LocalDate, Int>?>(null) }
-    // Aktualny pager i tryb (tryb wczytuje się z ustawień asynchronicznie i tworzy nowy pager).
-    val currentPager by rememberUpdatedState(pagerState)
-    val currentMode by rememberUpdatedState(state.mode)
-    LaunchedEffect(openTick) {
-        if (openTick == 0 || !viewModel.consumeOpeningDay()) return@LaunchedEffect
-        val day = viewModel.preferredDay()
-        val target = when (currentMode) {
-            TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, day)
-            TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, day)
+        if (target != pagerState.currentPage) {
+            if (shown) {
+                fade.snapTo(0f)
+                pagerState.scrollToPage(target)
+                fade.animateTo(1f, tween(180))
+            } else {
+                pagerState.scrollToPage(target)
+            }
         }
-        if (target != currentPager.currentPage) currentPager.scrollToPage(target)
-        viewModel.onOpeningDay(day)
-        weekFocus = day to ((weekFocus?.second ?: 0) + 1)
+        viewModel.markJumpHandled(j.id)
     }
     var lastSeenDay by rememberSaveable { mutableLongStateOf(today.toEpochDay()) }
     LaunchedEffect(today) {
@@ -212,7 +214,7 @@ fun TimetableScreen(
                     )
                 },
                 actions = {
-                    val dayMode = state.mode == TimetableViewModel.ViewMode.DAY
+                    val dayMode = mode == TimetableViewModel.ViewMode.DAY
                     IconButton(
                         onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } },
                         modifier = Modifier.size(40.dp)
@@ -249,13 +251,13 @@ fun TimetableScreen(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     SegmentedButton(
-                        selected = state.mode == TimetableViewModel.ViewMode.DAY,
+                        selected = mode == TimetableViewModel.ViewMode.DAY,
                         onClick = { viewModel.setMode(TimetableViewModel.ViewMode.DAY) },
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                         modifier = Modifier.weight(1f)
                     ) { Text("Dzień") }
                     SegmentedButton(
-                        selected = state.mode == TimetableViewModel.ViewMode.WEEK,
+                        selected = mode == TimetableViewModel.ViewMode.WEEK,
                         onClick = { viewModel.setMode(TimetableViewModel.ViewMode.WEEK) },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                         modifier = Modifier.weight(1f)
@@ -270,10 +272,10 @@ fun TimetableScreen(
                     beyondViewportPageCount = 1,
                     userScrollEnabled = false,
                     key = { it },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }
                 ) { page ->
                     val pageModifier = Modifier.fillMaxSize().nestedScroll(edgePaging)
-                    when (state.mode) {
+                    when (mode) {
                         TimetableViewModel.ViewMode.DAY -> {
                             val date = TimetableViewModel.dayForPage(base, page)
                             val week by remember(date) { viewModel.week(date.with(java.time.DayOfWeek.MONDAY)) }
@@ -286,7 +288,7 @@ fun TimetableScreen(
                             val monday = TimetableViewModel.mondayForPage(base, page)
                             val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle()
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
-                            WeekPage(week, plLocale, dateFmt, loading, pageModifier, weekFocus)
+                            WeekPage(week, plLocale, dateFmt, loading, pageModifier, jump?.let { it.day to it.id })
                         }
                     }
                 }
@@ -431,23 +433,30 @@ private fun NoLessonsCard() {
 
 @Composable
 private fun EmptyOrLoading(loading: Boolean) {
+    // Ładowanie: karta z kółkiem dopiero po chwili - plan z bazy przychodzi zwykle od razu,
+    // a natychmiastowa karta "Ładuję plan…" tylko migała przed lekcjami.
+    if (loading) {
+        DelayedLoading { MessageCard(loading = true, text = "Ładuję plan…") }
+    } else {
+        MessageCard(loading = false, text = "Brak zapisanego planu na ten okres.",
+            hint = "Odśwież przyciskiem u góry, gdy będzie internet.")
+    }
+}
+
+@Composable
+private fun MessageCard(loading: Boolean, text: String, hint: String? = null) {
     Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
         Column(
             Modifier.padding(16.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Dawniej zawsze kółko — bez internetu kręciło się w nieskończoność.
-            if (loading) {
-                CircularProgressIndicator()
-                Text("Ładuję plan…",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Text("Brak zapisanego planu na ten okres.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Odśwież przyciskiem u góry, gdy będzie internet.",
+            if (loading) CircularProgressIndicator()
+            Text(text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (hint != null) {
+                Text(hint,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

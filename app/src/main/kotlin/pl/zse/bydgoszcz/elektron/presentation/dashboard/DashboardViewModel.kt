@@ -80,7 +80,9 @@ class DashboardViewModel @Inject constructor(
         val lastSyncAt: Instant? = null,
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
-        val showAnnouncements: Boolean = true
+        val showAnnouncements: Boolean = true,
+        /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
+        val ready: Boolean = false
     )
 
     private data class Core(
@@ -148,7 +150,7 @@ class DashboardViewModel @Inject constructor(
         .combine(settings.activeGroupSelections) { core, sel -> core.copy(groups = sel) }
         .combine(updateRepo.availableUpdate) { core, u -> core.copy(update = u) }
         .combine(minuteTicker()) { core, _ -> core }
-        .map { core -> compute(core) }
+        .map { core -> compute(core).copy(ready = true) }
         // Przeliczanie stanu (filtry grup, zastępstwa, odliczanie) poza wątkiem UI.
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())

@@ -47,7 +47,9 @@ class GroupsViewModel @Inject constructor(
         val selections: Map<String, String> = emptyMap(),
         val retrying: Boolean = false,
         /** Są niezapisane zmiany (szkic w Ustawieniach). */
-        val hasChanges: Boolean = false
+        val hasChanges: Boolean = false,
+        /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
+        val ready: Boolean = false
     )
 
     private val retrying = MutableStateFlow(false)
@@ -96,7 +98,8 @@ class GroupsViewModel @Inject constructor(
             subjects = subjects,
             selections = merge(inp.selections, pendingChanges),
             retrying = retry,
-            hasChanges = merge(inp.selections, pendingChanges) != inp.selections
+            hasChanges = merge(inp.selections, pendingChanges) != inp.selections,
+            ready = true
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 

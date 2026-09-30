@@ -4,6 +4,23 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [0.6.3-beta] - 2026-09-30 (16)
+
+Płynny interfejs: bez migania przy przełączaniu zakładek i otwieraniu ekranów.
+
+### Naprawione
+- Przejście do dalszej zakładki (np. ze strony głównej do Ustawień) pokazywało przez ułamek
+  sekundy zakładkę pośrednią - teraz krótkie przenikanie; do sąsiedniej - przesunięcie jak dotąd.
+- Plan pokazywał najpierw poprzedni dzień, a potem przeskakiwał na dzisiejszy/następny - dzień
+  startowy liczony jest z wyprzedzeniem (przy wyjściu z planu), a gdy musi się zmienić na
+  ekranie, zmienia się płynnie.
+- Widok tygodnia migał widokiem dnia przy otwarciu planu; nazwy i kolory przedmiotów migały
+  domyślnymi przy starcie aplikacji.
+- Ekrany (strona główna, zastępstwa, ogłoszenia, Ustawienia, grupy) pokazywały przez chwilę stan
+  pusty („Brak zastępstw”, przełączniki w domyślnym położeniu) przed właściwymi danymi.
+- Kółka i karty ładowania pojawiały się na ułamek sekundy - teraz dopiero, gdy wczytywanie
+  trwa dłużej niż 0,4 s.
+
 ## [0.6.2-beta] - 2026-09-30 (15)
 
 Poprawki z analizy wszystkich 29 planów oddziałów ZSE (stan z 30.09.2026).
@@ -124,6 +141,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[0.6.3-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.3-beta
 [0.6.2-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.2-beta
 [0.6.1-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.1-beta
 [0.6.0-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.0-beta

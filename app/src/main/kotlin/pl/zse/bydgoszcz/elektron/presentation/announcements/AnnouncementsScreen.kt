@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.announcements
 
+import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
+import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,7 +80,7 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().revealWhen(state.ready),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -96,7 +98,7 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                 } else if (state.items.isEmpty() && state.isInitialLoading && !state.isRefreshing) {
                     item(key = "loading") {
                         Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+                            DelayedLoading { CircularProgressIndicator() }
                         }
                     }
                 } else if (state.items.isEmpty()) {

@@ -67,7 +67,7 @@ class SubstitutionsViewModel @Inject constructor(
     data class DayGroup(val date: LocalDate, val label: String, val items: List<Substitution>)
 
     /** Lista + czy schowano dzisiejsze zastępstwa (lekcje już się skończyły). */
-    private data class Content(val days: List<DayGroup>, val todayHidden: Boolean)
+    private data class Content(val days: List<DayGroup>, val todayHidden: Boolean, val ready: Boolean = true)
 
     private val classIdFlow = settings.selectedClassId
     // Bieżąca data (przebudowywana po północy) — ViewModel żyje przez cały czas działania appki.
@@ -114,10 +114,14 @@ class SubstitutionsViewModel @Inject constructor(
                 .map { (d, list) -> DayGroup(d, dayLabel(d, today), list.sortedWith(compareBy({ it.lessonNumber }))) },
             todayHidden = hideToday && relevant.any { it.date == today }
         )
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Content(emptyList(), false))
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Content(emptyList(), false, ready = false))
 
     val days: StateFlow<List<DayGroup>> = content.map { it.days }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Pierwsze dane już są - do tego czasu lista niewidoczna (bez mignięcia "Brak zastępstw"). */
+    val ready: StateFlow<Boolean> = content.map { it.ready }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Dzisiejsze zastępstwa schowane po lekcjach - ekran mówi, gdzie ich szukać. */
     val todayHidden: StateFlow<Boolean> = content.map { it.todayHidden }

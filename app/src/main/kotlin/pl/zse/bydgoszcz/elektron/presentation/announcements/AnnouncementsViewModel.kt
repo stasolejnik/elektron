@@ -34,7 +34,9 @@ class AnnouncementsViewModel @Inject constructor(
         val loadMoreError: Boolean = false,
         /** Trwa pierwsza synchronizacja — pusta lista to "ładowanie", nie "brak ogłoszeń". */
         val isInitialLoading: Boolean = false,
-        val query: String = ""
+        val query: String = "",
+        /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
+        val ready: Boolean = false
     ) {
         val isSearching: Boolean get() = query.isNotBlank()
     }
@@ -83,7 +85,8 @@ class AnnouncementsViewModel @Inject constructor(
             isRefreshing = refresh,
             isLoadingMore = loading,
             loadMoreError = error,
-            isInitialLoading = flags.initialPending
+            isInitialLoading = flags.initialPending,
+            ready = true
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 

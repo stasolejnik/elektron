@@ -66,8 +66,21 @@ class TimetableViewModel @Inject constructor(
 
     private val anchor = MutableStateFlow(baseDate)
     private val mode = MutableStateFlow(ViewMode.DAY)
-    /** Użytkownik przełączył tryb, zanim wczytał się zapamiętany - jego wybór wygrywa. */
-    private var modeChosenByUser = false
+    /** Tryb już ustawiony (z zapisanego wyboru albo przez użytkownika) - nie nadpisuj. */
+    private var modeInitialized = false
+
+    /** Tryb Dzień/Tydzień - ekran czyta go wprost (bez opóźnienia łączonego stanu). */
+    val viewMode: StateFlow<ViewMode> get() = mode
+
+    /**
+     * Zapamiętany tryb z personalizacji (wczytanej przed pokazaniem aplikacji) - ekran woła
+     * to przy pierwszym wyświetleniu, więc tydzień jest od pierwszej klatki, bez mignięcia dnia.
+     */
+    fun initSavedMode(weekView: Boolean) {
+        if (modeInitialized) return
+        modeInitialized = true
+        mode.value = if (weekView) ViewMode.WEEK else ViewMode.DAY
+    }
     private val refreshing = MutableStateFlow(false)
 
     private val _syncingWeek = MutableStateFlow<LocalDate?>(null)
@@ -80,7 +93,8 @@ class TimetableViewModel @Inject constructor(
     init {
         // Ostatnio wybrany tryb (Dzień/Tydzień) - zapamiętany w ustawieniach.
         viewModelScope.launch {
-            if (settings.timetableLook.first().weekView && !modeChosenByUser) mode.value = ViewMode.WEEK
+            val week = settings.timetableLook.first().weekView
+            if (!modeInitialized) initSavedMode(week)
         }
         // Sync tylko gdy oglądanego tygodnia brakuje w bazie (plan zapisywany jest na
         // 4 tygodnie naraz, świeżość zapewnia SyncWorker i odświeżanie ręczne).
@@ -122,7 +136,7 @@ class TimetableViewModel @Inject constructor(
     }
 
     fun setMode(m: ViewMode) {
-        modeChosenByUser = true
+        modeInitialized = true
         if (mode.value == m) return
         mode.value = m
         viewModelScope.launch {
@@ -174,31 +188,50 @@ class TimetableViewModel @Inject constructor(
 
     private fun initialAnchor(): LocalDate = nextSchoolDay(LocalDate.now())
 
-    // Dzień otwierany przy wejściu: przy pierwszym wyświetleniu i po powrocie do aplikacji
-    // po co najmniej 3 minutach (krótkie wyjście, np. odpisanie na wiadomość, nie gubi dnia).
-    private var openingDayPending = true
+    /**
+     * Dzień startowy planu (dziś; po lekcjach następny dzień) - liczony w ViewModelu, a nie na
+     * ekranie: przy wyjściu z zakładki planu i przy wejściu do niej (NavHost), po powrocie do
+     * aplikacji po >= 3 min i przy starcie. Dzięki temu plan zwykle już stoi na właściwym dniu,
+     * zanim się pokaże - bez mignięcia poprzedniego dnia i przeskoku.
+     * [id] rośnie z każdym żądaniem; ekran obsługuje każde najwyżej raz.
+     */
+    data class OpeningJump(val day: LocalDate, val id: Int)
+
+    private val _openingJump = MutableStateFlow<OpeningJump?>(null)
+    val openingJump: StateFlow<OpeningJump?> = _openingJump
+    private var jumpSeq = 0
+    /** Ostatnie żądanie obsłużone przez ekran (przewinięcie pagera). */
+    var handledJumpId = 0
+        private set
     private var leftAppAt = 0L
 
-    /** Wejście w zakładkę planu / wyjście z niej - ustaw dzień startowy od nowa. */
-    fun requestOpeningDay() {
-        openingDayPending = true
+    // Po deklaracji pól powyżej (kolejność inicjalizacji w Kotlinie!): dzień startowy od razu
+    // przy utworzeniu - ViewModel powstaje w NavHost, zanim plan zostanie pokazany.
+    init {
+        applyOpeningDay()
+    }
+
+    fun applyOpeningDay() {
+        viewModelScope.launch {
+            val day = preferredDay()
+            anchor.value = day
+            _openingJump.value = OpeningJump(day, ++jumpSeq)
+        }
+    }
+
+    fun markJumpHandled(id: Int) {
+        if (id > handledJumpId) handledJumpId = id
     }
 
     fun onLeftApp() {
         leftAppAt = System.currentTimeMillis()
     }
 
-    fun consumeOpeningDay(): Boolean {
-        val back = leftAppAt != 0L && System.currentTimeMillis() - leftAppAt >= RETURN_RESET_MS
+    /** Powrót do aplikacji: po dłuższej nieobecności (np. po lekcjach) - dzień od nowa. */
+    fun onAppStart() {
+        val away = leftAppAt != 0L && System.currentTimeMillis() - leftAppAt >= RETURN_RESET_MS
         leftAppAt = 0L
-        val apply = openingDayPending || back
-        openingDayPending = false
-        return apply
-    }
-
-    /** Pager ustawiony na dzień startowy - kotwica też (tryb tygodnia po przełączeniu). */
-    fun onOpeningDay(day: LocalDate) {
-        anchor.value = day
+        if (away) applyOpeningDay()
     }
 
     /** Dzień otwierany domyślnie: dziś, a po ostatniej dzisiejszej lekcji (według grup) — następny. */

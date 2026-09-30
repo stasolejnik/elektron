@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
+import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +50,7 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val todayHidden by viewModel.todayHidden.collectAsStateWithLifecycle()
+    val ready by viewModel.ready.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -63,14 +66,14 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
             // Pusty stan też jest elementem LazyColumn — tylko przewijalna treść
             // pozwala pociągnąć w dół, żeby odświeżyć.
             LazyColumn(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().revealWhen(ready),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (groups.isEmpty() && isLoading && !isRefreshing) {
                     item(key = "loading") {
                         Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+                            DelayedLoading { CircularProgressIndicator() }
                         }
                     }
                 } else if (groups.isEmpty()) {

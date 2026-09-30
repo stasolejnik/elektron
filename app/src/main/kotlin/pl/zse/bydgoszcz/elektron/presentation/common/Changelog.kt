@@ -6,6 +6,15 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 16,
+            versionName = "0.6.3-beta",
+            items = listOf(
+                "Płynniejsze przełączanie zakładek - bez migania innej zawartości przed właściwą",
+                "Plan otwiera się od razu na właściwym dniu, bez przeskoku",
+                "Kółka ładowania tylko przy dłuższym wczytywaniu"
+            )
+        ),
+        Entry(
             versionCode = 15,
             versionName = "0.6.2-beta",
             items = listOf(

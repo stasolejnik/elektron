@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron
 
+import pl.zse.bydgoszcz.elektron.presentation.common.Personalization
+import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
 import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
@@ -93,10 +95,11 @@ class MainActivity : ComponentActivity() {
             }
 
             ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor, accent = state.accent) {
-                CompositionLocalProvider(LocalPersonalization provides personalization) {
+                CompositionLocalProvider(LocalPersonalization provides (personalization ?: Personalization())) {
                     when {
-                        !state.isReady -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+                        // Start: kółko dopiero, gdy wczytywanie trwa dłużej (zwykle to ułamek sekundy).
+                        !state.isReady || personalization == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            DelayedLoading { CircularProgressIndicator() }
                         }
                         state.selectedClassId == null -> SetupScreen()
                         // Po wyborze klasy (w Setup albo w Ustawieniach) — krok wyboru grup.

@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.subjects
 
+import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -83,7 +84,7 @@ fun SubjectsScreen(onClose: () -> Unit, viewModel: SubjectsViewModel = hiltViewM
     ) { padding ->
         when {
             state.loading -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                DelayedLoading { CircularProgressIndicator() }
             }
             state.items.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
                 Text("Brak przedmiotów - plan lekcji jeszcze się nie pobrał.",

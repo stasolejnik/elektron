@@ -1,5 +1,11 @@
 package pl.zse.bydgoszcz.elektron.presentation.navigation
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.Animatable
+import pl.zse.bydgoszcz.elektron.presentation.timetable.TimetableViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import pl.zse.bydgoszcz.elektron.presentation.subjects.SubjectsScreen
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -63,16 +69,35 @@ fun ElektronNavHost(
     var showSubjects by rememberSaveable { mutableStateOf(false) }
     val overlayOpen = showGroups || showSubjects
 
-    // Zmiana sekcji zawsze z animacją. Do dalszej sekcji: najpierw niewidocznie strona obok
-    // celu, potem animacja do celu — płynne przesunięcie bez przelatywania przez pośrednie.
+    // Zmiana sekcji: do sąsiedniej - przesunięcie; do dalszej - krótkie przenikanie.
+    // Dawniej do dalszej sekcji pager skakał najpierw na stronę obok celu i stamtąd się
+    // przesuwał, więc przez ułamek sekundy widać było zupełnie inną zakładkę.
+    val sectionAlpha = remember { Animatable(1f) }
     val animateTo: suspend (Int) -> Unit = { index ->
         val current = pagerState.currentPage
-        if (abs(index - current) > 1) pagerState.scrollToPage(if (index > current) index - 1 else index + 1)
-        pagerState.animateScrollToPage(
-            index,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
-        )
+        if (abs(index - current) > 1) {
+            sectionAlpha.animateTo(0f, tween(90))
+            pagerState.scrollToPage(index)
+            sectionAlpha.animateTo(1f, tween(160))
+        } else {
+            pagerState.animateScrollToPage(
+                index,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+            )
+        }
     }
+    // Dzień startowy planu: liczony przy wyjściu z zakładki planu (w tle - po powrocie plan
+    // już stoi na właściwym dniu) i przy wejściu do niej (mógł minąć koniec lekcji).
+    val timetableViewModel: TimetableViewModel = hiltViewModel()
+    val timetableIndex = bottomDestinations.indexOfFirst { it.route == ElektronRoutes.TIMETABLE }
+    LaunchedEffect(pagerState) {
+        var last = pagerState.settledPage
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            if (page != last && (page == timetableIndex || last == timetableIndex)) timetableViewModel.applyOpeningDay()
+            last = page
+        }
+    }
+
     val goTo: (String) -> Unit = { route ->
         val index = bottomDestinations.indexOfFirst { it.route == route }
         if (index >= 0) scope.launch { animateTo(index) }
@@ -116,6 +141,7 @@ fun ElektronNavHost(
                 // consumeWindowInsets: sekcje mają własne Scaffoldy — bez tego dolne wcięcie
                 // (pasek nawigacji) liczyłoby się podwójnie.
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+                    .graphicsLayer { alpha = sectionAlpha.value }
             ) { page ->
                 when (bottomDestinations[page].route) {
                     ElektronRoutes.DASHBOARD -> DashboardScreen(
