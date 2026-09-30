@@ -1,5 +1,10 @@
 package pl.zse.bydgoszcz.elektron.presentation.groups
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.AlertDialog
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -58,7 +63,8 @@ import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
 /**
  * Wybór grup zajęciowych.
  * [asSetupStep] = true: krok po wyborze klasy (bez strzałki wstecz, przycisk "Dalej").
- * [asSetupStep] = false: podstrona Ustawień (strzałka wstecz, zmiany zapisują się od razu).
+ * [asSetupStep] = false: podstrona Ustawień - zmiany w szkicu, "Zapisz" albo "Anuluj";
+ *   wyjście (strzałka, gest wstecz) z niezapisanymi zmianami pyta, czy je odrzucić.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +75,21 @@ fun GroupsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    LaunchedEffect(Unit) { viewModel.startEditing() }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val leave: () -> Unit = { if (state.hasChanges) { confirmDiscard = true } else { viewModel.cancel(onClose) } }
+    BackHandler(enabled = !asSetupStep) { leave() }
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text("Odrzucić zmiany?") },
+            text = { Text("Wybrane grupy nie zostały zapisane.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDiscard = false; viewModel.cancel(onClose) }) { Text("Odrzuć") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Wróć do edycji") } }
+        )
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -78,7 +99,7 @@ fun GroupsScreen(
                 title = { Text("Twoje grupy") },
                 navigationIcon = {
                     if (!asSetupStep) {
-                        IconButton(onClick = { viewModel.finish(onClose) }) {
+                        IconButton(onClick = leave) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wstecz")
                         }
                     }
@@ -101,6 +122,24 @@ fun GroupsScreen(
                     ) {
                         Text(if (state.status == GroupsViewModel.Status.FAILED) "Pomiń na razie" else "Dalej",
                             style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            } else if (state.status == GroupsViewModel.Status.READY) {
+                // Ustawienia: Anuluj / Zapisz.
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    Row(
+                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.cancel(onClose) },
+                            modifier = Modifier.weight(1f).height(52.dp)
+                        ) { Text("Anuluj", style = MaterialTheme.typography.titleMedium) }
+                        Button(
+                            onClick = { viewModel.finish(onClose) },
+                            enabled = state.hasChanges,
+                            modifier = Modifier.weight(1f).height(52.dp)
+                        ) { Text("Zapisz", style = MaterialTheme.typography.titleMedium) }
                     }
                 }
             }

@@ -1,0 +1,1 @@
+Wybór grupy WF w klasach z podziałem na WF, anulowanie zmian w wyborze grup, przezroczystość widżetów ustawiana suwakiem od 0 do 100%. Poprawki stabilności.

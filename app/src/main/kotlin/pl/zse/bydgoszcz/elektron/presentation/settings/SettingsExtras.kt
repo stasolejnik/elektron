@@ -1,5 +1,9 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import androidx.compose.ui.semantics.contentDescription
+import kotlin.math.roundToInt
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.material3.Slider
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolClass
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -21,9 +25,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
@@ -168,21 +169,25 @@ internal fun QuietHoursSection(current: QuietHours, onChange: (QuietHours) -> Un
 @Composable
 internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit) {
     GroupedSection("Widżety", footer = "Przezroczystość tła i zawartość wszystkich widżetów aplikacji.") {
-        Text("Krycie tła", style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
-        SingleChoiceSegmentedButtonRow(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+        // Suwak pokazuje przezroczystość (0% = pełne tło, 100% = bez tła); zapisujemy krycie.
+        // Widżety odświeżają się po puszczeniu suwaka, nie przy każdym ruchu palca.
+        var transparency by remember(current.opacity) { mutableFloatStateOf((100 - current.opacity).toFloat()) }
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            val options = WidgetLook.OPACITY_OPTIONS
-            options.forEachIndexed { i, value ->
-                SegmentedButton(
-                    selected = current.opacity == value,
-                    onClick = { onChange(current.copy(opacity = value)) },
-                    shape = SegmentedButtonDefaults.itemShape(i, options.size),
-                    icon = {}
-                ) { Text("$value%") }
-            }
+            Text("Przezroczystość tła", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text("${transparency.roundToInt()}%", style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Slider(
+            value = transparency,
+            onValueChange = { transparency = (it / 5f).roundToInt() * 5f },
+            onValueChangeFinished = { onChange(current.copy(opacity = 100 - transparency.roundToInt())) },
+            valueRange = 0f..100f,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                .semantics { contentDescription = "Przezroczystość tła widżetów" }
+        )
         RowDivider()
         SwitchRow("Pokazuj nauczyciela", current.showTeacher) { onChange(current.copy(showTeacher = it)) }
         RowDivider()

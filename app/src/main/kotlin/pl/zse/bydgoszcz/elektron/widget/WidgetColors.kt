@@ -65,7 +65,7 @@ object WidgetPalettes {
     ): WidgetPalette {
         val dayAccent = Accents.light(accent)
         val nightAccent = Accents.dark(accent)
-        val bgAlpha = opacity.coerceIn(20, 100) / 100f
+        val bgAlpha = opacity.coerceIn(0, 100) / 100f
         val useDynamic = dynamic && context != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val light: ColorScheme? = if (useDynamic) dynamicLightColorScheme(context) else null
         val dark: ColorScheme? = if (useDynamic) dynamicDarkColorScheme(context) else null

@@ -6,6 +6,18 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 14,
+            versionName = "0.6.1-beta",
+            items = listOf(
+                "Grupy WF: wybór grupy w klasach z podziałem na WF (np. zajęcia łączone z inną klasą)",
+                "Aktualizacje pobierane i instalowane w aplikacji, z paskiem postępu i sprawdzeniem pliku",
+                "Wybór grup w Ustawieniach można anulować - zmiany zapisują się dopiero po Zapisz",
+                "Przezroczystość widżetów ustawiana suwakiem, od 0 do 100%",
+                "Strona główna: dotknij najbliższej lekcji lub zastępstwa, aby przejść do planu lub zastępstw",
+                "Poprawki stabilności"
+            )
+        ),
+        Entry(
             versionCode = 13,
             versionName = "0.6.0-beta",
             items = listOf(

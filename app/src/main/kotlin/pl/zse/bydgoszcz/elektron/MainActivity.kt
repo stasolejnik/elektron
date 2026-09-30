@@ -1,5 +1,9 @@
 package pl.zse.bydgoszcz.elektron
 
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
+import javax.inject.Inject
 import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import androidx.compose.runtime.CompositionLocalProvider
 import android.Manifest
@@ -42,6 +46,8 @@ import pl.zse.bydgoszcz.elektron.work.LocalNotificationSink
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var updateRepo: UpdateRepository
 
     private val appViewModel: ElektronAppViewModel by viewModels()
     private val pendingDeepLink = MutableStateFlow<String?>(null)
@@ -118,6 +124,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Nowa wersja na GitHubie: przy każdym powrocie do aplikacji (najwyżej co 12 h - limit
+     * w UpdateRepository). Dawniej tylko przy starcie procesu, a proces żyje nieraz tygodniami.
+     */
+    override fun onStart() {
+        super.onStart()
+        if (BuildConfig.UPDATE_CHECK) lifecycleScope.launch { updateRepo.check(force = false) }
     }
 
     override fun onNewIntent(intent: Intent) {

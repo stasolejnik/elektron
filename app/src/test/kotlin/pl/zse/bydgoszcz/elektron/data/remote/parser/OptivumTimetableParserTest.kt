@@ -103,4 +103,29 @@ class OptivumTimetableParserTest {
         val doc = Jsoup.parse("<html><body><table class=\"tabela\"><tr><th>Nr</th></tr></table></body></html>")
         assertTrue(!OptivumTimetableParser.parse(doc, "o1").layoutOk)
     }
+
+    /** Zrzut z planu 1F: "wf-j2 #1AF Hala4" - grupa WF łączona z 1A. */
+    @Test
+    fun jointGroupTagIsNotTheSubject() {
+        val cell = """
+            <span class="p">wf-j2</span> <span class="p">#1AF</span> <a href="s67.html" class="s">Hala4</a><br>
+            <span class="p">#1AF</span> <span class="p">wf-j2</span> <a href="s67.html" class="s">Hala4</a><br>
+            <span class="p">wf</span>-j2 #1AF <a href="s67.html" class="s">Hala4</a><br>
+            <span class="p">wf-j1</span> <a href="n5.html" class="n">Kr</a> <a href="s65.html" class="s">Hala2</a>
+        """.trimIndent()
+        val html = """
+            <html><head><title>Plan lekcji oddziału - 1F Woj</title></head><body>
+            <table class="tabela">
+              <tr><th>Nr</th><th>Godz</th><th>Poniedziałek</th><th>Wtorek</th><th>Środa</th><th>Czwartek</th><th>Piątek</th></tr>
+              <tr><td class="nr">1</td><td class="g"> 8:00- 8:45</td>
+                <td class="l">&nbsp;</td><td class="l">$cell</td>
+                <td class="l">&nbsp;</td><td class="l">&nbsp;</td><td class="l">&nbsp;</td></tr>
+            </table></body></html>
+        """.trimIndent()
+        val tuesday = OptivumTimetableParser.parse(Jsoup.parse(html), "o7").lessons.first { it.dayIndex == 2 }
+        assertEquals(listOf("wf-j2", "wf-j2", "wf-j2", "wf-j1"), tuesday.groups.map { it.subject })
+        assertEquals(listOf("#1AF", "#1AF", "#1AF", null), tuesday.groups.map { it.classRef })
+        assertEquals("Hala4", tuesday.groups[0].room)
+        assertEquals("Kr", tuesday.groups[3].teacherCode)
+    }
 }

@@ -129,10 +129,18 @@ object OptivumTimetableParser {
         // Bieżąca grupa albo nowa — bez operatora !! (dawniej cur!! w każdej gałęzi).
         fun group(): MutableGroup = cur ?: MutableGroup().also { cur = it }
 
+        // Znacznik grupy łączonej z kilku oddziałów, np. "#1AF" w "wf-j2 #1AF Hala4" - osobne
+        // pole przedmiotu na stronie. Dawniej nadpisywał przedmiot ("#1AF" zamiast "wf-j2"),
+        // przez co grupa WF znikała z wyboru grup. Nie jest przedmiotem - trafia do classRef.
+        fun jointTag(text: String) {
+            val g = group()
+            if (g.classRef == null) g.classRef = text
+        }
+
         for (tok in tokens) {
             when (tok) {
                 is Token.Break -> flush()
-                is Token.Subject -> group().subject = tok.text
+                is Token.Subject -> if (tok.text.startsWith("#")) jointTag(tok.text) else group().subject = tok.text
                 is Token.Teacher -> group().apply {
                     teacherCode = tok.code
                     teacherUrl = tok.url
@@ -147,8 +155,13 @@ object OptivumTimetableParser {
                     val g = cur
                     if (t.length == 1 && t.equals("N", ignoreCase = true)) {
                         absent = true
-                    } else if (t.isNotEmpty() && g != null) {
-                        g.subject = (g.subject ?: "") + t
+                    } else if (t.isNotEmpty()) {
+                        // Np. "-j2 #1AF" po <span class="p">wf</span>: dopisek do przedmiotu
+                        // ("wf" + "-j2") i znacznik grupy łączonej osobno.
+                        val (tags, rest) = t.split(Regex("\\s+")).partition { it.startsWith("#") }
+                        tags.forEach(::jointTag)
+                        val text = rest.joinToString(" ")
+                        if (text.isNotEmpty() && g != null) g.subject = (g.subject ?: "") + text
                     }
                 }
             }

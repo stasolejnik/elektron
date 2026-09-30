@@ -164,7 +164,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val widgetLook: Flow<WidgetLook> = prefs.map {
         WidgetLook(
-            opacity = (it[Keys.WIDGET_OPACITY] ?: 100).coerceIn(20, 100),
+            opacity = (it[Keys.WIDGET_OPACITY] ?: 100).coerceIn(0, 100),
             showTeacher = it[Keys.WIDGET_TEACHER] ?: true,
             showRoom = it[Keys.WIDGET_ROOM] ?: true
         )

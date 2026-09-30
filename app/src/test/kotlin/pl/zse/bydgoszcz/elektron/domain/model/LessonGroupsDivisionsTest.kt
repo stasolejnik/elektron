@@ -53,4 +53,17 @@ class LessonGroupsDivisionsTest {
         assertEquals(listOf("religia", "wf", "ang", "fiz", "inf"),
             LessonGroups.orderForCustomizing(subjects).map { it.base })
     }
+
+    @Test
+    fun peGroupsAreDetectedAsDivision() {
+        // Plan 1F: wf-j1 i wf-j2 (część łączona z 1A) - wybór grupy WF.
+        fun lesson(n: Int, vararg subjects: String) = Lesson("$n", "o7", "1F", java.time.LocalDate.of(2026, 10, 6),
+            DayOfWeek.WTOREK, n, java.time.LocalTime.of(8, 0), java.time.LocalTime.of(8, 45),
+            subjects.map { LessonGroup(it, null, null, null, null, null, null, null) }, null, null)
+        val subjects = LessonGroups.detect(listOf(lesson(1, "wf-j2", "wf-j1"), lesson(2, "j.polski"), lesson(3, "wf-j1")))
+        assertEquals(listOf(LessonGroups.DividedSubject("wf", listOf("j1", "j2"))), subjects)
+        val division = LessonGroups.divisions(subjects).single()
+        assertEquals("Grupy WF", division.title)
+        assertEquals(listOf("j1", "j2"), division.options)
+    }
 }

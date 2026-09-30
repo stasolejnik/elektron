@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
 import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -69,7 +70,13 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
+fun DashboardScreen(
+    /** Dotknięcie karty najbliższej lekcji - przejście do planu (na dzień startowy). */
+    onOpenTimetable: () -> Unit = {},
+    /** Dotknięcie zastępstwa - przejście do zakładki Zastępstwa. */
+    onOpenSubstitutions: () -> Unit = {},
+    viewModel: DashboardViewModel = hiltViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val openUrl = { url: String -> SafeUrls.open(ctx, url); Unit }
@@ -100,7 +107,6 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                         item(key = "update") {
                             UpdateBanner(
                                 update = update,
-                                onDownload = { openUrl(update.pageUrl) },
                                 onLater = { viewModel.dismissUpdate(update.versionName) }
                             )
                         }
@@ -135,7 +141,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                         item(key = "h_next") { SectionTitle(title, icon) }
                         item(key = "next") {
                             if (state.loadingTimetable) LoadingCard("Ładowanie planu lekcji…")
-                            else NextLessonCard(state)
+                            else NextLessonCard(state, onOpenTimetable)
                         }
                     }
 
@@ -149,7 +155,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                             state.loadingSubs -> item(key = "subs_loading") { LoadingCard("Ładowanie zastępstw…") }
                             state.upcomingSubstitutions.isEmpty() -> item(key = "subs_empty") { EmptyCard("Brak zastępstw") }
                             else -> items(state.upcomingSubstitutions, key = { "sub_${it.id}" }) {
-                                SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {})
+                                SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {}, onOpenSubstitutions)
                             }
                         }
                     }
@@ -173,7 +179,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
 /** Baner o nowej wersji aplikacji na GitHubie. */
 @Composable
-private fun UpdateBanner(update: AppUpdate, onDownload: () -> Unit, onLater: () -> Unit) {
+private fun UpdateBanner(update: AppUpdate, onLater: () -> Unit) {
     ElektronCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -185,10 +191,8 @@ private fun UpdateBanner(update: AppUpdate, onDownload: () -> Unit, onLater: () 
                     color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = onDownload) { Text("Pobierz") }
-                TextButton(onClick = onLater) { Text("Później") }
-            }
+            // Pobieranie i instalacja w aplikacji (wersja z GitHuba), z paskiem postępu.
+            UpdateActions(update, onLater, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
@@ -262,14 +266,14 @@ private fun ErrorBanner(text: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun NextLessonCard(state: DashboardViewModel.State) {
+private fun NextLessonCard(state: DashboardViewModel.State, onClick: () -> Unit) {
     val lesson = state.nextLesson
     val sub = lesson?.substitution
     val container = if (sub != null) MaterialTheme.colorScheme.tertiaryContainer
         else MaterialTheme.colorScheme.primaryContainer
     val onContainer = if (sub != null) MaterialTheme.colorScheme.onTertiaryContainer
         else MaterialTheme.colorScheme.onPrimaryContainer
-    ElektronCard(containerColor = container, modifier = Modifier.animateContentSize()) {
+    ElektronCard(containerColor = container, modifier = Modifier.animateContentSize(), onClick = onClick) {
         Column(Modifier.padding(18.dp)) {
             if (lesson == null) {
                 Text("Brak nadchodzących lekcji", style = MaterialTheme.typography.bodyLarge,
@@ -355,9 +359,13 @@ private fun LessonNumberBadge(number: Int, color: androidx.compose.ui.graphics.C
 }
 
 @Composable
-private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier.semantics(mergeDescendants = true) {}) {
+private fun SubstitutionRow(
+    s: Substitution,
+    modifier: Modifier = Modifier.semantics(mergeDescendants = true) {},
+    onClick: () -> Unit = {}
+) {
     val fmt = DateTimeFormatter.ofPattern("dd.MM")
-    ElektronCard(modifier = modifier) {
+    ElektronCard(modifier = modifier, onClick = onClick) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                 Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

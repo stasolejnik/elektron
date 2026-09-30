@@ -4,6 +4,28 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [0.6.1-beta] - 2026-09-30 (14)
+
+### Dodane
+- Wybór grupy WF. Zajęcia łączone z inną klasą (np. „wf-j2 #1AF” w 1F) były dotąd czytane
+  jako przedmiot „#1AF”, więc grupa WF nie pojawiała się w wyborze grup. Podział na grupy WF
+  jest teraz wykrywany automatycznie.
+- Aktualizacje w aplikacji (wersja z GitHuba): „Aktualizuj” pobiera APK z paskiem postępu,
+  sprawdza sumę SHA-256, nazwę pakietu i numer wersji, po czym otwiera instalator systemu.
+- Anulowanie zmian w wyborze grup w Ustawieniach („Anuluj” / „Zapisz”, pytanie przy wyjściu
+  z niezapisanymi zmianami).
+
+### Zmienione
+- Przezroczystość widżetów ustawiana suwakiem, od 0 do 100%.
+- Strona główna: dotknięcie karty najbliższej lekcji otwiera plan, a zastępstwa - zakładkę
+  Zastępstwa.
+- Nowa wersja sprawdzana przy każdym powrocie do aplikacji (najwyżej co 12 godzin), nie tylko
+  przy jej uruchomieniu; „Później” odkłada informację o wersji na 3 dni zamiast na zawsze.
+
+### Naprawione
+- Przedmiot „#1AF” zamiast „wf-j2” w planie klas z zajęciami łączonymi.
+- Odbiornik przypomnień z limitem czasu - zawieszona baza nie blokuje systemu.
+
 ## [0.6.0-beta] - 2026-09-29 (13)
 
 Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.6.x to poprawki.
@@ -87,5 +109,6 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[0.6.1-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.1-beta
 [0.6.0-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.0-beta
 [0.5.0-alpha]: https://github.com/stasolejnik/elektron/releases/tag/v0.5.0-alpha

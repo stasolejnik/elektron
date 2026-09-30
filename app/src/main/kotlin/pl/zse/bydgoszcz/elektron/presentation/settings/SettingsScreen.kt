@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import androidx.compose.foundation.layout.Box
+import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
 import pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork
 import pl.zse.bydgoszcz.elektron.crash.CrashReport
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -266,9 +268,9 @@ fun SettingsScreen(
                         SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
                         SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
                         is SettingsViewModel.UpdateStatus.Available -> {
-                            RowDivider()
-                            ActionRow("Pobierz wersję ${st.update.versionName}", trailingIcon = true) {
-                                SafeUrls.open(ctx, st.update.pageUrl)
+                            UpdateNote("Dostępna wersja ${st.update.versionName}.")
+                            Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                                UpdateActions(st.update, onLater = null)
                             }
                         }
                     }

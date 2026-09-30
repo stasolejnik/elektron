@@ -1,7 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tylko wariant gms (GitHub): odbiornik powiadomień push Firebase. Wariant foss (F-Droid) go nie ma. -->
+<!-- Tylko wariant gms (GitHub): odbiornik powiadomień push Firebase i instalowanie aktualizacji
+     z GitHuba. Wariant foss (F-Droid) nie ma żadnego z nich - aktualizuje go F-Droid. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Otwieranie instalatora dla pobranej aktualizacji (użytkownik zatwierdza instalację). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application>
+
+        <!-- Pobrany APK aktualizacji dla instalatora systemu (tylko cache/updates). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
 
         <service
             android:name=".work.ElektronFirebaseMessagingService"

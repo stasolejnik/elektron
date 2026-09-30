@@ -118,7 +118,10 @@ fun ElektronNavHost(
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             ) { page ->
                 when (bottomDestinations[page].route) {
-                    ElektronRoutes.DASHBOARD -> DashboardScreen()
+                    ElektronRoutes.DASHBOARD -> DashboardScreen(
+                        onOpenTimetable = { goTo(ElektronRoutes.TIMETABLE) },
+                        onOpenSubstitutions = { goTo(ElektronRoutes.SUBSTITUTIONS) }
+                    )
                     ElektronRoutes.TIMETABLE -> TimetableScreen(isShown = pagerState.settledPage == page)
                     ElektronRoutes.SUBSTITUTIONS -> SubstitutionsScreen()
                     ElektronRoutes.ANNOUNCEMENTS -> AnnouncementsScreen()

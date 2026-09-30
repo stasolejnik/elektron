@@ -107,7 +107,11 @@ object LessonGroups {
             val title = if (key.startsWith("/")) {
                 val n = options.size
                 "Podział na $n " + if (n in 2..4) "grupy" else "grup"
-            } else "Grupy ${subjectsByKey.getValue(key).joinToString(", ")}"
+            } else {
+                val names = subjectsByKey.getValue(key)
+                // WF (j1/j2 - grupy WF, często łączone z inną klasą): "Grupy WF".
+                if (names.all { customizePriority(it) == 1 }) "Grupy WF" else "Grupy ${names.joinToString(", ")}"
+            }
             Division(key, title, options, subjectsByKey.getValue(key).toList())
         }.sortedWith(compareBy({ !it.key.startsWith("/") }, { it.options.size }, { it.key }))
     }

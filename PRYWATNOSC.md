@@ -41,8 +41,10 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   Twoich ustawień.
 - **GitHub (sprawdzanie aktualizacji)** - tylko w wersji z GitHuba: najwyżej co kilka
   godzin aplikacja pobiera z api.github.com publiczną listę wydań eLektrona, żeby sprawdzić,
-  czy jest nowsza wersja. GitHub widzi przy tym adres IP i wersję aplikacji; nie są wysyłane
-  żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
+  czy jest nowsza wersja. Po naciśnięciu **Aktualizuj** pobiera z GitHuba plik APK nowej
+  wersji (zapisywany tymczasowo w pamięci podręcznej aplikacji) i otwiera instalator systemu -
+  instalację zawsze zatwierdzasz sam. GitHub widzi przy tym adres IP i wersję aplikacji; nie są
+  wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
 **Wersja z F-Droid** łączy się wyłącznie ze stronami szkoły.
 

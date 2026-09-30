@@ -37,9 +37,13 @@ class UpdateRepositoryImpl @Inject constructor(
         syncStateDao.observe(KEY_DISMISSED)
     ) { latest, dismissed ->
         val update = decode(latest?.message) ?: return@combine null
+        // "Później" odkłada baner tej wersji na DISMISS_SECONDS (dawniej na zawsze - kto raz
+        // kliknął "Później", nie dowiadywał się już o tej wersji).
+        val postponed = dismissed != null && dismissed.message == update.versionName &&
+            Instant.now().epochSecond - dismissed.lastSyncEpochSeconds < DISMISS_SECONDS
         when {
             !AppVersion.isNewer(update.versionName, currentVersion) -> null
-            dismissed?.message == update.versionName -> null
+            postponed -> null
             else -> update
         }
     }
@@ -66,7 +70,9 @@ class UpdateRepositoryImpl @Inject constructor(
             }
             val newest = releases.filterNot { it.draft }
                 .maxWithOrNull { a, b -> AppVersion.compare(a.tag, b.tag) }
-                ?.let { AppUpdate(it.tag.removePrefix("v").removePrefix("V"), it.pageUrl) }
+                ?.let {
+                    AppUpdate(it.tag.removePrefix("v").removePrefix("V"), it.pageUrl, it.apkUrl, it.apkSha256, it.apkSize)
+                }
             syncStateDao.upsert(SyncStateEntity(KEY_CHECKED, now, "ok", null))
             if (newest != null) syncStateDao.upsert(SyncStateEntity(KEY_LATEST, now, "ok", encode(newest)))
             newest?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
@@ -77,12 +83,20 @@ class UpdateRepositoryImpl @Inject constructor(
         syncStateDao.upsert(SyncStateEntity(KEY_DISMISSED, Instant.now().epochSecond, "ok", versionName))
     }
 
-    private fun encode(u: AppUpdate) = "${u.versionName}\n${u.pageUrl}"
+    // Linie: wersja, strona, [APK, SHA-256, rozmiar] - starszy zapis (2 linie) nadal czytelny.
+    private fun encode(u: AppUpdate) =
+        listOf(u.versionName, u.pageUrl, u.apkUrl.orEmpty(), u.sha256.orEmpty(), u.sizeBytes.toString()).joinToString("\n")
 
     private fun decode(raw: String?): AppUpdate? {
         val parts = raw?.split('\n') ?: return null
         if (parts.size < 2 || parts[0].isBlank()) return null
-        return AppUpdate(parts[0], parts[1])
+        return AppUpdate(
+            versionName = parts[0],
+            pageUrl = parts[1],
+            apkUrl = parts.getOrNull(2)?.takeIf { it.isNotBlank() },
+            sha256 = parts.getOrNull(3)?.takeIf { it.isNotBlank() },
+            sizeBytes = parts.getOrNull(4)?.toLongOrNull() ?: 0L
+        )
     }
 
     private companion object {
@@ -91,5 +105,6 @@ class UpdateRepositoryImpl @Inject constructor(
         const val KEY_CHECKED = "update_checked"
         const val KEY_LATEST = "update_latest"
         const val KEY_DISMISSED = "update_dismissed"
+        const val DISMISS_SECONDS = 3 * 24 * 60 * 60L
     }
 }

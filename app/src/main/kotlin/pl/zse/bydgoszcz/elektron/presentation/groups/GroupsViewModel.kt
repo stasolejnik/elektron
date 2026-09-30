@@ -45,10 +45,19 @@ class GroupsViewModel @Inject constructor(
         val status: Status = Status.LOADING,
         val subjects: List<LessonGroups.DividedSubject> = emptyList(),
         val selections: Map<String, String> = emptyMap(),
-        val retrying: Boolean = false
+        val retrying: Boolean = false,
+        /** Są niezapisane zmiany (szkic w Ustawieniach). */
+        val hasChanges: Boolean = false
     )
 
     private val retrying = MutableStateFlow(false)
+
+    /**
+     * Niezapisane zmiany: przedmiot -> wybór (null = wszystkie grupy). Wybory trafiają tu,
+     * a do ustawień dopiero po "Zapisz" / "Dalej"; "Anuluj" czyści szkic. ViewModel żyje
+     * dłużej niż ekran (nakładka w Ustawieniach), więc szkic jest czyszczony przy otwarciu.
+     */
+    private val draft = MutableStateFlow<Map<String, String?>>(emptyMap())
 
     private data class Inputs(
         val classId: String?,
@@ -69,8 +78,9 @@ class GroupsViewModel @Inject constructor(
         inputs,
         notificationsRepo.observeLoadedResources(),
         notificationsRepo.observeInitialSyncPending(),
-        retrying
-    ) { inp, loaded, pending, retry ->
+        retrying,
+        draft
+    ) { inp, loaded, pending, retry, pendingChanges ->
         val subjects = LessonGroups.detect(inp.lessons)
         val status = when {
             inp.lessons.isNotEmpty() && subjects.isEmpty() -> Status.NO_GROUPS
@@ -84,18 +94,27 @@ class GroupsViewModel @Inject constructor(
             className = inp.lessons.firstOrNull()?.className,
             status = status,
             subjects = subjects,
-            selections = inp.selections,
-            retrying = retry
+            selections = merge(inp.selections, pendingChanges),
+            retrying = retry,
+            hasChanges = merge(inp.selections, pendingChanges) != inp.selections
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
+    private fun merge(saved: Map<String, String>, changes: Map<String, String?>): Map<String, String> {
+        if (changes.isEmpty()) return saved
+        val out = saved.toMutableMap()
+        changes.forEach { (subject, choice) -> if (choice == null) out.remove(subject) else out[subject] = choice }
+        return out
+    }
+
+    /** Otwarcie ekranu: zaczynamy od zapisanych wyborów. */
+    fun startEditing() {
+        draft.value = emptyMap()
+    }
+
     /** choice == null: pokazuj wszystkie grupy; LessonGroups.NONE: nie chodzę. */
     fun setChoice(subject: String, choice: String?) {
-        val cid = state.value.classId ?: return
-        viewModelScope.launch {
-            settings.setGroupSelection(cid, subject, choice)
-            widgetUpdater.requestUpdate()
-        }
+        draft.value = draft.value + (subject to choice)
     }
 
     /**
@@ -103,14 +122,23 @@ class GroupsViewModel @Inject constructor(
      * na 2 grupy). [option] == null -> "Wszystkie".
      */
     fun applyDivision(key: String, option: String?) {
-        val s = state.value
-        val cid = s.classId ?: return
-        viewModelScope.launch {
-            LessonGroups.applyDivision(s.subjects, key, option).forEach { (subject, choice) ->
-                settings.setGroupSelection(cid, subject, choice)
-            }
-            widgetUpdater.requestUpdate()
-        }
+        draft.value = draft.value + LessonGroups.applyDivision(state.value.subjects, key, option)
+    }
+
+    /** Zapisuje szkic (Zapisz w Ustawieniach, Dalej przy pierwszym uruchomieniu). */
+    private suspend fun commit() {
+        val cid = settings.selectedClassId.first() ?: return
+        val changes = draft.value
+        if (changes.isEmpty()) return
+        changes.forEach { (subject, choice) -> settings.setGroupSelection(cid, subject, choice) }
+        draft.value = emptyMap()
+        widgetUpdater.requestUpdate()
+    }
+
+    /** Anuluj: odrzuca niezapisane zmiany. */
+    fun cancel(onDone: () -> Unit = {}) {
+        draft.value = emptyMap()
+        onDone()
     }
 
     fun retry() {
@@ -129,6 +157,7 @@ class GroupsViewModel @Inject constructor(
     /** Zamyka krok konfiguracji grup dla bieżącej klasy. */
     fun finish(onDone: () -> Unit = {}) {
         viewModelScope.launch {
+            commit()
             settings.selectedClassId.first()?.let { settings.setGroupsConfiguredFor(it) }
             onDone()
         }
