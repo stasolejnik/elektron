@@ -1,5 +1,10 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.presentation.common.rememberNow
+import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.BorderStroke
 import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.tween
@@ -477,10 +482,18 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
     // Kolor przedmiotu (Ustawienia -> Przedmioty): pasek przy lewej krawędzi karty i numer lekcji.
     val subjectColor = if (sub == null) personal.subjectColor(originalSubject) else null
 
+    // Trwająca lekcja (tylko dzisiejsze karty mają zegar): obramowanie, "zostało X min"
+    // i pasek postępu - jak na stronie głównej i w widżecie.
+    val now = if (lesson.date == LocalDate.now()) rememberNow().value.toLocalTime() else null
+    val ongoing = now != null && now >= lesson.timeFrom && now < lesson.timeTo
+    val accent = MaterialTheme.colorScheme.primary
+
     Card(modifier = modifier.fillMaxWidth().padding(vertical = 1.dp)
             .semantics(mergeDescendants = true) {},
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = bg)) {
+        colors = CardDefaults.cardColors(containerColor = bg),
+        border = if (ongoing) BorderStroke(1.5.dp, if (sub != null) fg else accent) else null) {
+      Column {
         Row(
             Modifier
                 .drawBehind {
@@ -565,7 +578,23 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 Text("${lesson.timeFrom}–${lesson.timeTo}",
                     style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
                     color = timeColor)
+                if (ongoing && now != null) {
+                    Text("zostało ${LessonClock.minutesCeil(now, lesson.timeTo)} min",
+                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
+                        maxLines = 1, softWrap = false,
+                        color = if (sub != null) fg else accent)
+                }
             }
         }
+        if (ongoing && now != null) {
+            LinearProgressIndicator(
+                progress = { LessonClock.progress(lesson.timeFrom, lesson.timeTo, now) },
+                modifier = Modifier.fillMaxWidth().height(3.dp),
+                color = if (sub != null) fg else accent,
+                trackColor = Color.Transparent,
+                drawStopIndicator = {}
+            )
+        }
+      }
     }
 }

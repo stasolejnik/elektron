@@ -1,5 +1,9 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.TextButton
 import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
 import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import androidx.compose.ui.text.style.TextAlign
@@ -51,6 +55,8 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val todayHidden by viewModel.todayHidden.collectAsStateWithLifecycle()
     val ready by viewModel.ready.collectAsStateWithLifecycle()
+    val otherGroups by viewModel.otherGroups.collectAsStateWithLifecycle()
+    val showOtherGroups by viewModel.showOtherGroups.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -78,7 +84,7 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                     }
                 } else if (groups.isEmpty()) {
                     item(key = "empty") {
-                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillParentMaxSize(if (otherGroups.isEmpty()) 1f else 0.7f), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Outlined.EventAvailable, contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -86,7 +92,8 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                                 Spacer(Modifier.size(12.dp))
                                 Text("Brak zastępstw", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    if (todayHidden) "Lekcje na dziś się skończyły - dzisiejsze zastępstwa są w planie lekcji."
+                                    if (todayHidden) "Dzisiejsze zastępstwa, które już minęły, są w planie lekcji."
+                                    else if (otherGroups.isNotEmpty()) "Dla Twoich grup nie ma zaplanowanych zmian."
                                     else "Dla Twojej klasy nie ma zaplanowanych zmian.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -107,6 +114,27 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                         )
                     }
                     items(group.items, key = { it.id }) { SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {}) }
+                }
+                // Zastępstwa innych grup klasy: domyślnie ukryte, na żądanie przygaszone.
+                if (otherGroups.isNotEmpty()) {
+                    item(key = "other_toggle") {
+                        TextButton(
+                            onClick = viewModel::toggleOtherGroups,
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).animateItem()
+                        ) {
+                            Text(
+                                if (showOtherGroups) "Ukryj zastępstwa innych grup"
+                                else "Pokaż zastępstwa innych grup (${otherGroups.size})"
+                            )
+                        }
+                    }
+                    if (showOtherGroups) {
+                        items(otherGroups, key = { "other_${it.id}" }) {
+                            SubstitutionRow(it, Modifier.animateItem().alpha(0.55f).semantics(mergeDescendants = true) {
+                                contentDescription = "Zastępstwo innej grupy"
+                            })
+                        }
+                    }
                 }
             }
         }

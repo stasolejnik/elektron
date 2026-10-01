@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import java.time.LocalDateTime
+import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -177,20 +179,14 @@ class DashboardViewModel @Inject constructor(
         val lessons = LessonGroups.filter(c.lessons, c.groups)
         val className = lessons.firstOrNull()?.className ?: c.lessons.firstOrNull()?.className
 
-        val todayLessons = lessons.filter { it.date == today }.sortedBy { it.number }
-        val current = todayLessons.firstOrNull { now in it.timeFrom..it.timeTo }
-        val nextToday = todayLessons.firstOrNull { it.timeFrom > now }
-        val afterToday = lessons.filter { it.date > today }
-            .sortedWith(compareBy({ it.date }, { it.number }))
-
-        // Ostatnia zakończona dziś lekcja — jeśli jest, a następna jeszcze dziś, trwa przerwa.
-        val previousToday = todayLessons.lastOrNull { it.timeTo <= now }
-        val (lesson, status) = when {
-            current != null -> current to LessonStatus.Now
-            nextToday != null && previousToday != null -> nextToday to LessonStatus.Break
-            nextToday != null -> nextToday to LessonStatus.Next
-            afterToday.isNotEmpty() -> afterToday.first() to LessonStatus.Next
-            else -> null to LessonStatus.None
+        // Trwa / przerwa / przed lekcją - wspólna reguła z widżetami i planem (LessonClock):
+        // czas do lekcji tylko w przerwie albo w ostatnich 30 min przed nią (nie w okienku).
+        val clock = LessonClock.status(lessons, LocalDateTime.of(today, now))
+        val (lesson, status) = when (clock) {
+            is LessonClock.During -> clock.lesson to LessonStatus.Now
+            is LessonClock.Break -> clock.next to LessonStatus.Break
+            is LessonClock.Before -> clock.next to LessonStatus.Next
+            LessonClock.Nothing -> null to LessonStatus.None
         }
 
         val dayLabel = lesson?.date?.let { d: LocalDate ->
@@ -202,19 +198,12 @@ class DashboardViewModel @Inject constructor(
             }
         }
 
-        val countdownMinutes: Long? = when {
-            lesson == null -> null
-            status != LessonStatus.Next -> null
-            lesson.date != today -> null
-            else -> {
-                val mins = java.time.Duration.between(now, lesson.timeFrom).toMinutes()
-                val hasEarlierToday = todayLessons.any { it.timeTo <= now }
-                if (mins <= 30 || hasEarlierToday) mins.coerceAtLeast(0) else null
-            }
-        }
+        val countdownMinutes: Long? = (clock as? LessonClock.Before)?.minutesUntil
 
-        val todayLessonEndByNumber: Map<Int, LocalTime> =
-            todayLessons.associate { it.number to it.timeTo }
+        // Koniec lekcji wg dzwonków (z całego planu klasy, przed filtrem grup) - zastępstwo
+        // znika ze strony głównej po swojej lekcji, także za lekcję innej grupy.
+        val lessonEnds = SubstitutionRelevance.lessonEnds(c.lessons)
+        val nowDt = LocalDateTime.of(today, now)
 
         // Bug #2, druga część: gdy klasa nie jest jeszcze znana, pokazujemy PUSTĄ listę,
         // nigdy wszystkie zastępstwa. To bezpieczny domyślny wariant — lepiej chwilę
@@ -222,16 +211,7 @@ class DashboardViewModel @Inject constructor(
         val upcoming: List<Substitution> = if (c.classShort == null) emptyList() else c.subs
             .filter { sub: Substitution -> SubstitutionRelevance.matchesClass(sub, c.classShort) }
             .filter { sub: Substitution -> LessonGroups.substitutionRelevant(sub, c.lessons, c.groups) }
-            .filter { sub: Substitution ->
-                when {
-                    sub.date > today -> true
-                    sub.date < today -> false
-                    else -> {
-                        val end: LocalTime? = todayLessonEndByNumber[sub.lessonNumber]
-                        end == null || now < end
-                    }
-                }
-            }
+            .filter { sub: Substitution -> !SubstitutionRelevance.isOver(sub, nowDt, lessonEnds) }
             .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
             .take(10)
 
@@ -259,16 +239,14 @@ class DashboardViewModel @Inject constructor(
             availableUpdate = c.update,
             countdownMinutes = countdownMinutes,
             // Postęp: w trakcie lekcji — lekcji; w przerwie — przerwy (do początku następnej lekcji).
-            lessonProgress = when {
-                lesson == null -> null
-                status == LessonStatus.Now -> progress(lesson.timeFrom, lesson.timeTo, now)
-                status == LessonStatus.Break && previousToday != null -> progress(previousToday.timeTo, lesson.timeFrom, now)
+            lessonProgress = when (clock) {
+                is LessonClock.During -> clock.progress
+                is LessonClock.Break -> clock.progress
                 else -> null
             },
-            minutesLeft = when {
-                lesson == null -> null
-                status == LessonStatus.Now -> java.time.Duration.between(now, lesson.timeTo).toMinutes().coerceAtLeast(0)
-                status == LessonStatus.Break -> java.time.Duration.between(now, lesson.timeFrom).toMinutes().coerceAtLeast(0)
+            minutesLeft = when (clock) {
+                is LessonClock.During -> clock.minutesLeft
+                is LessonClock.Break -> clock.minutesUntil
                 else -> null
             },
             upcomingSubstitutions = upcoming,
@@ -279,11 +257,6 @@ class DashboardViewModel @Inject constructor(
             showSubstitutions = c.showSubstitutions,
             showAnnouncements = c.showAnnouncements
         )
-    }
-
-    private fun progress(from: LocalTime, to: LocalTime, now: LocalTime): Float {
-        val total = java.time.Duration.between(from, to).seconds.coerceAtLeast(1)
-        return java.time.Duration.between(from, now).seconds.coerceIn(0, total).toFloat() / total
     }
 
     fun dismissUpdate(versionName: String) {

@@ -118,4 +118,14 @@ class WidgetStateTest {
         assertEquals(null, (WidgetDataLoader.buildState(listOf(lesson(friday, 3, "09:50", "10:35")),
             LocalDateTime.of(friday, LocalTime.of(9, 0)), styles) as WidgetState.Ready).focus.color)
     }
+
+    @Test
+    fun freePeriodIsNotBreak() {
+        // Lekcja 4. innej grupy (po filtrze brak): okienko 10:35-11:40 to nie przerwa -
+        // bez paska przerwy i bez "Lekcja za 52 min".
+        val lessons = week.filter { it.number != 4 }
+        val st = WidgetDataLoader.buildState(lessons, LocalDateTime.of(friday, LocalTime.of(10, 48))) as WidgetState.Ready
+        assertEquals(5, st.focus.number)
+        assertNull(st.breakFrom)
+    }
 }

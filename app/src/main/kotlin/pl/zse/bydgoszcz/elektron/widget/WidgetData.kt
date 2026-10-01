@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
@@ -177,8 +178,11 @@ object WidgetDataLoader {
             focusIndex = focusIndex,
             focusIsNow = focusIsNow,
             isToday = isToday,
+            // Przerwa tylko przy krótkiej luce (LessonClock) - okienko to nie przerwa.
             breakFrom = if (isToday && !focusIsNow && focusIndex > 0)
-                dayLessons[focusIndex - 1].timeTo.takeIf { it <= now } else null,
+                dayLessons[focusIndex - 1].timeTo.takeIf {
+                    it <= now && Duration.between(it, focusLesson.timeFrom).toMinutes() <= LessonClock.BREAK_MAX_MINUTES
+                } else null,
             nextChangeAt = nextChangeAt,
             refreshAt = refreshAt
         )
@@ -198,12 +202,13 @@ object WidgetDataLoader {
         val now = LocalTime.now()
         val lessons = runCatching { ep.timetable().getLessonsOnce(classId, today, today.plusDays(14)) }
             .getOrDefault(emptyList())
-        val endByToday = lessons.filter { it.date == today }.associate { it.number to it.timeTo }
+        val ends = SubstitutionRelevance.lessonEnds(lessons)
+        val nowDt = LocalDateTime.of(today, now)
         val subs = runCatching { ep.substitutions().getAllFrom(today) }.getOrDefault(emptyList())
             .asSequence()
             .filter { SubstitutionRelevance.matchesClass(it, short) }
             .filter { LessonGroups.substitutionRelevant(it, lessons, groups) }
-            .filter { it.date > today || endByToday[it.lessonNumber]?.let { end -> now < end } ?: true }
+            .filterNot { SubstitutionRelevance.isOver(it, nowDt, ends) }   // jak zakładka i strona główna
             .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
             .map { s ->
                 WidgetSubstitution(

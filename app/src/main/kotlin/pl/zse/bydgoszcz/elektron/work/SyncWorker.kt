@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import java.time.LocalDateTime
 import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
@@ -87,7 +88,14 @@ class SyncWorker @AssistedInject constructor(
                         val lessonsForSubs = if (forClass.isEmpty()) emptyList() else runCatching {
                             timetableRepo.getLessonsOnce(classId, forClass.minOf { it.date }, forClass.maxOf { it.date })
                         }.getOrDefault(emptyList())
-                        val relevant = forClass.filter { LessonGroups.substitutionRelevant(it, lessonsForSubs, groups) }
+                        // Bez powiadomień o zastępstwach, których lekcja już minęła (np. wczorajsze
+                        // albo poranne odczytane dopiero po południu - po poprawce parsera 0.6.4
+                        // pojawiły się naraz wszystkie dotąd gubione wpisy).
+                        val ends = SubstitutionRelevance.lessonEnds(lessonsForSubs)
+                        val now = LocalDateTime.now()
+                        val relevant = forClass
+                            .filter { LessonGroups.substitutionRelevant(it, lessonsForSubs, groups) }
+                            .filterNot { SubstitutionRelevance.isOver(it, now, ends) }
                         val visibleLessons = LessonGroups.filter(lessonsForSubs, groups)  // raz, nie w pętli
                         relevant.forEach { sub ->
                             val subject = visibleLessons

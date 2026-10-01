@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
 import android.content.Context
@@ -132,7 +133,7 @@ class NextLessonWidget : GlanceAppWidget() {
                     color = lessonColor,
                     backgroundColor = WidgetColors.accentContainer
                 )
-                val left = Duration.between(now, lesson.timeTo).toMinutes().coerceAtLeast(0)
+                val left = LessonClock.minutesCeil(now, lesson.timeTo)
                 Text("Zostało $left min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
             } else if (state.breakFrom != null) {
                 // Przerwa: pasek postępu przerwy i ile do następnej lekcji.
@@ -145,11 +146,12 @@ class NextLessonWidget : GlanceAppWidget() {
                     color = lessonColor,
                     backgroundColor = WidgetColors.accentContainer
                 )
-                val until = Duration.between(now, lesson.timeFrom).toMinutes().coerceAtLeast(0)
+                val until = LessonClock.minutesCeil(now, lesson.timeFrom)
                 Text("Lekcja za $until min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
             } else if (state.isToday) {
-                val until = Duration.between(now, lesson.timeFrom).toMinutes()
-                if (until in 0..60) {
+                // Przed pierwszą lekcją i w okienku - dopiero 30 min przed lekcją (dawniej 60).
+                val until = LessonClock.minutesCeil(now, lesson.timeFrom)
+                if (now <= lesson.timeFrom && until <= LessonClock.COUNTDOWN_MINUTES) {
                     Text("Za $until min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                 }
             }

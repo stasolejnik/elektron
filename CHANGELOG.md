@@ -4,6 +4,29 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [0.6.5-beta] - 2026-09-30 (18)
+
+### Dodane
+- Trwająca lekcja w planie: obramowanie, „zostało X min” i pasek postępu (jak na stronie
+  głównej i w widżetach).
+- Zakładka Zastępstwa: „Pokaż zastępstwa innych grup” - zastępstwa klasy dla grup, do których
+  nie należysz, są ukryte, ale można je podejrzeć (przygaszone).
+
+### Zmienione
+- Czas do lekcji (strona główna, widżety, kafelek): tylko w przerwie (luka do 30 min) albo
+  w ostatnich 30 minutach przed lekcją. W okienku (np. lekcja innej grupy) i przed pierwszą
+  lekcją - dopiero 30 min przed nią (widżet pokazywał 60 min).
+- Zastępstwo znika z zakładki Zastępstwa, strony głównej i widżetu po końcu SWOJEJ lekcji
+  (dawniej z zakładki dopiero po wszystkich lekcjach dnia); w planie lekcji zostaje.
+
+### Naprawione
+- W okienku przed zastępstwem strona główna pokazywała „przerwę” z czasem do lekcji
+  (np. 52 min) zamiast stanu bez odliczania.
+- Powiadomienia o zastępstwach, które już minęły (np. wczorajsze albo poranne odczytane po
+  południu) - nie są już wysyłane, także przez push.
+- Zastępstwo za lekcję innej grupy wisiało na stronie głównej do końca dnia.
+- Pozostałe minuty zaokrąglane w górę („1 min” zamiast „0 min” tuż przed dzwonkiem).
+
 ## [0.6.4-beta] - 2026-09-30 (17)
 
 ### Naprawione
@@ -150,6 +173,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[0.6.5-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.5-beta
 [0.6.4-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.4-beta
 [0.6.3-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.3-beta
 [0.6.2-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.2-beta

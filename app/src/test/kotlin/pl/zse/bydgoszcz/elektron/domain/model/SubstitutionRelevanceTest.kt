@@ -31,4 +31,17 @@ class SubstitutionRelevanceTest {
     fun noPlanHidesNothing() {
         assertFalse(SubstitutionRelevance.todayFinished(emptyList(), LocalTime.of(23, 0)))
     }
+
+    @Test
+    fun substitutionDisappearsAfterItsLesson() {
+        val lessons = listOf(lesson(1, "08:00", "08:45"), lesson(7, "13:40", "14:25"))
+        val ends = SubstitutionRelevance.lessonEnds(lessons)
+        val sub = Substitution("s", day, 7, "1D", 2, "Zajęcia Świetlicowe", null, null, "X")
+        assertFalse(SubstitutionRelevance.isOver(sub, java.time.LocalDateTime.of(day, LocalTime.of(14, 0)), ends))
+        assertTrue(SubstitutionRelevance.isOver(sub, java.time.LocalDateTime.of(day, LocalTime.of(14, 25)), ends))
+        assertFalse(SubstitutionRelevance.isOver(sub, java.time.LocalDateTime.of(day.minusDays(1), LocalTime.of(23, 0)), ends))
+        assertTrue(SubstitutionRelevance.isOver(sub, java.time.LocalDateTime.of(day.plusDays(1), LocalTime.of(7, 0)), ends))
+        // Nieznany numer lekcji - do końca dnia.
+        assertFalse(SubstitutionRelevance.isOver(sub.copy(lessonNumber = 9), java.time.LocalDateTime.of(day, LocalTime.of(20, 0)), ends))
+    }
 }

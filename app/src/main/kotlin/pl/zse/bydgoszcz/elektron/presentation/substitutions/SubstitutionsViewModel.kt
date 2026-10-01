@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import java.time.LocalDateTime
 import java.time.LocalTime
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -67,7 +68,13 @@ class SubstitutionsViewModel @Inject constructor(
     data class DayGroup(val date: LocalDate, val label: String, val items: List<Substitution>)
 
     /** Lista + czy schowano dzisiejsze zastępstwa (lekcje już się skończyły). */
-    private data class Content(val days: List<DayGroup>, val todayHidden: Boolean, val ready: Boolean = true)
+    private data class Content(
+        val days: List<DayGroup>,
+        val todayHidden: Boolean,
+        val ready: Boolean = true,
+        /** Zastępstwa klasy dla grup, do których użytkownik nie należy (nie minione). */
+        val otherGroups: List<Substitution> = emptyList()
+    )
 
     private val classIdFlow = settings.selectedClassId
     // Bieżąca data (przebudowywana po północy) — ViewModel żyje przez cały czas działania appki.
@@ -99,31 +106,47 @@ class SubstitutionsViewModel @Inject constructor(
         minuteTicker()
     ) { (_, short), subs, lessons, groups, _ ->
         if (short == null) return@combine Content(emptyList(), false)
-        val today = LocalDate.now()
-        // Po zakończeniu dzisiejszych lekcji (ostatnia lekcja w planie, po filtrze grup)
-        // dzisiejsze zastępstwa znikają z zakładki - zostają w planie lekcji.
-        val todayLessons = LessonGroups.filter(lessons.filter { it.date == today }, groups)
-        val hideToday = SubstitutionRelevance.todayFinished(todayLessons, LocalTime.now())
-        val relevant = subs.filter { SubstitutionRelevance.matchesClass(it, short) }
-            .filter { LessonGroups.substitutionRelevant(it, lessons, groups) }
+        val now = LocalDateTime.now()
+        val today = now.toLocalDate()
+        // Zastępstwo znika z zakładki po końcu SWOJEJ lekcji (dzwonki z planu klasy, także lekcje
+        // innych grup) - w planie lekcji zostaje. Dawniej dopiero po wszystkich lekcjach dnia.
+        val ends = SubstitutionRelevance.lessonEnds(lessons)
+        val (relevant, otherGroups) = subs.filter { SubstitutionRelevance.matchesClass(it, short) }
             .filter { sub -> sub.date >= today }
-        val shown = if (hideToday) relevant.filter { it.date != today } else relevant
+            .partition { LessonGroups.substitutionRelevant(it, lessons, groups) }
+        val (over, shown) = relevant.partition { SubstitutionRelevance.isOver(it, now, ends) }
         Content(
             days = shown.groupBy { it.date }
                 .toSortedMap()
                 .map { (d, list) -> DayGroup(d, dayLabel(d, today), list.sortedWith(compareBy({ it.lessonNumber }))) },
-            todayHidden = hideToday && relevant.any { it.date == today }
+            todayHidden = over.any { it.date == today },
+            otherGroups = otherGroups.filterNot { SubstitutionRelevance.isOver(it, now, ends) }
+                .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Content(emptyList(), false, ready = false))
 
     val days: StateFlow<List<DayGroup>> = content.map { it.days }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * Zastępstwa innych grup klasy - ukryte, ale do pokazania na żądanie ("Pokaż zastępstwa
+     * innych grup"), żeby nie wyglądało, że aplikacja coś zgubiła (bot na Discordzie grup nie zna).
+     */
+    val otherGroups: StateFlow<List<Substitution>> = content.map { it.otherGroups }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _showOtherGroups = MutableStateFlow(false)
+    val showOtherGroups: StateFlow<Boolean> = _showOtherGroups
+
+    fun toggleOtherGroups() {
+        _showOtherGroups.value = !_showOtherGroups.value
+    }
+
     /** Pierwsze dane już są - do tego czasu lista niewidoczna (bez mignięcia "Brak zastępstw"). */
     val ready: StateFlow<Boolean> = content.map { it.ready }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** Dzisiejsze zastępstwa schowane po lekcjach - ekran mówi, gdzie ich szukać. */
+    /** Dzisiejsze zastępstwa schowane po ich lekcjach - ekran mówi, gdzie ich szukać. */
     val todayHidden: StateFlow<Boolean> = content.map { it.todayHidden }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 }

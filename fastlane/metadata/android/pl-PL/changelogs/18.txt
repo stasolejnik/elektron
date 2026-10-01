@@ -1,0 +1,1 @@
+Trwająca lekcja z czasem do końca w planie, na stronie głównej i w widżetach; czas do lekcji tylko w przerwie albo 30 min przed nią; zastępstwa znikają po swojej lekcji (w planie zostają); podgląd zastępstw innych grup.

@@ -26,3 +26,16 @@ fun minuteTicker(periodMs: Long = 30_000L): Flow<Unit> = flow {
  */
 fun currentDateFlow(): Flow<java.time.LocalDate> =
     minuteTicker(60_000L).map { java.time.LocalDate.now() }.distinctUntilChanged()
+
+/**
+ * Aktualna data i godzina dla UI, odświeżane równo z pełną [periodMs] (domyślnie co 30 s) -
+ * np. "zostało X min" przy trwającej lekcji w planie.
+ */
+@androidx.compose.runtime.Composable
+fun rememberNow(periodMs: Long = 30_000L): androidx.compose.runtime.State<java.time.LocalDateTime> =
+    androidx.compose.runtime.produceState(java.time.LocalDateTime.now(), periodMs) {
+        while (true) {
+            delay(periodMs - System.currentTimeMillis() % periodMs)
+            value = java.time.LocalDateTime.now()
+        }
+    }

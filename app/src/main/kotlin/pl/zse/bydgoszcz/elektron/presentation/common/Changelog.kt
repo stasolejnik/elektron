@@ -6,6 +6,17 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 18,
+            versionName = "0.6.5-beta",
+            items = listOf(
+                "Trwająca lekcja: ile zostało do końca - w planie (z paskiem), na stronie głównej i w widżetach",
+                "Czas do lekcji tylko w przerwie albo 30 min przed lekcją - nie w okienku",
+                "Zastępstwo znika z zakładki i strony głównej po swojej lekcji, w planie zostaje",
+                "Zastępstwa innych grup do podejrzenia w zakładce Zastępstwa",
+                "Bez powiadomień o zastępstwach, które już minęły"
+            )
+        ),
+        Entry(
             versionCode = 17,
             versionName = "0.6.4-beta",
             items = listOf(

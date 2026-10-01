@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import java.time.LocalDateTime
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -98,6 +99,8 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
         val lessonsThatDay = runCatching { timetableRepo.getLessonsOnce(classId, sub.date, sub.date) }
             .getOrDefault(emptyList())
         if (!LessonGroups.substitutionRelevant(sub, lessonsThatDay, groups)) return
+        // Zastępstwo, którego lekcja już minęła - bez powiadomienia (SyncWorker oznaczy je jako widziane).
+        if (SubstitutionRelevance.isOver(sub, LocalDateTime.now(), SubstitutionRelevance.lessonEnds(lessonsThatDay))) return
 
         // Ta sama blokada co SyncWorker — patrz dokumentacja withNotifyLock.
         notificationsRepo.withNotifyLock {

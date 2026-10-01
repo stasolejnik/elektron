@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ComponentName
@@ -60,9 +61,12 @@ class NextLessonTileService : TileService() {
                 tile.label = "${lesson.number}. ${lesson.title}"
                 val sub = when {
                     state.focusIsNow ->
-                        "Teraz · zostało ${Duration.between(now, lesson.timeTo).toMinutes().coerceAtLeast(0)} min"
+                        "Teraz · zostało ${LessonClock.minutesCeil(now, lesson.timeTo)} min"
                     state.breakFrom != null ->
-                        "Przerwa · lekcja za ${Duration.between(now, lesson.timeFrom).toMinutes().coerceAtLeast(0)} min"
+                        "Przerwa · lekcja za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min"
+                    state.isToday && now <= lesson.timeFrom &&
+                        LessonClock.minutesCeil(now, lesson.timeFrom) <= LessonClock.COUNTDOWN_MINUTES ->
+                        "Za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min" + (lesson.room?.let { " · s. $it" } ?: "")
                     state.isToday -> "Dziś ${lesson.timeFrom}" + (lesson.room?.let { " · s. $it" } ?: "")
                     else -> "${state.dayLabel} ${lesson.timeFrom}" + (lesson.room?.let { " · s. $it" } ?: "")
                 }

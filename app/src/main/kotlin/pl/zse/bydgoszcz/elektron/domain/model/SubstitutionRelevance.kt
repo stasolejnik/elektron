@@ -20,4 +20,25 @@ object SubstitutionRelevance {
         val end = todayLessons.maxOfOrNull { it.timeTo } ?: return false
         return now >= end
     }
+
+    /**
+     * Koniec każdej lekcji wg dzwonków (numer -> godzina). Z planu klasy - dzwonki są wspólne,
+     * więc liczą się też lekcje innych grup i innych dni (zastępstwo za lekcję, której
+     * użytkownik nie ma po filtrze grup, też ma koniec).
+     */
+    fun lessonEnds(lessons: List<Lesson>): Map<Int, java.time.LocalTime> =
+        lessons.groupBy { it.number }.mapValues { (_, l) -> l.maxOf { it.timeTo } }
+
+    /**
+     * Zastępstwo już minęło (jego lekcja się skończyła) - znika z zakładki Zastępstwa i ze
+     * strony głównej; w planie lekcji zostaje. Nieznany koniec lekcji: do końca dnia.
+     */
+    fun isOver(sub: Substitution, now: java.time.LocalDateTime, ends: Map<Int, java.time.LocalTime>): Boolean {
+        val today = now.toLocalDate()
+        return when {
+            sub.date < today -> true
+            sub.date > today -> false
+            else -> ends[sub.lessonNumber]?.let { now.toLocalTime() >= it } ?: false
+        }
+    }
 }
