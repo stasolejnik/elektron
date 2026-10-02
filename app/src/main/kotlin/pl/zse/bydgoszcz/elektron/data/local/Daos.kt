@@ -111,6 +111,10 @@ interface SubstitutionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<SubstitutionEntity>)
 
+    /** Jeden dzień - zastępowany świeżym kompletem z tej samej strony. */
+    @Query("DELETE FROM substitutions WHERE dateEpochDay = :day")
+    suspend fun deleteForDay(day: Long)
+
     @Query("DELETE FROM substitutions WHERE dateEpochDay < :beforeDay")
     suspend fun deleteOlderThan(beforeDay: Long)
 

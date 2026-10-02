@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import java.time.LocalTime
+import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
 import android.content.Context
@@ -101,6 +103,9 @@ class DayPlanWidget : GlanceAppWidget() {
                     LessonRow(
                         lesson = lesson,
                         highlighted = lesson.number == state.focus.number,
+                        // Trwająca lekcja: "zostało X min" (jak w widżecie Następna lekcja i w planie).
+                        remaining = if (state.isToday && state.focusIsNow && lesson.number == state.focus.number)
+                            "zostało ${LessonClock.minutesCeil(LocalTime.now(), lesson.timeTo)} min" else null,
                         past = false
                     )
                 }
@@ -109,7 +114,7 @@ class DayPlanWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun LessonRow(lesson: WidgetLesson, highlighted: Boolean, past: Boolean) {
+    private fun LessonRow(lesson: WidgetLesson, highlighted: Boolean, past: Boolean, remaining: String? = null) {
         val numberColor = when {
             past -> WidgetColors.textFaded
             lesson.isSubstitution -> WidgetColors.substitution
@@ -138,7 +143,7 @@ class DayPlanWidget : GlanceAppWidget() {
                     style = TextStyle(color = numberColor, fontSize = 15.sp, fontWeight = FontWeight.Bold))
                 Column(GlanceModifier.defaultWeight()) {
                     Text(lesson.title, style = TextStyle(color = titleColor, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-                    val meta = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
+                    val meta = listOfNotNull(remaining ?: lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
                     Text(meta, style = TextStyle(color = if (past) WidgetColors.textFaded else WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
                     lesson.note?.let {
                         Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)

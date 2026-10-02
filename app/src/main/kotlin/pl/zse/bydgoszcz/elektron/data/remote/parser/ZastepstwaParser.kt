@@ -30,6 +30,16 @@ object ZastepstwaParser {
     private val DESC_RE = Regex("^(\\d+)\\s*([A-Z])(?:\\((\\d+)\\))?\\s*-\\s*(.+)$")
     private val COLUMN_HEADERS = setOf("lekcja", "opis", "zastępca", "uwagi")
 
+    /**
+     * Daty ("dd.mm.rrrr") z nagłówków "Zastępstwa w dniu ..." - także dni BEZ wpisów (szkoła
+     * odwołała wszystkie zastępstwa). Repozytorium zastępuje tylko te dni.
+     */
+    fun pageDates(doc: Document): Set<String> =
+        doc.select("table tr").mapNotNull { row ->
+            val cells = row.select("> td, > th")
+            if (cells.size != 1) null else DATE_RE.find(cells[0].text())?.groupValues?.get(1)
+        }.toSet()
+
     fun parse(doc: Document): List<SubstitutionDto> {
         val tables = doc.select("table")
         if (tables.isEmpty()) {

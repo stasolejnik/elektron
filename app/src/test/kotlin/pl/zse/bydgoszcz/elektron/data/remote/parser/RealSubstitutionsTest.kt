@@ -44,4 +44,19 @@ class RealSubstitutionsTest {
         assertEquals("Informatyka1 Vacat", subs.last().originalTeacher)
         assertEquals("Uczniowie zwolnieni do domu", subs.single { it.classShortName == "2F" }.roomOrInfo)
     }
+
+    @Test
+    fun pageDatesAreRead() {
+        val stream = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html") ?: error("brak zasobu")
+        val doc = stream.use { Jsoup.parse(it, "UTF-8", "https://zastepstwa.zse.bydgoszcz.pl/") }
+        assertEquals(setOf("01.10.2026"), ZastepstwaParser.pageDates(doc))
+    }
+
+    @Test
+    fun dayWithoutEntriesStillHasDate() {
+        // Szkoła odwołała wszystkie zastępstwa dnia: nagłówek jest, wpisów nie ma.
+        val doc = Jsoup.parse("<table><tr><td class=st0>Zastępstwa w dniu 05.10.2026 poniedziałek</td></tr></table>")
+        assertEquals(setOf("05.10.2026"), ZastepstwaParser.pageDates(doc))
+        assertTrue(ZastepstwaParser.parse(doc).isEmpty())
+    }
 }

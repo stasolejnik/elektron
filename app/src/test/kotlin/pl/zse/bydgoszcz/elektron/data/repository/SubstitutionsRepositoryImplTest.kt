@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsPage
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -66,5 +67,29 @@ class SubstitutionsRepositoryImplTest {
         source.items = emptyList()
         repo.syncAll()
         assertEquals(1, repo.getAllFrom(today).size)
+    }
+
+    @Test
+    fun todaySurvivesWhenSchoolPublishesTomorrow() = runTest {
+        // Szkoła publikuje jutrzejsze zastępstwa w trakcie dzisiejszych lekcji (strona pokazuje
+        // już tylko jutro) - dzisiejsze muszą zostać w planie.
+        source.items = listOf(dto(today, 5))
+        repo.syncAll()
+        source.items = listOf(dto(today.plusDays(1), 1))
+        repo.syncAll()
+        assertEquals(listOf(today, today.plusDays(1)), repo.getAllFrom(today).map { it.date })
+    }
+
+    @Test
+    fun dayWithAllSubstitutionsCancelledIsCleared() = runTest {
+        // Strona z nagłówkiem dnia, ale bez wpisów - szkoła odwołała wszystkie zastępstwa.
+        source.items = listOf(dto(today.plusDays(1), 1))
+        repo.syncAll()
+        val emptyDay = object : SubstitutionsSource {
+            override suspend fun fetchSubstitutions() = emptyList<SubstitutionDto>()
+            override suspend fun fetchPage() = SubstitutionsPage(setOf(today.plusDays(1).format(fmt)), emptyList())
+        }
+        SubstitutionsRepositoryImpl(emptyDay, db.substitutionDao(), db).syncAll()
+        assertTrue(repo.getAllFrom(today).isEmpty())
     }
 }

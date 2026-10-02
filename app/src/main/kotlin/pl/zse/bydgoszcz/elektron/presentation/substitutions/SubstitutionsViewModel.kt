@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import java.time.LocalDateTime
 import java.time.LocalTime
 import androidx.lifecycle.ViewModel
@@ -57,7 +58,7 @@ class SubstitutionsViewModel @Inject constructor(
                         notificationsRepo.markLoaded("subs")
                         notificationsRepo.setLastSyncError(null)
                     }
-                    .onFailure { notificationsRepo.setLastSyncError(it.message ?: "Błąd odświeżania zastępstw") }
+                    .onFailure { notificationsRepo.setLastSyncError(SyncErrors.userMessage(it)) }
             } finally {
                 _isRefreshing.value = false
             }

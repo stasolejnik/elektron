@@ -6,14 +6,29 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 19,
+            versionName = "0.6.6-beta",
+            items = listOf(
+                "Dzisiejsze zastępstwa zostają w planie, gdy szkoła opublikuje już zastępstwa na jutro",
+                "Odwołanie wszystkich zastępstw danego dnia jest od razu widoczne",
+                "Nowy plan lekcji ogłoszony z wyprzedzeniem obowiązuje dopiero od swojej daty",
+                "Gdy strona szkoły nie odpowiada, aplikacja to pokazuje, zamiast udawać aktualne dane",
+                "Zrozumiałe komunikaty błędów zamiast technicznych",
+                "Przypomnienia o lekcjach od razu po aktualizacji aplikacji i restarcie telefonu",
+                "Kolory akcentu dostępne także przy kolorach z tapety - wybór koloru je wyłącza",
+                "Widżet Plan dnia: ile zostało do końca trwającej lekcji"
+            )
+        ),
+        Entry(
             versionCode = 18,
             versionName = "0.6.5-beta",
             items = listOf(
                 "Trwająca lekcja: ile zostało do końca - w planie (z paskiem), na stronie głównej i w widżetach",
-                "Czas do lekcji tylko w przerwie albo 30 min przed lekcją - nie w okienku",
+                "Czas do lekcji (plan, strona główna, widżety) tylko w przerwie albo 30 min przed lekcją - nie w trakcie lekcji ani w okienku",
                 "Zastępstwo znika z zakładki i strony głównej po swojej lekcji, w planie zostaje",
                 "Zastępstwa innych grup do podejrzenia w zakładce Zastępstwa",
-                "Bez powiadomień o zastępstwach, które już minęły"
+                "Bez powiadomień o zastępstwach, które już minęły; czytelniejsze powiadomienia z Twoimi nazwami przedmiotów",
+                "Grupy WF nazwane Grupa 1 i Grupa 2 zamiast j1 i j2"
             )
         ),
         Entry(

@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.remote.sources.zse
 
+import pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsPage
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,16 +22,17 @@ class ZseSubstitutionsSource @Inject constructor(
     private val client: OkHttpClient
 ) : SubstitutionsSource {
 
-    override suspend fun fetchSubstitutions(): List<SubstitutionDto> = withContext(Dispatchers.IO) {
+    override suspend fun fetchSubstitutions(): List<SubstitutionDto> = fetchPage().items
+
+    override suspend fun fetchPage(): SubstitutionsPage = withContext(Dispatchers.IO) {
         val url = SchoolEndpoints.Substitutions.INDEX
         val req = Request.Builder().url(url).get().build()
         client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                Log.w(TAG, "HTTP ${resp.code} dla $url")
-                return@withContext emptyList()
-            }
+            // Błąd serwera to porażka synchronizacji (komunikat w aplikacji), nie "brak zastępstw".
+            // Zapisane zastępstwa zostają nietknięte.
+            if (!resp.isSuccessful) throw java.io.IOException("Zastępstwa: HTTP ${resp.code} dla $url")
             val doc = EncodingAwareBody.asDocument(resp, forcedCharset = java.nio.charset.Charset.forName("ISO-8859-2"))
-            ZastepstwaParser.parse(doc)
+            SubstitutionsPage(ZastepstwaParser.pageDates(doc), ZastepstwaParser.parse(doc))
         }
     }
 

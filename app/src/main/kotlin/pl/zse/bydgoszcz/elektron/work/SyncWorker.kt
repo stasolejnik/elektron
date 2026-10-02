@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import java.time.LocalDateTime
 import android.content.Context
 import android.util.Log
@@ -123,7 +124,7 @@ class SyncWorker @AssistedInject constructor(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "SyncWorker wyjątek", e)
-            notificationsRepo.setLastSyncError(e.message ?: "Błąd synchronizacji")
+            notificationsRepo.setLastSyncError(SyncErrors.userMessage(e))
             return if (runAttemptCount >= MAX_RETRY_ATTEMPTS) Result.failure() else Result.retry()
         } finally {
             // NonCancellable: anulowany worker (np. utrata sieci) dawniej zostawiał

@@ -40,10 +40,9 @@ class ZseTimetableSource @Inject constructor(
         val url = SchoolEndpoints.Timetable.classPlan(classId)
         val req = Request.Builder().url(url).get().build()
         client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                Log.w(TAG, "HTTP ${resp.code} dla $url")
-                return@withContext TimetableDto(classId, classId, null, null, emptyList())
-            }
+            // Błąd serwera to porażka synchronizacji (komunikat w aplikacji), nie pusty plan.
+            // Zapisany plan zostaje nietknięty.
+            if (!resp.isSuccessful) throw java.io.IOException("Plan lekcji: HTTP ${resp.code} dla $url")
             val doc = EncodingAwareBody.asDocument(resp)
             OptivumTimetableParser.parse(doc, classId)
         }

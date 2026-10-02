@@ -8,6 +8,8 @@
     <!-- Przypomnienia przed lekcją o czasie (Android 12+: użytkownik może odmówić -
          wtedy alarm niedokładny, kilka minut opóźnienia). -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Po restarcie telefonu ponowne ustawienie przypomnienia o lekcji (Android kasuje alarmy). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".ElektronApplication"
@@ -72,6 +74,19 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_substitutions_info" />
+        </receiver>
+
+        <!-- Restart, aktualizacja aplikacji, zmiana czasu/strefy: przypomnienie i widżety od nowa.
+             exported - te komunikaty wysyła tylko system (chronione akcje). -->
+        <receiver
+            android:name=".work.SystemEventsReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
         </receiver>
 
         <!-- Alarm przypomnienia przed lekcją (tylko z własnego PendingIntent). -->

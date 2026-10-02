@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import java.time.LocalDateTime
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.lifecycle.ViewModel
@@ -292,7 +293,7 @@ class DashboardViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                notificationsRepo.setLastSyncError(e.message ?: "Błąd odświeżania")
+                notificationsRepo.setLastSyncError(SyncErrors.userMessage(e))
             } finally {
                 refreshing.value = false
             }

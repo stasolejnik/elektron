@@ -86,4 +86,36 @@ class TimetableRepositoryImplTest {
         assertTrue(result.exceptionOrNull() is SchoolPageChangedException)
         assertTrue(repo.hasLessons("o3", monday, monday.plusDays(4)))   // stary plan nietknięty
     }
+
+    private fun repoWithPlan(subject: String, validFrom: LocalDate?) = TimetableRepositoryImpl(object : TimetableSource {
+        override suspend fun fetchSidebar() = emptyList<ClassListItemDto>()
+        // Lekcja w poniedziałek i w piątek.
+        override suspend fun fetchTimetable(classId: String) = TimetableDto(
+            classId = classId, className = "1D 1D PBŚ", generatedAt = null,
+            validFrom = validFrom?.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")),
+            lessons = listOf(1, 5).map { day ->
+                LessonCellDto(1, "08:00", "08:45", day, listOf(LessonGroupDto(subject, "Ch", null, "105", null, null, null)), null)
+            })
+    }, db.schoolClassDao(), db.teacherDao(), db.roomDao(), db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+
+    private suspend fun subjectOn(day: LocalDate) =
+        repo.getLessonsOnce("o3", day, day).single().groups.single().subject
+
+    @Test
+    fun futurePlanDoesNotReplaceCurrentDays() = runTest {
+        // Nowy plan opublikowany z wyprzedzeniem, obowiązuje od piątku tego tygodnia:
+        // poniedziałek zostaje ze starego planu, od piątku - nowy.
+        repoWithPlan("stary", null).syncTimetable("o3", monday)
+        repoWithPlan("nowy", monday.plusDays(4)).syncTimetable("o3", monday)
+        assertEquals("stary", subjectOn(monday))
+        assertEquals("nowy", subjectOn(monday.plusDays(4)))
+        assertEquals("nowy", subjectOn(monday.plusWeeks(1)))
+    }
+
+    @Test
+    fun futurePlanFillsEmptyDatabase() = runTest {
+        // Pierwsze uruchomienie: brak starego planu - lepszy nowy plan niż pusty ekran.
+        repoWithPlan("nowy", monday.plusDays(4)).syncTimetable("o3", monday)
+        assertEquals("nowy", subjectOn(monday))
+    }
 }

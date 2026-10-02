@@ -27,19 +27,22 @@ class SubstitutionsRepositoryImpl @Inject constructor(
 
     override suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val dtos = source.fetchSubstitutions()
-            val entities = dtos.mapNotNull(SubstitutionMapper::toEntity)
-            if (entities.isEmpty()) {
+            val page = source.fetchPage()
+            val entities = page.items.mapNotNull(SubstitutionMapper::toEntity)
+            // Dni pokazane na stronie (z nagłówków "Zastępstwa w dniu" - także dni bez wpisów).
+            val pageDays = (page.dates.mapNotNull { runCatching { LocalDate.parse(it, PL_DATE) }.getOrNull() }
+                .map { it.toEpochDay() } + entities.map { it.dateEpochDay }).toSet()
+            if (pageDays.isEmpty()) {
+                // Brak strony / nierozpoznana strona (awaria) - nic nie ruszamy.
                 Log.w(TAG, "Pusto — nie nadpisuję")
                 return@runCatching
             }
-            // Bug audytu #6: strona szkoły zawsze zwraca PEŁNY aktualny zestaw zastępstw
-            // od dziś w przód. Samo upsertAll nigdy nie usuwało zastępstw, które szkoła
-            // skasowała/cofnęła — zostawały w Room jako "duchy" aż do wygaśnięcia po 60 dniach.
-            // Czyścimy więc dziś..przyszłość przed wstawieniem świeżego kompletu, atomowo.
-            val today = LocalDate.now().toEpochDay()
+            // Strona szkoły pokazuje PEŁNY komplet zastępstw dla swoich dni - te dni zastępujemy
+            // (skasowane/odwołane zastępstwa znikają, także gdy szkoła odwoła wszystkie).
+            // Dawniej kasowane było wszystko od dziś: gdy szkoła opublikowała zastępstwa na
+            // jutro w trakcie dzisiejszych lekcji, dzisiejsze znikały z planu.
             db.withTransaction {
-                dao.deleteFromDay(today)
+                pageDays.forEach { dao.deleteForDay(it) }
                 dao.upsertAll(entities)
             }
             dao.deleteOlderThan(LocalDate.now().minusDays(60).toEpochDay())
@@ -77,5 +80,8 @@ class SubstitutionsRepositoryImpl @Inject constructor(
         )))
     }
 
-    companion object { private const val TAG = "SubstitutionsRepositoryImpl" }
+    companion object {
+        private const val TAG = "SubstitutionsRepositoryImpl"
+        private val PL_DATE = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    }
 }

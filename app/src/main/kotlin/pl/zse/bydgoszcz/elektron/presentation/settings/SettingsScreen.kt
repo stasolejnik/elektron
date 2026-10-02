@@ -111,10 +111,13 @@ fun SettingsScreen(
                             ) { Text(label) }
                         }
                     }
-                    // Paleta akcentu - nie dotyczy kolorów z tapety (wtedy ukryta).
-                    if (!state.dynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                        RowDivider()
-                        AccentPicker(state.accent) { viewModel.setAccent(it) }
+                    // Kolory akcentu zawsze widoczne. Przy kolorach z tapety żaden nie jest zaznaczony,
+                    // a wybór koloru wyłącza kolory z tapety (dawniej wybór się chował).
+                    RowDivider()
+                    val wallpaper = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                    AccentPicker(state.accent, wallpaperActive = wallpaper) {
+                        viewModel.setAccent(it)
+                        if (wallpaper) viewModel.setDynamicColor(false)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         RowDivider()

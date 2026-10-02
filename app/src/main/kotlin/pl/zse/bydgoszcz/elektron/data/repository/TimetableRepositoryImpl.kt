@@ -74,14 +74,25 @@ class TimetableRepositoryImpl @Inject constructor(
                     lessons += l
                     groups += g
                 }
-                val fromDay = monday.toEpochDay()
                 val toDay = monday.plusWeeks(WEEKS_AHEAD.toLong()).minusDays(1).toEpochDay()
+                // Nowy plan opublikowany z wyprzedzeniem ("Obowiązuje od: 06.10" w piątek):
+                // dni przed tą datą zachowują dotychczasowy plan. Dawniej nowy plan trafiał od
+                // razu do bieżącego tygodnia. Gdy dotychczasowego planu nie ma (pierwsze
+                // uruchomienie) - nowy plan jest lepszy niż pusty ekran.
+                val validFrom = dto.validFrom?.let { runCatching { LocalDate.parse(it, PL_DATE) }.getOrNull() }
+                val writeFrom = if (validFrom != null && validFrom > monday &&
+                    lessonDao.countForRange(classId, monday.toEpochDay(), validFrom.minusDays(1).toEpochDay()) > 0
+                ) validFrom else monday
+                val fromDay = writeFrom.toEpochDay()
+                val keptLessons = lessons.filter { it.dateEpochDay >= fromDay }
+                val keptIds = keptLessons.mapTo(HashSet()) { it.id }
+                val keptGroups = groups.filter { it.lessonId in keptIds }
                 // Transakcja: lekcje + grupy zapisywane atomowo, UI nigdy nie zobaczy
                 // lekcji bez grup. Grupy kasują się kaskadowo (FK CASCADE).
                 db.withTransaction {
                     lessonDao.deleteForRange(classId, fromDay, toDay)
-                    lessonDao.upsertAll(lessons)
-                    lessonGroupDao.upsertAll(groups)
+                    lessonDao.upsertAll(keptLessons)
+                    lessonGroupDao.upsertAll(keptGroups)
                 }
                 // Dawniej stare tygodnie zostawały w bazie na zawsze (tysiące wierszy po roku).
                 // Nigdy nie kasujemy właśnie synchronizowanego tygodnia (przewinięcie daleko wstecz).
@@ -172,6 +183,7 @@ class TimetableRepositoryImpl @Inject constructor(
         }
 
     companion object {
+        private val PL_DATE = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
         private const val TAG = "TimetableRepositoryImpl"
         /** Ile tygodni do przodu zapisujemy szablon planu (4 tyg. > 21-dniowy zakres Startu). */
         private const val WEEKS_AHEAD = 4

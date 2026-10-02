@@ -33,8 +33,16 @@ class AnnouncementsRepositoryImpl @Inject constructor(
 
     override suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val news = runCatching { source.fetchNewsFeed() }.getOrElse { Log.w(TAG, "RSS_NEWS padł", it); emptyList() }
-            val latest = runCatching { source.fetchLatestFeed() }.getOrElse { Log.w(TAG, "RSS_LATEST padł", it); emptyList() }
+            val newsResult = runCatching { source.fetchNewsFeed() }
+            val latestResult = runCatching { source.fetchLatestFeed() }
+            // Oba kanały z błędem (np. brak internetu) - to porażka synchronizacji, nie "pusto".
+            // Dawniej sync kończył się sukcesem bez danych i aplikacja uznawała ogłoszenia za
+            // aktualne. Zapisane ogłoszenia zostają nietknięte.
+            if (newsResult.isFailure && latestResult.isFailure) {
+                throw newsResult.exceptionOrNull() ?: java.io.IOException("Ogłoszenia: brak połączenia")
+            }
+            val news = newsResult.getOrElse { Log.w(TAG, "RSS_NEWS padł", it); emptyList() }
+            val latest = latestResult.getOrElse { Log.w(TAG, "RSS_LATEST padł", it); emptyList() }
             val all = news + latest
             if (all.isEmpty()) {
                 Log.w(TAG, "Oba kanały puste — nie nadpisuję")

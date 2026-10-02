@@ -4,6 +4,29 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [0.6.6-beta] - 2026-10-02 (19)
+
+### Zmienione
+- Kolor akcentu przy włączonych kolorach z tapety: kółka zostają widoczne (żadne nie jest
+  zaznaczone), wybranie koloru wyłącza kolory z tapety. Dawniej wybór znikał.
+
+### Naprawione
+- Przypomnienia o lekcjach: Android kasuje alarmy przy aktualizacji aplikacji i restarcie
+  telefonu - przypomnienie wracało dopiero przy najbliższej synchronizacji (do 15 min), więc
+  tuż po aktualizacji mogło przepaść. Teraz od razu (także po zmianie czasu i strefy).
+- Widżet „Plan dnia” nie pokazywał, ile zostało do końca trwającej lekcji.
+- Zastępstwa: synchronizacja kasowała wszystkie zastępstwa od dziś i wstawiała tylko te ze
+  strony. Gdy szkoła publikowała zastępstwa na jutro w trakcie dzisiejszych lekcji, dzisiejsze
+  znikały z planu. Teraz zastępowane są tylko dni pokazane na stronie.
+- Zastępstwa: dzień, w którym szkoła odwołała wszystkie zastępstwa (nagłówek dnia bez wpisów),
+  był ignorowany i stare wpisy zostawały.
+- Plan lekcji: nowy plan opublikowany z wyprzedzeniem („Obowiązuje od: …”) trafiał od razu do
+  bieżącego tygodnia. Teraz dni przed tą datą zachowują dotychczasowy plan.
+- Błąd serwera szkoły i brak połączenia (plan, zastępstwa, oba kanały ogłoszeń) liczyły się jako
+  udana synchronizacja - bez komunikatu, choć nic nie zostało pobrane.
+- Komunikaty błędów: zamiast technicznych („Unable to resolve host…”, „HTTP 503…”) - „Brak
+  połączenia z internetem albo ze stroną szkoły” i „Strona szkoły chwilowo nie odpowiada”.
+
 ## [0.6.5-beta] - 2026-09-30 (18)
 
 ### Dodane
@@ -13,15 +36,20 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
   nie należysz, są ukryte, ale można je podejrzeć (przygaszone).
 
 ### Zmienione
-- Czas do lekcji (strona główna, widżety, kafelek): tylko w przerwie (luka do 30 min) albo
+- Czas do lekcji (plan, strona główna, widżety, kafelek): tylko w przerwie (luka do 30 min) albo
   w ostatnich 30 minutach przed lekcją. W okienku (np. lekcja innej grupy) i przed pierwszą
   lekcją - dopiero 30 min przed nią (widżet pokazywał 60 min).
+- Powiadomienie o zastępstwie: tytuł „Zastępstwo: Jutro, 7. lekcja · przedmiot”, treść jak
+  w zakładce Zastępstwa, przedmiot z Twoją nazwą (bez sufiksu grupy).
+- Grupy WF w wyborze grup i w planie: „Grupa 1”/„Grupa 2” zamiast „j1”/„j2”.
 - Zastępstwo znika z zakładki Zastępstwa, strony głównej i widżetu po końcu SWOJEJ lekcji
   (dawniej z zakładki dopiero po wszystkich lekcjach dnia); w planie lekcji zostaje.
 
 ### Naprawione
-- W okienku przed zastępstwem strona główna pokazywała „przerwę” z czasem do lekcji
-  (np. 52 min) zamiast stanu bez odliczania.
+- Plan lekcji: w trakcie lekcji następna lekcja pokazywała „Za 52 min” (odliczanie przez całą
+  trwającą lekcję); to samo strona główna w okienku przed zastępstwem.
+- Widżet: odliczanie przed pierwszą lekcją się nie pojawiało (następne odświeżenie było
+  zaplanowane dopiero na początek lekcji) - teraz widżet odświeża się 30 min przed lekcją.
 - Powiadomienia o zastępstwach, które już minęły (np. wczorajsze albo poranne odczytane po
   południu) - nie są już wysyłane, także przez push.
 - Zastępstwo za lekcję innej grupy wisiało na stronie głównej do końca dnia.
@@ -173,6 +201,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[0.6.6-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.6-beta
 [0.6.5-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.5-beta
 [0.6.4-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.4-beta
 [0.6.3-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.3-beta

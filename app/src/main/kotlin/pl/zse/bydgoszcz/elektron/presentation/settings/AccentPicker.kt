@@ -70,12 +70,18 @@ private val RAINBOW = listOf(0f, 60f, 120f, 180f, 240f, 300f, 360f).map { Color(
  * stuknięcie otwiera próbnik).
  */
 @Composable
-internal fun AccentPicker(current: AccentSetting, onChange: (AccentSetting) -> Unit) {
+internal fun AccentPicker(
+    current: AccentSetting,
+    /** Włączone kolory z tapety: kółka zostają do wyboru, ale żadne nie jest zaznaczone. */
+    wallpaperActive: Boolean = false,
+    onChange: (AccentSetting) -> Unit
+) {
     var editing by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Kolor akcentu", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-            Text(ACCENT_LABELS[current.color].orEmpty(), style = MaterialTheme.typography.bodyLarge,
+            Text(if (wallpaperActive) "Z tapety" else ACCENT_LABELS[current.color].orEmpty(),
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(
@@ -83,7 +89,7 @@ internal fun AccentPicker(current: AccentSetting, onChange: (AccentSetting) -> U
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             AccentColor.entries.forEach { accent ->
-                val selected = accent == current.color
+                val selected = !wallpaperActive && accent == current.color
                 val isCustom = accent == AccentColor.CUSTOM
                 val swatch = Accents.swatch(accent, current.custom)
                 // Własny kolor przed wybraniem: spokojne kółko z obwódką i plusem (bez tęczy -

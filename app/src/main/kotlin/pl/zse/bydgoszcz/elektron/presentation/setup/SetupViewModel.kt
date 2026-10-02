@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.setup
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,7 +38,7 @@ class SetupViewModel @Inject constructor(
             _loading.value = true
             _error.value = null
             timetableRepo.syncSidebar().onFailure {
-                _error.value = it.message ?: "Błąd sieci"
+                _error.value = SyncErrors.userMessage(it)
                 Log.w(TAG, "syncSidebar padł", it)
             }
             _loading.value = false
