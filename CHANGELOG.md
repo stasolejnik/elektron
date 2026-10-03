@@ -4,7 +4,9 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
-## [Niewydane]
+## [1.0.0-rc2] - 2026-10-03 (21)
+
+Druga wersja kandydująca do 1.0.0: poprawki stabilności, zastępstw dla grup i odświeżania danych.
 
 ### Naprawione
 - Aktualizacja z GitHuba nie przerywa się już na wolnym łączu: pobieranie APK miało limit
@@ -272,6 +274,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[1.0.0-rc2]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc2
 [1.0.0-rc1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc1
 [0.6.6-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.6-beta
 [0.6.5-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.5-beta

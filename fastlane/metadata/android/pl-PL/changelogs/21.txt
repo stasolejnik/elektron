@@ -1,0 +1,1 @@
+Poprawki: zastępstwa dla grup, aktualizacja w aplikacji na wolnym łączu, błędy strony szkoły pokazywane zamiast udawania aktualnych danych, przypomnienia i widżety odświeżane po zmianie klasy i ręcznym odświeżeniu, plan minionych tygodni.

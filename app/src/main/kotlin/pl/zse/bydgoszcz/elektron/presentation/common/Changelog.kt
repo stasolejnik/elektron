@@ -6,6 +6,18 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 21,
+            versionName = "1.0.0-rc2",
+            items = listOf(
+                "Zastępstwa dla grup: każda grupa widzi swoje zastępstwo (plan, widżety, przypomnienia)",
+                "Nierozpoznany wpis na stronie zastępstw nie kasuje już poprawnych zastępstw z tego dnia",
+                "Aktualizacja w aplikacji działa też na wolnym łączu",
+                "Gdy strona szkoły nie działa, aplikacja to pokazuje zamiast udawać aktualne dane",
+                "Przypomnienia i widżety odświeżają się po zmianie klasy i po ręcznym odświeżeniu",
+                "Plan minionych tygodni nie jest nadpisywany bieżącym planem"
+            )
+        ),
+        Entry(
             versionCode = 20,
             versionName = "1.0.0-rc1",
             items = listOf(
