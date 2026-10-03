@@ -86,6 +86,8 @@ sealed interface WidgetState {
         val className: String?,
         /** "Dziś", "Jutro" albo nazwa dnia tygodnia. */
         val dayLabel: String,
+        /** Data pokazywanego dnia (cel dotknięcia lekcji - także gdy to jutro). */
+        val date: LocalDate,
         /** Wszystkie lekcje wyświetlanego dnia (po filtrze grup). */
         val lessons: List<WidgetLesson>,
         /** Indeks lekcji trwającej lub najbliższej w [lessons]. */
@@ -107,6 +109,20 @@ sealed interface WidgetState {
         val focus: WidgetLesson get() = lessons[focusIndex]
         val following: WidgetLesson? get() = lessons.getOrNull(focusIndex + 1)
     }
+}
+
+/** Cele dotknięcia w widżetach planu (czysta logika, testowalna). */
+object WidgetTargets {
+    /** Lekcja [index] ze stanu [state] (data pokazywanego dnia + numer); null bez lekcji. */
+    fun lesson(state: WidgetState, index: Int): LessonTarget? {
+        val ready = state as? WidgetState.Ready ?: return null
+        val lesson = ready.lessons.getOrNull(index) ?: return null
+        return LessonTarget(ready.date, lesson.number)
+    }
+
+    /** Lekcja pokazywana w widżecie Następna lekcja (trwająca albo najbliższa). */
+    fun focus(state: WidgetState): LessonTarget? =
+        (state as? WidgetState.Ready)?.let { lesson(it, it.focusIndex) }
 }
 
 object WidgetDataLoader {
@@ -180,6 +196,7 @@ object WidgetDataLoader {
         return WidgetState.Ready(
             className = className,
             dayLabel = dayLabel(day, today),
+            date = day,
             lessons = dayLessons.map { toWidgetLesson(it, styles, look) },
             focusIndex = focusIndex,
             focusIsNow = focusIsNow,

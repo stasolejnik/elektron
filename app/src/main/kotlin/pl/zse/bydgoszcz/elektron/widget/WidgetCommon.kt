@@ -13,6 +13,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.glance.action.clickable
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
@@ -31,22 +33,27 @@ import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 private val ShortcutKey = ActionParameters.Key<String>("elektron_shortcut")
 
 /**
- * Tło widżetu: zaokrąglona karta (22 dp jak widżety iOS), dotknięcie otwiera stronę główną.
+ * Tło widżetu: zaokrąglona karta (22 dp jak widżety iOS), dotknięcie otwiera stronę główną
+ * albo [action] (np. lekcję pokazywaną w widżecie Następna lekcja) z opisem [description].
  * actionStartActivity z jawnie podanymi parametrami — to jednoznacznie wybiera stabilne
  * przeciążenie (bez parametru Intent, na którym wyłożyły się poprzednie widżety).
  */
 @Composable
-fun WidgetContainer(target: String = "dashboard", content: @Composable () -> Unit) {
-    Box(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .appWidgetBackground()
-            .background(WidgetColors.background)
-            .cornerRadius(22.dp)
-            .padding(14.dp)
-            .clickable(actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to target))),
-        content = content
-    )
+fun WidgetContainer(
+    target: String = "dashboard",
+    action: Action? = null,
+    description: String? = null,
+    content: @Composable () -> Unit
+) {
+    var modifier = GlanceModifier
+        .fillMaxSize()
+        .appWidgetBackground()
+        .background(WidgetColors.background)
+        .cornerRadius(22.dp)
+        .padding(14.dp)
+        .clickable(action ?: actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to target)))
+    if (description != null) modifier = modifier.semantics { contentDescription = description }
+    Box(modifier = modifier, content = content)
 }
 
 @Composable

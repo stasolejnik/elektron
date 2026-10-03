@@ -10,6 +10,9 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 - Dotknięcie zastępstwa w zakładce Zastępstwa albo w widżecie Zastępstwa otwiera plan na dzień
   tego zastępstwa i od razu szczegóły tej lekcji (gdy lekcja jest w Twoim planie po wyborze grup;
   zastępstwo innej grupy otwiera sam plan na ten dzień).
+- Widżet Następna lekcja: dotknięcie otwiera plan i szczegóły pokazywanej lekcji (także
+  jutrzejszej). Widżet Plan dnia: dotknięcie lekcji otwiera jej szczegóły, a nagłówka z nazwą
+  dnia zakładkę Plan.
 
 ### Zmienione
 - Szczegóły lekcji otwierają się od razu w całości (dawniej przy zastępstwie okno otwierało się

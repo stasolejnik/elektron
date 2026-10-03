@@ -38,7 +38,7 @@ object Diagnostics {
     /** Tagi logów aplikacji (stałe TAG w klasach). */
     private val APP_TAGS = setOf(
         "AnnouncementMapper", "AnnouncementsRepositoryImpl", "ApkUpdateInstaller", "ClassSelection",
-        "ElektronFcmService", "FcmTopicManager", "LessonReminders", "LocalNotificationSink", "MainActivity", "SubstitutionsWidget",
+        "ElektronFcmService", "FcmTopicManager", "LessonReminders", "LocalNotificationSink", "MainActivity", "SubstitutionsWidget", "NextLessonWidget", "DayPlanWidget",
         "NextLessonTile", "OptivumListaParser", "OptivumTimetableParser", "RssParser", "SafeUrls",
         "SettingsViewModel", "SetupViewModel", "SubstitutionMapper", "SubstitutionsRepositoryImpl",
         "SyncCoordinator", "SyncWorker", "TimetableRepositoryImpl", "WidgetUpdater", "ZastepstwaParser",
