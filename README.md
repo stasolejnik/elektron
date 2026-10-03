@@ -17,19 +17,11 @@
 
 ## O projekcie
 
-> **Inspirowane Atomem.** Pomysł na eLektron wziął się z [Atomu](https://github.com/kacpergorka/atom)
-> [Kacpra Górki](https://github.com/kacpergorka) - aplikacji dla uczniów i nauczycieli ZSE na
-> urządzenia Apple (iPhone, iPad, Mac). Dziękuję za inspirację! eLektron to osobny, niezależny
-> projekt na Androida, napisany od zera - nie używa kodu ani API Atomu.
->
-> **W 100% napisany przez AI.** Cały kod napisała sztuczna inteligencja (Claude firmy Anthropic).
-> Ja, Stanisław Olejnik, uczeń ZSE, wymyślam funkcje, testuję je na telefonie i zgłaszam poprawki,
-> ale sam nie programuję (interesują mnie systemy Linux). Kod jest otwarty: każdy może go
-> przejrzeć, a błędy zgłosić.
->
-> **Nieoficjalny.** Projekt nie jest powiązany ze szkołą ani z firmą VULCAN. Aplikacja jest
-> w wersji kandydującej do 1.0.0, czyli prawie gotowej - jeśli coś nie działa, daj znać
-> (patrz [Zgłaszanie błędów](#zgłaszanie-błędów)).
+eLektron jest inspirowany [Atomem](https://github.com/kacpergorka/atom) [Kacpra Górki](https://github.com/kacpergorka),
+aplikacją dla ZSE na urządzenia Apple, ale jest osobnym projektem na Androida, napisanym od zera.
+Cały kod napisała sztuczna inteligencja (Claude, Anthropic): ja wymyślam funkcje i testuję, sam
+nie programuję. Projekt jest nieoficjalny, niezwiązany ze szkołą ani z firmą VULCAN, a obecna
+wersja to kandydat na 1.0.0.
 
 ## Co to jest
 
