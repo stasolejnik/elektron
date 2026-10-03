@@ -95,4 +95,15 @@ class LessonGroupsTest {
         val out = LessonGroups.filter(raw, mapOf("zaj.prakt" to "2/3"))
         assertNull(out.single().substitution)
     }
+
+    @Test
+    fun notificationSubjectComesFromSubstitutedGroup() {
+        // Dawniej przedmiot w powiadomieniu był zawsze z pierwszej grupy lekcji.
+        val groups = lesson(2, "ang-1/2", "niem-2/2").groups
+        assertEquals("niem-2/2", LessonGroups.subjectFor(substitution(2, 2), groups))
+        assertEquals("ang-1/2", LessonGroups.subjectFor(substitution(2, 1), groups))
+        // Bez numeru grupy: pierwsza z podanych (po filtrze - grupa użytkownika).
+        val mine = LessonGroups.filter(listOf(lesson(2, "ang-1/2", "niem-2/2")), mapOf("ang" to LessonGroups.NONE)).single().groups
+        assertEquals("niem-2/2", LessonGroups.subjectFor(substitution(2, null), mine))
+    }
 }

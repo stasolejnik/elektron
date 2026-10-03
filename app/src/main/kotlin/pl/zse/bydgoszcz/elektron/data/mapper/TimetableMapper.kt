@@ -7,6 +7,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.DayOfWeek
 import pl.zse.bydgoszcz.elektron.domain.model.ClassNames
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroup
+import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import java.time.LocalDate
 import java.time.LocalTime
@@ -65,10 +66,15 @@ object TimetableMapper {
         val from = runCatching { LocalTime.parse(lesson.timeFrom) }.getOrDefault(LocalTime.MIN)
         val to = runCatching { LocalTime.parse(lesson.timeTo) }.getOrDefault(LocalTime.MIN)
         val classShort = lesson.className.substringBefore(' ').take(2)
-        val sub = substitutions.firstOrNull {
+        // Wszystkie zastępstwa tej lekcji (osobne dla grup, np. "3 A(1)" i "3 A(2)"). Dawniej
+        // brane było pierwsze z brzegu bez patrzenia na numer grupy.
+        val candidates = substitutions.filter {
             it.date == date &&
                 it.lessonNumber == lesson.number &&
                 it.classShortName.equals(classShort, ignoreCase = true)
+        }
+        val lessonGroups = groups.sortedBy { it.sortOrder }.map { g ->
+            LessonGroup(g.subject, g.teacherCode, g.teacherUrl, g.teacherFullName, g.room, g.roomUrl, g.groupLabel, g.classRef)
         }
         return Lesson(
             id = lesson.id,
@@ -79,11 +85,10 @@ object TimetableMapper {
             number = lesson.number,
             timeFrom = from,
             timeTo = to,
-            groups = groups.sortedBy { it.sortOrder }.map { g ->
-                LessonGroup(g.subject, g.teacherCode, g.teacherUrl, g.teacherFullName, g.room, g.roomUrl, g.groupLabel, g.classRef)
-            },
+            groups = lessonGroups,
             note = lesson.note,
-            substitution = sub
+            substitution = LessonGroups.pickSubstitution(candidates, lessonGroups),
+            substitutions = candidates
         )
     }
 

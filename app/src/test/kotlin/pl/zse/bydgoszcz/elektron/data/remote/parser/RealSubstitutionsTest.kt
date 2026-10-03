@@ -59,4 +59,22 @@ class RealSubstitutionsTest {
         assertEquals(setOf("05.10.2026"), ZastepstwaParser.pageDates(doc))
         assertTrue(ZastepstwaParser.parse(doc).isEmpty())
     }
+
+    @Test
+    fun completePageHasNoIncompleteDays() {
+        val stream = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html") ?: error("brak zasobu")
+        val doc = stream.use { Jsoup.parse(it, "UTF-8", "https://zastepstwa.zse.bydgoszcz.pl/") }
+        assertTrue(ZastepstwaParser.parseDetailed(doc).incompleteDates.isEmpty())
+    }
+
+    @Test
+    fun unreadableEntryMarksDayIncomplete() {
+        // Celowo uszkodzony wpis (nietypowy zapis klasy, którego nie obejmuje DESC_RE).
+        val html = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html")!!.use { it.readBytes().toString(Charsets.UTF_8) }
+        val broken = html.replace("1 D(2) - Zajęcia Świetlicowe", "1Dg2 - Zajęcia Świetlicowe")
+        assertTrue(broken != html)
+        val result = ZastepstwaParser.parseDetailed(Jsoup.parse(broken, "https://zastepstwa.zse.bydgoszcz.pl/"))
+        assertEquals(31, result.items.size)
+        assertEquals(setOf("01.10.2026"), result.incompleteDates)
+    }
 }

@@ -40,13 +40,24 @@ object ZastepstwaParser {
             if (cells.size != 1) null else DATE_RE.find(cells[0].text())?.groupValues?.get(1)
         }.toSet()
 
-    fun parse(doc: Document): List<SubstitutionDto> {
+    fun parse(doc: Document): List<SubstitutionDto> = parseDetailed(doc).items
+
+    /**
+     * Wynik parsowania z kontrolą kompletności: [incompleteDates] - dni ("dd.mm.rrrr"), w których
+     * nie każdy wiersz z numerem lekcji udało się odczytać (np. nietypowy zapis klasy, którego
+     * nie obejmuje DESC_RE). Takich dni repozytorium nie zastępuje w całości.
+     */
+    data class Result(val items: List<SubstitutionDto>, val incompleteDates: Set<String>)
+
+    fun parseDetailed(doc: Document): Result {
         val tables = doc.select("table")
         if (tables.isEmpty()) {
             Log.w(TAG, "Brak <table> w dokumencie zastępstw")
-            return emptyList()
+            return Result(emptyList(), emptySet())
         }
         val out = mutableListOf<SubstitutionDto>()
+        // Wiersze z numerem lekcji per dzień vs odczytane wpisy - różnica = dzień niekompletny.
+        val lessonRows = mutableMapOf<String, Int>()
         var currentDate: String? = null
         var currentTeacher: String? = null
         var candidateTeacher: String? = null   // ostatni jednokomórkowy wiersz (nie data)
@@ -83,6 +94,7 @@ object ZastepstwaParser {
             }
 
             val lessonNo = texts[0].toIntOrNull()
+            if (lessonNo != null) currentDate?.let { lessonRows[it] = (lessonRows[it] ?: 0) + 1 }
             // Blok nauczyciela bez wiersza nagłówków kolumn - nazwisko tuż nad wpisem.
             if (lessonNo != null && candidateTeacher != null) {
                 currentTeacher = candidateTeacher
@@ -124,7 +136,12 @@ object ZastepstwaParser {
                 notes = texts[3].takeIf { it.isNotBlank() }
             )
         }
+        val parsedPerDate = out.groupingBy { it.dateRaw }.eachCount()
+        val incomplete = lessonRows.filter { (date, rows) -> (parsedPerDate[date] ?: 0) < rows }.keys
+        if (incomplete.isNotEmpty()) {
+            Log.w(TAG, "Niekompletnie odczytane dni: $incomplete (wiersze z lekcją: $lessonRows, odczytane: $parsedPerDate)")
+        }
         Log.i(TAG, "Sparsowano ${out.size} zastępstw (ostrzeżeń=$warnings)")
-        return out
+        return Result(out, incomplete)
     }
 }
