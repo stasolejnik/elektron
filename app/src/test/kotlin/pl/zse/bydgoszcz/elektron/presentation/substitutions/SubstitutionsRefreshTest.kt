@@ -57,6 +57,8 @@ class SubstitutionsRefreshTest {
     @Before fun setUp() {
         // viewModelScope bez kolejki głównego wątku Robolectric - korutyna rusza od razu.
         Dispatchers.setMain(UnconfinedTestDispatcher())
+        // Odświeżenie widżetów (Glance) korzysta z WorkManagera.
+        androidx.work.testing.WorkManagerTestInitHelper.initializeTestWorkManager(context)
         db = inMemoryDb()
     }
 
@@ -95,6 +97,9 @@ class SubstitutionsRefreshTest {
         org.junit.Assert.assertTrue("DIAG1 odświeżenie się nie zakończyło", "subs" in loaded)
         org.junit.Assert.assertFalse("DIAG2 odświeżanie wciąż trwa", vm.isRefreshing.value)
         if (am.nextScheduledAlarm == null) {
+            val defaultAlive = runBlocking { kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                kotlinx.coroutines.withContext(Dispatchers.Default) { true } } } == true
+            org.junit.Assert.assertTrue("DIAG5 Dispatchers.Default zablokowany", defaultAlive)
             runBlocking { scheduler.reschedule() }
             org.junit.Assert.assertNull("DIAG3 scheduler działa, ale odświeżenie go nie wywołało", am.nextScheduledAlarm)
             org.junit.Assert.fail("DIAG4 scheduler nie ustawia alarmu nawet wywołany wprost")
