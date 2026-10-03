@@ -6,6 +6,18 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 22,
+            versionName = "1.0.0-rc3",
+            items = listOf(
+                "Dotknięcie zastępstwa (zakładka i widżet) otwiera szczegóły tej lekcji w planie",
+                "Widżety Następna lekcja i Plan dnia też otwierają szczegóły lekcji",
+                "Szczegóły lekcji otwierają się od razu w całości",
+                "Widżet Zastępstwa pokazuje tyle zastępstw, ile się mieści, a resztę jako „+N więcej”",
+                "Jedna wspólna synchronizacja: bez podwójnych pobrań i powiadomień",
+                "Poprawki stabilności: nieczytelne godziny planu, kodowanie znaków, aktualizacja w aplikacji, widżety"
+            )
+        ),
+        Entry(
             versionCode = 21,
             versionName = "1.0.0-rc2",
             items = listOf(

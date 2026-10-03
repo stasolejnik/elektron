@@ -4,7 +4,9 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
-## [Niewydane]
+## [1.0.0-rc3] - 2026-10-03 (22)
+
+Trzecia wersja kandydująca do 1.0.0: szczegóły lekcji z zastępstw i widżetów, jedna wspólna synchronizacja i poprawki stabilności.
 
 ### Dodane
 - Dotknięcie zastępstwa w zakładce Zastępstwa albo w widżecie Zastępstwa otwiera plan na dzień
@@ -307,6 +309,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[1.0.0-rc3]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc3
 [1.0.0-rc2]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc2
 [1.0.0-rc1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc1
 [0.6.6-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.6-beta
