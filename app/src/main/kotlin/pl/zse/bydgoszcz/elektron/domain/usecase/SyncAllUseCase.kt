@@ -36,15 +36,21 @@ class SyncAllUseCase @Inject constructor(
     var failures: Map<String, Throwable> = emptyMap()
         private set
 
+    /** Źródła, które się pobrały w ostatnim przebiegu (klucze jak w SyncOutcome). */
+    var succeeded: Set<String> = emptySet()
+        private set
+
     suspend operator fun invoke(classId: String?, anchorDate: LocalDate = LocalDate.now()): Int =
         withContext(Dispatchers.IO) {
-            var ok = 0
             pageChanged = false
             val failed = mutableMapOf<String, Throwable>()
-            timetableRepo.syncSidebar().onSuccess { ok++ }.onFailure { Log.w(TAG, "sidebar fail", it) }
+            val ok = mutableSetOf<String>()
+            timetableRepo.syncSidebar()
+                .onSuccess { ok += SyncOutcome.SIDEBAR }
+                .onFailure { Log.w(TAG, "sidebar fail", it); failed[SyncOutcome.SIDEBAR] = it }
             if (classId != null) {
                 timetableRepo.syncTimetable(classId, anchorDate)
-                    .onSuccess { ok++; notificationsRepo.markLoaded("timetable") }
+                    .onSuccess { ok += SyncOutcome.TIMETABLE; notificationsRepo.markLoaded("timetable") }
                     .onFailure {
                         Log.w(TAG, "timetable fail", it)
                         failed[SyncOutcome.TIMETABLE] = it
@@ -52,13 +58,14 @@ class SyncAllUseCase @Inject constructor(
                     }
             }
             substitutionsRepo.syncAll()
-                .onSuccess { ok++; notificationsRepo.markLoaded("subs") }
+                .onSuccess { ok += SyncOutcome.SUBSTITUTIONS; notificationsRepo.markLoaded("subs") }
                 .onFailure { Log.w(TAG, "substitutions fail", it); failed[SyncOutcome.SUBSTITUTIONS] = it }
             announcementsRepo.syncAll()
-                .onSuccess { ok++; notificationsRepo.markLoaded("anns") }
-                .onFailure { Log.w(TAG, "announcements fail", it); failed["anns"] = it }
+                .onSuccess { ok += SyncOutcome.ANNOUNCEMENTS; notificationsRepo.markLoaded("anns") }
+                .onFailure { Log.w(TAG, "announcements fail", it); failed[SyncOutcome.ANNOUNCEMENTS] = it }
             failures = failed
-            ok
+            succeeded = ok
+            ok.size
         }
 
     companion object { private const val TAG = "SyncAllUseCase" }

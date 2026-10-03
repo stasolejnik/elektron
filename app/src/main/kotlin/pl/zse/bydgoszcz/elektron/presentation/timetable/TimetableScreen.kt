@@ -298,13 +298,15 @@ fun TimetableScreen(
                                 .collectAsStateWithLifecycle()
                             val monday = date.with(java.time.DayOfWeek.MONDAY)
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
-                            DayPage(date, week, clock, loading, pageModifier) { detailsLesson = it }
+                            val pastWeek = TimetableViewModel.isPastWeek(monday, today)
+                            DayPage(date, week, clock, loading, pastWeek, pageModifier) { detailsLesson = it }
                         }
                         TimetableViewModel.ViewMode.WEEK -> {
                             val monday = TimetableViewModel.mondayForPage(base, page)
                             val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle()
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
-                            WeekPage(week, loading, pageModifier) { detailsLesson = it }
+                            val pastWeek = TimetableViewModel.isPastWeek(monday, today)
+                            WeekPage(week, loading, pastWeek, pageModifier) { detailsLesson = it }
                         }
                     }
                 }
@@ -319,6 +321,7 @@ private fun DayPage(
     week: List<TimetableViewModel.DayColumn>?,
     clock: LocalTime,
     loading: Boolean,
+    pastWeek: Boolean,
     modifier: Modifier,
     onLessonClick: (Lesson) -> Unit
 ) {
@@ -331,7 +334,7 @@ private fun DayPage(
         if (lessons.isEmpty()) {
             // Plan tygodnia jest w bazie, a ten dzień po prostu nie ma lekcji — to nie ładowanie.
             val weekHasLessons = week?.any { it.lessons.isNotEmpty() } == true
-            item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading(loading) }
+            item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading(loading, pastWeek) }
         } else {
             val isToday = date == LocalDate.now()
             // Ta sama reguła co strona główna i widżety (LessonClock): "Za X min" tylko przy
@@ -356,11 +359,12 @@ private fun DayPage(
 private fun WeekPage(
     week: List<TimetableViewModel.DayColumn>?,
     loading: Boolean,
+    pastWeek: Boolean,
     modifier: Modifier,
     onLessonClick: (Lesson) -> Unit
 ) {
     if (week == null || week.all { it.lessons.isEmpty() }) {
-        Box(modifier.padding(12.dp)) { EmptyOrLoading(loading) }
+        Box(modifier.padding(12.dp)) { EmptyOrLoading(loading, pastWeek) }
         return
     }
     // Siatka jak w eduVulcan: godziny po lewej, 5 dni, same nazwy przedmiotów.
@@ -393,11 +397,17 @@ private fun NoLessonsCard() {
 }
 
 @Composable
-private fun EmptyOrLoading(loading: Boolean) {
+private fun EmptyOrLoading(loading: Boolean, pastWeek: Boolean) {
     // Ładowanie: karta z kółkiem dopiero po chwili - plan z bazy przychodzi zwykle od razu,
     // a natychmiastowa karta "Ładuję plan…" tylko migała przed lekcjami.
     if (loading) {
         DelayedLoading { MessageCard(loading = true, text = "Ładuję plan…") }
+    } else if (pastWeek) {
+        // Miniony tydzień, którego nie ma w bazie: strona szkoły publikuje tylko aktualny plan,
+        // więc odświeżanie nic tu nie da (dawniej wpisywało bieżący plan jako plan sprzed tygodni).
+        MessageCard(loading = false, text = "Brak planu z tego tygodnia.",
+            hint = "Strona szkoły publikuje tylko aktualny plan. eLektron pamięta minione tygodnie " +
+                "(do 8 wstecz) tylko wtedy, gdy zdążył je wcześniej zapisać.")
     } else {
         MessageCard(loading = false, text = "Brak zapisanego planu na ten okres.",
             hint = "Odśwież przyciskiem u góry, gdy będzie internet.")

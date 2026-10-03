@@ -55,15 +55,40 @@ class TimetableRepositoryImplTest {
     }
 
     @Test
-    fun oldWeeksArePrunedButSyncedWeekIsKept() = runTest {
+    fun oldWeeksArePruned() = runTest {
         // Dawniej stare tygodnie zostawały w bazie na zawsze.
         val farBack = monday.minusWeeks(10)
-        repo.syncTimetable("o3", farBack)
-        // Właśnie synchronizowany (przewinięty daleko wstecz) tydzień nie może zniknąć od razu.
-        assertTrue(repo.hasLessons("o3", farBack, farBack.plusDays(4)))
+        db.lessonDao().upsertAll(listOf(pl.zse.bydgoszcz.elektron.data.local.LessonEntity(
+            id = "o3|${farBack.toEpochDay()}|1", classId = "o3", className = "1D", dateEpochDay = farBack.toEpochDay(),
+            dayOfWeekIso = 1, number = 1, timeFrom = "08:00", timeTo = "08:45", note = null
+        )))
         repo.syncTimetable("o3", monday)
         assertFalse(repo.hasLessons("o3", farBack, farBack.plusDays(4)))
         assertTrue(repo.hasLessons("o3", monday, monday.plusDays(4)))
+    }
+
+    @Test
+    fun pastAnchorNeverWritesCurrentPlanIntoPastWeeks() = runTest {
+        // Strona szkoły publikuje tylko aktualny plan. Dawniej sync tygodnia przewiniętego
+        // wstecz (albo odświeżenie na nim) zapisywał bieżący szablon jako plan sprzed tygodni.
+        val pastWeek = monday.minusWeeks(3)
+        repo.syncTimetable("o3", pastWeek)
+        assertFalse(repo.hasLessons("o3", pastWeek, pastWeek.plusDays(4)))
+        assertTrue(repo.hasLessons("o3", monday, monday.plusDays(4)))     // bieżący plan odświeżony
+    }
+
+    @Test
+    fun refreshOnPastWeekKeepsItsSavedPlan() = runTest {
+        // Zapisany wcześniej plan minionego tygodnia (z tamtego czasu) zostaje nietknięty.
+        repoWithPlan("stary", null).syncTimetable("o3", monday)
+        val lastWeek = monday.minusWeeks(1)
+        db.lessonDao().upsertAll(listOf(pl.zse.bydgoszcz.elektron.data.local.LessonEntity(
+            id = "o3|${lastWeek.toEpochDay()}|1", classId = "o3", className = "1D", dateEpochDay = lastWeek.toEpochDay(),
+            dayOfWeekIso = 1, number = 1, timeFrom = "08:00", timeTo = "08:45", note = null
+        )))
+        repoWithPlan("nowy", null).syncTimetable("o3", lastWeek)
+        assertTrue(repo.getLessonsOnce("o3", lastWeek, lastWeek).single().groups.isEmpty())   // bez nadpisania
+        assertEquals("nowy", subjectOn(monday))
     }
 
     @Test

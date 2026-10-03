@@ -46,10 +46,8 @@ class ZseRssAnnouncementsSource @Inject constructor(
     override suspend fun fetchArchivePage(page: Int): List<ArchiveItemDto> = withContext(Dispatchers.IO) {
         val url = SchoolEndpoints.School.homePage(page)
         client.newCall(Request.Builder().url(url).get().build()).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                Log.w(TAG, "HTTP ${resp.code} dla $url")
-                return@withContext emptyList()
-            }
+            // Błąd serwera to nie "koniec archiwum" - "Pokaż więcej" pokaże błąd i da się ponowić.
+            if (!resp.isSuccessful) throw java.io.IOException("Archiwum ogłoszeń: HTTP ${resp.code} dla $url")
             NewsArchiveParser.parseList(EncodingAwareBody.asDocument(resp))
         }
     }
@@ -65,10 +63,8 @@ class ZseRssAnnouncementsSource @Inject constructor(
         withContext(Dispatchers.IO) {
             val req = Request.Builder().url(url).get().build()
             client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) {
-                    Log.w(TAG, "HTTP ${resp.code} dla $url")
-                    return@withContext emptyList()
-                }
+                // Błąd serwera to porażka kanału, nie "brak ogłoszeń" (dawniej liczony jako udany sync).
+                if (!resp.isSuccessful) throw java.io.IOException("Ogłoszenia: HTTP ${resp.code} dla $url")
                 val doc = EncodingAwareBody.asDocument(resp, xmlMode = true)
                 RssParser.parse(doc, source)
             }

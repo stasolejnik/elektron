@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.first
 import android.Manifest
@@ -176,7 +177,7 @@ class LocalNotificationSink @Inject constructor(
 
     /** Ciche godziny z Ustawień: powiadomienie bez dźwięku i wibracji. */
     private suspend fun isQuietNow(): Boolean =
-        runCatching { settings.quietHours.first().isQuiet(java.time.LocalTime.now()) }.getOrDefault(false)
+        runCatchingCancellable { settings.quietHours.first().isQuiet(java.time.LocalTime.now()) }.getOrDefault(false)
 
     private fun dayLabel(date: java.time.LocalDate): String {
         val today = java.time.LocalDate.now()

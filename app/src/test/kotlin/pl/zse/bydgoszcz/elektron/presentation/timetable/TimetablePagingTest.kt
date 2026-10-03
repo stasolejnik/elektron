@@ -1,6 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.zse.bydgoszcz.elektron.presentation.timetable.TimetableViewModel.Companion.START_PAGE
@@ -64,5 +65,15 @@ class TimetablePagingTest {
         assertEquals(monday.plusWeeks(1), preferredDay(friday, LocalTime.of(16, 0), end))   // piątek po lekcjach
         assertEquals(monday.plusWeeks(1), preferredDay(friday.plusDays(1), LocalTime.of(10, 0), end)) // sobota
         assertEquals(monday, preferredDay(monday, LocalTime.of(20, 0), null))                // dziś bez lekcji
+    }
+
+    @Test
+    fun pastWeekDetection() {
+        val wednesday = LocalDate.of(2026, 10, 7)
+        assertTrue(TimetableViewModel.isPastWeek(LocalDate.of(2026, 9, 28), wednesday))
+        assertFalse(TimetableViewModel.isPastWeek(LocalDate.of(2026, 10, 5), wednesday))   // bieżący
+        assertFalse(TimetableViewModel.isPastWeek(LocalDate.of(2026, 10, 12), wednesday))  // przyszły
+        // Niedziela należy jeszcze do bieżącego tygodnia.
+        assertFalse(TimetableViewModel.isPastWeek(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 11)))
     }
 }

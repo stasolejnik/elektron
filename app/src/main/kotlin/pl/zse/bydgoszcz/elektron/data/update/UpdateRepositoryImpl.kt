@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.update
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -52,12 +53,12 @@ class UpdateRepositoryImpl @Inject constructor(
         // Wersja F-Droid (foss): bez sprawdzania GitHuba — F-Droid sam aktualizuje aplikację
         // i podpisuje ją własnym kluczem (APK z GitHuba i tak by się nie zainstalował).
         if (!BuildConfig.UPDATE_CHECK) return@withContext Result.success(null)
-        runCatching {
+        runCatchingCancellable {
             val now = Instant.now().epochSecond
             if (!force) {
                 val last = syncStateDao.get(KEY_CHECKED)?.lastSyncEpochSeconds ?: 0L
                 if (now - last < CHECK_INTERVAL_SECONDS) {
-                    return@runCatching decode(syncStateDao.get(KEY_LATEST)?.message)
+                    return@runCatchingCancellable decode(syncStateDao.get(KEY_LATEST)?.message)
                         ?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
                 }
             }

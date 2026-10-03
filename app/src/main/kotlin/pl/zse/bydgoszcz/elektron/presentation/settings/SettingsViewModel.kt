@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
+import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import pl.zse.bydgoszcz.elektron.work.DeveloperTools
@@ -70,7 +72,7 @@ class SettingsViewModel @Inject constructor(
 
     private fun devAction(block: suspend () -> String) {
         viewModelScope.launch {
-            _devMessage.value = runCatching { block() }.getOrElse { "Błąd: ${it.message}" }
+            _devMessage.value = runCatchingCancellable { block() }.getOrElse { "Błąd: ${SyncErrors.userMessage(it)}" }
         }
     }
 
@@ -86,8 +88,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val s = state.value
             val className = s.classes.firstOrNull { it.id == s.selectedClassId }?.fullName ?: s.selectedClassId ?: "nie wybrano"
-            val lastSync = runCatching { notificationsRepo.getLastSyncAt() }.getOrNull()
-            val lastError = runCatching { notificationsRepo.observeLastSyncError().first() }.getOrNull()
+            val lastSync = runCatchingCancellable { notificationsRepo.getLastSyncAt() }.getOrNull()
+            val lastError = runCatchingCancellable { notificationsRepo.observeLastSyncError().first() }.getOrNull()
             val details = listOf(
                 "Klasa" to className,
                 "Ostatnia udana synchronizacja" to (lastSync?.atZone(java.time.ZoneId.systemDefault())

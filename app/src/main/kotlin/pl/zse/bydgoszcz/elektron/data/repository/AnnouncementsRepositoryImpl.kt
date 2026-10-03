@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import android.util.Log
 import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
@@ -32,9 +33,9 @@ class AnnouncementsRepositoryImpl @Inject constructor(
 ) : AnnouncementsRepository {
 
     override suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val newsResult = runCatching { source.fetchNewsFeed() }
-            val latestResult = runCatching { source.fetchLatestFeed() }
+        runCatchingCancellable {
+            val newsResult = runCatchingCancellable { source.fetchNewsFeed() }
+            val latestResult = runCatchingCancellable { source.fetchLatestFeed() }
             // Oba kanały z błędem (np. brak internetu) - to porażka synchronizacji, nie "pusto".
             // Dawniej sync kończył się sukcesem bez danych i aplikacja uznawała ogłoszenia za
             // aktualne. Zapisane ogłoszenia zostają nietknięte.
@@ -46,7 +47,7 @@ class AnnouncementsRepositoryImpl @Inject constructor(
             val all = news + latest
             if (all.isEmpty()) {
                 Log.w(TAG, "Oba kanały puste — nie nadpisuję")
-                return@runCatching
+                return@runCatchingCancellable
             }
             val freshEntities = all.mapNotNull(AnnouncementMapper::toEntity)
             // REPLACE nadpisywał pobraną treść artykułu (fullHtml) przy każdym syncu —
@@ -79,11 +80,11 @@ class AnnouncementsRepositoryImpl @Inject constructor(
 
 
     override suspend fun loadFullArticle(id: String): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val current = dao.getById(id) ?: return@runCatching
-            if (!current.fullHtml.isNullOrBlank()) return@runCatching
+        runCatchingCancellable {
+            val current = dao.getById(id) ?: return@runCatchingCancellable
+            if (!current.fullHtml.isNullOrBlank()) return@runCatchingCancellable
             val html = source.fetchArticleHtml(current.url)
-            if (html.isNullOrBlank()) return@runCatching
+            if (html.isNullOrBlank()) return@runCatchingCancellable
             dao.upsertAll(listOf(current.copy(fullHtml = html)))
         }
     }
@@ -114,7 +115,7 @@ class AnnouncementsRepositoryImpl @Inject constructor(
     private val archiveMutex = kotlinx.coroutines.sync.Mutex()
 
     override suspend fun loadOlder(): Result<AnnouncementsRepository.OlderResult> = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             archiveMutex.withLock {
                 // Pierwsze strony archiwum pokrywają się z RSS. Startujemy od strony wynikającej
                 // z liczby zapisanych ogłoszeń (5 wpisów na stronę), z zapasem 2 stron.
@@ -133,7 +134,7 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                     if (fresh.isNotEmpty()) {
                         // Daty tylko dla nowych wpisów, równolegle (najwyżej 5 zapytań).
                         val dates = coroutineScope {
-                            fresh.map { item -> async { runCatching { source.fetchArticleDate(item.url) }.getOrNull() } }
+                            fresh.map { item -> async { runCatchingCancellable { source.fetchArticleDate(item.url) }.getOrNull() } }
                                 .awaitAll()
                         }
                         val entities = fresh.mapIndexed { i, item ->

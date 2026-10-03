@@ -23,6 +23,7 @@ import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import pl.zse.bydgoszcz.elektron.domain.usecase.SyncAllUseCase
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import java.time.Instant
 import java.time.LocalDate
@@ -61,7 +62,9 @@ class SyncWorker @AssistedInject constructor(
             // Część danych się pobrała - komunikat, jeśli zawiodły plan albo zastępstwa (np. strona
             // zastępstw nie działa) albo plan ma nieznany układ. Dawniej komunikat był kasowany.
             notificationsRepo.setLastSyncError(SyncOutcome.errorMessage(syncAll.failures))
-            notificationsRepo.setLastSyncAt(Instant.now())
+            // "Zsynchronizowano" tylko po odświeżeniu planu albo zastępstw - sama lista klas
+            // czy RSS nie czynią danych aktualnymi (baner o nieaktualnych danych ma zostać).
+            if (SyncOutcome.freshDataLoaded(syncAll.succeeded)) notificationsRepo.setLastSyncAt(Instant.now())
 
             // Blokada dzielona z ElektronFirebaseMessagingService — patrz komentarz przy
             // withNotifyLock. Bez niej push i ten cykliczny sync mogą zdublować powiadomienie.
@@ -86,7 +89,7 @@ class SyncWorker @AssistedInject constructor(
                         } else emptyList()
                         // Grupy zajęciowe: pomijamy zastępstwa dla grupy, do której użytkownik nie należy.
                         val groups = settings.groupSelections(classId).first()
-                        val lessonsForSubs = if (forClass.isEmpty()) emptyList() else runCatching {
+                        val lessonsForSubs = if (forClass.isEmpty()) emptyList() else runCatchingCancellable {
                             timetableRepo.getLessonsOnce(classId, forClass.minOf { it.date }, forClass.maxOf { it.date })
                         }.getOrDefault(emptyList())
                         // Bez powiadomień o zastępstwach, których lekcja już minęła (np. wczorajsze
@@ -132,11 +135,13 @@ class SyncWorker @AssistedInject constructor(
             withContext(NonCancellable) {
                 notificationsRepo.setIsSyncing(false)
                 notificationsRepo.setInitialSyncPending(false)
+                // Przypomnienia przed lekcją: nowe zastępstwa/plan, a po restarcie telefonu
+                // (system kasuje alarmy) ponowne ustawienie najpóźniej przy następnym syncu.
+                // Czekamy na ustawienie alarmu: dawniej szło w tle po zakończeniu workera,
+                // a system mógł zabić proces, zanim alarm został ustawiony.
+                reminders.reschedule()
             }
             widgetUpdater.requestUpdate()
-            // Przypomnienia przed lekcją: nowe zastępstwa/plan, a po restarcie telefonu
-            // (system kasuje alarmy) ponowne ustawienie najpóźniej przy następnym syncu.
-            reminders.requestReschedule()
         }
     }
 

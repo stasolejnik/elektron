@@ -9,6 +9,16 @@ package pl.zse.bydgoszcz.elektron.domain.model
 object SyncOutcome {
     const val TIMETABLE = "timetable"
     const val SUBSTITUTIONS = "subs"
+    const val ANNOUNCEMENTS = "anns"
+    const val SIDEBAR = "sidebar"
+
+    /**
+     * Czy przebieg odświeżył dane, które muszą być aktualne (plan albo zastępstwa) - tylko wtedy
+     * zapisujemy "zsynchronizowano teraz". Dawniej wystarczyła lista klas albo RSS, więc przy
+     * niedziałającej stronie planu i zastępstw znikał baner o nieaktualnych danych.
+     */
+    fun freshDataLoaded(succeeded: Set<String>): Boolean =
+        TIMETABLE in succeeded || SUBSTITUTIONS in succeeded
 
     fun errorMessage(failures: Map<String, Throwable>): String? {
         val important = failures[SUBSTITUTIONS] ?: failures[TIMETABLE] ?: return null

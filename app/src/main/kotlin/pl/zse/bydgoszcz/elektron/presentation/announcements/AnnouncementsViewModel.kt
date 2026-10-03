@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.announcements
 
+import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +23,9 @@ import javax.inject.Inject
 @HiltViewModel
 class AnnouncementsViewModel @Inject constructor(
     private val repo: AnnouncementsRepository,
-    private val notificationsRepo: NotificationsRepository
+    private val notificationsRepo: NotificationsRepository,
+    private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler
 ) : ViewModel() {
 
     private companion object { const val PAGE_SIZE = 10 }
@@ -127,6 +131,10 @@ class AnnouncementsViewModel @Inject constructor(
                 withContext(Dispatchers.IO) { repo.syncAll() }
                     .onSuccess { notificationsRepo.markLoaded("anns") }
             } finally {
+                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
+                // a nie dopiero po najbliższym syncu w tle.
+                reminders.requestReschedule()
+                widgetUpdater.requestUpdate()
                 // Dawniej bez try/finally — wyjątek zostawiał wieczny spinner odświeżania.
                 refreshing.value = false
             }
