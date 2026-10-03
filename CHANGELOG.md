@@ -4,6 +4,12 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [Niewydane]
+
+### Zmienione
+- Szczegóły lekcji otwierają się od razu w całości (dawniej przy zastępstwie okno otwierało się
+  do połowy i trzeba było je rozwijać). Gdy treść się nie mieści, przewija się w oknie.
+
 ## [1.0.0-rc2] - 2026-10-03 (21)
 
 Druga wersja kandydująca do 1.0.0: poprawki stabilności, zastępstw dla grup i odświeżania danych.
