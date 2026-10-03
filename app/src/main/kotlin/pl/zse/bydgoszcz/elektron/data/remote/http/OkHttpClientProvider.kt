@@ -43,6 +43,32 @@ object OkHttpClientProvider {
             .build()
     }
 
+    /**
+     * Klient do pobierania dużych plików (APK aktualizacji, ok. 20 MB) - na bazie [base]
+     * (wspólna pula połączeń), ale BEZ:
+     *  - callTimeout: limit 45 s obejmuje też czytanie treści, więc na wolnym łączu pobieranie
+     *    zawsze się przerywało; zostają limity połączenia i bezczynności odczytu,
+     *  - interceptorów dla stron szkoły (Accept HTML, wymuszona rewalidacja, RetryInterceptor
+     *    ponawiający całe pobieranie) i logowania,
+     *  - cache HTTP (plik APK nie ma tam czego szukać).
+     */
+    fun createDownloadClient(base: OkHttpClient, versionName: String): OkHttpClient {
+        val userAgent = "eLektron/$versionName (+https://github.com/stasolejnik/elektron)"
+        return base.newBuilder()
+            .apply {
+                interceptors().clear()
+                networkInterceptors().clear()
+            }
+            .addInterceptor { chain ->
+                chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build())
+            }
+            .cache(null)
+            .callTimeout(0, TimeUnit.MILLISECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
     private class HeaderInterceptor(private val userAgent: String) : Interceptor {
         override fun intercept(chain: Interceptor.Chain): Response {
             val original = chain.request()

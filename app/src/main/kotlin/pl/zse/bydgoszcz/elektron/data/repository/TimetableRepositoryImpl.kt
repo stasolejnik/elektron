@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -45,9 +46,9 @@ class TimetableRepositoryImpl @Inject constructor(
 ) : TimetableRepository {
 
     override suspend fun syncSidebar(): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             val items = source.fetchSidebar()
-            if (items.isEmpty()) return@runCatching
+            if (items.isEmpty()) return@runCatchingCancellable
             classDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.CLASS }.map(SidebarMapper::toClassEntity))
             teacherDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.TEACHER }.map(SidebarMapper::toTeacherEntity))
             roomDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.ROOM }.map(SidebarMapper::toRoomEntity))
@@ -56,13 +57,16 @@ class TimetableRepositoryImpl @Inject constructor(
 
     override suspend fun syncTimetable(classId: String, anchorDate: LocalDate): Result<Unit> =
         withContext(Dispatchers.IO) {
-            runCatching {
-                val monday = anchorDate.with(JavaDayOfWeek.MONDAY)
+            runCatchingCancellable {
+                // Strona szkoły publikuje tylko AKTUALNY plan - nigdy nie zapisujemy go w minionych
+                // tygodniach. Dawniej sync tygodnia przewiniętego wstecz (albo odświeżenie na nim)
+                // wpisywał bieżący szablon jako plan sprzed miesięcy. Najwcześniej bieżący tydzień.
+                val monday = maxOf(anchorDate, LocalDate.now()).with(JavaDayOfWeek.MONDAY)
                 val dto = source.fetchTimetable(classId)
                 // Zmieniony układ strony: zapisany plan zostaje, ale sync kończy się błędem,
                 // żeby użytkownik dostał komunikat zamiast cichego braku aktualizacji.
                 if (!dto.layoutOk) throw SchoolPageChangedException("plan lekcji")
-                if (dto.lessons.isEmpty()) return@runCatching
+                if (dto.lessons.isEmpty()) return@runCatchingCancellable
                 // Plan Optivum to szablon tygodniowy. Dawniej zapisywaliśmy go tylko dla
                 // tygodnia anchorDate — w weekend cały zapisany tydzień był w przeszłości
                 // i Start pokazywał "Brak nadchodzących lekcji". Teraz jeden fetch,
@@ -95,8 +99,7 @@ class TimetableRepositoryImpl @Inject constructor(
                     lessonGroupDao.upsertAll(keptGroups)
                 }
                 // Dawniej stare tygodnie zostawały w bazie na zawsze (tysiące wierszy po roku).
-                // Nigdy nie kasujemy właśnie synchronizowanego tygodnia (przewinięcie daleko wstecz).
-                val cutoff = minOf(monday, LocalDate.now().minusWeeks(KEEP_PAST_WEEKS))
+                val cutoff = LocalDate.now().minusWeeks(KEEP_PAST_WEEKS)
                 lessonDao.deleteOlderThan(cutoff.toEpochDay())
             }
         }

@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import android.annotation.SuppressLint
 import android.app.PendingIntent
@@ -35,7 +36,7 @@ class NextLessonTileService : TileService() {
         super.onStartListening()
         loadJob?.cancel()
         loadJob = scope.launch {
-            val state = runCatching { WidgetDataLoader.load(applicationContext) }
+            val state = runCatchingCancellable { WidgetDataLoader.load(applicationContext) }
                 .onFailure { Log.w(TAG, "Nie udało się wczytać danych kafelka", it) }
                 .getOrNull()
             render(state)

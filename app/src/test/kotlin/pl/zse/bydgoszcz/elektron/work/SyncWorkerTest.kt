@@ -1,22 +1,14 @@
 package pl.zse.bydgoszcz.elektron.work
 
-import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
-import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
-import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
-import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
-import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
-import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,8 +35,12 @@ import pl.zse.bydgoszcz.elektron.data.repository.TimetableRepositoryImpl
 import pl.zse.bydgoszcz.elektron.data.repository.inMemoryDb
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
-import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
-import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
+import pl.zse.bydgoszcz.elektron.testutil.FakeSettings
+import pl.zse.bydgoszcz.elektron.domain.model.ReminderMode
+import android.app.AlarmManager
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.robolectric.Shadows.shadowOf
 import pl.zse.bydgoszcz.elektron.domain.usecase.SyncAllUseCase
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import java.time.Instant
@@ -61,16 +57,19 @@ class SyncWorkerTest {
 
     // --- Podstawione zależności ---
 
-    private class Timetable : TimetableSource {
+    private class Timetable(var error: Exception? = null) : TimetableSource {
         override suspend fun fetchSidebar() = listOf(
             ClassListItemDto("o3", ClassListItemDto.Kind.CLASS, "1D 1D PBŚ", "1D", "https://plan.zse.bydgoszcz.pl/plany/o3.html")
         )
-        override suspend fun fetchTimetable(classId: String) = TimetableDto(classId, "1D 1D PBŚ", null, null,
-            listOf(LessonCellDto(2, "08:55", "09:40", 1, listOf(LessonGroupDto("mat", "Ch", null, "105", null, null, null)), null)))
+        override suspend fun fetchTimetable(classId: String): TimetableDto {
+            error?.let { throw it }
+            return TimetableDto(classId, "1D 1D PBŚ", null, null,
+                listOf(LessonCellDto(2, "08:55", "09:40", 1, listOf(LessonGroupDto("mat", "Ch", null, "105", null, null, null)), null)))
+        }
     }
 
-    private class Subs(var items: List<SubstitutionDto> = emptyList()) : SubstitutionsSource {
-        override suspend fun fetchSubstitutions() = items
+    private class Subs(var items: List<SubstitutionDto> = emptyList(), var error: Exception? = null) : SubstitutionsSource {
+        override suspend fun fetchSubstitutions(): List<SubstitutionDto> { error?.let { throw it }; return items }
     }
 
     private class Anns : AnnouncementsSource {
@@ -88,47 +87,6 @@ class SyncWorkerTest {
         override suspend fun postGeneric(title: String, body: String, deepLink: String?) {}
     }
 
-    private class FakeSettings : SettingsRepository {
-        val notifySubs = MutableStateFlow(true)
-        override val selectedClassId: Flow<String?> = MutableStateFlow("o3")
-        override suspend fun setSelectedClassId(id: String) {}
-        override val themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM)
-        override suspend fun setThemeMode(mode: ThemeMode) {}
-        override val dynamicColor: Flow<Boolean> = flowOf(false)
-        override suspend fun setDynamicColor(enabled: Boolean) {}
-        override val notificationsSubstitutions: Flow<Boolean> = notifySubs
-        override suspend fun setNotificationsSubstitutions(enabled: Boolean) { notifySubs.value = enabled }
-        override val notificationsAnnouncements: Flow<Boolean> = flowOf(false)
-        override suspend fun setNotificationsAnnouncements(enabled: Boolean) {}
-        override val showNextLesson: Flow<Boolean> = flowOf(true)
-        override suspend fun setShowNextLesson(enabled: Boolean) {}
-        override val showSubstitutions: Flow<Boolean> = flowOf(true)
-        override suspend fun setShowSubstitutions(enabled: Boolean) {}
-        override val showAnnouncements: Flow<Boolean> = flowOf(true)
-        override suspend fun setShowAnnouncements(enabled: Boolean) {}
-        override val startScreen: Flow<StartScreen> = flowOf(StartScreen.SMART)
-        override suspend fun setStartScreen(screen: StartScreen) {}
-        override val reminderSettings: Flow<ReminderSettings> = flowOf(ReminderSettings())
-        override suspend fun setReminderSettings(value: ReminderSettings) {}
-        override val quietHours: Flow<QuietHours> = flowOf(QuietHours())
-        override suspend fun setQuietHours(value: QuietHours) {}
-        override val accent: Flow<AccentSetting> = flowOf(AccentSetting())
-        override suspend fun setAccent(value: AccentSetting) {}
-        override val widgetLook: Flow<WidgetLook> = flowOf(WidgetLook())
-        override suspend fun setWidgetLook(value: WidgetLook) {}
-        override val subjectStyles: Flow<Map<String, SubjectStyle>> = flowOf(emptyMap())
-        override suspend fun setSubjectStyle(subject: String, style: SubjectStyle) {}
-        override val timetableLook: Flow<TimetableLook> = flowOf(TimetableLook())
-        override suspend fun setTimetableLook(look: TimetableLook) {}
-        override val lastSeenVersionCode: Flow<Int> = flowOf(0)
-        override suspend fun setLastSeenVersionCode(code: Int) {}
-        override fun groupSelections(classId: String): Flow<Map<String, String>> = flowOf(emptyMap())
-        override val activeGroupSelections: Flow<Map<String, String>> = flowOf(emptyMap())
-        override suspend fun setGroupSelection(classId: String, subject: String, choice: String?) {}
-        override val groupsConfiguredFor: Flow<String?> = flowOf("o3")
-        override suspend fun setGroupsConfiguredFor(classId: String) {}
-    }
-
     // --- Środowisko ---
 
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -136,6 +94,7 @@ class SyncWorkerTest {
     private val tomorrow = LocalDate.now().plusDays(1)
     private lateinit var db: AppDatabase
     private val subsSource = Subs()
+    private val timetableSource = Timetable()
     private val sink = RecordingSink()
     private val settings = FakeSettings()
 
@@ -145,12 +104,14 @@ class SyncWorkerTest {
     @Before fun setUp() { db = inMemoryDb() }
     @After fun tearDown() = db.close()
 
+    private lateinit var notificationsRepo: NotificationsRepositoryImpl
+
     private fun runWorker(): ListenableWorker.Result {
-        val timetableRepo = TimetableRepositoryImpl(Timetable(), db.schoolClassDao(), db.teacherDao(), db.roomDao(),
+        val timetableRepo = TimetableRepositoryImpl(timetableSource, db.schoolClassDao(), db.teacherDao(), db.roomDao(),
             db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
         val substitutionsRepo = SubstitutionsRepositoryImpl(subsSource, db.substitutionDao(), db)
         val announcementsRepo = AnnouncementsRepositoryImpl(Anns(), db.announcementDao(), db)
-        val notificationsRepo = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
+        notificationsRepo = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
         val syncAll = SyncAllUseCase(timetableRepo, substitutionsRepo, announcementsRepo, notificationsRepo)
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
@@ -188,5 +149,26 @@ class SyncWorkerTest {
         subsSource.items = listOf(sub(1), sub(2))
         runWorker()
         assertTrue(sink.substitutions.isEmpty())
+    }
+
+    @Test
+    fun lastSyncIsNotSetWhenOnlyClassListAndAnnouncementsLoaded() {
+        // Plan i zastępstwa nie odpowiadają, lista klas i RSS tak: to nie jest "zsynchronizowano
+        // teraz" - dawniej znikał baner o nieaktualnych danych.
+        timetableSource.error = java.io.IOException("Plan lekcji: HTTP 503")
+        subsSource.error = java.io.IOException("Zastępstwa: HTTP 503")
+        runWorker()
+        assertNull(runBlocking { notificationsRepo.getLastSyncAt() })
+        assertNotNull(runBlocking { notificationsRepo.observeLastSyncError().first() })
+    }
+
+    @Test
+    fun reminderIsScheduledBeforeWorkerFinishes() {
+        // Dawniej przypomnienie ustawiało się w tle już po zakończeniu workera - system mógł
+        // zabić proces wcześniej. Alarm musi być ustawiony, gdy doWork() zwraca wynik.
+        settings.reminderFlow.value = ReminderSettings(ReminderMode.EVERY, 10)
+        runWorker()
+        val am = context.getSystemService(AlarmManager::class.java)
+        assertNotNull(shadowOf(am).nextScheduledAlarm)
     }
 }

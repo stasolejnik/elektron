@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
@@ -113,10 +114,10 @@ object WidgetDataLoader {
     /** Kolory widżetów według ustawień aplikacji (motyw, kolory z tapety). */
     suspend fun palette(context: Context): WidgetPalette {
         val ep = entryPoint(context)
-        val mode = runCatching { ep.settings().themeMode.first() }.getOrDefault(ThemeMode.SYSTEM)
-        val dynamic = runCatching { ep.settings().dynamicColor.first() }.getOrDefault(false)
-        val opacity = runCatching { ep.settings().widgetLook.first().opacity }.getOrDefault(100)
-        val accent = runCatching { ep.settings().accent.first() }.getOrDefault(AccentSetting())
+        val mode = runCatchingCancellable { ep.settings().themeMode.first() }.getOrDefault(ThemeMode.SYSTEM)
+        val dynamic = runCatchingCancellable { ep.settings().dynamicColor.first() }.getOrDefault(false)
+        val opacity = runCatchingCancellable { ep.settings().widgetLook.first().opacity }.getOrDefault(100)
+        val accent = runCatchingCancellable { ep.settings().accent.first() }.getOrDefault(AccentSetting())
         return WidgetPalettes.create(context, mode, dynamic, opacity, accent)
     }
 
@@ -126,11 +127,11 @@ object WidgetDataLoader {
         val groups = ep.settings().groupSelections(classId).first()
         val nowDt = LocalDateTime.now()
         val today = nowDt.toLocalDate()
-        val lessons = runCatching {
+        val lessons = runCatchingCancellable {
             LessonGroups.filter(ep.timetable().getLessonsOnce(classId, today, today.plusDays(7)), groups)
         }.getOrDefault(emptyList())
-        val styles = runCatching { ep.settings().subjectStyles.first() }.getOrDefault(emptyMap())
-        val look = runCatching { ep.settings().widgetLook.first() }.getOrDefault(WidgetLook())
+        val styles = runCatchingCancellable { ep.settings().subjectStyles.first() }.getOrDefault(emptyMap())
+        val look = runCatchingCancellable { ep.settings().widgetLook.first() }.getOrDefault(WidgetLook())
         return buildState(lessons, nowDt, styles, look)
     }
 
@@ -200,11 +201,11 @@ object WidgetDataLoader {
         val groups = ep.settings().groupSelections(classId).first()
         val today = LocalDate.now()
         val now = LocalTime.now()
-        val lessons = runCatching { ep.timetable().getLessonsOnce(classId, today, today.plusDays(14)) }
+        val lessons = runCatchingCancellable { ep.timetable().getLessonsOnce(classId, today, today.plusDays(14)) }
             .getOrDefault(emptyList())
         val ends = SubstitutionRelevance.lessonEnds(lessons)
         val nowDt = LocalDateTime.of(today, now)
-        val subs = runCatching { ep.substitutions().getAllFrom(today) }.getOrDefault(emptyList())
+        val subs = runCatchingCancellable { ep.substitutions().getAllFrom(today) }.getOrDefault(emptyList())
             .asSequence()
             .filter { SubstitutionRelevance.matchesClass(it, short) }
             .filter { LessonGroups.substitutionRelevant(it, lessons, groups) }

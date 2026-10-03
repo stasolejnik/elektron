@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import android.util.Log
 import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,7 @@ class SubstitutionsRepositoryImpl @Inject constructor(
 ) : SubstitutionsRepository {
 
     override suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             val page = source.fetchPage()
             val entities = page.items.mapNotNull(SubstitutionMapper::toEntity)
             // Dni pokazane na stronie (z nagłówków "Zastępstwa w dniu" - także dni bez wpisów).
@@ -35,7 +36,7 @@ class SubstitutionsRepositoryImpl @Inject constructor(
             if (pageDays.isEmpty()) {
                 // Brak strony / nierozpoznana strona (awaria) - nic nie ruszamy.
                 Log.w(TAG, "Pusto — nie nadpisuję")
-                return@runCatching
+                return@runCatchingCancellable
             }
             // Strona szkoły pokazuje PEŁNY komplet zastępstw dla swoich dni - te dni zastępujemy
             // (skasowane/odwołane zastępstwa znikają, także gdy szkoła odwoła wszystkie).

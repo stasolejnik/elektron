@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -47,7 +48,7 @@ class LessonReminderScheduler @Inject constructor(
     }
 
     suspend fun reschedule(now: LocalDateTime = LocalDateTime.now()) = mutex.withLock {
-        runCatching { rescheduleLocked(now) }.onFailure { Log.w(TAG, "Nie udało się ustawić przypomnienia", it) }
+        runCatchingCancellable { rescheduleLocked(now) }.onFailure { Log.w(TAG, "Nie udało się ustawić przypomnienia", it) }
     }
 
     private suspend fun rescheduleLocked(now: LocalDateTime) {

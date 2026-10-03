@@ -13,6 +13,11 @@ import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import android.content.Context
+import android.util.Log
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.emptyPreferences
+import kotlinx.coroutines.flow.catch
+import java.io.IOException
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -32,7 +37,15 @@ import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.elektronSettings: DataStore<Preferences> by preferencesDataStore(name = "elektron_settings")
+// Uszkodzony plik ustawień (np. przerwany zapis) - zaczynamy od domyślnych zamiast wysypywać
+// każdy ekran, widżet i worker czytający ustawienia.
+private val Context.elektronSettings: DataStore<Preferences> by preferencesDataStore(
+    name = "elektron_settings",
+    corruptionHandler = ReplaceFileCorruptionHandler { e ->
+        Log.w("SettingsRepository", "Uszkodzony plik ustawień - przywracam domyślne", e)
+        emptyPreferences()
+    }
+)
 
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
@@ -71,9 +84,18 @@ class SettingsRepositoryImpl @Inject constructor(
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
     }
 
-    private val prefs: Flow<Preferences> = context.elektronSettings.data
+    // Błąd odczytu pliku (IOException) = domyślne ustawienia zamiast awarii kolektora.
+    private val prefs: Flow<Preferences> = context.elektronSettings.data.catch { e ->
+        if (e is IOException) {
+            Log.w("SettingsRepository", "Nie udało się odczytać ustawień", e)
+            emit(emptyPreferences())
+        } else throw e
+    }
 
-    override val selectedClassId: Flow<String?> = prefs.map { it[Keys.SELECTED_CLASS_ID] }
+    // distinctUntilChanged: każdy zapis DOWOLNEGO ustawienia emituje nowe Preferences - bez tego
+    // klasa "zmieniała się" przy każdym przełączniku i restartowała łańcuchy flatMapLatest
+    // (ponowne zapytania do bazy na Starcie i w Planie).
+    override val selectedClassId: Flow<String?> = prefs.map { it[Keys.SELECTED_CLASS_ID] }.distinctUntilChanged()
     override suspend fun setSelectedClassId(id: String) {
         context.elektronSettings.edit { it[Keys.SELECTED_CLASS_ID] = id }
     }
@@ -81,39 +103,39 @@ class SettingsRepositoryImpl @Inject constructor(
     override val themeMode: Flow<ThemeMode> = prefs.map {
         runCatching { ThemeMode.valueOf(it[Keys.THEME_MODE] ?: ThemeMode.SYSTEM.name) }
             .getOrDefault(ThemeMode.SYSTEM)
-    }
+    }.distinctUntilChanged()
     override suspend fun setThemeMode(mode: ThemeMode) {
         context.elektronSettings.edit { it[Keys.THEME_MODE] = mode.name }
     }
 
-    override val dynamicColor: Flow<Boolean> = prefs.map { it[Keys.DYNAMIC_COLOR] ?: false }
+    override val dynamicColor: Flow<Boolean> = prefs.map { it[Keys.DYNAMIC_COLOR] ?: false }.distinctUntilChanged()
     override suspend fun setDynamicColor(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.DYNAMIC_COLOR] = enabled }
     }
 
     override val notificationsSubstitutions: Flow<Boolean> =
-        prefs.map { it[Keys.NOTIF_SUBSTITUTIONS] ?: true }
+        prefs.map { it[Keys.NOTIF_SUBSTITUTIONS] ?: true }.distinctUntilChanged()
     override suspend fun setNotificationsSubstitutions(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.NOTIF_SUBSTITUTIONS] = enabled }
     }
 
     override val notificationsAnnouncements: Flow<Boolean> =
-        prefs.map { it[Keys.NOTIF_ANNOUNCEMENTS] ?: false }
+        prefs.map { it[Keys.NOTIF_ANNOUNCEMENTS] ?: false }.distinctUntilChanged()
     override suspend fun setNotificationsAnnouncements(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.NOTIF_ANNOUNCEMENTS] = enabled }
     }
 
-    override val showNextLesson: Flow<Boolean> = prefs.map { it[Keys.SHOW_NEXT_LESSON] ?: true }
+    override val showNextLesson: Flow<Boolean> = prefs.map { it[Keys.SHOW_NEXT_LESSON] ?: true }.distinctUntilChanged()
     override suspend fun setShowNextLesson(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.SHOW_NEXT_LESSON] = enabled }
     }
 
-    override val showSubstitutions: Flow<Boolean> = prefs.map { it[Keys.SHOW_SUBSTITUTIONS] ?: true }
+    override val showSubstitutions: Flow<Boolean> = prefs.map { it[Keys.SHOW_SUBSTITUTIONS] ?: true }.distinctUntilChanged()
     override suspend fun setShowSubstitutions(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.SHOW_SUBSTITUTIONS] = enabled }
     }
 
-    override val showAnnouncements: Flow<Boolean> = prefs.map { it[Keys.SHOW_ANNOUNCEMENTS] ?: true }
+    override val showAnnouncements: Flow<Boolean> = prefs.map { it[Keys.SHOW_ANNOUNCEMENTS] ?: true }.distinctUntilChanged()
     override suspend fun setShowAnnouncements(enabled: Boolean) {
         context.elektronSettings.edit { it[Keys.SHOW_ANNOUNCEMENTS] = enabled }
     }
@@ -204,7 +226,7 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
-    override val lastSeenVersionCode: Flow<Int> = prefs.map { it[Keys.LAST_SEEN_VERSION] ?: 0 }
+    override val lastSeenVersionCode: Flow<Int> = prefs.map { it[Keys.LAST_SEEN_VERSION] ?: 0 }.distinctUntilChanged()
     override suspend fun setLastSeenVersionCode(code: Int) {
         context.elektronSettings.edit { it[Keys.LAST_SEEN_VERSION] = code }
     }
@@ -235,7 +257,7 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
-    override val groupsConfiguredFor: Flow<String?> = prefs.map { it[Keys.GROUPS_CONFIGURED_FOR] }
+    override val groupsConfiguredFor: Flow<String?> = prefs.map { it[Keys.GROUPS_CONFIGURED_FOR] }.distinctUntilChanged()
     override suspend fun setGroupsConfiguredFor(classId: String) {
         context.elektronSettings.edit { it[Keys.GROUPS_CONFIGURED_FOR] = classId }
     }

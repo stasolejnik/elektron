@@ -4,6 +4,29 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [Niewydane]
+
+### Naprawione
+- Aktualizacja z GitHuba nie przerywa się już na wolnym łączu: pobieranie APK miało limit
+  45 s na cały plik.
+- Błąd serwera szkoły przy liście klas, kanałach RSS i archiwum ogłoszeń to teraz porażka
+  synchronizacji, a nie „pusta lista”. „Zsynchronizowano” zapisuje się tylko po odświeżeniu
+  planu albo zastępstw, więc baner o nieaktualnych danych nie znika przy niedziałającej stronie.
+- Uszkodzony plik ustawień nie wysypuje aplikacji, widżetów ani synchronizacji (wracają
+  ustawienia domyślne).
+- Zmiana dowolnego ustawienia nie przeładowuje już planu i strony głównej.
+- Anulowana synchronizacja (zamknięty ekran, zatrzymane zadanie w tle) nie kończy się
+  komunikatem o błędzie i nie liczy dalej.
+- Przypomnienia o lekcjach: ustawiane po pobraniu planu nowej klasy (dawniej do najbliższej
+  synchronizacji w tle nie było żadnego), po ręcznym odświeżeniu (np. zwolnienie z lekcji)
+  i zanim zakończy się synchronizacja w tle.
+- Widżety odświeżają się od razu po ręcznym odświeżeniu, a przy dzwonku przeskakują wszystkie
+  (dawniej część widżetów i kafelek mogła zostać ze starą lekcją).
+- Plan minionych tygodni nie jest nadpisywany bieżącym planem: strona szkoły publikuje tylko
+  aktualny plan, więc dla tygodnia spoza zapisanych pojawia się komunikat zamiast cudzego planu.
+  Błąd pobierania brakującego tygodnia pokazuje komunikat zamiast pustego tygodnia.
+- Błąd synchronizacji po wyborze klasy pokazuje polski komunikat zamiast surowego wyjątku.
+
 ## [1.0.0-rc1] - 2026-10-02 (20)
 
 Pierwsza wersja kandydująca do wydania 1.0.0.

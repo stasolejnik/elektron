@@ -1,7 +1,10 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.filterNotNull
+import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.distinctUntilChanged
 import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
@@ -31,6 +34,7 @@ import javax.inject.Inject
 class ElektronAppViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val timetableRepo: TimetableRepository,
+    notificationsRepo: NotificationsRepository,
     reminders: LessonReminderScheduler
 ) : ViewModel() {
 
@@ -57,12 +61,25 @@ class ElektronAppViewModel @Inject constructor(
         // Przypomnienia przeliczane przy starcie i przy każdej zmianie, która zmienia ich
         // termin lub treść (klasa, grupy, nazwy przedmiotów, ustawienia przypomnień) -
         // nie trzeba czekać na najbliższą synchronizację.
+        // W trakcie pierwszego syncu po wyborze klasy (initialSyncPending) - nic: planu nowej
+        // klasy jeszcze nie ma, więc przeliczenie skasowałoby alarm. Przelicza ClassSelection
+        // po pobraniu planu (i ten przepływ, gdy flaga zgaśnie).
         combine(
             settings.selectedClassId, settings.activeGroupSelections,
-            settings.subjectStyles, settings.reminderSettings
-        ) { a, b, c, d -> listOf(a, b, c, d) }
+            settings.subjectStyles, settings.reminderSettings,
+            notificationsRepo.observeInitialSyncPending()
+        ) { a, b, c, d, pending -> if (pending) null else listOf(a, b, c, d) }
+            .filterNotNull()
             .distinctUntilChanged()
-            .onEach { reminders.requestReschedule() }
+            .onEach { values ->
+                // Zabezpieczenie na wypadek, gdyby zmiana klasy dotarła przed flagą syncu:
+                // bez zapisanego planu klasy nie przeliczamy (nie kasujemy alarmu).
+                val cid = values[0] as String?
+                val today = LocalDate.now()
+                if (cid == null || timetableRepo.hasLessons(cid, today, today.plusDays(7))) {
+                    reminders.requestReschedule()
+                }
+            }
             .launchIn(viewModelScope)
         viewModelScope.launch {
             startRoute.value = withTimeoutOrNull(1_500) { decideStartRoute() } ?: ElektronRoutes.DASHBOARD
@@ -73,7 +90,7 @@ class ElektronAppViewModel @Inject constructor(
      * Ekran startowy z Ustawień. "Automatycznie": w godzinach lekcji (od 10 min przed pierwszą
      * do końca ostatniej, po filtrze grup) Plan lekcji, poza nimi Strona główna.
      */
-    private suspend fun decideStartRoute(): String = runCatching {
+    private suspend fun decideStartRoute(): String = runCatchingCancellable {
         val chosen = settings.startScreen.first()
         val todayLessons = if (chosen != StartScreen.SMART) emptyList() else {
             val cid = settings.selectedClassId.first()

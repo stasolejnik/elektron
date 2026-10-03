@@ -22,10 +22,13 @@ class AnnouncementsRepositoryImplTest {
 
     private class FakeSource : AnnouncementsSource {
         var news: List<RssItemDto> = emptyList()
+        var latest: List<RssItemDto> = emptyList()
+        var newsError: Exception? = null
+        var latestError: Exception? = null
         var archive: Map<Int, List<ArchiveItemDto>> = emptyMap()
         val requestedPages = mutableListOf<Int>()
-        override suspend fun fetchNewsFeed() = news
-        override suspend fun fetchLatestFeed() = emptyList<RssItemDto>()
+        override suspend fun fetchNewsFeed(): List<RssItemDto> { newsError?.let { throw it }; return news }
+        override suspend fun fetchLatestFeed(): List<RssItemDto> { latestError?.let { throw it }; return latest }
         override suspend fun fetchArticleHtml(url: String): String? = null
         override suspend fun fetchArchivePage(page: Int): List<ArchiveItemDto> {
             requestedPages += page
@@ -58,6 +61,34 @@ class AnnouncementsRepositoryImplTest {
         source.news = listOf(rss("https://zse/a"))
         repo.syncAll()
         assertEquals("<p>treść</p>", db.announcementDao().getById("https://zse/a")?.fullHtml)
+    }
+
+    @Test
+    fun oneFailedChannelIsNotAFailureOfAll() = runTest {
+        // Kanał RSS z błędem HTTP przy działającym drugim: ogłoszenia z drugiego się zapisują.
+        source.newsError = java.io.IOException("Ogłoszenia: HTTP 503 dla rss.xml")
+        source.latest = listOf(rss("https://zse/z-latest"))
+        assertTrue(repo.syncAll().isSuccess)
+        assertEquals(1, db.announcementDao().count())
+    }
+
+    @Test
+    fun bothChannelsFailedIsAFailure() = runTest {
+        source.newsError = java.io.IOException("Ogłoszenia: HTTP 503 dla rss.xml")
+        source.latestError = java.io.IOException("Ogłoszenia: HTTP 503 dla rsslatest.xml")
+        assertTrue(repo.syncAll().isFailure)
+    }
+
+    @Test
+    fun cancellationIsNotReportedAsFailedSync() = runTest {
+        // runCatching łapał anulowanie: anulowany sync wracał jako "porażka" zamiast się zatrzymać.
+        source.newsError = kotlinx.coroutines.CancellationException("anulowano")
+        source.latestError = kotlinx.coroutines.CancellationException("anulowano")
+        try {
+            repo.syncAll()
+            org.junit.Assert.fail("Anulowanie musi lecieć dalej")
+        } catch (_: kotlinx.coroutines.CancellationException) {
+        }
     }
 
     @Test

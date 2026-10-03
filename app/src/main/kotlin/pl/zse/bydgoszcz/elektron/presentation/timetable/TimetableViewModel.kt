@@ -1,5 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
@@ -48,7 +51,9 @@ class TimetableViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val repo: TimetableRepository,
     private val substitutionsRepo: SubstitutionsRepository,
-    private val notificationsRepo: NotificationsRepository
+    private val notificationsRepo: NotificationsRepository,
+    private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler
 ) : ViewModel() {
 
     enum class ViewMode { DAY, WEEK }
@@ -91,6 +96,15 @@ class TimetableViewModel @Inject constructor(
     /** Bieżąca data (do ustawienia strony startowej pagera po zmianie trybu). */
     val currentAnchor: LocalDate get() = anchor.value
 
+    // Przed blokiem init (kolejność inicjalizacji): używa go także sync brakującego tygodnia.
+    /** Komunikat po nieudanym odświeżeniu (pokazywany raz na ekranie planu). */
+    private val _refreshMessage = MutableStateFlow<String?>(null)
+    val refreshMessage: StateFlow<String?> = _refreshMessage
+
+    fun consumeRefreshMessage() {
+        _refreshMessage.value = null
+    }
+
     init {
         // Ostatnio wybrany tryb (Dzień/Tydzień) - zapamiętany w ustawieniach.
         viewModelScope.launch {
@@ -103,9 +117,17 @@ class TimetableViewModel @Inject constructor(
             .distinctUntilChanged()
             .onEach { (cid, monday) ->
                 if (cid == null) return@onEach
+                // Miniony tydzień spoza bazy: strona szkoły ma tylko aktualny plan - nie pobieramy
+                // (dawniej bieżący szablon trafiał jako plan sprzed miesięcy). Ekran pokazuje komunikat.
+                if (isPastWeek(monday, LocalDate.now())) return@onEach
                 if (!repo.hasLessons(cid, monday, monday.plusDays(4))) {
                     _syncingWeek.value = monday
-                    try { repo.syncTimetable(cid, monday) } finally { _syncingWeek.value = null }
+                    try {
+                        // Błąd nie jest już cicho ignorowany (dawniej pusty tydzień bez komunikatu).
+                        repo.syncTimetable(cid, monday).onFailure {
+                            _refreshMessage.value = SyncOutcome.errorMessage(mapOf(SyncOutcome.TIMETABLE to it))
+                        }
+                    } finally { _syncingWeek.value = null }
                 }
             }
             .launchIn(viewModelScope)
@@ -161,14 +183,6 @@ class TimetableViewModel @Inject constructor(
      * Pull-to-refresh: wymusza pobranie planu dla oglądanego tygodnia (pomija cache)
      * oraz zastępstw, które nakładają się na plan. Oba równolegle.
      */
-    /** Komunikat po nieudanym odświeżeniu (pokazywany raz na ekranie planu). */
-    private val _refreshMessage = MutableStateFlow<String?>(null)
-    val refreshMessage: StateFlow<String?> = _refreshMessage
-
-    fun consumeRefreshMessage() {
-        _refreshMessage.value = null
-    }
-
     fun refresh() {
         if (refreshing.value) return
         refreshing.value = true
@@ -180,6 +194,8 @@ class TimetableViewModel @Inject constructor(
                 val failures = java.util.concurrent.ConcurrentHashMap<String, Throwable>()
                 coroutineScope {
                     launch {
+                        // Na minionym tygodniu repozytorium odświeża tylko bieżący i przyszłe -
+                        // planu sprzed tygodni nie nadpisuje.
                         repo.syncTimetable(cid, anchor.value)
                             .onSuccess { notificationsRepo.markLoaded("timetable") }
                             .onFailure { failures[SyncOutcome.TIMETABLE] = it }
@@ -195,6 +211,10 @@ class TimetableViewModel @Inject constructor(
                 if (failures.size < 2) notificationsRepo.setLastSyncAt(java.time.Instant.now())
                 _refreshMessage.value = message
             } finally {
+                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
+                // a nie dopiero po najbliższym syncu w tle.
+                widgetUpdater.requestUpdate()
+                reminders.requestReschedule()
                 refreshing.value = false
             }
         }
@@ -253,7 +273,7 @@ class TimetableViewModel @Inject constructor(
         val today = LocalDate.now()
         val now = LocalTime.now()
         val cid = settings.selectedClassId.first() ?: return nextSchoolDay(today)
-        val lessons = runCatching {
+        val lessons = runCatchingCancellable {
             LessonGroups.filter(repo.getLessonsOnce(cid, today, today), settings.groupSelections(cid).first())
         }.getOrDefault(emptyList())
         // "Po lekcjach" liczone od ostatniej lekcji, która się odbywa (zwolnienie z ostatnich
@@ -276,6 +296,14 @@ class TimetableViewModel @Inject constructor(
             if (start != today) return start
             return if (lastLessonEnd != null && now >= lastLessonEnd) nextSchoolDay(today.plusDays(1)) else today
         }
+
+        /**
+         * Tydzień od [monday] jest już miniony (przed bieżącym tygodniem [today]). Takiego planu
+         * nie pobieramy - strona szkoły publikuje tylko aktualny; w bazie są ostatnie tygodnie,
+         * które aplikacja zdążyła zapisać.
+         */
+        fun isPastWeek(monday: LocalDate, today: LocalDate): Boolean =
+            monday.with(JavaDayOfWeek.MONDAY) < today.with(JavaDayOfWeek.MONDAY)
 
         fun nextSchoolDay(d: LocalDate): LocalDate = when (d.dayOfWeek) {
             JavaDayOfWeek.SATURDAY -> d.plusDays(2)

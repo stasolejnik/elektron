@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import java.time.LocalDateTime
@@ -53,7 +55,9 @@ class DashboardViewModel @Inject constructor(
     private val announcementsRepo: AnnouncementsRepository,
     private val notificationsRepo: NotificationsRepository,
     private val timetableRepo: TimetableRepository,
-    private val updateRepo: UpdateRepository
+    private val updateRepo: UpdateRepository,
+    private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler
 ) : ViewModel() {
 
     /** Break = przerwa między dwiema lekcjami dziś (pokazujemy następną lekcję + czas przerwy). */
@@ -274,31 +278,32 @@ class DashboardViewModel @Inject constructor(
                 // Porażki źródeł (zbierane, nie ignorowane): dawniej odświeżenie bez internetu
                 // zapisywało "zsynchronizowano teraz" i kasowało komunikat o błędzie.
                 val failures = java.util.concurrent.ConcurrentHashMap<String, Throwable>()
-                var anySuccess = false
+                val succeeded = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
                 withContext(Dispatchers.IO) {
                     coroutineScope {
                         // Lista klas (sidebar) dawniej odświeżała się tylko w tle co 15 min.
                         launch { timetableRepo.syncSidebar() }
                         launch {
                             val r = timetableRepo.syncTimetable(cid ?: return@launch, LocalDate.now())
-                            r.onSuccess { anySuccess = true; notificationsRepo.markLoaded("timetable") }
+                            r.onSuccess { succeeded += SyncOutcome.TIMETABLE; notificationsRepo.markLoaded("timetable") }
                                 .onFailure { failures[SyncOutcome.TIMETABLE] = it }
                         }
                         launch {
                             val r = substitutionsRepo.syncAll()
-                            r.onSuccess { anySuccess = true; notificationsRepo.markLoaded("subs") }
+                            r.onSuccess { succeeded += SyncOutcome.SUBSTITUTIONS; notificationsRepo.markLoaded("subs") }
                                 .onFailure { failures[SyncOutcome.SUBSTITUTIONS] = it }
                         }
                         launch {
                             val r = announcementsRepo.syncAll()
-                            r.onSuccess { anySuccess = true; notificationsRepo.markLoaded("anns") }
-                                .onFailure { failures["anns"] = it }
+                            r.onSuccess { succeeded += SyncOutcome.ANNOUNCEMENTS; notificationsRepo.markLoaded("anns") }
+                                .onFailure { failures[SyncOutcome.ANNOUNCEMENTS] = it }
                         }
                     }
                 }
-                if (anySuccess) notificationsRepo.setLastSyncAt(Instant.now())
+                // "Zsynchronizowano" tylko po odświeżeniu planu albo zastępstw (jak w SyncWorker).
+                if (SyncOutcome.freshDataLoaded(succeeded)) notificationsRepo.setLastSyncAt(Instant.now())
                 notificationsRepo.setLastSyncError(
-                    SyncOutcome.errorMessage(failures) ?: if (!anySuccess && failures.isNotEmpty())
+                    SyncOutcome.errorMessage(failures) ?: if (succeeded.isEmpty() && failures.isNotEmpty())
                         SyncErrors.userMessage(failures.values.first()) else null
                 )
             } catch (e: CancellationException) {
@@ -306,6 +311,10 @@ class DashboardViewModel @Inject constructor(
             } catch (e: Exception) {
                 notificationsRepo.setLastSyncError(SyncErrors.userMessage(e))
             } finally {
+                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
+                // a nie dopiero po najbliższym syncu w tle.
+                widgetUpdater.requestUpdate()
+                reminders.requestReschedule()
                 refreshing.value = false
             }
         }

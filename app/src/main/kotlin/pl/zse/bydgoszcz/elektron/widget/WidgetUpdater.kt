@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import android.content.Context
 import android.util.Log
 import androidx.glance.appwidget.updateAll
@@ -15,7 +16,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
@@ -44,7 +47,7 @@ class WidgetUpdater @Inject constructor(
 
     suspend fun updateNow() {
         WidgetDataVersion.bump()     // otwarte sesje Glance wczytają dane od nowa
-        runCatching {
+        runCatchingCancellable {
             NextLessonWidget().updateAll(context)
             DayPlanWidget().updateAll(context)
             SubstitutionsWidget().updateAll(context)
@@ -76,7 +79,17 @@ class WidgetTickWorker @AssistedInject constructor(
     private val updater: WidgetUpdater
 ) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
-        updater.updateNow()
+        runTickUpdate { updater.updateNow() }
         return Result.success()
     }
 }
+
+/**
+ * Odświeżenie w ticku, którego nie przerwie anulowanie workera.
+ *
+ * updateAll() tylko zleca sesję Glance (osobna praca WorkManagera), więc provideGlance
+ * pierwszego widżetu rusza, zanim ten worker odświeży kolejne. provideGlance planuje następny
+ * tick przez enqueueUniqueWork(REPLACE) pod TĄ SAMĄ nazwą - REPLACE anuluje działającego
+ * workera, a pozostałe widżety (i kafelek) zostawały nieodświeżone do następnego dzwonka.
+ */
+internal suspend fun runTickUpdate(update: suspend () -> Unit) = withContext(NonCancellable) { update() }

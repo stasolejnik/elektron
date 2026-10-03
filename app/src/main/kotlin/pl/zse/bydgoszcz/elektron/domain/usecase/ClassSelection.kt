@@ -16,7 +16,11 @@ import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
+import java.util.concurrent.ConcurrentHashMap
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -40,6 +44,7 @@ class ClassSelection @Inject constructor(
     private val announcementsRepo: AnnouncementsRepository,
     private val notificationsRepo: NotificationsRepository,
     private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler,
     private val db: pl.zse.bydgoszcz.elektron.data.local.AppDatabase
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -81,19 +86,18 @@ class ClassSelection @Inject constructor(
         notificationsRepo.setLastSyncError(null)
         settings.setSelectedClassId(id)
         try {
+            val failures = ConcurrentHashMap<String, Throwable>()
+            val succeeded = ConcurrentHashMap.newKeySet<String>()
             coroutineScope {
                 launch {
                     timetableRepo.syncTimetable(id, LocalDate.now())
-                        .onSuccess { notificationsRepo.markLoaded("timetable") }
-                        .onFailure {
-                            Log.w(TAG, "timetable FAILED", it)
-                            notificationsRepo.setLastSyncError("Plan: ${it.message}")
-                        }
+                        .onSuccess { succeeded += SyncOutcome.TIMETABLE; notificationsRepo.markLoaded("timetable") }
+                        .onFailure { Log.w(TAG, "timetable FAILED", it); failures[SyncOutcome.TIMETABLE] = it }
                 }
                 launch {
                     substitutionsRepo.syncAll()
-                        .onSuccess { notificationsRepo.markLoaded("subs") }
-                        .onFailure { Log.w(TAG, "subs FAILED", it) }
+                        .onSuccess { succeeded += SyncOutcome.SUBSTITUTIONS; notificationsRepo.markLoaded("subs") }
+                        .onFailure { Log.w(TAG, "subs FAILED", it); failures[SyncOutcome.SUBSTITUTIONS] = it }
                 }
                 launch {
                     announcementsRepo.syncAll()
@@ -101,16 +105,24 @@ class ClassSelection @Inject constructor(
                         .onFailure { Log.w(TAG, "anns FAILED", it) }
                 }
             }
-            notificationsRepo.setLastSyncAt(Instant.now())
+            // Komunikat po polsku (dawniej surowe e.message, np. "Plan: Unable to resolve host").
+            notificationsRepo.setLastSyncError(SyncOutcome.errorMessage(failures))
+            if (SyncOutcome.freshDataLoaded(succeeded)) notificationsRepo.setLastSyncAt(Instant.now())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "sync po wyborze klasy nie powiódł się", e)
-            notificationsRepo.setLastSyncError(e.message ?: "Błąd synchronizacji")
+            notificationsRepo.setLastSyncError(SyncErrors.userMessage(e))
         } finally {
             // NonCancellable: po anulowaniu każde wywołanie suspend rzuca od razu wyjątek,
             // więc bez tego flaga zostawała na "true".
-            withContext(NonCancellable) { notificationsRepo.setInitialSyncPending(false) }
+            withContext(NonCancellable) {
+                notificationsRepo.setInitialSyncPending(false)
+                // Przypomnienia dla NOWEJ klasy: dopiero teraz jej plan jest w bazie. Dawniej
+                // przeliczenie szło tylko przy zmianie klasy (planu jeszcze nie było - alarm
+                // kasowany) i do najbliższego syncu w tle przypomnień nie było wcale.
+                reminders.reschedule()
+            }
             widgetUpdater.requestUpdate()
         }
     }

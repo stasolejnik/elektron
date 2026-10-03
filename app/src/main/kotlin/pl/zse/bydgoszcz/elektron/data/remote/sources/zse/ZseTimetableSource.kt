@@ -1,6 +1,5 @@
 package pl.zse.bydgoszcz.elektron.data.remote.sources.zse
 
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -27,10 +26,8 @@ class ZseTimetableSource @Inject constructor(
         val url = SchoolEndpoints.Timetable.SIDEBAR
         val req = Request.Builder().url(url).get().build()
         client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                Log.w(TAG, "HTTP ${resp.code} dla $url")
-                return@withContext emptyList()
-            }
+            // Błąd serwera to porażka synchronizacji, nie "pusta lista klas" (dawniej liczona jako sukces).
+            if (!resp.isSuccessful) throw java.io.IOException("Lista klas: HTTP ${resp.code} dla $url")
             val doc = EncodingAwareBody.asDocument(resp)
             OptivumListaParser.parse(doc, SchoolEndpoints.Timetable.BASE)
         }

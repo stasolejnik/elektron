@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -37,7 +39,9 @@ class SubstitutionsViewModel @Inject constructor(
     private val repo: SubstitutionsRepository,
     settings: SettingsRepository,
     timetableRepo: TimetableRepository,
-    private val notificationsRepo: NotificationsRepository
+    private val notificationsRepo: NotificationsRepository,
+    private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler
 ) : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -60,6 +64,10 @@ class SubstitutionsViewModel @Inject constructor(
                     }
                     .onFailure { notificationsRepo.setLastSyncError(SyncErrors.userMessage(it)) }
             } finally {
+                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
+                // a nie dopiero po najbliższym syncu w tle.
+                widgetUpdater.requestUpdate()
+                reminders.requestReschedule()
                 _isRefreshing.value = false
             }
         }

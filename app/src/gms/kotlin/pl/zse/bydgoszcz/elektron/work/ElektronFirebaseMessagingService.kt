@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import java.time.LocalDateTime
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -96,7 +97,7 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
 
         // Grupy zajęciowe: zastępstwo dla grupy, do której użytkownik nie należy, pomijamy.
         val groups = settings.groupSelections(classId).first()
-        val lessonsThatDay = runCatching { timetableRepo.getLessonsOnce(classId, sub.date, sub.date) }
+        val lessonsThatDay = runCatchingCancellable { timetableRepo.getLessonsOnce(classId, sub.date, sub.date) }
             .getOrDefault(emptyList())
         if (!LessonGroups.substitutionRelevant(sub, lessonsThatDay, groups)) return
         // Zastępstwo, którego lekcja już minęła - bez powiadomienia (SyncWorker oznaczy je jako widziane).

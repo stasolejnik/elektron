@@ -22,13 +22,13 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import pl.zse.bydgoszcz.elektron.BuildConfig
+import pl.zse.bydgoszcz.elektron.data.remote.http.OkHttpClientProvider
 import pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate
 import pl.zse.bydgoszcz.elektron.domain.repository.InstallState
 import pl.zse.bydgoszcz.elektron.domain.repository.UpdateInstaller
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,11 +47,9 @@ class ApkUpdateInstaller @Inject constructor(
 
     override val supported: Boolean = true
 
-    // Bez cache HTTP (20 MB APK nie ma tam czego szukać) i z dłuższym czasem na odczyt.
-    private val http: OkHttpClient = client.newBuilder()
-        .cache(null)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .build()
+    // Osobny klient: bez callTimeout wspólnego klienta (45 s na całe pobieranie 20 MB przerywało
+    // aktualizację na wolnym łączu), bez cache i bez interceptorów dla stron szkoły.
+    private val http: OkHttpClient = OkHttpClientProvider.createDownloadClient(client, BuildConfig.VERSION_NAME)
 
     private val _state = MutableStateFlow<InstallState>(InstallState.Idle)
     override val state: StateFlow<InstallState> = _state.asStateFlow()
