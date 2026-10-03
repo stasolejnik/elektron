@@ -79,8 +79,9 @@ class SubstitutionsRefreshTest {
             override suspend fun fetchSubstitutions() = emptyList<SubstitutionDto>()
         }, db.substitutionDao(), db)
         val notificationsRepo = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
+        val scheduler = LessonReminderScheduler(context, settings, timetableRepo)
         val vm = SubstitutionsViewModel(repo, settings, timetableRepo, notificationsRepo,
-            WidgetUpdater(context), LessonReminderScheduler(context, settings, timetableRepo))
+            WidgetUpdater(context), scheduler)
         val am = shadowOf(context.getSystemService(AlarmManager::class.java))
         assertNull(am.nextScheduledAlarm)
 
@@ -91,7 +92,12 @@ class SubstitutionsRefreshTest {
             Thread.sleep(20)
         }
         val loaded = runBlocking { notificationsRepo.observeLoadedResources().first() }
-        assertNotNull("Brak alarmu po odświeżeniu (odświeżenie zakończone: ${"subs" in loaded}, " +
-            "odświeżanie trwa: ${vm.isRefreshing.value})", am.nextScheduledAlarm)
+        org.junit.Assert.assertTrue("DIAG1 odświeżenie się nie zakończyło", "subs" in loaded)
+        org.junit.Assert.assertFalse("DIAG2 odświeżanie wciąż trwa", vm.isRefreshing.value)
+        if (am.nextScheduledAlarm == null) {
+            runBlocking { scheduler.reschedule() }
+            org.junit.Assert.assertNull("DIAG3 scheduler działa, ale odświeżenie go nie wywołało", am.nextScheduledAlarm)
+            org.junit.Assert.fail("DIAG4 scheduler nie ustawia alarmu nawet wywołany wprost")
+        }
     }
 }
