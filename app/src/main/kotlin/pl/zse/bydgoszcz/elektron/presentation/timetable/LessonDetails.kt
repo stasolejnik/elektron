@@ -13,6 +13,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,7 +45,11 @@ internal fun LessonDetailsSheet(lesson: Lesson, onDismiss: () -> Unit) {
         .ifBlank { lesson.note ?: "Lekcja" }
     val dayName = lesson.date.dayOfWeek.getDisplayName(TextStyle.FULL, pl)
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    // Od razu cała treść (bez stanu "do połowy"): przy zastępstwie okno jest dłuższe i dawniej
+    // trzeba było je ręcznie rozwijać. Gdy treść się nie mieści (mały ekran, duża czcionka,
+    // poziomo), okno sięga do góry ekranu, a treść przewija się w środku.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(start = 24.dp, end = 24.dp, bottom = 24.dp).navigationBarsPadding()

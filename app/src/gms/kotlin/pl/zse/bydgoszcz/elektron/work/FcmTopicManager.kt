@@ -14,9 +14,15 @@ import javax.inject.Singleton
 class FcmTopicManager @Inject constructor() : PushTopics {
 
     override fun start() {
-        val fm = FirebaseMessaging.getInstance()
-        fm.subscribeToTopic(SUBS_TOPIC).addOnFailureListener { Log.w(TAG, "Nie udało się zasubskrybować $SUBS_TOPIC", it) }
-        fm.subscribeToTopic(ANNS_TOPIC).addOnFailureListener { Log.w(TAG, "Nie udało się zasubskrybować $ANNS_TOPIC", it) }
+        // Wołane przy starcie aplikacji: Firebase niezainicjalizowany (np. nietypowy ROM) rzuca
+        // tu wyjątek - bez pushy aplikacja działa dalej (synchronizacja w tle), zamiast się wywracać.
+        try {
+            val fm = FirebaseMessaging.getInstance()
+            fm.subscribeToTopic(SUBS_TOPIC).addOnFailureListener { Log.w(TAG, "Nie udało się zasubskrybować $SUBS_TOPIC", it) }
+            fm.subscribeToTopic(ANNS_TOPIC).addOnFailureListener { Log.w(TAG, "Nie udało się zasubskrybować $ANNS_TOPIC", it) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Push niedostępny", e)
+        }
     }
 
     companion object {

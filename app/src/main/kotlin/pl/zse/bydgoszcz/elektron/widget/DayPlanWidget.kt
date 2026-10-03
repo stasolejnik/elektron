@@ -13,6 +13,12 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
+import androidx.glance.LocalContext
+import androidx.compose.runtime.LaunchedEffect
+import android.util.Log
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.appwidget.GlanceAppWidget
@@ -77,7 +83,12 @@ class DayPlanWidget : GlanceAppWidget() {
     @Composable
     private fun Plan(state: WidgetState.Ready) {
         Column(GlanceModifier.fillMaxSize()) {
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
+            // Nagłówek z nazwą dnia: zakładka Plan.
+            Row(
+                GlanceModifier.fillMaxWidth().clickable(openSectionAction("timetable"))
+                    .semantics { contentDescription = "Plan, ${state.dayLabel}. Otwórz zakładkę Plan" },
+                verticalAlignment = Alignment.Vertical.CenterVertically
+            ) {
                 Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(18.dp))
                 Spacer(GlanceModifier.width(6.dp))
                 Text("Plan · ${state.dayLabel}", modifier = GlanceModifier.defaultWeight(),
@@ -98,10 +109,17 @@ class DayPlanWidget : GlanceAppWidget() {
                 )
             }
             Spacer(GlanceModifier.height(6.dp))
+            val offset = state.lessons.size - visible.size
+            LaunchedEffect(state.date, visible.map { it.number }) {
+                Log.i(TAG, "Rysuję ${visible.size} z ${state.lessons.size} lekcji: " +
+                    visible.indices.joinToString { i -> WidgetTargets.lesson(state, offset + i)?.let { "${it.date}/${it.lessonNumber}" } ?: "-" })
+            }
             LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
                 items(visible, itemId = { it.number.toLong() }) { lesson ->
                     LessonRow(
                         lesson = lesson,
+                        target = WidgetTargets.lesson(state, offset + visible.indexOf(lesson)),
+                        dayLabel = state.dayLabel,
                         highlighted = lesson.number == state.focus.number,
                         // Trwająca lekcja: "zostało X min" (jak w widżecie Następna lekcja i w planie).
                         remaining = if (state.isToday && state.focusIsNow && lesson.number == state.focus.number)
@@ -114,7 +132,14 @@ class DayPlanWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun LessonRow(lesson: WidgetLesson, highlighted: Boolean, past: Boolean, remaining: String? = null) {
+    private fun LessonRow(
+        lesson: WidgetLesson,
+        target: LessonTarget?,
+        dayLabel: String,
+        highlighted: Boolean,
+        past: Boolean,
+        remaining: String? = null
+    ) {
         val numberColor = when {
             past -> WidgetColors.textFaded
             lesson.isSubstitution -> WidgetColors.substitution
@@ -136,8 +161,14 @@ class DayPlanWidget : GlanceAppWidget() {
         }
         val rowModifier = GlanceModifier.fillMaxWidth().background(rowBg).cornerRadius(10.dp)
             .padding(horizontal = 8.dp, vertical = 5.dp)
-        // Dotknięcie lekcji otwiera aplikację (na obszarze listy klik całego widżetu nie działa).
-        Column(GlanceModifier.fillMaxWidth().padding(bottom = 2.dp).clickable(openAppAction())) {
+        // Dotknięcie lekcji: Plan na ten dzień i szczegóły tej lekcji.
+        val description = listOfNotNull("$dayLabel, lekcja ${lesson.number}", lesson.title, lesson.timeRange,
+            lesson.room?.let { "sala $it" }, lesson.note).joinToString(", ") + ". Otwórz szczegóły lekcji"
+        val action = target?.let { openLessonAction(LocalContext.current, it) } ?: openAppAction()
+        Column(
+            GlanceModifier.fillMaxWidth().padding(bottom = 2.dp).clickable(action)
+                .semantics { contentDescription = description }
+        ) {
             Row(rowModifier, verticalAlignment = Alignment.Vertical.CenterVertically) {
                 Text("${lesson.number}", modifier = GlanceModifier.width(22.dp),
                     style = TextStyle(color = numberColor, fontSize = 15.sp, fontWeight = FontWeight.Bold))
@@ -160,6 +191,8 @@ internal fun lessonsWord(n: Int): String = when {
     n % 10 in 2..4 && n % 100 !in 12..14 -> "lekcje"
     else -> "lekcji"
 }
+
+private const val TAG = "DayPlanWidget"
 
 class DayPlanWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = DayPlanWidget()

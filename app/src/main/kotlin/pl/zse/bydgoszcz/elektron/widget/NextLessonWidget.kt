@@ -14,6 +14,9 @@ import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
+import androidx.glance.LocalContext
+import androidx.compose.runtime.LaunchedEffect
+import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
@@ -65,7 +68,22 @@ class NextLessonWidget : GlanceAppWidget() {
 
     @Composable
     private fun Content(state: WidgetState) {
-        WidgetContainer {
+        // Pokazywana lekcja (także jutrzejsza - data TEGO dnia): dotknięcie całego widżetu
+        // otwiera Plan i jej szczegóły. Bez lekcji (komunikat) - strona główna jak dotąd.
+        val target = WidgetTargets.focus(state)
+        val ready = state as? WidgetState.Ready
+        LaunchedEffect(target) {
+            Log.i(TAG, "Cel: ${target?.let { "${it.date}/${it.lessonNumber}" } ?: "brak lekcji (strona główna)"}" +
+                (ready?.let { ", lekcji w stanie: ${it.lessons.size}" } ?: ""))
+        }
+        WidgetContainer(
+            action = target?.let { openLessonAction(LocalContext.current, it) },
+            description = ready?.let { r ->
+                val l = r.focus
+                listOfNotNull("${r.dayLabel}, lekcja ${l.number}", l.title, l.timeRange, l.room?.let { "sala $it" }, l.detail, l.note)
+                    .joinToString(", ") + ". Otwórz szczegóły lekcji"
+            }
+        ) {
             when (state) {
                 WidgetState.NoClass -> WidgetMessage("Otwórz eLektron i wybierz klasę.")
                 is WidgetState.NoLessons -> WidgetMessage("Brak lekcji w najbliższych dniach.")
@@ -177,6 +195,8 @@ class NextLessonWidget : GlanceAppWidget() {
         val WIDE = DpSize(250.dp, 110.dp)
     }
 }
+
+private const val TAG = "NextLessonWidget"
 
 class NextLessonWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = NextLessonWidget()

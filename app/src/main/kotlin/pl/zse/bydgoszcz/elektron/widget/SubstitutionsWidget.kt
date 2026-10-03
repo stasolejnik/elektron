@@ -3,20 +3,23 @@ package pl.zse.bydgoszcz.elektron.widget
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.unit.DpSize
+import android.util.Log
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.clickable
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.lazy.LazyColumn
-import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -38,13 +41,14 @@ import pl.zse.bydgoszcz.elektron.R
 
 /**
  * Widżet "Zastępstwa": nadchodzące zastępstwa klasy i grup użytkownika.
- * Dotknięcie otwiera sekcję Zastępstwa. Odświeżany po każdym syncu i pushu.
+ * Dotknięcie wiersza otwiera tę lekcję w planie (szczegóły), reszty widżetu - stronę główną.
+ * Odświeżany po każdym syncu i pushu.
  */
 class SubstitutionsWidget : GlanceAppWidget() {
 
-    override val sizeMode: SizeMode = SizeMode.Responsive(
-        setOf(DpSize(250.dp, 110.dp), DpSize(250.dp, 250.dp))
-    )
+    // Exact: LocalSize to faktyczny rozmiar widżetu (w Responsive byłby tylko jeden z progów),
+    // a od wysokości zależy, ile wierszy się zmieści.
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val load: suspend () -> Pair<SubsWidgetState, WidgetPalette> = {
@@ -86,21 +90,55 @@ class SubstitutionsWidget : GlanceAppWidget() {
                         style = TextStyle(color = WidgetColors.textSecondary, fontSize = 13.sp, textAlign = TextAlign.Center))
                 }
             } else {
-                LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
-                    items(state.items, itemId = { (it.dayLabel + it.lessonNumber + it.title).hashCode().toLong() }) { sub ->
-                        SubRow(sub)
-                    }
+                // Zwykła kolumna zamiast LazyColumn: na Androidzie 17 (Glance 1.1.0) kliknięcia
+                // wierszy listy nie docierały do aplikacji - trafiały w tło widżetu (strona
+                // główna). Zwykłe elementy mają własne PendingIntenty.
+                val height = LocalSize.current.height.value
+                val rows = SubstitutionRows.layout(height, state.items.size)
+                val shown = state.items.take(rows.shown)
+                LaunchedEffect(state.items, rows) {
+                    Log.i(TAG, "Rysuję ${shown.size} z ${state.items.size} wierszy (+${rows.more} więcej, " +
+                        "wysokość ${height.toInt()} dp): ${shown.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}")
+                }
+                Column(GlanceModifier.fillMaxWidth().defaultWeight()) {
+                    shown.forEach { SubRow(it) }
+                    if (rows.more > 0) MoreRow(rows.more)
                 }
             }
         }
     }
 
+    /** "+N więcej" - otwiera zakładkę Zastępstwa. */
+    @Composable
+    private fun MoreRow(more: Int) {
+        Box(
+            GlanceModifier.fillMaxWidth().height(32.dp)
+                .clickable(openSectionAction("substitutions"))
+                .semantics { contentDescription = "Jeszcze $more. Otwórz zakładkę Zastępstwa" },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("+$more więcej", style = TextStyle(color = WidgetColors.substitution, fontSize = 13.sp, fontWeight = FontWeight.Medium))
+        }
+    }
+
     @Composable
     private fun SubRow(sub: WidgetSubstitution) {
-        Column(GlanceModifier.fillMaxWidth().padding(bottom = 4.dp).clickable(openAppAction())) {
+        // Dotknięcie: plan na ten dzień i szczegóły lekcji. Opis dla czytnika ekranu zawiera
+        // treść wiersza (opis kontenera zastępuje odczyt tekstów w środku).
+        val description = buildString {
+            append("Lekcja ${sub.lessonNumber}, ${sub.title}, ${sub.dayLabel}, ${sub.detail}")
+            sub.note?.let { append(", $it") }
+            append(". Otwórz szczegóły lekcji")
+        }
+        Column(
+            GlanceModifier.fillMaxWidth().padding(bottom = 4.dp)
+                .clickable(openLessonAction(LocalContext.current, sub.target))
+                .semantics { contentDescription = description }
+        ) {
             Row(
+                // Wyższy wiersz (7 dp) - obszar dotyku ok. 48 dp.
                 GlanceModifier.fillMaxWidth().background(WidgetColors.substitutionContainer).cornerRadius(10.dp)
-                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                    .padding(horizontal = 8.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.Vertical.CenterVertically
             ) {
                 Text("${sub.lessonNumber}", modifier = GlanceModifier.width(22.dp),
@@ -117,6 +155,8 @@ class SubstitutionsWidget : GlanceAppWidget() {
         }
     }
 }
+
+private const val TAG = "SubstitutionsWidget"
 
 class SubstitutionsWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = SubstitutionsWidget()

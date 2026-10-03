@@ -37,7 +37,10 @@ class SystemEventsReceiver : BroadcastReceiver() {
                 // goAsync daje ok. 10 s.
                 withTimeoutOrNull(8_000) {
                     ep.scheduler().reschedule()
-                    ep.widgetUpdater().requestUpdate()
+                    // updateNow (czekamy), nie requestUpdate: tamto tylko startuje korutynę
+                    // i od razu wraca, więc po finish() proces mógł zostać zamknięty, zanim
+                    // widżety (np. z nowymi akcjami wierszy po aktualizacji) się przerysowały.
+                    ep.widgetUpdater().updateNow()
                 }
             } finally {
                 pending.finish()

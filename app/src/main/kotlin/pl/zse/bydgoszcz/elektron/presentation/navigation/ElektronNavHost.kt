@@ -42,6 +42,9 @@ import pl.zse.bydgoszcz.elektron.presentation.groups.GroupsScreen
 import pl.zse.bydgoszcz.elektron.presentation.settings.SettingsScreen
 import pl.zse.bydgoszcz.elektron.presentation.substitutions.SubstitutionsScreen
 import pl.zse.bydgoszcz.elektron.presentation.timetable.TimetableScreen
+import pl.zse.bydgoszcz.elektron.domain.model.LessonLinks
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
+import java.time.LocalDate
 import kotlin.math.abs
 
 /**
@@ -103,13 +106,20 @@ fun ElektronNavHost(
         if (index >= 0) scope.launch { animateTo(index) }
     }
 
+    // Dotknięcie zastępstwa (zakładka Zastępstwa, widżet): plan na ten dzień + szczegóły lekcji.
+    val openLesson: (LessonTarget) -> Unit = { target ->
+        timetableViewModel.openLesson(target)
+        goTo(ElektronRoutes.TIMETABLE)
+    }
+
     LaunchedEffect(deepLink) {
         deepLink?.let { link ->
             val route = routeForDeepLink(link)
             if (route != null) {
                 showGroups = false
                 showSubjects = false
-                goTo(route)
+                val lesson = LessonLinks.parseDeepLink(link, LocalDate.now())
+                if (lesson != null) openLesson(lesson) else goTo(route)
             }
             onDeepLinkConsumed()
         }
@@ -149,7 +159,7 @@ fun ElektronNavHost(
                         onOpenSubstitutions = { goTo(ElektronRoutes.SUBSTITUTIONS) }
                     )
                     ElektronRoutes.TIMETABLE -> TimetableScreen(isShown = pagerState.settledPage == page)
-                    ElektronRoutes.SUBSTITUTIONS -> SubstitutionsScreen()
+                    ElektronRoutes.SUBSTITUTIONS -> SubstitutionsScreen(onOpenLesson = openLesson)
                     ElektronRoutes.ANNOUNCEMENTS -> AnnouncementsScreen()
                     ElektronRoutes.SETTINGS -> SettingsScreen(
                         onOpenGroups = { showGroups = true },
@@ -188,8 +198,17 @@ fun ElektronNavHost(
     }
 }
 
-/** Deep link ("dashboard", "timetable", ...) -> trasa sekcji; null dla nieznanych/pustych. */
-private fun routeForDeepLink(link: String?): String? = when (link) {
+/**
+ * Deep link ("dashboard", "timetable", ..., "lesson/<epochDay>/<numer>") -> trasa sekcji;
+ * null dla nieznanych/pustych i błędnych linków lekcji.
+ */
+private fun routeForDeepLink(link: String?): String? = when {
+    LessonLinks.isLessonDeepLink(link) ->
+        if (LessonLinks.parseDeepLink(link, LocalDate.now()) != null) ElektronRoutes.TIMETABLE else null
+    else -> sectionRoute(link)
+}
+
+private fun sectionRoute(link: String?): String? = when (link) {
     "dashboard" -> ElektronRoutes.DASHBOARD
     "timetable" -> ElektronRoutes.TIMETABLE
     "substitutions" -> ElektronRoutes.SUBSTITUTIONS

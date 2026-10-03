@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import android.util.Log
+
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
@@ -20,6 +22,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
@@ -58,6 +61,8 @@ data class WidgetLesson(
 
 /** Zastępstwo przygotowane do widżetu. */
 data class WidgetSubstitution(
+    /** Dzień i numer lekcji - dotknięcie wiersza otwiera tę lekcję w planie. */
+    val target: LessonTarget,
     val dayLabel: String,
     val lessonNumber: Int,
     val title: String,
@@ -81,6 +86,8 @@ sealed interface WidgetState {
         val className: String?,
         /** "Dziś", "Jutro" albo nazwa dnia tygodnia. */
         val dayLabel: String,
+        /** Data pokazywanego dnia (cel dotknięcia lekcji - także gdy to jutro). */
+        val date: LocalDate,
         /** Wszystkie lekcje wyświetlanego dnia (po filtrze grup). */
         val lessons: List<WidgetLesson>,
         /** Indeks lekcji trwającej lub najbliższej w [lessons]. */
@@ -102,6 +109,20 @@ sealed interface WidgetState {
         val focus: WidgetLesson get() = lessons[focusIndex]
         val following: WidgetLesson? get() = lessons.getOrNull(focusIndex + 1)
     }
+}
+
+/** Cele dotknięcia w widżetach planu (czysta logika, testowalna). */
+object WidgetTargets {
+    /** Lekcja [index] ze stanu [state] (data pokazywanego dnia + numer); null bez lekcji. */
+    fun lesson(state: WidgetState, index: Int): LessonTarget? {
+        val ready = state as? WidgetState.Ready ?: return null
+        val lesson = ready.lessons.getOrNull(index) ?: return null
+        return LessonTarget(ready.date, lesson.number)
+    }
+
+    /** Lekcja pokazywana w widżecie Następna lekcja (trwająca albo najbliższa). */
+    fun focus(state: WidgetState): LessonTarget? =
+        (state as? WidgetState.Ready)?.let { lesson(it, it.focusIndex) }
 }
 
 object WidgetDataLoader {
@@ -175,6 +196,7 @@ object WidgetDataLoader {
         return WidgetState.Ready(
             className = className,
             dayLabel = dayLabel(day, today),
+            date = day,
             lessons = dayLessons.map { toWidgetLesson(it, styles, look) },
             focusIndex = focusIndex,
             focusIsNow = focusIsNow,
@@ -213,6 +235,7 @@ object WidgetDataLoader {
             .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
             .map { s ->
                 WidgetSubstitution(
+                    target = LessonTarget(s.date, s.lessonNumber),
                     dayLabel = dayLabel(s.date, today),
                     lessonNumber = s.lessonNumber,
                     title = SubstitutionDisplay.headline(s),
@@ -220,6 +243,8 @@ object WidgetDataLoader {
                     note = SubstitutionDisplay.notes(s)
                 )
             }.toList()
+        // Diagnostyka (raport "Zgłoś problem"): czy widżet miał wiersze i jakie cele.
+        Log.i("SubstitutionsWidget", "Stan: ${subs.size} zastępstw: ${subs.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}")
         return SubsWidgetState.Ready(ClassNames.clean(short), subs)
     }
 

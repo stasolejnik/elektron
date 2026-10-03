@@ -8,6 +8,7 @@ import org.junit.Test
 import pl.zse.bydgoszcz.elektron.domain.model.DayOfWeek
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroup
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -127,5 +128,66 @@ class WidgetStateTest {
         val st = WidgetDataLoader.buildState(lessons, LocalDateTime.of(friday, LocalTime.of(10, 48))) as WidgetState.Ready
         assertEquals(5, st.focus.number)
         assertNull(st.breakFrom)
+    }
+
+    @Test
+    fun lessonWithoutGroupsTeacherOrRoomDoesNotBreakWidget() {
+        val bare = listOf(
+            Lesson("a", "o3", "", friday, DayOfWeek.PIATEK, 1, LocalTime.of(8, 0), LocalTime.of(8, 45),
+                emptyList(), null, null),
+            Lesson("b", "o3", "", friday, DayOfWeek.PIATEK, 2, LocalTime.of(8, 55), LocalTime.of(9, 40),
+                emptyList(), "Wycieczka", null),
+            Lesson("c", "o3", "", friday, DayOfWeek.PIATEK, 3, LocalTime.of(9, 50), LocalTime.of(10, 35),
+                listOf(LessonGroup(null, null, null, null, null, null, null, null)), null, null)
+        )
+        val st = WidgetDataLoader.buildState(bare, LocalDateTime.of(friday, LocalTime.of(7, 0))) as WidgetState.Ready
+        assertEquals(listOf("Lekcja", "Wycieczka", "Lekcja"), st.lessons.map { it.title })
+        assertEquals(listOf<String?>(null, null, null), st.lessons.map { it.room })
+        // Pusta baza / brak planu - komunikat zamiast awarii.
+        assertTrue(WidgetDataLoader.buildState(emptyList(), LocalDateTime.of(friday, LocalTime.of(7, 0))) is WidgetState.NoLessons)
+    }
+
+    // Cel dotknięcia: data POKAZYWANEGO dnia i numer lekcji.
+
+    @Test
+    fun targetDuringLessonIsCurrentLesson() {
+        val st = at(friday, "11:00")
+        assertEquals(LessonTarget(friday, 4), WidgetTargets.focus(st))
+    }
+
+    @Test
+    fun targetDuringBreakIsNextLesson() {
+        val st = at(friday, "11:35")
+        assertEquals(LessonTarget(friday, 5), WidgetTargets.focus(st))
+    }
+
+    @Test
+    fun targetBeforeLessonsToday() {
+        assertEquals(LessonTarget(friday, 3), WidgetTargets.focus(at(friday, "07:00")))
+    }
+
+    @Test
+    fun targetOfNextDayLessonHasThatDaysDate() {
+        // Piątek po lekcjach: widżet pokazuje poniedziałek - cel to poniedziałek, nie dziś.
+        val st = at(friday, "15:00")
+        assertEquals(LessonTarget(monday, 1), WidgetTargets.focus(st))
+        assertEquals(LessonTarget(monday, 1), WidgetTargets.lesson(st, 0))
+    }
+
+    @Test
+    fun rowTargetsForDayPlan() {
+        val st = at(friday, "07:00")
+        assertEquals(listOf(3, 4, 5), (0..2).map { WidgetTargets.lesson(st, it)?.lessonNumber })
+        assertTrue((0..2).all { WidgetTargets.lesson(st, it)?.date == friday })
+        assertNull(WidgetTargets.lesson(st, 3))
+        assertNull(WidgetTargets.lesson(st, -1))
+    }
+
+    @Test
+    fun noTargetWithoutLessons() {
+        val empty = WidgetDataLoader.buildState(emptyList(), LocalDateTime.of(friday, LocalTime.of(7, 0)))
+        assertNull(WidgetTargets.focus(empty))
+        assertNull(WidgetTargets.lesson(empty, 0))
+        assertNull(WidgetTargets.focus(WidgetState.NoClass))
     }
 }

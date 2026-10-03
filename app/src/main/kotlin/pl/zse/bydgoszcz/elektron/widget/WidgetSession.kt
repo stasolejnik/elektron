@@ -11,6 +11,8 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import android.util.Log
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 
 /**
  * Wersja danych widżetów. Glance przez pewien czas po odświeżeniu trzyma otwartą sesję
@@ -41,7 +43,11 @@ fun <T> rememberLiveWidgetData(initial: WidgetSnapshot<T>, load: suspend () -> T
     LaunchedEffect(version) {
         if (version != loadedVersion) {
             val v = version
-            data = load()
+            // Błąd odczytu (np. baza chwilowo niedostępna) - zostają ostatnie dane. Dawniej
+            // wyjątek wywracał sesję widżetu i Glance pokazywał "Nie można wczytać widżetu".
+            runCatchingCancellable { load() }
+                .onSuccess { data = it }
+                .onFailure { Log.w("WidgetSession", "Nie udało się odświeżyć danych widżetu", it) }
             loadedVersion = v
         }
     }

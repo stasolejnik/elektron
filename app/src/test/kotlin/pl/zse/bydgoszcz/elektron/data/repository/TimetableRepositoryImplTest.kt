@@ -143,4 +143,33 @@ class TimetableRepositoryImplTest {
         repoWithPlan("nowy", monday.plusDays(4)).syncTimetable("o3", monday)
         assertEquals("nowy", subjectOn(monday))
     }
+
+    @Test
+    fun unreadableTimesKeepSavedPlanAndFail() = runTest {
+        // Wszystkie lekcje bez czytelnej godziny = zmieniony układ strony. Mapper je pomija,
+        // więc bez tej ochrony zapisany plan zostałby skasowany i zastąpiony pustym.
+        repo.syncTimetable("o3", monday)
+        val broken = TimetableRepositoryImpl(object : TimetableSource {
+            override suspend fun fetchSidebar() = emptyList<ClassListItemDto>()
+            override suspend fun fetchTimetable(classId: String) = TimetableDto(
+                classId = classId, className = "1D 1D PBŚ", generatedAt = null, validFrom = null,
+                lessons = listOf(LessonCellDto(1, "", "", 1, listOf(LessonGroupDto("mat", "Ch", null, "105", null, null, null)), null))
+            )
+        }, db.schoolClassDao(), db.teacherDao(), db.roomDao(), db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+
+        val result = broken.syncTimetable("o3", monday)
+        assertTrue(result.exceptionOrNull() is SchoolPageChangedException)
+        assertTrue(repo.hasLessons("o3", monday, monday.plusDays(4)))
+    }
+
+    @Test
+    fun storedLessonWithUnreadableTimeIsSkipped() = runTest {
+        // Lekcja zapisana dawniej z pustą godziną (pokazywana jako 00:00) - pomijana przy odczycie.
+        fun lesson(number: Int, from: String, to: String) = pl.zse.bydgoszcz.elektron.data.local.LessonEntity(
+            id = "o3|${monday.toEpochDay()}|$number", classId = "o3", className = "1D", dateEpochDay = monday.toEpochDay(),
+            dayOfWeekIso = 1, number = number, timeFrom = from, timeTo = to, note = null
+        )
+        db.lessonDao().upsertAll(listOf(lesson(1, "08:00", "08:45"), lesson(2, "", ""), lesson(3, "10:00", "xx")))
+        assertEquals(listOf(1), repo.getLessonsOnce("o3", monday, monday).map { it.number })
+    }
 }

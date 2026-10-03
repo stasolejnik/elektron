@@ -4,6 +4,39 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [Niewydane]
+
+### Dodane
+- Dotknięcie zastępstwa w zakładce Zastępstwa albo w widżecie Zastępstwa otwiera plan na dzień
+  tego zastępstwa i od razu szczegóły tej lekcji (gdy lekcja jest w Twoim planie po wyborze grup;
+  zastępstwo innej grupy otwiera sam plan na ten dzień).
+- Widżet Następna lekcja: dotknięcie otwiera plan i szczegóły pokazywanej lekcji (także
+  jutrzejszej). Widżet Plan dnia: dotknięcie lekcji otwiera jej szczegóły, a nagłówka z nazwą
+  dnia zakładkę Plan.
+
+### Zmienione
+- Szczegóły lekcji otwierają się od razu w całości (dawniej przy zastępstwie okno otwierało się
+  do połowy i trzeba było je rozwijać). Gdy treść się nie mieści, przewija się w oknie.
+- Każda synchronizacja (w tle, po wyborze klasy, z przycisków odświeżania) przechodzi przez
+  jedno miejsce: równoczesne odświeżenia nie pobierają danych dwa razy i nie dublują powiadomień.
+
+### Naprawione
+- Lekcja z nieczytelną godziną na stronie planu jest pomijana (dawniej dostawała 00:00, co psuło
+  dzień startowy planu, przypomnienia i „Trwa teraz”). Gdy nieczytelne są wszystkie godziny,
+  zapisany plan zostaje, a odświeżenie kończy się komunikatem o zmianie strony szkoły.
+- Kodowanie znaków podane w nagłówku w cudzysłowie (`charset="ISO-8859-2"`) jest rozpoznawane.
+- Plan lekcji trzyma w pamięci tylko ostatnio oglądane tygodnie (dawniej każdy przewinięty
+  tydzień zostawał w pamięci do zamknięcia aplikacji).
+- Aktualizacja z GitHuba: komunikat po polsku także przy braku sieci albo miejsca w telefonie;
+  brak instalatora plików nie wywraca aplikacji.
+- Widżety zostawiają ostatnie dane, gdy odświeżenie chwilowo się nie uda (dawniej komunikat
+  „Nie można wczytać widżetu”).
+- Brak usług push na telefonie nie wywraca aplikacji przy starcie (wersja z GitHuba).
+- Widżet Zastępstwa: dotknięcie wiersza otwiera szczegóły lekcji (dawniej kliknięcie trafiało
+  w tło widżetu i otwierało stronę główną). Widżet pokazuje tyle zastępstw, ile mieści się
+  w jego wysokości, a resztę jako „+N więcej” (otwiera zakładkę Zastępstwa). Po aktualizacji
+  aplikacji widżety przerysowują się od razu.
+
 ## [1.0.0-rc2] - 2026-10-03 (21)
 
 Druga wersja kandydująca do 1.0.0: poprawki stabilności, zastępstw dla grup i odświeżania danych.

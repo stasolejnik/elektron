@@ -78,6 +78,11 @@ class TimetableRepositoryImpl @Inject constructor(
                     lessons += l
                     groups += g
                 }
+                // Są lekcje, ale żadna nie ma czytelnej godziny (mapper je pomija) - to zmiana
+                // układu strony, nie pusty plan: zapisany plan zostaje, sync kończy się błędem.
+                if (lessons.isEmpty() && dto.lessons.any { it.groups.isNotEmpty() || it.note != null }) {
+                    throw SchoolPageChangedException("plan lekcji")
+                }
                 val toDay = monday.plusWeeks(WEEKS_AHEAD.toLong()).minusDays(1).toEpochDay()
                 // Nowy plan opublikowany z wyprzedzeniem ("Obowiązuje od: 06.10" w piątek):
                 // dni przed tą datą zachowują dotychczasowy plan. Dawniej nowy plan trafiał od
@@ -148,7 +153,7 @@ class TimetableRepositoryImpl @Inject constructor(
         val groupEntities = lessonGroupDao.getForLessons(ids)
         val groupsByLesson = groupEntities.groupBy { it.lessonId }
         val subs = subEntities.map(SubstitutionMapper::toDomain)
-        val raw = lessonEntities.map { le ->
+        val raw = lessonEntities.mapNotNull { le ->
             TimetableMapper.toDomain(le, groupsByLesson[le.id].orEmpty(), subs)
         }
         return enrichWithTeacherNames(raw)

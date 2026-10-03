@@ -17,7 +17,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -55,8 +56,9 @@ class ApkUpdateInstaller @Inject constructor(
     override val state: StateFlow<InstallState> = _state.asStateFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var job: Job? = null
-    private var ready: Pair<File, String>? = null   // pobrany plik i jego wersja
+    // @Volatile: start()/install() wołane z wątku UI, a pobieranie kończy się na wątku IO.
+    @Volatile private var job: Job? = null
+    @Volatile private var ready: Pair<File, String>? = null   // pobrany plik i jego wersja
 
     private val dir: File get() = File(context.cacheDir, "updates")
 
@@ -79,13 +81,18 @@ class ApkUpdateInstaller @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Aktualizacja nie powiodła się", e)
-                _state.value = InstallState.Failed(e.message ?: "Nie udało się pobrać aktualizacji.")
+                // Własne komunikaty po polsku; reszta (brak sieci, brak miejsca w telefonie) -
+                // dawniej surowy angielski tekst wyjątku, np. "ENOSPC (No space left on device)".
+                _state.value = InstallState.Failed(
+                    (e as? UpdateException)?.message
+                        ?: "Nie udało się pobrać aktualizacji. Sprawdź połączenie z internetem i wolne miejsce w telefonie."
+                )
                 runCatching { dir.listFiles()?.forEach { it.delete() } }
             }
         }
     }
 
-    private fun download(update: AppUpdate, url: String): File {
+    private suspend fun download(update: AppUpdate, url: String): File {
         dir.mkdirs()
         dir.listFiles()?.forEach { it.delete() }          // stare pobrania
         val part = File(dir, "download.part")
@@ -93,8 +100,8 @@ class ApkUpdateInstaller @Inject constructor(
         val digest = MessageDigest.getInstance("SHA-256")
 
         http.newCall(Request.Builder().url(url).get().build()).execute().use { resp ->
-            if (!resp.isSuccessful) throw IOException("Serwer GitHuba odpowiedział błędem (HTTP ${resp.code}).")
-            val body = resp.body ?: throw IOException("Pusta odpowiedź serwera.")
+            if (!resp.isSuccessful) throw UpdateException("Serwer GitHuba odpowiedział błędem (HTTP ${resp.code}).")
+            val body = resp.body ?: throw UpdateException("Pusta odpowiedź serwera.")
             val total = body.contentLength().takeIf { it > 0 } ?: update.sizeBytes.takeIf { it > 0 }
             var done = 0L
             var lastPercent = -1
@@ -102,7 +109,8 @@ class ApkUpdateInstaller @Inject constructor(
                 part.outputStream().use { out ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
-                        if (!scope.isActive) throw CancellationException()
+                        // Przerwanie pracy (dawniej sprawdzany był zakres, którego nic nie anuluje).
+                        currentCoroutineContext().ensureActive()
                         val n = input.read(buf)
                         if (n < 0) break
                         out.write(buf, 0, n)
@@ -123,18 +131,18 @@ class ApkUpdateInstaller @Inject constructor(
         val sha = digest.digest().joinToString("") { "%02x".format(it) }
         if (update.sha256 != null && !sha.equals(update.sha256, ignoreCase = true)) {
             part.delete()
-            throw IOException("Pobrany plik jest uszkodzony (inna suma SHA-256). Spróbuj ponownie.")
+            throw UpdateException("Pobrany plik jest uszkodzony (inna suma SHA-256). Spróbuj ponownie.")
         }
         val info = context.packageManager.getPackageArchiveInfo(part.path, 0)
         if (info == null || info.packageName != context.packageName) {
             part.delete()
-            throw IOException("Pobrany plik nie jest aplikacją eLektron.")
+            throw UpdateException("Pobrany plik nie jest aplikacją eLektron.")
         }
         if (PackageInfoCompat.getLongVersionCode(info) <= BuildConfig.VERSION_CODE) {
             part.delete()
-            throw IOException("Pobrany plik nie zawiera nowszej wersji.")
+            throw UpdateException("Pobrany plik nie zawiera nowszej wersji.")
         }
-        if (!part.renameTo(target)) throw IOException("Nie udało się zapisać pliku.")
+        if (!part.renameTo(target)) throw UpdateException("Nie udało się zapisać pliku.")
         return target
     }
 
@@ -153,7 +161,13 @@ class ApkUpdateInstaller @Inject constructor(
             runCatching { context.startActivity(settings) }
             return
         }
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
+        // FileProvider rzuca wyjątek (zamiast zwrócić null), gdy dostawca jest niedostępny.
+        val uri = runCatching { FileProvider.getUriForFile(context, "${context.packageName}.updates", file) }
+            .getOrElse {
+                Log.w(TAG, "FileProvider niedostępny", it)
+                _state.value = InstallState.Failed("Nie udało się otworzyć instalatora.")
+                return
+            }
         val intent = Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -169,6 +183,9 @@ class ApkUpdateInstaller @Inject constructor(
             (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls())
         ) install()
     }
+
+    /** Błąd z komunikatem dla użytkownika (po polsku). */
+    private class UpdateException(message: String) : IOException(message)
 
     private companion object {
         const val TAG = "ApkUpdateInstaller"

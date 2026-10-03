@@ -18,4 +18,14 @@ object ClassNames {
     }
 
     fun cleanNonNull(raw: String): String = clean(raw) ?: raw
+
+    /**
+     * Skrót klasy ("1D") z nazwy oddziału ("1D 1D PBŚ", "1D PBŚ", "5B") - pierwsze słowo.
+     * Jedno miejsce dla listy klas i dopasowania zastępstw do lekcji (dawniej liczone osobno,
+     * w planie dodatkowo obcinane do 2 znaków). Zastępstwa mają skrót w tej samej postaci.
+     */
+    fun shortName(name: String): String {
+        val trimmed = name.trim()
+        return trimmed.split(WS).first().ifEmpty { trimmed }
+    }
 }
