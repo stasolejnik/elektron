@@ -4,7 +4,13 @@ import android.app.AlarmManager
 import android.content.Context
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -39,6 +45,7 @@ import java.time.LocalDate
  * przelicza przypomnienie - dawniej czekało to na najbliższy sync w tle, więc np. zwolnienie
  * z lekcji było widać w aplikacji, a przypomnienie o tej lekcji i tak przychodziło.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class SubstitutionsRefreshTest {
@@ -47,8 +54,16 @@ class SubstitutionsRefreshTest {
     private lateinit var db: AppDatabase
     private val settings = FakeSettings(reminders = ReminderSettings(ReminderMode.EVERY, 10))
 
-    @Before fun setUp() { db = inMemoryDb() }
-    @After fun tearDown() = db.close()
+    @Before fun setUp() {
+        // viewModelScope bez kolejki głównego wątku Robolectric - korutyna rusza od razu.
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        db = inMemoryDb()
+    }
+
+    @After fun tearDown() {
+        db.close()
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun manualRefreshReschedulesReminder() {
@@ -63,8 +78,8 @@ class SubstitutionsRefreshTest {
         val repo = SubstitutionsRepositoryImpl(object : SubstitutionsSource {
             override suspend fun fetchSubstitutions() = emptyList<SubstitutionDto>()
         }, db.substitutionDao(), db)
-        val vm = SubstitutionsViewModel(repo, settings, timetableRepo,
-            NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao()),
+        val notificationsRepo = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
+        val vm = SubstitutionsViewModel(repo, settings, timetableRepo, notificationsRepo,
             WidgetUpdater(context), LessonReminderScheduler(context, settings, timetableRepo))
         val am = shadowOf(context.getSystemService(AlarmManager::class.java))
         assertNull(am.nextScheduledAlarm)
@@ -75,6 +90,8 @@ class SubstitutionsRefreshTest {
             shadowOf(Looper.getMainLooper()).idle()
             Thread.sleep(20)
         }
-        assertNotNull(am.nextScheduledAlarm)
+        val loaded = runBlocking { notificationsRepo.observeLoadedResources().first() }
+        assertNotNull("Brak alarmu po odświeżeniu (odświeżenie zakończone: ${"subs" in loaded}, " +
+            "odświeżanie trwa: ${vm.isRefreshing.value})", am.nextScheduledAlarm)
     }
 }
