@@ -133,8 +133,8 @@ class AnnouncementsViewModel @Inject constructor(
             } finally {
                 // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
                 // a nie dopiero po najbliższym syncu w tle.
-                widgetUpdater.requestUpdate()
                 reminders.requestReschedule()
+                widgetUpdater.requestUpdate()
                 // Dawniej bez try/finally — wyjątek zostawiał wieczny spinner odświeżania.
                 refreshing.value = false
             }

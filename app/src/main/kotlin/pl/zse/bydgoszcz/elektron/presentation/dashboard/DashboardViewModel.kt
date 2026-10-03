@@ -313,8 +313,8 @@ class DashboardViewModel @Inject constructor(
             } finally {
                 // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
                 // a nie dopiero po najbliższym syncu w tle.
-                widgetUpdater.requestUpdate()
                 reminders.requestReschedule()
+                widgetUpdater.requestUpdate()
                 refreshing.value = false
             }
         }
