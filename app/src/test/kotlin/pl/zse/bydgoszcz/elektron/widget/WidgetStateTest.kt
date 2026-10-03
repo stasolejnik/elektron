@@ -128,4 +128,21 @@ class WidgetStateTest {
         assertEquals(5, st.focus.number)
         assertNull(st.breakFrom)
     }
+
+    @Test
+    fun lessonWithoutGroupsTeacherOrRoomDoesNotBreakWidget() {
+        val bare = listOf(
+            Lesson("a", "o3", "", friday, DayOfWeek.PIATEK, 1, LocalTime.of(8, 0), LocalTime.of(8, 45),
+                emptyList(), null, null),
+            Lesson("b", "o3", "", friday, DayOfWeek.PIATEK, 2, LocalTime.of(8, 55), LocalTime.of(9, 40),
+                emptyList(), "Wycieczka", null),
+            Lesson("c", "o3", "", friday, DayOfWeek.PIATEK, 3, LocalTime.of(9, 50), LocalTime.of(10, 35),
+                listOf(LessonGroup(null, null, null, null, null, null, null, null)), null, null)
+        )
+        val st = WidgetDataLoader.buildState(bare, LocalDateTime.of(friday, LocalTime.of(7, 0))) as WidgetState.Ready
+        assertEquals(listOf("Lekcja", "Wycieczka", "Lekcja"), st.lessons.map { it.title })
+        assertEquals(listOf<String?>(null, null, null), st.lessons.map { it.room })
+        // Pusta baza / brak planu - komunikat zamiast awarii.
+        assertTrue(WidgetDataLoader.buildState(emptyList(), LocalDateTime.of(friday, LocalTime.of(7, 0))) is WidgetState.NoLessons)
+    }
 }

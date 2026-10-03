@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.remote.parser
 
+import pl.zse.bydgoszcz.elektron.domain.model.ClassNames
 import android.util.Log
 import org.jsoup.nodes.Document
 import pl.zse.bydgoszcz.elektron.data.remote.dto.ClassListItemDto
@@ -33,7 +34,7 @@ object OptivumListaParser {
             val rawDisplay = a.text().trim()
             if (rawDisplay.isBlank()) continue
             val display = sanitizeDisplay(rawDisplay)
-            val short = display.substringBefore(' ').takeIf { it.isNotBlank() } ?: display
+            val short = ClassNames.shortName(display)
             val absolute = if (href.startsWith("http")) href else "$base/$href"
             result += ClassListItemDto(id, kind, display, short, absolute)
         }

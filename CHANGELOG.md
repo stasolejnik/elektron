@@ -14,6 +14,21 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 ### Zmienione
 - Szczegóły lekcji otwierają się od razu w całości (dawniej przy zastępstwie okno otwierało się
   do połowy i trzeba było je rozwijać). Gdy treść się nie mieści, przewija się w oknie.
+- Każda synchronizacja (w tle, po wyborze klasy, z przycisków odświeżania) przechodzi przez
+  jedno miejsce: równoczesne odświeżenia nie pobierają danych dwa razy i nie dublują powiadomień.
+
+### Naprawione
+- Lekcja z nieczytelną godziną na stronie planu jest pomijana (dawniej dostawała 00:00, co psuło
+  dzień startowy planu, przypomnienia i „Trwa teraz”). Gdy nieczytelne są wszystkie godziny,
+  zapisany plan zostaje, a odświeżenie kończy się komunikatem o zmianie strony szkoły.
+- Kodowanie znaków podane w nagłówku w cudzysłowie (`charset="ISO-8859-2"`) jest rozpoznawane.
+- Plan lekcji trzyma w pamięci tylko ostatnio oglądane tygodnie (dawniej każdy przewinięty
+  tydzień zostawał w pamięci do zamknięcia aplikacji).
+- Aktualizacja z GitHuba: komunikat po polsku także przy braku sieci albo miejsca w telefonie;
+  brak instalatora plików nie wywraca aplikacji.
+- Widżety zostawiają ostatnie dane, gdy odświeżenie chwilowo się nie uda (dawniej komunikat
+  „Nie można wczytać widżetu”).
+- Brak usług push na telefonie nie wywraca aplikacji przy starcie (wersja z GitHuba).
 
 ## [1.0.0-rc2] - 2026-10-03 (21)
 

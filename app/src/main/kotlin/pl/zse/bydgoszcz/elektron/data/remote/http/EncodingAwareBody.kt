@@ -31,13 +31,16 @@ object EncodingAwareBody {
         else Jsoup.parse(text, baseUri)
     }
 
-    private fun extractCharsetFromHeader(contentType: String): Charset? {
-        val m = Regex("charset=([\\w\\-]+)", RegexOption.IGNORE_CASE).find(contentType)
-            ?: return null
-        return runCatching { Charset.forName(m.groupValues[1].trim('"', '\'')) }.getOrNull()
+    // Wartość także w cudzysłowie (charset="ISO-8859-2") - dawniej taki nagłówek był pomijany
+    // (wzorzec nie dopuszczał cudzysłowu), więc kodowanie zgadywane było dopiero z <meta>.
+    private val HEADER_CHARSET = Regex("charset\\s*=\\s*[\"']?([\\w\\-.:]+)", RegexOption.IGNORE_CASE)
+
+    internal fun extractCharsetFromHeader(contentType: String): Charset? {
+        val m = HEADER_CHARSET.find(contentType) ?: return null
+        return runCatching { Charset.forName(m.groupValues[1]) }.getOrNull()
     }
 
-    private fun sniffCharsetFromHtml(bytes: ByteArray): Charset? {
+    internal fun sniffCharsetFromHtml(bytes: ByteArray): Charset? {
         val head = bytes.copyOfRange(0, minOf(4096, bytes.size))
         val ascii = String(head, Charsets.ISO_8859_1)
         val m = Regex("<meta[^>]+charset=[\"']?([\\w\\-]+)", RegexOption.IGNORE_CASE).find(ascii)

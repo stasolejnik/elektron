@@ -31,4 +31,14 @@ class ClassNamesTest {
         assertEquals("5J", ClassNames.clean("5J"))
         assertEquals("1D", ClassNames.clean("1D 1D"))
     }
+
+    @Test
+    fun shortNameIsFirstWord() {
+        // Ten sam skrót co w zastępstwach ("1D") - dla listy klas i dopasowania zastępstw do lekcji.
+        for (raw in realNames) assertEquals(raw, raw.substring(0, 2), ClassNames.shortName(raw))
+        assertEquals("1D", ClassNames.shortName("  1D   PBŚ "))
+        assertEquals("1D", ClassNames.shortName("1D"))
+        assertEquals("", ClassNames.shortName(""))
+        assertEquals("", ClassNames.shortName("   "))
+    }
 }

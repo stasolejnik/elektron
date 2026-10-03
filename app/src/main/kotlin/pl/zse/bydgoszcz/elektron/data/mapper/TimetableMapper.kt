@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.mapper
 
+import android.util.Log
 import pl.zse.bydgoszcz.elektron.data.local.LessonEntity
 import pl.zse.bydgoszcz.elektron.data.local.LessonGroupEntity
 import pl.zse.bydgoszcz.elektron.data.remote.dto.TimetableDto
@@ -13,6 +14,10 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 object TimetableMapper {
+    private const val TAG = "TimetableMapper"
+
+    /** Godzina z planu ("08:00", parser zapisuje HH:mm); null, gdy nieczytelna. */
+    private fun parseTime(raw: String): LocalTime? = runCatching { LocalTime.parse(raw) }.getOrNull()
 
     /**
      * Konwersja DTO → Entity. Pomija komórki bez grup i bez notki
@@ -25,6 +30,12 @@ object TimetableMapper {
         for (cell in dto.lessons) {
             if (cell.dayIndex !in 1..5) continue
             if (cell.groups.isEmpty() && cell.note == null) continue
+            // Bez czytelnej godziny lekcja nie trafia do bazy: dawniej dostawała 00:00, co psuło
+            // "po lekcjach" (dzień startowy planu), przypomnienia i "Trwa teraz".
+            if (parseTime(cell.timeFrom) == null || parseTime(cell.timeTo) == null) {
+                Log.w(TAG, "Pomijam lekcję ${dto.classId} dzień=${cell.dayIndex} nr=${cell.number}: nieczytelna godzina '${cell.timeFrom}'-'${cell.timeTo}'")
+                continue
+            }
             val date = weekStartMonday.plusDays((cell.dayIndex - 1).toLong())
             val lessonId = buildLessonId(dto.classId, date, cell.number)
             lessons += LessonEntity(
@@ -60,12 +71,17 @@ object TimetableMapper {
         lesson: LessonEntity,
         groups: List<LessonGroupEntity>,
         substitutions: List<Substitution>
-    ): Lesson {
+    ): Lesson? {
         val date = LocalDate.ofEpochDay(lesson.dateEpochDay)
         val dow = DayOfWeek.fromIso(lesson.dayOfWeekIso) ?: DayOfWeek.PONIEDZIALEK
-        val from = runCatching { LocalTime.parse(lesson.timeFrom) }.getOrDefault(LocalTime.MIN)
-        val to = runCatching { LocalTime.parse(lesson.timeTo) }.getOrDefault(LocalTime.MIN)
-        val classShort = lesson.className.substringBefore(' ').take(2)
+        // Lekcja zapisana przed tą poprawką z nieczytelną godziną - pomijana jak przy zapisie.
+        val from = parseTime(lesson.timeFrom)
+        val to = parseTime(lesson.timeTo)
+        if (from == null || to == null) {
+            Log.w(TAG, "Pomijam lekcję ${lesson.id}: nieczytelna godzina '${lesson.timeFrom}'-'${lesson.timeTo}'")
+            return null
+        }
+        val classShort = ClassNames.shortName(lesson.className)
         // Wszystkie zastępstwa tej lekcji (osobne dla grup, np. "3 A(1)" i "3 A(2)"). Dawniej
         // brane było pierwsze z brzegu bez patrzenia na numer grupy.
         val candidates = substitutions.filter {

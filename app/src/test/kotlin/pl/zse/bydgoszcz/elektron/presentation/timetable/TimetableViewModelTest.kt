@@ -17,7 +17,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,11 +55,14 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.DayOfWeek as JavaDayOfWeek
 
-/** Dotknięcie zastępstwa: plan na ten dzień i (jednorazowo) szczegóły lekcji, gdy jest w planie. */
+/**
+ * Dotknięcie zastępstwa: plan na ten dzień i (jednorazowo) szczegóły lekcji, gdy jest w planie.
+ * Bufor tygodni planu.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
-class OpenLessonTest {
+class TimetableViewModelTest {
 
     /** Plan w pamięci; hasLessons = true, więc ViewModel niczego nie pobiera. */
     private class FakeTimetable : TimetableRepository {
@@ -197,5 +202,16 @@ class OpenLessonTest {
         advanceUntilIdle()
         assertNull(vm.lessonDetails.value)
         assertEquals(day, vm.currentAnchor)
+    }
+
+    @Test
+    fun weekCacheKeepsOnlyRecentWeeks() = runTest(dispatcher) {
+        val vm = viewModel()
+        val monday = day.with(JavaDayOfWeek.MONDAY)
+        val first = vm.week(monday)
+        assertSame(first, vm.week(monday)) // ten sam tydzień - z bufora
+        for (i in 1..TimetableViewModel.WEEK_CACHE_SIZE) vm.week(monday.plusWeeks(i.toLong()))
+        assertNotSame(first, vm.week(monday)) // najdawniej oglądany wypadł z bufora
+        assertSame(vm.week(monday.plusWeeks(12)), vm.week(monday.plusWeeks(12)))
     }
 }

@@ -137,7 +137,15 @@ class TimetableViewModel @Inject constructor(
         State(selectedClassId = cid, mode = m, anchorDate = day, isRefreshing = r)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State(anchorDate = baseDate))
 
-    private val weekCache = HashMap<LocalDate, StateFlow<List<DayColumn>?>>()
+    /**
+     * Ostatnio oglądane tygodnie (LRU, najwyżej [WEEK_CACHE_SIZE]). Dawniej HashMap rosła bez
+     * końca przy przewijaniu planu - każdy obejrzany tydzień zostawał w pamięci na zawsze.
+     * Usunięty tydzień, jeśli wciąż jest na ekranie, działa dalej (jest tylko poza buforem).
+     */
+    private val weekCache = object : LinkedHashMap<LocalDate, StateFlow<List<DayColumn>?>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<LocalDate, StateFlow<List<DayColumn>?>>?) =
+            size > WEEK_CACHE_SIZE
+    }
 
     /**
      * Lekcje tygodnia od [monday] (po filtrze grup). null = jeszcze nie wczytane.
@@ -325,6 +333,8 @@ class TimetableViewModel @Inject constructor(
         private const val RETURN_RESET_MS = 3 * 60_000L
         /** Jak długo czekać na plan przed otwarciem szczegółów lekcji (potem bez okna). */
         const val LESSON_WAIT_MS = 5_000L
+        /** Ile tygodni planu trzymać w buforze [week]. */
+        const val WEEK_CACHE_SIZE = 12
         /** Jak długo dzień otwartej lekcji ma pierwszeństwo przed dniem startowym. */
         private const val PIN_MS = 3_000L
 

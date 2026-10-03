@@ -38,7 +38,7 @@ class SubstitutionGroupsTest {
         val groups = listOf("inf-1/2", "inf-2/2").mapIndexed { i, subject ->
             LessonGroupEntity(entity.id, i, subject, "Bz", null, null, "22${i + 1}", null, null, null)
         }
-        return TimetableMapper.toDomain(entity, groups, subs)
+        return TimetableMapper.toDomain(entity, groups, subs)!!
     }
 
     private fun roomFor(group: String, lesson: Lesson) =
