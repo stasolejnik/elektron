@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.semantics.contentDescription
 import androidx.glance.semantics.semantics
@@ -109,7 +110,7 @@ class SubstitutionsWidget : GlanceAppWidget() {
         }
         Column(
             GlanceModifier.fillMaxWidth().padding(bottom = 4.dp)
-                .clickable(openLessonAction(sub.target))
+                .clickable(openLessonAction(LocalContext.current, sub.target))
                 .semantics { contentDescription = description }
         ) {
             Row(

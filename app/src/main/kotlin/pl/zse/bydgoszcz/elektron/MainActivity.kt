@@ -12,6 +12,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import pl.zse.bydgoszcz.elektron.crash.CrashReporter
@@ -66,6 +67,7 @@ class MainActivity : ComponentActivity() {
         // Tylko przy pierwszym utworzeniu Activity. Przy odtworzeniu (np. obrót ekranu)
         // intent jest ten sam — dawniej deep link wykonywał się ponownie (dla linku http:
         // ponowne otwarcie przeglądarki), a prośba o uprawnienie pojawiała się od nowa.
+        Log.i(TAG, "onCreate (odtworzenie: ${savedInstanceState != null})")
         if (savedInstanceState == null) {
             pendingDeepLink.value = resolveDeepLink(intent)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -143,11 +145,22 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        Log.i(TAG, "onNewIntent")
         pendingDeepLink.value = resolveDeepLink(intent)
     }
 
     private fun resolveDeepLink(intent: Intent?): String? {
+        val link = resolveDeepLinkInner(intent)
+        Log.i(TAG, "Wynik: ${link ?: "brak deep linku (zwykłe otwarcie)"}")
+        return link
+    }
+
+    private fun resolveDeepLinkInner(intent: Intent?): String? {
         intent ?: return null
+        // Diagnostyka (raport "Zgłoś problem"): akcja, data i same NAZWY kluczy extras - bez wartości.
+        val data = intent.dataString
+        Log.i(TAG, "Intencja: action=${intent.action}, data=${data?.takeIf { it.startsWith("elektron://") } ?: data?.let { "(inny URI)" }}, " +
+            "extras=${runCatching { intent.extras?.keySet()?.sorted() }.getOrNull() ?: "[]"}")
         val fromNotif = intent.getStringExtra(LocalNotificationSink.EXTRA_DEEP_LINK)
         if (!fromNotif.isNullOrBlank()) {
             if (fromNotif.startsWith("http://") || fromNotif.startsWith("https://")) {
@@ -158,9 +171,13 @@ class MainActivity : ComponentActivity() {
             }
             return fromNotif
         }
-        // Wiersz widżetu Zastępstwa: szczegóły lekcji (błędne dane - zwykłe otwarcie aplikacji).
-        intent.getStringExtra(LessonLinks.EXTRA_LESSON)?.let { link ->
-            LessonLinks.parseDeepLink(link, LocalDate.now())?.let { return LessonLinks.deepLink(it) }
+        // Wiersz widżetu Zastępstwa: szczegóły lekcji z extras albo z data URI (błędne dane -
+        // zwykłe otwarcie aplikacji).
+        val lessonExtra = intent.getStringExtra(LessonLinks.EXTRA_LESSON)
+        if (lessonExtra != null || data?.startsWith("elektron://") == true) {
+            val r = LessonLinks.resolveIntent(lessonExtra, data, LocalDate.now())
+            Log.i(TAG, "Lekcja: extra=$lessonExtra, źródło=${r.source}, ${r.reason}")
+            r.target?.let { return LessonLinks.deepLink(it) }
         }
         return when (intent.getStringExtra("elektron_shortcut")) {
             "substitutions" -> "substitutions"
@@ -169,5 +186,9 @@ class MainActivity : ComponentActivity() {
             "dashboard" -> "dashboard" // widżety
             else -> null
         }
+    }
+
+    private companion object {
+        const val TAG = "MainActivity"
     }
 }

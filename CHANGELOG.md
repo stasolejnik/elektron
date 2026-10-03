@@ -29,6 +29,8 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 - Widżety zostawiają ostatnie dane, gdy odświeżenie chwilowo się nie uda (dawniej komunikat
   „Nie można wczytać widżetu”).
 - Brak usług push na telefonie nie wywraca aplikacji przy starcie (wersja z GitHuba).
+- Widżet Zastępstwa: dotknięcie wiersza otwiera szczegóły lekcji (cel przekazywany dwiema
+  drogami), a po aktualizacji aplikacji widżety przerysowują się od razu.
 
 ## [1.0.0-rc2] - 2026-10-03 (21)
 

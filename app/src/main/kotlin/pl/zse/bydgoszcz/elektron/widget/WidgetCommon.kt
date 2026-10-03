@@ -8,6 +8,10 @@ import androidx.glance.action.Action
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
+import androidx.glance.appwidget.action.actionStartActivity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
@@ -55,17 +59,21 @@ fun WidgetMessage(text: String) {
     }
 }
 
-private val LessonKey = ActionParameters.Key<String>(LessonLinks.EXTRA_LESSON)
-
 /**
  * Wiersz widżetu Zastępstwa: plan na dzień zastępstwa i szczegóły tej lekcji.
- * Cel w extras, a mimo to każdy wiersz otwiera swoją lekcję: Glance nadaje każdej akcji
- * unikalny identyfikator intencji (PendingIntent porównuje intencje bez extras), a wiersze
- * listy (LazyColumn) mają osobne fill-in intenty. Bez własnego data URI: na Androidzie < 10
- * Glance zapisuje tam swój identyfikator (minSdk 26).
+ * Cel dwoma kanałami w samej intencji: extra [LessonLinks.EXTRA_LESSON] i data URI
+ * ([LessonLinks.uri]) - MainActivity przyjmuje oba (LessonLinks.resolveIntent). Data URI jest
+ * inne dla każdej lekcji, więc PendingIntenty wierszy (porównywane bez extras) się nie sklejają.
+ * Intencja jawna (komponent MainActivity) - przeciążenie actionStartActivity(Intent) dostaje
+ * gotową intencję i niczego w niej nie zgaduje.
  */
-fun openLessonAction(target: LessonTarget): Action =
-    actionStartActivity<MainActivity>(actionParametersOf(LessonKey to LessonLinks.deepLink(target)))
+fun lessonIntent(context: Context, target: LessonTarget): Intent =
+    Intent(context, MainActivity::class.java)
+        .setData(Uri.parse(LessonLinks.uri(target)))
+        .putExtra(LessonLinks.EXTRA_LESSON, LessonLinks.deepLink(target))
+
+fun openLessonAction(context: Context, target: LessonTarget): Action =
+    actionStartActivity(lessonIntent(context, target))
 
 /** Otwarcie aplikacji na stronie głównej — także z wierszy list w widżetach. */
 fun openAppAction(): Action =

@@ -101,4 +101,35 @@ class LessonLinksTest {
         assertNull(LessonLinks.findLesson(lessons, LessonTarget(day, 7), mapOf("rel" to LessonGroups.NONE)))
         assertEquals("l7-$day", LessonLinks.findLesson(lessons, LessonTarget(day, 7), emptyMap())?.id)
     }
+
+    @Test
+    fun resolvesIntentFromBothChannels() {
+        val target = LessonTarget(day, 3)
+        val link = LessonLinks.deepLink(target)
+        val uri = LessonLinks.uri(target)
+        assertEquals("elektron://lesson/${day.toEpochDay()}/3", uri)
+        // Oba kanały - pierwszeństwo mają extras.
+        assertEquals(LessonLinks.Resolution(target, "extras", "ok"), LessonLinks.resolveIntent(link, LessonLinks.uri(LessonTarget(day, 5)), today))
+        // Tylko extras albo tylko data.
+        assertEquals(target, LessonLinks.resolveIntent(link, null, today).target)
+        assertEquals(LessonLinks.Resolution(target, "data", "ok"), LessonLinks.resolveIntent(null, uri, today))
+        // Błędne extras nie blokują poprawnego data.
+        assertEquals(LessonLinks.Resolution(target, "data", "błędne extras"), LessonLinks.resolveIntent("lesson/x/3", uri, today))
+    }
+
+    @Test
+    fun rejectsInvalidIntentData() {
+        assertEquals(LessonLinks.Resolution(null, "-", "brak danych lekcji"), LessonLinks.resolveIntent(null, null, today))
+        assertEquals("błędne extras", LessonLinks.resolveIntent("lesson/${day.toEpochDay()}/13", null, today).reason)
+        listOf(
+            "elektron://lesson/${day.toEpochDay()}/13", "elektron://lesson/${today.plusDays(400).toEpochDay()}/1",
+            "elektron://lesson/abc/1", "elektron://lesson/${day.toEpochDay()}", "elektron://inne/${day.toEpochDay()}/1",
+            "https://zse.bydgoszcz.pl/lesson/${day.toEpochDay()}/1", "elektron://lesson/${day.toEpochDay()}/1/2"
+        ).forEach {
+            val r = LessonLinks.resolveIntent(null, it, today)
+            assertNull(it, r.target)
+            assertEquals("błędne data", r.reason)
+        }
+        assertEquals("błędne extras i data", LessonLinks.resolveIntent("lesson/1", "elektron://lesson/1", today).reason)
+    }
 }
