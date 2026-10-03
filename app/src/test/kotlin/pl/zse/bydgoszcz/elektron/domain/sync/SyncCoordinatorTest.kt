@@ -200,7 +200,7 @@ class SyncCoordinatorTest {
         assertTrue(coordinator.isSyncing.first())
         a.cancelAndJoin()                                    // np. zatrzymany worker
         eventually({ timetable.events.toList() }) { ev -> ev.any { it.startsWith("cancelled:o3") } }
-        eventually({ coordinator.isSyncing.first() }) { !it }
+        eventually<Boolean>({ coordinator.isSyncing.first() }) { !it }
         assertTrue(a.isCancelled)
     }
 
@@ -289,7 +289,7 @@ class SyncCoordinatorTest {
         subs.items = subs.items + sub("1E", "C")                        // nowe dla klasy 1E
         coordinator.selectClass("o4")
         eventually({ t.notificationsRepo.observeLoadedResources().first() }) { SyncOutcome.TIMETABLE in it }
-        eventually({ coordinator.isSyncing.first() }) { !it }
+        eventually<Boolean>({ coordinator.isSyncing.first() }) { !it }
         assertEquals("pierwsza po zmianie klasy", 1, sink.substitutions.size)
 
         subs.items = subs.items + sub("1E", "D")
@@ -299,7 +299,7 @@ class SyncCoordinatorTest {
         subs.items = subs.items + sub("1E", "E")
         coordinator.resetCacheAndResync("o4")
         eventually({ t.notificationsRepo.observeLoadedResources().first() }) { SyncOutcome.TIMETABLE in it }
-        eventually({ coordinator.isSyncing.first() }) { !it }
+        eventually<Boolean>({ coordinator.isSyncing.first() }) { !it }
         assertEquals("pierwsza po resecie", 2, sink.substitutions.size)
     }
 
@@ -317,7 +317,7 @@ class SyncCoordinatorTest {
         val afterRestart = newCoordinator().coordinator
         assertTrue(afterRestart.initialSyncPending.first())
         timetable.gate!!.complete(Unit)
-        eventually({ afterRestart.initialSyncPending.first() }) { !it }
+        eventually<Boolean>({ afterRestart.initialSyncPending.first() }) { !it }
     }
 
     @Test
@@ -325,6 +325,6 @@ class SyncCoordinatorTest {
         timetable.error = IOException("Plan lekcji: HTTP 503")
         coordinator.selectClass("o4")
         eventually({ t.notificationsRepo.observeLastSyncError().first() }) { it != null }
-        eventually({ coordinator.initialSyncPending.first() }) { !it }
+        eventually<Boolean>({ coordinator.initialSyncPending.first() }) { !it }
     }
 }
