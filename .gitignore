@@ -30,7 +30,7 @@ app/google-services.json
 AI_CONTEXT.md
 update*.sh
 fix_*.sh
-*.txrt
+*.txt
 
 # --- Zrzuty i raporty awarii JVM (mogą mieć setki MB) ---
 hs_err_pid*.log
