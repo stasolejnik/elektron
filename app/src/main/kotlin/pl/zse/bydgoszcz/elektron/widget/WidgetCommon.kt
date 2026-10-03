@@ -20,6 +20,8 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import pl.zse.bydgoszcz.elektron.MainActivity
+import pl.zse.bydgoszcz.elektron.domain.model.LessonLinks
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 
 /** Klucz extra rozpoznawany przez MainActivity.resolveDeepLink (ten sam co w skrótach). */
 private val ShortcutKey = ActionParameters.Key<String>("elektron_shortcut")
@@ -52,6 +54,18 @@ fun WidgetMessage(text: String) {
         )
     }
 }
+
+private val LessonKey = ActionParameters.Key<String>(LessonLinks.EXTRA_LESSON)
+
+/**
+ * Wiersz widżetu Zastępstwa: plan na dzień zastępstwa i szczegóły tej lekcji.
+ * Cel w extras, a mimo to każdy wiersz otwiera swoją lekcję: Glance nadaje każdej akcji
+ * unikalny identyfikator intencji (PendingIntent porównuje intencje bez extras), a wiersze
+ * listy (LazyColumn) mają osobne fill-in intenty. Bez własnego data URI: na Androidzie < 10
+ * Glance zapisuje tam swój identyfikator (minSdk 26).
+ */
+fun openLessonAction(target: LessonTarget): Action =
+    actionStartActivity<MainActivity>(actionParametersOf(LessonKey to LessonLinks.deepLink(target)))
 
 /** Otwarcie aplikacji na stronie głównej — także z wierszy list w widżetach. */
 fun openAppAction(): Action =

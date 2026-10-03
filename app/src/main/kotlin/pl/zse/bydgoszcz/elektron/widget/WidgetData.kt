@@ -20,6 +20,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.ThemeMode
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
@@ -58,6 +59,8 @@ data class WidgetLesson(
 
 /** Zastępstwo przygotowane do widżetu. */
 data class WidgetSubstitution(
+    /** Dzień i numer lekcji - dotknięcie wiersza otwiera tę lekcję w planie. */
+    val target: LessonTarget,
     val dayLabel: String,
     val lessonNumber: Int,
     val title: String,
@@ -213,6 +216,7 @@ object WidgetDataLoader {
             .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
             .map { s ->
                 WidgetSubstitution(
+                    target = LessonTarget(s.date, s.lessonNumber),
                     dayLabel = dayLabel(s.date, today),
                     lessonNumber = s.lessonNumber,
                     title = SubstitutionDisplay.headline(s),

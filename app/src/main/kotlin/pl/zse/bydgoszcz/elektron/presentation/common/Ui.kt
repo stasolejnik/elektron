@@ -50,7 +50,7 @@ import androidx.compose.ui.input.pointer.pointerInput
  * Kliknięcie w stylu iOS: element lekko się zmniejsza i przygasa przy dotyku
  * (sprężyna), bez materiałowego "ripple".
  */
-fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {
+fun Modifier.pressable(enabled: Boolean = true, onClickLabel: String? = null, onClick: () -> Unit): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -61,7 +61,8 @@ fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit): Modifier =
     val alpha by animateFloatAsState(if (pressed) 0.85f else 1f, label = "pressAlpha")
     this
         .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
-        .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+        .clickable(interactionSource = interaction, indication = null, enabled = enabled,
+            onClickLabel = onClickLabel, role = Role.Button, onClick = onClick)
 }
 
 /** Karta z domyślnym tłem powierzchni (biała / #1C1C1E), bez cienia. */
@@ -70,12 +71,14 @@ fun ElektronCard(
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
     onClick: (() -> Unit)? = null,
+    /** Opis akcji dla czytnika ekranu (TalkBack: "dwukrotnie dotknij, aby ..."). */
+    onClickLabel: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.pressable(onClick = onClick) else Modifier),
+            .then(if (onClick != null) Modifier.pressable(onClickLabel = onClickLabel, onClick = onClick) else Modifier),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = containerColor),
         content = content

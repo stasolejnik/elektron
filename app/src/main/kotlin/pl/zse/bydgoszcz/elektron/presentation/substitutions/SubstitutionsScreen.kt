@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
@@ -49,7 +50,11 @@ import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
+fun SubstitutionsScreen(
+    /** Dotknięcie wiersza: plan na dzień zastępstwa i szczegóły tej lekcji (NavHost). */
+    onOpenLesson: (LessonTarget) -> Unit = {},
+    viewModel: SubstitutionsViewModel = hiltViewModel()
+) {
     val groups by viewModel.days.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
@@ -113,7 +118,9 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                             modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 2.dp)
                         )
                     }
-                    items(group.items, key = { it.id }) { SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {}) }
+                    items(group.items, key = { it.id }) {
+                        SubstitutionRow(it, onOpenLesson, Modifier.animateItem().semantics(mergeDescendants = true) {})
+                    }
                 }
                 // Zastępstwa innych grup klasy: domyślnie ukryte, na żądanie przygaszone.
                 if (otherGroups.isNotEmpty()) {
@@ -130,7 +137,9 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
                     }
                     if (showOtherGroups) {
                         items(otherGroups, key = { "other_${it.id}" }) {
-                            SubstitutionRow(it, Modifier.animateItem().alpha(0.55f).semantics(mergeDescendants = true) {
+                            // Okno szczegółów otworzy się tylko, jeśli ta lekcja jest w Twoim planie
+                            // (po filtrze grup) - inaczej sam plan na ten dzień.
+                            SubstitutionRow(it, onOpenLesson, Modifier.animateItem().alpha(0.55f).semantics(mergeDescendants = true) {
                                 contentDescription = "Zastępstwo innej grupy"
                             })
                         }
@@ -143,8 +152,16 @@ fun SubstitutionsScreen(viewModel: SubstitutionsViewModel = hiltViewModel()) {
 
 
 @Composable
-private fun SubstitutionRow(s: Substitution, modifier: Modifier = Modifier.semantics(mergeDescendants = true) {}) {
-    ElektronCard(modifier = modifier) {
+private fun SubstitutionRow(
+    s: Substitution,
+    onOpenLesson: (LessonTarget) -> Unit,
+    modifier: Modifier = Modifier.semantics(mergeDescendants = true) {}
+) {
+    ElektronCard(
+        modifier = modifier,
+        onClick = { onOpenLesson(LessonTarget(s.date, s.lessonNumber)) },
+        onClickLabel = "Otwórz szczegóły lekcji"
+    ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                 Text("${s.lessonNumber}",

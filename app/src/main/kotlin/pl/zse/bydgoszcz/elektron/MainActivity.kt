@@ -45,6 +45,8 @@ import pl.zse.bydgoszcz.elektron.presentation.groups.GroupsScreen
 import pl.zse.bydgoszcz.elektron.presentation.navigation.ElektronNavHost
 import pl.zse.bydgoszcz.elektron.presentation.setup.SetupScreen
 import pl.zse.bydgoszcz.elektron.work.LocalNotificationSink
+import pl.zse.bydgoszcz.elektron.domain.model.LessonLinks
+import java.time.LocalDate
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -155,6 +157,10 @@ class MainActivity : ComponentActivity() {
                 return null
             }
             return fromNotif
+        }
+        // Wiersz widżetu Zastępstwa: szczegóły lekcji (błędne dane - zwykłe otwarcie aplikacji).
+        intent.getStringExtra(LessonLinks.EXTRA_LESSON)?.let { link ->
+            LessonLinks.parseDeepLink(link, LocalDate.now())?.let { return LessonLinks.deepLink(it) }
         }
         return when (intent.getStringExtra("elektron_shortcut")) {
             "substitutions" -> "substitutions"

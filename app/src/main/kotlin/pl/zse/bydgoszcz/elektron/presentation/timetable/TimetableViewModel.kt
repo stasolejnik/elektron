@@ -25,6 +25,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.withTimeoutOrNull
+import pl.zse.bydgoszcz.elektron.domain.model.LessonLinks
+import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
@@ -215,6 +220,16 @@ class TimetableViewModel @Inject constructor(
         private set
     private var leftAppAt = 0L
 
+    /**
+     * Szczegóły lekcji do otwarcia (dotknięcie zastępstwa) - jednorazowo: ekran pokazuje okno
+     * i woła [consumeLessonDetails]. Obrót ekranu, powrót do aplikacji czy zmiana zakładki nie
+     * otwierają go ponownie.
+     */
+    private val _lessonDetails = MutableStateFlow<Lesson?>(null)
+    val lessonDetails: StateFlow<Lesson?> = _lessonDetails
+    private var openLessonJob: Job? = null
+    private var pinnedUntilNanos = 0L
+
     // Po deklaracji pól powyżej (kolejność inicjalizacji w Kotlinie!): dzień startowy od razu
     // przy utworzeniu - ViewModel powstaje w NavHost, zanim plan zostanie pokazany.
     init {
@@ -224,10 +239,56 @@ class TimetableViewModel @Inject constructor(
     fun applyOpeningDay() {
         viewModelScope.launch {
             val day = preferredDay()
+            // Właśnie otwarto lekcję z zastępstwa (openLesson) - nie przeskakuj z jej dnia
+            // (wejście na zakładkę planu woła applyOpeningDay chwilę po openLesson).
+            if (lessonDayPinned()) return@launch
             anchor.value = day
             _openingJump.value = OpeningJump(day, ++jumpSeq)
         }
     }
+
+    fun consumeLessonDetails() {
+        _lessonDetails.value = null
+    }
+
+    private fun lessonDayPinned(): Boolean = System.nanoTime() < pinnedUntilNanos
+
+    /**
+     * Plan na dzień [target] (w widoku tygodnia - jego tydzień) i okno szczegółów tej lekcji,
+     * gdy jest w planie po filtrze grup. Plan jeszcze się wczytuje - czekamy najwyżej
+     * [LESSON_WAIT_MS]; lekcji nie ma - zostaje sam plan na ten dzień, bez okna.
+     */
+    fun openLesson(target: LessonTarget) {
+        pinnedUntilNanos = System.nanoTime() + PIN_MS * 1_000_000
+        anchor.value = target.date
+        _openingJump.value = OpeningJump(target.date, ++jumpSeq)
+        _lessonDetails.value = null
+        openLessonJob?.cancel()
+        openLessonJob = viewModelScope.launch {
+            val lesson = runCatchingCancellable { awaitLesson(target) }.getOrNull()
+            if (lesson != null) _lessonDetails.value = lesson
+        }
+    }
+
+    private suspend fun awaitLesson(target: LessonTarget): Lesson? {
+        val cid = settings.selectedClassId.first() ?: return null
+        val monday = target.date.with(JavaDayOfWeek.MONDAY)
+        val found = withTimeoutOrNull(LESSON_WAIT_MS) {
+            combine(
+                repo.observeLessons(cid, monday, monday.plusDays(4)),
+                settings.activeGroupSelections,
+                _syncingWeek
+            ) { raw, sel, syncing ->
+                when {
+                    raw.isEmpty() || syncing == monday -> null // jeszcze się wczytuje - czekamy
+                    else -> LessonLookup(LessonLinks.findLesson(raw, target, sel))
+                }
+            }.filterNotNull().first()
+        }
+        return found?.lesson
+    }
+
+    private class LessonLookup(val lesson: Lesson?)
 
     fun markJumpHandled(id: Int) {
         if (id > handledJumpId) handledJumpId = id
@@ -262,6 +323,10 @@ class TimetableViewModel @Inject constructor(
         const val START_PAGE = 5_000
         const val PAGE_COUNT = START_PAGE * 2
         private const val RETURN_RESET_MS = 3 * 60_000L
+        /** Jak długo czekać na plan przed otwarciem szczegółów lekcji (potem bez okna). */
+        const val LESSON_WAIT_MS = 5_000L
+        /** Jak długo dzień otwartej lekcji ma pierwszeństwo przed dniem startowym. */
+        private const val PIN_MS = 3_000L
 
         /**
          * Czysta reguła dnia domyślnego: weekend -> poniedziałek; dziś po ostatniej lekcji

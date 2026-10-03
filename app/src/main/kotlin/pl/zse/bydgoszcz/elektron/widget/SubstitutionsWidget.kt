@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.appwidget.GlanceAppWidget
@@ -38,7 +40,8 @@ import pl.zse.bydgoszcz.elektron.R
 
 /**
  * Widżet "Zastępstwa": nadchodzące zastępstwa klasy i grup użytkownika.
- * Dotknięcie otwiera sekcję Zastępstwa. Odświeżany po każdym syncu i pushu.
+ * Dotknięcie wiersza otwiera tę lekcję w planie (szczegóły), reszty widżetu - stronę główną.
+ * Odświeżany po każdym syncu i pushu.
  */
 class SubstitutionsWidget : GlanceAppWidget() {
 
@@ -97,10 +100,22 @@ class SubstitutionsWidget : GlanceAppWidget() {
 
     @Composable
     private fun SubRow(sub: WidgetSubstitution) {
-        Column(GlanceModifier.fillMaxWidth().padding(bottom = 4.dp).clickable(openAppAction())) {
+        // Dotknięcie: plan na ten dzień i szczegóły lekcji. Opis dla czytnika ekranu zawiera
+        // treść wiersza (opis kontenera zastępuje odczyt tekstów w środku).
+        val description = buildString {
+            append("Lekcja ${sub.lessonNumber}, ${sub.title}, ${sub.dayLabel}, ${sub.detail}")
+            sub.note?.let { append(", $it") }
+            append(". Otwórz szczegóły lekcji")
+        }
+        Column(
+            GlanceModifier.fillMaxWidth().padding(bottom = 4.dp)
+                .clickable(openLessonAction(sub.target))
+                .semantics { contentDescription = description }
+        ) {
             Row(
+                // Wyższy wiersz (7 dp) - obszar dotyku ok. 48 dp.
                 GlanceModifier.fillMaxWidth().background(WidgetColors.substitutionContainer).cornerRadius(10.dp)
-                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                    .padding(horizontal = 8.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.Vertical.CenterVertically
             ) {
                 Text("${sub.lessonNumber}", modifier = GlanceModifier.width(22.dp),

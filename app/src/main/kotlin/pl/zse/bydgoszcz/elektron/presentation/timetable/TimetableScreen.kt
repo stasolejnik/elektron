@@ -114,6 +114,14 @@ fun TimetableScreen(
     // Szczegóły lekcji po dotknięciu (widok tygodnia i dnia).
     var detailsLesson by remember { mutableStateOf<Lesson?>(null) }
     detailsLesson?.let { LessonDetailsSheet(it) { detailsLesson = null } }
+    // Lekcja otwarta z zastępstwa (zakładka Zastępstwa, widżet) - żądanie jednorazowe.
+    val requestedLesson by viewModel.lessonDetails.collectAsStateWithLifecycle()
+    LaunchedEffect(requestedLesson) {
+        requestedLesson?.let {
+            viewModel.consumeLessonDetails()
+            detailsLesson = it
+        }
+    }
 
     // Zegar dla plakietek "Trwa teraz" / "Za X min" - aktualny od razu po powrocie do aplikacji.
     val clock = rememberNow().value.toLocalTime()
