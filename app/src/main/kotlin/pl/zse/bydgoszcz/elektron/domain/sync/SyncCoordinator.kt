@@ -1,0 +1,264 @@
+package pl.zse.bydgoszcz.elektron.domain.sync
+
+import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import pl.zse.bydgoszcz.elektron.data.local.AppDatabase
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
+import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
+import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
+import pl.zse.bydgoszcz.elektron.work.NotificationSink
+import pl.zse.bydgoszcz.elektron.work.SubstitutionNotifier
+import java.time.Instant
+import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Co pobrać: źródła (klucze z SyncOutcome) i od jakiej daty plan (tydzień oglądany w Planie).
+ * Dwa żądania są "tą samą pracą" tylko przy równych źródłach i dacie.
+ */
+data class SyncRequest(val sources: Set<String>, val anchorDate: LocalDate = LocalDate.now()) {
+    companion object {
+        val ALL_SOURCES = setOf(SyncOutcome.SIDEBAR, SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS, SyncOutcome.ANNOUNCEMENTS)
+        fun full(anchorDate: LocalDate = LocalDate.now()) = SyncRequest(ALL_SOURCES, anchorDate)
+        fun of(vararg sources: String, anchorDate: LocalDate = LocalDate.now()) = SyncRequest(sources.toSet(), anchorDate)
+    }
+}
+
+/**
+ * Jedyne miejsce synchronizacji ze stronami szkoły (dawniej sześć osobnych wersji: SyncWorker,
+ * wybór klasy i odświeżanie na czterech ekranach - każda inaczej obsługiwała błędy, flagi
+ * i przypomnienia, a równoległe przebiegi gasiły sobie flagę "trwa synchronizacja").
+ *
+ * - Praca idzie we własnym zasięgu koordynatora, jedna naraz (Mutex). Wywołanie z takim samym
+ *   [SyncRequest] jak trwająca/czekająca praca dołącza do niej zamiast pobierać drugi raz.
+ * - Anulowanie wołającego (zamknięty ekran, zatrzymany worker) nie przerywa pracy, na którą
+ *   czekają inni; praca kończy się, gdy odejdzie ostatni oczekujący.
+ * - Zmiana klasy / reset danych przerywa trwające prace (ich wołający dostają
+ *   [SyncOutcome.INTERRUPTED]) i dopiero potem - pod tą samą blokadą - czyści bazę.
+ * - Po każdej pracy, w jednym miejscu: markLoaded, lastSyncAt, lastSyncError, powiadomienia,
+ *   przypomnienia i widżety.
+ */
+@Singleton
+class SyncCoordinator @Inject constructor(
+    private val settings: SettingsRepository,
+    private val timetableRepo: TimetableRepository,
+    private val substitutionsRepo: SubstitutionsRepository,
+    private val announcementsRepo: AnnouncementsRepository,
+    private val notificationsRepo: NotificationsRepository,
+    private val substitutionNotifier: SubstitutionNotifier,
+    private val sink: NotificationSink,
+    private val widgetUpdater: WidgetUpdater,
+    private val reminders: LessonReminderScheduler,
+    private val db: AppDatabase
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val workMutex = Mutex()
+    private val lock = Any()
+    private val flights = mutableListOf<Flight>()
+    private val running = MutableStateFlow(0)
+
+    /** Praca: [request] (null - zmiana klasy), liczba czekających wołających. */
+    private class Flight(val request: SyncRequest?, val pinned: Boolean, val deferred: Deferred<SyncOutcome>) {
+        var waiters = 0
+    }
+
+    /**
+     * Trwa synchronizacja - tylko w pamięci i ustawiana wyłącznie tutaj (licznik prac, więc nikt
+     * nie gasi cudzej). Nowy proces zawsze zaczyna od false - bez zerowania przy starcie.
+     */
+    val isSyncing: Flow<Boolean> = running.map { it > 0 }.distinctUntilChanged()
+
+    /**
+     * Pierwsza synchronizacja wybranej klasy jeszcze trwa / jeszcze się nie odbyła: plan nie jest
+     * oznaczony jako pobrany (zmiana klasy i reset czyszczą "loaded" i komunikat błędu), a przy
+     * tym trwa synchronizacja albo nie ma komunikatu o błędzie. Z trwałych danych - po zabiciu
+     * procesu między wyczyszczeniem bazy a pobraniem planu UI nadal pokazuje ładowanie, a nie
+     * "brak lekcji". Po nieudanej próbie (np. bez internetu) - false, więc ekran grup pokazuje
+     * błąd z "Spróbuj ponownie" zamiast kręcić się bez końca.
+     */
+    val initialSyncPending: Flow<Boolean> = combine(
+        settings.selectedClassId,
+        notificationsRepo.observeLoadedResources(),
+        notificationsRepo.observeLastSyncError(),
+        running
+    ) { cid, loaded, error, active ->
+        cid != null && SyncOutcome.TIMETABLE !in loaded && (active > 0 || error == null)
+    }.distinctUntilChanged()
+
+    /**
+     * Synchronizuje [request] (albo dołącza do takiej samej trwającej pracy) i zwraca wynik.
+     * Anulowanie wołającego leci dalej; przerwanie przez zmianę klasy = [SyncOutcome.INTERRUPTED].
+     */
+    suspend fun sync(request: SyncRequest): SyncOutcome {
+        val flight = synchronized(lock) {
+            val existing = flights.firstOrNull { it.request == request && it.deferred.isActive }
+            (existing ?: newFlight(request, pinned = false) { doSync(request, notify = true) })
+                .also { it.waiters++ }
+        }
+        flight.deferred.start()
+        try {
+            return flight.deferred.await()
+        } catch (e: CancellationException) {
+            currentCoroutineContext().ensureActive()      // anulowano NAS - dalej
+            return SyncOutcome.INTERRUPTED                 // anulowano pracę (zmiana klasy / reset)
+        } finally {
+            release(flight)
+        }
+    }
+
+    /** Wybór klasy i pierwsza synchronizacja jej danych (praca nie zależy od żadnego ekranu). */
+    fun selectClass(classId: String) = startClassChange(classId, reset = false)
+
+    /**
+     * Czyści lokalną bazę (cache ze strony szkoły + stan synchronizacji) i pobiera dane od nowa.
+     * Ustawienia (DataStore) zostają. Wyczyszczony stan = pierwsza synchronizacja bez powiadomień.
+     */
+    fun resetCacheAndResync(classId: String) = startClassChange(classId, reset = true)
+
+    private fun startClassChange(classId: String, reset: Boolean) {
+        synchronized(lock) {
+            val previous = flights.toList()
+            previous.forEach { it.deferred.cancel() }      // czekający dostaną INTERRUPTED
+            newFlight(SyncRequest.full(), pinned = true) {
+                // Dopiero gdy przerwane prace się zakończą (łącznie ze sprzątaniem) - inaczej
+                // clearAllTables mogłoby trafić w środek zapisu.
+                previous.forEach { it.deferred.join() }
+                classChange(classId, reset)
+            }.deferred.start()
+        }
+    }
+
+    private fun newFlight(request: SyncRequest?, pinned: Boolean, block: suspend () -> SyncOutcome): Flight {
+        val deferred = scope.async(start = CoroutineStart.LAZY) {
+            workMutex.withLock {
+                running.update { it + 1 }
+                try { block() } finally { running.update { it - 1 } }
+            }
+        }
+        val flight = Flight(request, pinned, deferred)
+        flights += flight
+        deferred.invokeOnCompletion { synchronized(lock) { flights.remove(flight) } }
+        return flight
+    }
+
+    private fun release(flight: Flight) = synchronized(lock) {
+        flight.waiters--
+        // Ostatni oczekujący odszedł (np. zamknięty ekran) - praca nikomu niepotrzebna.
+        if (flight.waiters <= 0 && !flight.pinned && flight.deferred.isActive) flight.deferred.cancel()
+    }
+
+    private suspend fun classChange(classId: String, reset: Boolean): SyncOutcome {
+        if (reset) db.clearAllTables()
+        // Najpierw "loaded" wyczyszczone, potem klasa: od tej chwili initialSyncPending = true
+        // (także po restarcie procesu), aż plan nowej klasy się pobierze.
+        notificationsRepo.clearLoaded()
+        notificationsRepo.setLastSyncError(null)
+        settings.setSelectedClassId(classId)
+        // Pierwsza synchronizacja po zmianie klasy nie wysyła powiadomień - tylko zapisuje stan.
+        return doSync(SyncRequest.full(), notify = false)
+    }
+
+    /** Jedna praca: źródła równolegle, potem wspólne kroki. Wołana pod [workMutex]. */
+    private suspend fun doSync(request: SyncRequest, notify: Boolean): SyncOutcome {
+        val sources = request.sources
+        val classId = settings.selectedClassId.first()
+        val failed = ConcurrentHashMap<String, Throwable>()
+        val ok = ConcurrentHashMap.newKeySet<String>()
+        fun Result<Unit>.record(key: String) {
+            onSuccess { ok += key }
+            onFailure { Log.w(TAG, "$key: synchronizacja nieudana", it); failed[key] = it }
+        }
+        try {
+            coroutineScope {
+                if (SyncOutcome.SIDEBAR in sources) launch { timetableRepo.syncSidebar().record(SyncOutcome.SIDEBAR) }
+                if (SyncOutcome.TIMETABLE in sources && classId != null) launch {
+                    timetableRepo.syncTimetable(classId, request.anchorDate).record(SyncOutcome.TIMETABLE)
+                }
+                if (SyncOutcome.SUBSTITUTIONS in sources) launch { substitutionsRepo.syncAll().record(SyncOutcome.SUBSTITUTIONS) }
+                if (SyncOutcome.ANNOUNCEMENTS in sources) launch { announcementsRepo.syncAll().record(SyncOutcome.ANNOUNCEMENTS) }
+            }
+            val outcome = SyncOutcome(ok.toSet(), failed.toMap())
+            for (key in listOf(SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS, SyncOutcome.ANNOUNCEMENTS)) {
+                if (key in outcome.succeeded) notificationsRepo.markLoaded(key)
+            }
+            // Komunikat tylko gdy praca dotyczyła planu albo zastępstw - odświeżenie samych
+            // ogłoszeń nie kasuje komunikatu o niedziałającym planie.
+            if (SyncOutcome.TIMETABLE in sources || SyncOutcome.SUBSTITUTIONS in sources) {
+                notificationsRepo.setLastSyncError(outcome.userError())
+            }
+            if (SyncOutcome.freshDataLoaded(outcome.succeeded)) notificationsRepo.setLastSyncAt(Instant.now())
+            if (SyncOutcome.SUBSTITUTIONS in outcome.succeeded || SyncOutcome.ANNOUNCEMENTS in outcome.succeeded) {
+                notifyNew(classId, notify, substitutionsLoaded = SyncOutcome.SUBSTITUTIONS in outcome.succeeded)
+            }
+            return outcome
+        } finally {
+            withContext(NonCancellable) {
+                // Przypomnienia: czekamy na ustawienie alarmu (proces workera może zaraz zniknąć).
+                reminders.reschedule()
+            }
+            widgetUpdater.requestUpdate()
+        }
+    }
+
+    /**
+     * Powiadomienia o nowych zastępstwach i ogłoszeniach + zapis zbioru "widzianych".
+     * Bez powiadomień, dopóki nie ma wiarygodnego punktu odniesienia: pierwsza synchronizacja
+     * po instalacji / resecie (isInitialSyncDone, gotowość zbioru "widzianych" v2) i pierwsza
+     * po zmianie klasy ([allowed] = false) tylko zapisują stan.
+     */
+    private suspend fun notifyNew(classId: String?, allowed: Boolean, substitutionsLoaded: Boolean) {
+        // Blokada dzielona z pushami FCM (SubstitutionNotifier.notifyPushed) - bez duplikatów.
+        notificationsRepo.withNotifyLock {
+            val initialDone = allowed && notificationsRepo.isInitialSyncDone() && notificationsRepo.isSeenStoreReady()
+            val seenSubs = notificationsRepo.getSeenSubstitutionIds()
+            val seenAnns = notificationsRepo.getSeenAnnouncementIds()
+            val currentSubs = substitutionsRepo.getAllFrom(LocalDate.now().minusDays(1))
+            val currentAnns = announcementsRepo.getAll()
+            if (initialDone) {
+                if (classId != null) substitutionNotifier.notifyFresh(currentSubs.filter { it.id !in seenSubs })
+                val freshAnns = currentAnns.filter { it.id !in seenAnns }
+                if (settings.notificationsAnnouncements.first() && freshAnns.isNotEmpty()) {
+                    freshAnns.take(5).forEach { sink.postAnnouncement(it) }
+                }
+            }
+            notificationsRepo.setSeenSubstitutionIds(currentSubs.map { it.id }.toSet())
+            notificationsRepo.setSeenAnnouncementIds(currentAnns.map { it.id }.toSet())
+            // Punkt odniesienia gotowy dopiero, gdy zastępstwa naprawdę się pobrały - inaczej
+            // następna udana synchronizacja powiadomiłaby o wszystkich zastępstwach naraz.
+            if (substitutionsLoaded) {
+                if (!notificationsRepo.isInitialSyncDone()) notificationsRepo.setInitialSyncDone()
+                if (!notificationsRepo.isSeenStoreReady()) notificationsRepo.markSeenStoreReady()
+            }
+        }
+    }
+
+    companion object { private const val TAG = "SyncCoordinator" }
+}

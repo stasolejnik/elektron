@@ -1,8 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
-import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
-import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
-import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import java.time.LocalDateTime
 import java.time.LocalTime
 import androidx.lifecycle.ViewModel
@@ -24,7 +24,6 @@ import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
-import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
@@ -39,16 +38,14 @@ class SubstitutionsViewModel @Inject constructor(
     private val repo: SubstitutionsRepository,
     settings: SettingsRepository,
     timetableRepo: TimetableRepository,
-    private val notificationsRepo: NotificationsRepository,
-    private val widgetUpdater: WidgetUpdater,
-    private val reminders: LessonReminderScheduler
+    private val coordinator: SyncCoordinator
 ) : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     /** Trwa pierwsza synchronizacja albo odświeżanie — pusta lista to wtedy "ładowanie", nie "brak". */
-    val isLoading: StateFlow<Boolean> = combine(notificationsRepo.observeInitialSyncPending(), _isRefreshing) { p, r -> p || r }
+    val isLoading: StateFlow<Boolean> = combine(coordinator.initialSyncPending, _isRefreshing) { p, r -> p || r }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Pull-to-refresh: pobiera świeże zastępstwa ze strony szkoły. */
@@ -57,17 +54,9 @@ class SubstitutionsViewModel @Inject constructor(
         _isRefreshing.value = true
         viewModelScope.launch {
             try {
-                repo.syncAll()
-                    .onSuccess {
-                        notificationsRepo.markLoaded("subs")
-                        notificationsRepo.setLastSyncError(null)
-                    }
-                    .onFailure { notificationsRepo.setLastSyncError(SyncErrors.userMessage(it)) }
+                // Przez koordynator: komunikat błędu, przypomnienia, widżety, powiadomienia - tam.
+                coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
             } finally {
-                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
-                // a nie dopiero po najbliższym syncu w tle.
-                reminders.requestReschedule()
-                widgetUpdater.requestUpdate()
                 _isRefreshing.value = false
             }
         }

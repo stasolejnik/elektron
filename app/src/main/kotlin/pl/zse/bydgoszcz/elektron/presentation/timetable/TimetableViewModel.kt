@@ -1,8 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
-import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
-import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
 import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
@@ -10,7 +10,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +27,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
-import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
-import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import java.time.DayOfWeek as JavaDayOfWeek
 import java.time.LocalDate
@@ -50,10 +47,7 @@ import javax.inject.Inject
 class TimetableViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val repo: TimetableRepository,
-    private val substitutionsRepo: SubstitutionsRepository,
-    private val notificationsRepo: NotificationsRepository,
-    private val widgetUpdater: WidgetUpdater,
-    private val reminders: LessonReminderScheduler
+    private val coordinator: SyncCoordinator
 ) : ViewModel() {
 
     enum class ViewMode { DAY, WEEK }
@@ -123,8 +117,9 @@ class TimetableViewModel @Inject constructor(
                 if (!repo.hasLessons(cid, monday, monday.plusDays(4))) {
                     _syncingWeek.value = monday
                     try {
-                        // Błąd nie jest już cicho ignorowany (dawniej pusty tydzień bez komunikatu).
-                        repo.syncTimetable(cid, monday).onFailure {
+                        // Przez koordynator (plan od tego tygodnia). Błąd nie jest cicho ignorowany.
+                        val outcome = coordinator.sync(SyncRequest.of(SyncOutcome.TIMETABLE, anchorDate = monday))
+                        outcome.failures[SyncOutcome.TIMETABLE]?.let {
                             _refreshMessage.value = SyncOutcome.errorMessage(mapOf(SyncOutcome.TIMETABLE to it))
                         }
                     } finally { _syncingWeek.value = null }
@@ -180,41 +175,22 @@ class TimetableViewModel @Inject constructor(
     }
 
     /**
-     * Pull-to-refresh: wymusza pobranie planu dla oglądanego tygodnia (pomija cache)
-     * oraz zastępstw, które nakładają się na plan. Oba równolegle.
+     * Odświeżenie (przycisk u góry): plan od oglądanego tygodnia i zastępstwa - przez koordynator
+     * (komunikaty, przypomnienia, widżety, powiadomienia - tam). Na minionym tygodniu repozytorium
+     * odświeża tylko bieżący i przyszłe - planu sprzed tygodni nie nadpisuje.
      */
     fun refresh() {
         if (refreshing.value) return
         refreshing.value = true
         viewModelScope.launch {
             try {
-                val cid = settings.selectedClassId.first() ?: return@launch
-                // Błędy zbierane (dawniej poza zmianą układu strony ignorowane - przycisk
-                // odświeżania bez internetu po prostu "nic nie robił").
-                val failures = java.util.concurrent.ConcurrentHashMap<String, Throwable>()
-                coroutineScope {
-                    launch {
-                        // Na minionym tygodniu repozytorium odświeża tylko bieżący i przyszłe -
-                        // planu sprzed tygodni nie nadpisuje.
-                        repo.syncTimetable(cid, anchor.value)
-                            .onSuccess { notificationsRepo.markLoaded("timetable") }
-                            .onFailure { failures[SyncOutcome.TIMETABLE] = it }
-                    }
-                    launch {
-                        substitutionsRepo.syncAll()
-                            .onSuccess { notificationsRepo.markLoaded("subs") }
-                            .onFailure { failures[SyncOutcome.SUBSTITUTIONS] = it }
-                    }
-                }
-                val message = SyncOutcome.errorMessage(failures)
-                notificationsRepo.setLastSyncError(message)
-                if (failures.size < 2) notificationsRepo.setLastSyncAt(java.time.Instant.now())
-                _refreshMessage.value = message
+                if (settings.selectedClassId.first() == null) return@launch
+                val outcome = coordinator.sync(
+                    SyncRequest.of(SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS, anchorDate = anchor.value)
+                )
+                // Komunikat na ekranie planu (raz); przerwane zmianą klasy - bez komunikatu.
+                if (!outcome.interrupted) _refreshMessage.value = SyncOutcome.errorMessage(outcome.failures)
             } finally {
-                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
-                // a nie dopiero po najbliższym syncu w tle.
-                reminders.requestReschedule()
-                widgetUpdater.requestUpdate()
                 refreshing.value = false
             }
         }

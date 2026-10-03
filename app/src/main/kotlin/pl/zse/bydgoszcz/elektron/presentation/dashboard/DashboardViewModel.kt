@@ -1,18 +1,14 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
-import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
-import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
-import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
-import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
 import java.time.LocalDateTime
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,7 +21,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
@@ -56,8 +51,7 @@ class DashboardViewModel @Inject constructor(
     private val notificationsRepo: NotificationsRepository,
     private val timetableRepo: TimetableRepository,
     private val updateRepo: UpdateRepository,
-    private val widgetUpdater: WidgetUpdater,
-    private val reminders: LessonReminderScheduler
+    private val coordinator: SyncCoordinator
 ) : ViewModel() {
 
     /** Break = przerwa między dwiema lekcjami dziś (pokazujemy następną lekcję + czas przerwy). */
@@ -148,10 +142,10 @@ class DashboardViewModel @Inject constructor(
     }
         .combine(announcementsRepo.observeLatest(3)) { core, anns -> core.copy(anns = anns) }
         .combine(notificationsRepo.observeLastSyncAt()) { core, at -> core.copy(lastSync = at) }
-        .combine(notificationsRepo.observeIsSyncing()) { core, syncing -> core.copy(syncing = syncing) }
+        .combine(coordinator.isSyncing) { core, syncing -> core.copy(syncing = syncing) }
         .combine(notificationsRepo.observeLastSyncError()) { core, err -> core.copy(error = err) }
         .combine(notificationsRepo.observeLoadedResources()) { core, loaded -> core.copy(loaded = loaded) }
-        .combine(notificationsRepo.observeInitialSyncPending()) { core, pending -> core.copy(initialSyncPending = pending) }
+        .combine(coordinator.initialSyncPending) { core, pending -> core.copy(initialSyncPending = pending) }
         .combine(settings.showNextLesson) { core, v -> core.copy(showNextLesson = v) }
         .combine(settings.showSubstitutions) { core, v -> core.copy(showSubstitutions = v) }
         .combine(settings.showAnnouncements) { core, v -> core.copy(showAnnouncements = v) }
@@ -269,52 +263,14 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch { updateRepo.dismiss(versionName) }
     }
 
+    /** Pull-to-refresh: pełna synchronizacja przez koordynator (komunikaty, przypomnienia, widżety - tam). */
     fun refresh() {
         if (refreshing.value) return
         refreshing.value = true
         viewModelScope.launch {
-            val cid = selected.first()
             try {
-                // Porażki źródeł (zbierane, nie ignorowane): dawniej odświeżenie bez internetu
-                // zapisywało "zsynchronizowano teraz" i kasowało komunikat o błędzie.
-                val failures = java.util.concurrent.ConcurrentHashMap<String, Throwable>()
-                val succeeded = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-                withContext(Dispatchers.IO) {
-                    coroutineScope {
-                        // Lista klas (sidebar) dawniej odświeżała się tylko w tle co 15 min.
-                        launch { timetableRepo.syncSidebar() }
-                        launch {
-                            val r = timetableRepo.syncTimetable(cid ?: return@launch, LocalDate.now())
-                            r.onSuccess { succeeded += SyncOutcome.TIMETABLE; notificationsRepo.markLoaded("timetable") }
-                                .onFailure { failures[SyncOutcome.TIMETABLE] = it }
-                        }
-                        launch {
-                            val r = substitutionsRepo.syncAll()
-                            r.onSuccess { succeeded += SyncOutcome.SUBSTITUTIONS; notificationsRepo.markLoaded("subs") }
-                                .onFailure { failures[SyncOutcome.SUBSTITUTIONS] = it }
-                        }
-                        launch {
-                            val r = announcementsRepo.syncAll()
-                            r.onSuccess { succeeded += SyncOutcome.ANNOUNCEMENTS; notificationsRepo.markLoaded("anns") }
-                                .onFailure { failures[SyncOutcome.ANNOUNCEMENTS] = it }
-                        }
-                    }
-                }
-                // "Zsynchronizowano" tylko po odświeżeniu planu albo zastępstw (jak w SyncWorker).
-                if (SyncOutcome.freshDataLoaded(succeeded)) notificationsRepo.setLastSyncAt(Instant.now())
-                notificationsRepo.setLastSyncError(
-                    SyncOutcome.errorMessage(failures) ?: if (succeeded.isEmpty() && failures.isNotEmpty())
-                        SyncErrors.userMessage(failures.values.first()) else null
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                notificationsRepo.setLastSyncError(SyncErrors.userMessage(e))
+                coordinator.sync(SyncRequest.full())
             } finally {
-                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
-                // a nie dopiero po najbliższym syncu w tle.
-                reminders.requestReschedule()
-                widgetUpdater.requestUpdate()
                 refreshing.value = false
             }
         }

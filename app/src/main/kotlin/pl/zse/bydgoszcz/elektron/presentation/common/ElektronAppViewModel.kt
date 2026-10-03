@@ -4,7 +4,7 @@ import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.filterNotNull
-import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.distinctUntilChanged
 import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
@@ -34,7 +34,7 @@ import javax.inject.Inject
 class ElektronAppViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val timetableRepo: TimetableRepository,
-    notificationsRepo: NotificationsRepository,
+    coordinator: SyncCoordinator,
     reminders: LessonReminderScheduler
 ) : ViewModel() {
 
@@ -62,12 +62,12 @@ class ElektronAppViewModel @Inject constructor(
         // termin lub treść (klasa, grupy, nazwy przedmiotów, ustawienia przypomnień) -
         // nie trzeba czekać na najbliższą synchronizację.
         // W trakcie pierwszego syncu po wyborze klasy (initialSyncPending) - nic: planu nowej
-        // klasy jeszcze nie ma, więc przeliczenie skasowałoby alarm. Przelicza ClassSelection
+        // klasy jeszcze nie ma, więc przeliczenie skasowałoby alarm. Przelicza SyncCoordinator
         // po pobraniu planu (i ten przepływ, gdy flaga zgaśnie).
         combine(
             settings.selectedClassId, settings.activeGroupSelections,
             settings.subjectStyles, settings.reminderSettings,
-            notificationsRepo.observeInitialSyncPending()
+            coordinator.initialSyncPending
         ) { a, b, c, d, pending -> if (pending) null else listOf(a, b, c, d) }
             .filterNotNull()
             .distinctUntilChanged()

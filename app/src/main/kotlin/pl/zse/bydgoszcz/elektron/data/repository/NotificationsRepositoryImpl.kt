@@ -77,11 +77,6 @@ class NotificationsRepositoryImpl @Inject constructor(
         syncStateDao.upsert(SyncStateEntity(KEY_INIT_DONE, Instant.now().epochSecond, "ok", null))
     }
 
-    override fun observeInitialSyncPending(): Flow<Boolean> =
-        syncStateDao.observe(KEY_INIT_PENDING).map { it?.status == "true" }
-    override suspend fun setInitialSyncPending(pending: Boolean) = withContext(Dispatchers.IO) {
-        syncStateDao.upsert(SyncStateEntity(KEY_INIT_PENDING, Instant.now().epochSecond, pending.toString(), null))
-    }
 
     override suspend fun getLastSyncAt(): Instant? = withContext(Dispatchers.IO) {
         syncStateDao.get(KEY_LAST_SYNC)?.lastSyncEpochSeconds?.let(Instant::ofEpochSecond)
@@ -92,11 +87,6 @@ class NotificationsRepositoryImpl @Inject constructor(
     override fun observeLastSyncAt(): Flow<Instant?> =
         syncStateDao.observe(KEY_LAST_SYNC).map { it?.lastSyncEpochSeconds?.let(Instant::ofEpochSecond) }
 
-    override fun observeIsSyncing(): Flow<Boolean> =
-        syncStateDao.observe(KEY_SYNCING).map { it?.status == "true" }
-    override suspend fun setIsSyncing(syncing: Boolean) = withContext(Dispatchers.IO) {
-        syncStateDao.upsert(SyncStateEntity(KEY_SYNCING, Instant.now().epochSecond, syncing.toString(), null))
-    }
 
     override fun observeLastSyncError(): Flow<String?> =
         syncStateDao.observe(KEY_LAST_ERROR).map { it?.message?.takeIf { m -> m.isNotBlank() } }
@@ -155,9 +145,7 @@ class NotificationsRepositoryImpl @Inject constructor(
         private const val KEY_SEEN_STORE_READY = "seen_store_v2_ready"
         private const val ID_SEPARATOR = "\n"
         private const val KEY_INIT_DONE = "initial_sync_done"
-        private const val KEY_INIT_PENDING = "initial_sync_pending"
         private const val KEY_LAST_SYNC = "last_sync"
-        private const val KEY_SYNCING = "syncing"
         private const val KEY_LAST_ERROR = "last_error"
         private const val KEY_LOADED = "loaded_resources"
     }

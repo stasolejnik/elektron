@@ -41,7 +41,7 @@ object Diagnostics {
         "ElektronFcmService", "FcmTopicManager", "LessonReminders", "LocalNotificationSink",
         "NextLessonTile", "OptivumListaParser", "OptivumTimetableParser", "RssParser", "SafeUrls",
         "SettingsViewModel", "SetupViewModel", "SubstitutionMapper", "SubstitutionsRepositoryImpl",
-        "SyncAllUseCase", "SyncWorker", "TimetableRepositoryImpl", "WidgetUpdater", "ZastepstwaParser",
+        "SyncCoordinator", "SyncWorker", "TimetableRepositoryImpl", "WidgetUpdater", "ZastepstwaParser",
         "ZseRssAnnouncementsSource", "ZseSubstitutionsSource", "ZseTimetableSource"
     )
 

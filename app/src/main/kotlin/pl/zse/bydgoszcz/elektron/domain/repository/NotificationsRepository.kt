@@ -29,16 +29,9 @@ interface NotificationsRepository {
     suspend fun isInitialSyncDone(): Boolean
     suspend fun setInitialSyncDone()
 
-    fun observeInitialSyncPending(): Flow<Boolean>
-    suspend fun setInitialSyncPending(pending: Boolean)
-
     suspend fun getLastSyncAt(): Instant?
     suspend fun setLastSyncAt(t: Instant)
     fun observeLastSyncAt(): Flow<Instant?>
-
-    /** true gdy SyncWorker pracuje w tle. */
-    fun observeIsSyncing(): Flow<Boolean>
-    suspend fun setIsSyncing(syncing: Boolean)
 
     /** Ostatni błąd synchronizacji (null gdy OK). */
     fun observeLastSyncError(): Flow<String?>

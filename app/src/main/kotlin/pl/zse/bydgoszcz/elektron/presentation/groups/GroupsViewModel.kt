@@ -1,5 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.groups
 
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +24,6 @@ import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
-import java.time.LocalDate
 import javax.inject.Inject
 
 /**
@@ -34,6 +36,7 @@ class GroupsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val timetableRepo: TimetableRepository,
     notificationsRepo: NotificationsRepository,
+    private val coordinator: SyncCoordinator,
     private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
@@ -79,7 +82,7 @@ class GroupsViewModel @Inject constructor(
     val state: StateFlow<State> = combine(
         inputs,
         notificationsRepo.observeLoadedResources(),
-        notificationsRepo.observeInitialSyncPending(),
+        coordinator.initialSyncPending,
         retrying,
         draft
     ) { inp, loaded, pending, retry, pendingChanges ->
@@ -149,8 +152,9 @@ class GroupsViewModel @Inject constructor(
         retrying.value = true
         viewModelScope.launch {
             try {
-                val cid = settings.selectedClassId.first() ?: return@launch
-                timetableRepo.syncTimetable(cid, LocalDate.now())
+                if (settings.selectedClassId.first() == null) return@launch
+                // Przez koordynator: komunikat, "loaded", przypomnienia i widżety - tam.
+                coordinator.sync(SyncRequest.of(SyncOutcome.TIMETABLE))
             } finally {
                 retrying.value = false
             }

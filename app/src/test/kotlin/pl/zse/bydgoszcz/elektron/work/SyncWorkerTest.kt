@@ -28,10 +28,7 @@ import pl.zse.bydgoszcz.elektron.data.remote.dto.TimetableDto
 import pl.zse.bydgoszcz.elektron.data.remote.sources.AnnouncementsSource
 import pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsSource
 import pl.zse.bydgoszcz.elektron.data.remote.sources.TimetableSource
-import pl.zse.bydgoszcz.elektron.data.repository.AnnouncementsRepositoryImpl
 import pl.zse.bydgoszcz.elektron.data.repository.NotificationsRepositoryImpl
-import pl.zse.bydgoszcz.elektron.data.repository.SubstitutionsRepositoryImpl
-import pl.zse.bydgoszcz.elektron.data.repository.TimetableRepositoryImpl
 import pl.zse.bydgoszcz.elektron.data.repository.inMemoryDb
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
@@ -41,14 +38,13 @@ import android.app.AlarmManager
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.robolectric.Shadows.shadowOf
-import pl.zse.bydgoszcz.elektron.domain.usecase.SyncAllUseCase
-import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+import pl.zse.bydgoszcz.elektron.testutil.TestCoordinator
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
- * SyncWorker od początku do końca: prawdziwa baza, repozytoria i SyncAllUseCase;
+ * SyncWorker od początku do końca: prawdziwa baza, repozytoria i SyncCoordinator;
  * podstawione tylko źródła sieciowe, ustawienia i odbiornik powiadomień.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -107,17 +103,11 @@ class SyncWorkerTest {
     private lateinit var notificationsRepo: NotificationsRepositoryImpl
 
     private fun runWorker(): ListenableWorker.Result {
-        val timetableRepo = TimetableRepositoryImpl(timetableSource, db.schoolClassDao(), db.teacherDao(), db.roomDao(),
-            db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
-        val substitutionsRepo = SubstitutionsRepositoryImpl(subsSource, db.substitutionDao(), db)
-        val announcementsRepo = AnnouncementsRepositoryImpl(Anns(), db.announcementDao(), db)
-        notificationsRepo = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
-        val syncAll = SyncAllUseCase(timetableRepo, substitutionsRepo, announcementsRepo, notificationsRepo)
+        val t = TestCoordinator(context, db, settings, timetableSource, subsSource, Anns(), sink)
+        notificationsRepo = t.notificationsRepo
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                SyncWorker(appContext, workerParameters, syncAll, settings, substitutionsRepo, announcementsRepo,
-                    notificationsRepo, sink, timetableRepo, WidgetUpdater(appContext),
-                    LessonReminderScheduler(appContext, settings, timetableRepo))
+                SyncWorker(appContext, workerParameters, t.coordinator, t.notificationsRepo)
         }
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).setWorkerFactory(factory).build()
         return runBlocking { worker.doWork() }

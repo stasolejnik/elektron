@@ -1,7 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.announcements
 
-import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
-import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,18 +15,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
-import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import javax.inject.Inject
 
 @HiltViewModel
 class AnnouncementsViewModel @Inject constructor(
     private val repo: AnnouncementsRepository,
-    private val notificationsRepo: NotificationsRepository,
-    private val widgetUpdater: WidgetUpdater,
-    private val reminders: LessonReminderScheduler
+    private val coordinator: SyncCoordinator
 ) : ViewModel() {
 
     private companion object { const val PAGE_SIZE = 10 }
@@ -66,7 +63,7 @@ class AnnouncementsViewModel @Inject constructor(
         combine(indexed, query) { all, q -> all to q },
         visibleCount,
         refreshing,
-        combine(loadingMore, loadMoreError, archiveExhausted, notificationsRepo.observeInitialSyncPending()) { l, e, x, p ->
+        combine(loadingMore, loadMoreError, archiveExhausted, coordinator.initialSyncPending) { l, e, x, p ->
             Flags(l, e, x, p)
         }
     ) { (all, q), count, refresh, flags ->
@@ -128,13 +125,10 @@ class AnnouncementsViewModel @Inject constructor(
         refreshing.value = true
         viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) { repo.syncAll() }
-                    .onSuccess { notificationsRepo.markLoaded("anns") }
+                // Przez koordynator (markLoaded, powiadomienia, widżety - tam). Komunikatu o planie
+                // i zastępstwach odświeżenie samych ogłoszeń nie rusza.
+                coordinator.sync(SyncRequest.of(SyncOutcome.ANNOUNCEMENTS))
             } finally {
-                // Widżety i przypomnienie od razu po nowych danych (np. zwolnienie z lekcji),
-                // a nie dopiero po najbliższym syncu w tle.
-                reminders.requestReschedule()
-                widgetUpdater.requestUpdate()
                 // Dawniej bez try/finally — wyjątek zostawiał wieczny spinner odświeżania.
                 refreshing.value = false
             }

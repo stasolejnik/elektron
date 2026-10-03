@@ -1,7 +1,5 @@
 package pl.zse.bydgoszcz.elektron.work
 
-import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
-import java.time.LocalDateTime
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -11,14 +9,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.model.AnnouncementSource
-import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
-import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
 import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
-import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import java.time.Instant
 import java.time.LocalDate
@@ -42,12 +37,12 @@ import javax.inject.Inject
 class ElektronFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var settings: SettingsRepository
-    @Inject lateinit var timetableRepo: TimetableRepository
     @Inject lateinit var substitutionsRepo: SubstitutionsRepository
     @Inject lateinit var announcementsRepo: AnnouncementsRepository
     @Inject lateinit var notificationsRepo: NotificationsRepository
     @Inject lateinit var sink: NotificationSink
     @Inject lateinit var widgetUpdater: WidgetUpdater
+    @Inject lateinit var substitutionNotifier: SubstitutionNotifier
 
     // Google zaleca runBlocking (nie goAsync — to metoda BroadcastReceivera, nie tej klasy)
     // dla krótkiej pracy w onMessageReceived: to wywołanie leci na wątku w tle biblioteki
@@ -88,33 +83,8 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
         substitutionsRepo.upsertOne(sub)
         widgetUpdater.requestUpdate() // zastępstwo może zmienić lekcję na widżecie
 
-        val notifSubs = settings.notificationsSubstitutions.first()
-        if (!notifSubs) return
-
-        val classId = settings.selectedClassId.first() ?: return
-        val short = timetableRepo.observeClasses().first().firstOrNull { it.id == classId }?.shortName ?: return
-        if (!SubstitutionRelevance.matchesClass(sub, short)) return
-
-        // Grupy zajęciowe: zastępstwo dla grupy, do której użytkownik nie należy, pomijamy.
-        val groups = settings.groupSelections(classId).first()
-        val lessonsThatDay = runCatchingCancellable { timetableRepo.getLessonsOnce(classId, sub.date, sub.date) }
-            .getOrDefault(emptyList())
-        if (!LessonGroups.substitutionRelevant(sub, lessonsThatDay, groups)) return
-        // Zastępstwo, którego lekcja już minęła - bez powiadomienia (SyncWorker oznaczy je jako widziane).
-        if (SubstitutionRelevance.isOver(sub, LocalDateTime.now(), SubstitutionRelevance.lessonEnds(lessonsThatDay))) return
-
-        // Ta sama blokada co SyncWorker — patrz dokumentacja withNotifyLock.
-        notificationsRepo.withNotifyLock {
-            val seen = notificationsRepo.getSeenSubstitutionIds()
-            if (id in seen) return@withNotifyLock // SyncWorker już to obsłużył — bez duplikatu
-
-            // Przedmiot grupy, której dotyczy zastępstwo (dawniej pierwszej grupy lekcji).
-            val subject = LessonGroups.filter(lessonsThatDay, groups)
-                .firstOrNull { it.number == sub.lessonNumber }
-                ?.let { LessonGroups.subjectFor(sub, it.groups) }
-            sink.postSubstitution(sub, subject)
-            notificationsRepo.setSeenSubstitutionIds(seen + id)
-        }
+        // Klasa, grupy, minione lekcje, "widziane" - ta sama logika co po synchronizacji.
+        substitutionNotifier.notifyPushed(sub)
     }
 
     private suspend fun handleAnnouncement(data: Map<String, String>) {
