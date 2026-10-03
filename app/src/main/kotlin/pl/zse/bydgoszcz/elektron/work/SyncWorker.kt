@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import java.time.LocalDateTime
 import android.content.Context
@@ -57,10 +58,9 @@ class SyncWorker @AssistedInject constructor(
                 return if (runAttemptCount >= MAX_RETRY_ATTEMPTS) Result.failure() else Result.retry()
             }
 
-            // Reszta danych się pobrała, ale plan ma nieznany układ - komunikat na stronie głównej.
-            notificationsRepo.setLastSyncError(
-                if (syncAll.pageChanged) SchoolPageChangedException.USER_MESSAGE else null
-            )
+            // Część danych się pobrała - komunikat, jeśli zawiodły plan albo zastępstwa (np. strona
+            // zastępstw nie działa) albo plan ma nieznany układ. Dawniej komunikat był kasowany.
+            notificationsRepo.setLastSyncError(SyncOutcome.errorMessage(syncAll.failures))
             notificationsRepo.setLastSyncAt(Instant.now())
 
             // Blokada dzielona z ElektronFirebaseMessagingService — patrz komentarz przy

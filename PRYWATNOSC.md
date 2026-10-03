@@ -17,9 +17,13 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
 - **Kopia danych ze strony szkoły:** plan lekcji, zastępstwa i ogłoszenia (żeby aplikacja
   działała bez internetu).
 - **Raport ostatniej awarii** (tylko jeśli aplikacja się zamknęła z powodu błędu): wersja
-  aplikacji, model telefonu, wersja Androida i techniczny opis błędu. Przy następnym
-  uruchomieniu możesz go zgłosić na GitHubie lub udostępnić albo pominąć - w każdym
-  przypadku raport jest potem usuwany. Aplikacja nigdy nie wysyła go sama.
+  aplikacji, model telefonu, wersja Androida, techniczny opis błędu, stan ustawień ważnych dla
+  działania aplikacji (czy powiadomienia są włączone, oszczędzanie baterii, dokładne alarmy,
+  rodzaj połączenia z internetem) i ostatnie logi samej aplikacji (komunikaty techniczne, np.
+  o błędach połączenia ze stroną szkoły - bez danych osobowych). Przy następnym uruchomieniu możesz go skopiować, wysłać e-mailem do dewelopera,
+  zgłosić na GitHubie albo pominąć - w każdym przypadku raport jest potem usuwany.
+  Aplikacja nigdy nie wysyła go sama. Taki sam raport (bez awarii) tworzy przycisk
+  **Zgłoś problem** w Ustawieniach.
 
 Dane te nie są nigdzie wysyłane. Ustawienia mogą trafić do kopii zapasowej Androida
 (Google), jeśli masz ją włączoną w telefonie - kopia danych ze strony szkoły jest z niej
@@ -64,4 +68,5 @@ danych osobowych, nie wymaga zgody rodzica na przetwarzanie danych.
 eLektron jest wolnym oprogramowaniem - każdy może sprawdzić, co robi aplikacja:
 https://github.com/stasolejnik/elektron
 
-Pytania i zgłoszenia: https://github.com/stasolejnik/elektron/issues
+Kontakt z deweloperem: **kontakt.elektron@pm.me**
+Zgłoszenia błędów: https://github.com/stasolejnik/elektron/issues

@@ -21,7 +21,7 @@ class CrashReportTest {
 
     @Test fun longStackIsTrimmed() {
         val r = report("java.lang.Error\n" + "\tat x.Y.z(Y.kt:1)\n".repeat(2000))
-        assertTrue(r.length < 5_300)
+        assertTrue(r.length < 8_300)
         assertTrue(r.endsWith("(przycięto)"))
     }
 
@@ -37,5 +37,55 @@ class CrashReportTest {
         assertTrue(url.startsWith("https://github.com/stasolejnik/elektron/issues/new?body="))
         assertTrue(url.contains("Pixel%207"))
         assertTrue(url.contains("foss"))
+    }
+
+    @Test fun reportWithThreadDetailsAndLogs() {
+        val r = CrashReport.format("1.0.0-rc1", 20, "gms", "14", 34, "Google Pixel 7", "2026-10-02 08:15", stack,
+            thread = "main", details = listOf("Klasa" to "1D"), logs = "10-02 08:14:59.123 W/ZseSubstitutionsSource: HTTP 503")
+        assertTrue(r.contains("Wątek: main"))
+        assertTrue(r.contains("Klasa: 1D"))
+        assertTrue(r.contains("--- Ostatnie logi aplikacji ---\n10-02 08:14:59.123 W/ZseSubstitutionsSource"))
+        assertTrue(CrashReport.title(r).startsWith("Awaria: IllegalStateException"))
+    }
+
+    @Test fun mailtoGoesToContactAddressAndIsBounded() {
+        val uri = CrashReport.mailtoUri("eLektron: test", "x".repeat(20_000))
+        assertTrue(uri.startsWith("mailto:kontakt.elektron@pm.me?subject=eLektron%3A%20test&body="))
+        assertTrue(uri.length < 20_000)
+    }
+
+    @Test fun feedbackWithoutCrashHasPlainSubject() {
+        val r = CrashReport.format("1.0.0-rc1", 20, "foss", "14", 34, "X", "t", "", logs = "linia")
+        assertEquals("eLektron: zgłoszenie problemu", CrashReport.emailSubject(r))
+    }
+
+    @Test fun logsWithoutSystemNoise() {
+        // Linie z prawdziwego raportu 1.0.0-rc1 (Pixel 9a, Android 17).
+        val raw = """
+            --------- beginning of main
+            10-03 12:29:29.048 D/Zygote (20620): FORCIBLY_ENABLE_MEMORY_TAGGING is set
+            10-03 12:29:29.059 E/FeatureFlagsImplExport(20620): AconfigStorageReadException: package android.xr cannot be found
+            10-03 12:29:29.096 D/nativeloader(20620): InitApexLibraries:
+            10-03 12:29:29.201 I/Surface (20620): Creating surface for consumer unnamed-20620-0
+            10-03 12:29:29.503 I/OptivumListaParser(20620): Sparsowano 201 pozycji
+            10-03 12:29:32.007 I/ZastepstwaParser(20620): Sparsowano 9 zastępstw (ostrzeżeń=0)
+            10-03 12:30:31.928 I/WM-WorkerWrapper(20620): Worker result SUCCESS for Work [ tags={ SyncWorker } ]
+            10-03 12:30:36.561 D/InsetsController(20620): hide(ime())
+            10-03 12:31:02.100 W/ZseSubstitutionsSource(20620): HTTP 503 dla https://zastepstwa.zse.bydgoszcz.pl/index.html
+        """.trimIndent()
+        val f = CrashReport.filterLogs(raw, setOf("OptivumListaParser", "ZastepstwaParser", "ZseSubstitutionsSource"))
+        val lines = f.lines()
+        assertEquals(5, lines.size)
+        assertTrue(lines[0].contains("E/FeatureFlagsImplExport"))     // błędy zawsze
+        assertTrue(lines[1].contains("OptivumListaParser"))
+        assertTrue(lines[3].contains("WM-WorkerWrapper"))
+        assertTrue(lines[4].contains("HTTP 503"))
+        assertTrue(f.lines().none { "Zygote" in it || "nativeloader" in it || "Surface" in it || "InsetsController" in it || "beginning of" in it })
+    }
+
+    @Test fun headerLinesAreSeparate() {
+        val r = CrashReport.format("1.0.0-rc1", 20, "gms", "17", 37, "Google Pixel 9a", "t", "")
+        assertEquals("eLektron 1.0.0-rc1 (20, gms)", r.lines()[0])
+        assertEquals("Android 17 (API 37), Google Pixel 9a", r.lines()[1])
     }
 }

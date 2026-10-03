@@ -1,5 +1,13 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import pl.zse.bydgoszcz.elektron.work.DeveloperTools
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
+import pl.zse.bydgoszcz.elektron.crash.Diagnostics
+import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
@@ -33,8 +41,66 @@ class SettingsViewModel @Inject constructor(
     private val classSelection: ClassSelection,
     private val updateRepo: UpdateRepository,
     private val widgetUpdater: WidgetUpdater,
-    private val reminders: LessonReminderScheduler
+    private val reminders: LessonReminderScheduler,
+    private val notificationsRepo: NotificationsRepository,
+    private val developerTools: DeveloperTools,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
+
+    /** Tryb dewelopera - na czas działania aplikacji, nie zapisywany. Panel z symulacjami w Ustawieniach. */
+    private val _devMode = MutableStateFlow(false)
+    val devMode: StateFlow<Boolean> = _devMode
+
+    /** Komunikat po akcji trybu dewelopera (pokazywany raz). */
+    private val _devMessage = MutableStateFlow<String?>(null)
+    val devMessage: StateFlow<String?> = _devMessage
+
+    fun setDevMode(enabled: Boolean) {
+        _devMode.value = enabled
+    }
+
+    fun consumeDevMessage() {
+        _devMessage.value = null
+    }
+
+    fun devSimulateSubstitution(freed: Boolean) = devAction { developerTools.simulateSubstitution(freed) }
+    fun devSimulateAnnouncement() = devAction { developerTools.simulateAnnouncement() }
+    fun devClearSimulations() = devAction { developerTools.clearSimulations() }
+    fun devCrash() = developerTools.crash()
+
+    private fun devAction(block: suspend () -> String) {
+        viewModelScope.launch {
+            _devMessage.value = runCatching { block() }.getOrElse { "Błąd: ${it.message}" }
+        }
+    }
+
+    /** Raport do "Zgłoś problem" (null - okno zamknięte). */
+    private val _feedbackReport = MutableStateFlow<String?>(null)
+    val feedbackReport: StateFlow<String?> = _feedbackReport
+
+    /**
+     * "Zgłoś problem": raport z logami aplikacji i stanem synchronizacji (najważniejsze przy
+     * problemach z pobieraniem danych ze strony szkoły).
+     */
+    fun openFeedback() {
+        viewModelScope.launch {
+            val s = state.value
+            val className = s.classes.firstOrNull { it.id == s.selectedClassId }?.fullName ?: s.selectedClassId ?: "nie wybrano"
+            val lastSync = runCatching { notificationsRepo.getLastSyncAt() }.getOrNull()
+            val lastError = runCatching { notificationsRepo.observeLastSyncError().first() }.getOrNull()
+            val details = listOf(
+                "Klasa" to className,
+                "Ostatnia udana synchronizacja" to (lastSync?.atZone(java.time.ZoneId.systemDefault())
+                    ?.toLocalDateTime()?.withNano(0)?.toString()?.replace('T', ' ') ?: "brak"),
+                "Ostatni błąd synchronizacji" to (lastError ?: "brak")
+            )
+            _feedbackReport.value = withContext(Dispatchers.IO) { Diagnostics.feedbackReport(appContext, details) }
+        }
+    }
+
+    fun closeFeedback() {
+        _feedbackReport.value = null
+    }
 
     data class State(
         val themeMode: ThemeMode = ThemeMode.SYSTEM,

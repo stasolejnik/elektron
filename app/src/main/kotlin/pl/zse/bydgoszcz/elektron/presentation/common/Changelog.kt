@@ -6,6 +6,19 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 20,
+            versionName = "1.0.0-rc1",
+            items = listOf(
+                "Nowy widok tygodnia: siatka z godzinami i pięcioma dniami, szczegóły lekcji po dotknięciu",
+                "Raport błędu z logami: kopiowanie, wysłanie e-mailem do dewelopera albo zgłoszenie na GitHubie",
+                "Kontakt z deweloperem: kontakt.elektron@pm.me (Ustawienia → O aplikacji)",
+                "Sprawdzanie aktualizacji w osobnej sekcji Ustawień",
+                "Gdy nie uda się odświeżyć planu albo zastępstw, aplikacja to pokazuje",
+                "Czas do końca lekcji i przerwy aktualny od razu po powrocie do aplikacji",
+                "Poprawki stabilności i pobierania danych ze strony szkoły"
+            )
+        ),
+        Entry(
             versionCode = 19,
             versionName = "0.6.6-beta",
             items = listOf(

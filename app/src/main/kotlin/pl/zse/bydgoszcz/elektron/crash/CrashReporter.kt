@@ -6,14 +6,12 @@ import pl.zse.bydgoszcz.elektron.BuildConfig
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Lokalne raporty awarii - bez Firebase Crashlytics, więc działa też w wersji F-Droid.
- * Przy awarii ślad stosu trafia do pliku w pamięci aplikacji. Przy następnym uruchomieniu
- * MainActivity proponuje zgłoszenie (GitHub albo udostępnienie). Bez zgody nic nie wychodzi.
+ * Przy awarii ślad stosu i ostatnie logi aplikacji trafiają do pliku w pamięci aplikacji. Przy
+ * następnym uruchomieniu MainActivity pokazuje raport (kopiowanie, e-mail, GitHub).
+ * Bez zgody użytkownika nic nie wychodzi.
  */
 object CrashReporter {
 
@@ -34,8 +32,12 @@ object CrashReporter {
                     androidVersion = Build.VERSION.RELEASE ?: "?",
                     sdkInt = Build.VERSION.SDK_INT,
                     device = "${Build.MANUFACTURER} ${Build.MODEL}",
-                    time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(Date()),
-                    stackTrace = stack
+                    time = Diagnostics.now(),
+                    stackTrace = stack,
+                    thread = thread.name,
+                    details = Diagnostics.deviceState(appContext),
+                    // Logi tuż sprzed awarii - często pokazują przyczynę (np. nietypowe dane ze strony).
+                    logs = Diagnostics.appLogs(timeoutMs = 1_000)
                 )
                 // Zapis synchroniczny - proces za chwilę zostanie zakończony.
                 file(appContext).writeText(report)

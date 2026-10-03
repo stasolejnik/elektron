@@ -1,5 +1,11 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import java.time.LocalDateTime
 import pl.zse.bydgoszcz.elektron.presentation.common.rememberNow
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.compose.ui.graphics.Color
@@ -10,14 +16,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
 import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
-import androidx.compose.foundation.lazy.rememberLazyListState
 import pl.zse.bydgoszcz.elektron.presentation.common.findActivity
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.DisposableEffect
 import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import androidx.compose.ui.geometry.Size
@@ -76,7 +80,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
@@ -87,8 +90,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
-import java.time.Duration
-import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -110,13 +111,12 @@ fun TimetableScreen(
     val plLocale = Locale("pl", "PL")
     val dateFmt = DateTimeFormatter.ofPattern("dd.MM", plLocale)
     val scope = rememberCoroutineScope()
-    // Zegar dla plakietek "Trwa teraz" / "Za X min".
-    val clock by produceState(LocalTime.now()) {
-        while (true) {
-            delay(30_000)
-            value = LocalTime.now()
-        }
-    }
+    // Szczegóły lekcji po dotknięciu (widok tygodnia i dnia).
+    var detailsLesson by remember { mutableStateOf<Lesson?>(null) }
+    detailsLesson?.let { LessonDetailsSheet(it) { detailsLesson = null } }
+
+    // Zegar dla plakietek "Trwa teraz" / "Za X min" - aktualny od razu po powrocie do aplikacji.
+    val clock = rememberNow().value.toLocalTime()
 
     // Pager stron (dzień albo tydzień). Nowy stan pagera przy zmianie trybu — strona
     // startowa odpowiada bieżącej dacie, więc przełączenie Dzień/Tydzień nie gubi miejsca.
@@ -203,8 +203,19 @@ fun TimetableScreen(
         }
     }
 
+    // Komunikat po nieudanym odświeżeniu (brak internetu, strona szkoły nie odpowiada).
+    val snackbar = remember { SnackbarHostState() }
+    val refreshMessage by viewModel.refreshMessage.collectAsStateWithLifecycle()
+    LaunchedEffect(refreshMessage) {
+        refreshMessage?.let {
+            viewModel.consumeRefreshMessage()
+            snackbar.showSnackbar(it)
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -287,13 +298,13 @@ fun TimetableScreen(
                                 .collectAsStateWithLifecycle()
                             val monday = date.with(java.time.DayOfWeek.MONDAY)
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
-                            DayPage(date, week, clock, loading, pageModifier)
+                            DayPage(date, week, clock, loading, pageModifier) { detailsLesson = it }
                         }
                         TimetableViewModel.ViewMode.WEEK -> {
                             val monday = TimetableViewModel.mondayForPage(base, page)
                             val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle()
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
-                            WeekPage(week, plLocale, dateFmt, loading, pageModifier, jump?.let { it.day to it.id })
+                            WeekPage(week, loading, pageModifier) { detailsLesson = it }
                         }
                     }
                 }
@@ -308,7 +319,8 @@ private fun DayPage(
     week: List<TimetableViewModel.DayColumn>?,
     clock: LocalTime,
     loading: Boolean,
-    modifier: Modifier
+    modifier: Modifier,
+    onLessonClick: (Lesson) -> Unit
 ) {
     val lessons = week?.firstOrNull { it.date == date }?.lessons.orEmpty()
     LazyColumn(
@@ -322,21 +334,19 @@ private fun DayPage(
             item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading(loading) }
         } else {
             val isToday = date == LocalDate.now()
-            val now = clock
-            val current = if (isToday) lessons.firstOrNull { now in it.timeFrom..it.timeTo } else null
-            val next = if (isToday) lessons.firstOrNull { it.timeFrom > now } else null
-            val hasEarlier = isToday && lessons.any { it.timeTo <= now }
+            // Ta sama reguła co strona główna i widżety (LessonClock): "Za X min" tylko przy
+            // następnej lekcji w przerwie albo w ostatnich 30 min przed nią. Dawniej każda
+            // następna lekcja po wcześniejszej dostawała odliczanie - w trakcie lekcji 3. przy
+            // lekcji 4. widniało np. "Za 52 min".
+            val status = if (isToday) LessonClock.status(lessons, LocalDateTime.of(date, clock)) else null
             items(lessons, key = { it.id }) { lesson ->
-                val badge = when {
-                    !isToday -> null
-                    current?.id == lesson.id -> "Trwa teraz"
-                    next?.id == lesson.id -> {
-                        val mins = Duration.between(now, lesson.timeFrom).toMinutes()
-                        if (mins <= 30 || hasEarlier) "Za $mins min" else null
-                    }
+                val badge = when (status) {
+                    is LessonClock.During -> if (status.lesson.id == lesson.id) "Trwa teraz" else null
+                    is LessonClock.Break -> if (status.next.id == lesson.id) "Za ${status.minutesUntil} min" else null
+                    is LessonClock.Before -> if (status.next.id == lesson.id) status.minutesUntil?.let { "Za $it min" } else null
                     else -> null
                 }
-                LessonRow(lesson, badge)
+                LessonRow(lesson, badge, onClick = { onLessonClick(lesson) })
             }
         }
     }
@@ -345,72 +355,18 @@ private fun DayPage(
 @Composable
 private fun WeekPage(
     week: List<TimetableViewModel.DayColumn>?,
-    plLocale: Locale,
-    dateFmt: DateTimeFormatter,
     loading: Boolean,
     modifier: Modifier,
-    /** Dzień startowy (data, numer żądania) - lista tygodnia przewija się do jego nagłówka. */
-    focus: Pair<LocalDate, Int>? = null
+    onLessonClick: (Lesson) -> Unit
 ) {
-    val listState = rememberLazyListState()
-    var handledFocus by remember { mutableIntStateOf(0) }
-    LaunchedEffect(focus, week) {
-        val (date, tick) = focus ?: return@LaunchedEffect
-        if (week == null || tick == handledFocus) return@LaunchedEffect
-        handledFocus = tick
-        weekHeaderIndex(week, date)?.let { listState.scrollToItem(it) }
+    if (week == null || week.all { it.lessons.isEmpty() }) {
+        Box(modifier.padding(12.dp)) { EmptyOrLoading(loading) }
+        return
     }
-    LazyColumn(
-        modifier,
-        state = listState,
-        contentPadding = PaddingValues(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        if (week == null || week.all { it.lessons.isEmpty() }) {
-            item { EmptyOrLoading(loading) }
-            return@LazyColumn
-        }
-        week.forEach { day ->
-            val dayName = day.dayOfWeek.getDisplayName(TextStyle.FULL, plLocale)
-                .replaceFirstChar { it.titlecase(plLocale) }
-            val isToday = day.date == LocalDate.now()
-            item(key = "h_${day.date}") {
-                Text(
-                    (if (isToday) "Dziś · " else "") + "$dayName • ${day.date.format(dateFmt)}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp).semantics { heading() }
-                )
-            }
-            if (day.lessons.isEmpty()) {
-                item(key = "e_${day.date}") {
-                    Text("Brak lekcji",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 4.dp))
-                }
-            } else {
-                items(day.lessons, key = { it.id }) { LessonRow(it, null) }
-            }
-        }
-    }
+    // Siatka jak w eduVulcan: godziny po lewej, 5 dni, same nazwy przedmiotów.
+    WeekGrid(week, modifier, onLessonClick)
 }
 
-
-/**
- * Indeks nagłówka dnia na liście tygodnia (musi odpowiadać układowi WeekPage: nagłówek +
- * lekcje albo "Brak lekcji"). null - dnia nie ma w tym tygodniu albo tydzień jest pusty.
- */
-internal fun weekHeaderIndex(week: List<TimetableViewModel.DayColumn>, date: LocalDate): Int? {
-    if (week.all { it.lessons.isEmpty() }) return null
-    var index = 0
-    for (day in week) {
-        if (day.date == date) return index
-        index += 1 + maxOf(day.lessons.size, 1)
-    }
-    return null
-}
 
 /** Mała plakietka grupy przy nazwie przedmiotu, np. "Grupa 2". */
 @Composable
@@ -470,7 +426,7 @@ private fun MessageCard(loading: Boolean, text: String, hint: String? = null) {
 }
 
 @Composable
-private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modifier) {
+private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     val sub = lesson.substitution
     val bg = if (sub != null) MaterialTheme.colorScheme.tertiaryContainer
         else MaterialTheme.colorScheme.surfaceContainerHighest
@@ -489,6 +445,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
     val accent = MaterialTheme.colorScheme.primary
 
     Card(modifier = modifier.fillMaxWidth().padding(vertical = 1.dp)
+            .then(if (onClick != null) Modifier.clip(MaterialTheme.shapes.large).clickable(onClick = onClick) else Modifier)
             .semantics(mergeDescendants = true) {},
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = bg),

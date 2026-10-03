@@ -14,6 +14,9 @@ interface AnnouncementsRepository {
     /** Zapis pojedynczego wpisu (np. z pusha FCM). */
     suspend fun upsertOne(ann: Announcement)
 
+    /** Usuwa ogłoszenia symulowane w trybie dewelopera (id "dev_ann_..."). */
+    suspend fun deleteSimulated(): Int = 0
+
     /**
      * Wczytuje starsze ogłoszenia z archiwum strony szkoły (RSS zawiera tylko najnowsze).
      * Wynik: liczba dodanych wpisów; [OlderResult.exhausted] = archiwum się skończyło.

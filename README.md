@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="fastlane/metadata/android/pl-PL/images/icon.png" alt="eLektron" width="112">
+<img src="docs/logo.png" alt="eLektron" width="112">
 
 # eLektron
 
@@ -70,11 +70,24 @@ z `keystore.properties` - wzór w [keystore.properties.example](keystore.propert
 
 Kotlin · Jetpack Compose · Material 3 · Hilt · Room · DataStore · WorkManager · Glance · OkHttp · Jsoup
 
-## Zgłaszanie błędów
+## Zgłaszanie błędów i kontakt
 
-Błędy i propozycje zgłaszaj w [Issues](https://github.com/stasolejnik/elektron/issues) -
-najprościej przyciskiem **Zgłoś problem** w Ustawieniach aplikacji, który dołącza wersję
-aplikacji, Androida i model telefonu. Po awarii aplikacja sama proponuje wysłanie raportu.
+Najprościej przyciskiem **Zgłoś problem** w Ustawieniach aplikacji: przygotowuje raport
+techniczny (wersja aplikacji i Androida, model telefonu, ostatnie logi aplikacji), który
+możesz wysłać e-mailem albo zgłosić w [Issues](https://github.com/stasolejnik/elektron/issues).
+Po awarii aplikacja sama proponuje wysłanie raportu.
+
+Kontakt z deweloperem: **[kontakt.elektron@pm.me](mailto:kontakt.elektron@pm.me)**
+
+## Źródła danych
+
+Dane pochodzą wyłącznie z publicznych stron szkoły, pobieranych z poszanowaniem `robots.txt`:
+
+| Dane | Źródło |
+|---|---|
+| Plan lekcji i lista klas | [plan.zse.bydgoszcz.pl](https://plan.zse.bydgoszcz.pl) (VULCAN Optivum) |
+| Zastępstwa | [zastepstwa.zse.bydgoszcz.pl](https://zastepstwa.zse.bydgoszcz.pl) |
+| Ogłoszenia | kanały RSS [zse.bydgoszcz.pl](https://zse.bydgoszcz.pl) |
 
 ## Prywatność
 

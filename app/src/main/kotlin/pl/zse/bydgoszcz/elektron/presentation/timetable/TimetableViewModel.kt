@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import androidx.lifecycle.ViewModel
@@ -160,26 +161,39 @@ class TimetableViewModel @Inject constructor(
      * Pull-to-refresh: wymusza pobranie planu dla oglądanego tygodnia (pomija cache)
      * oraz zastępstw, które nakładają się na plan. Oba równolegle.
      */
+    /** Komunikat po nieudanym odświeżeniu (pokazywany raz na ekranie planu). */
+    private val _refreshMessage = MutableStateFlow<String?>(null)
+    val refreshMessage: StateFlow<String?> = _refreshMessage
+
+    fun consumeRefreshMessage() {
+        _refreshMessage.value = null
+    }
+
     fun refresh() {
         if (refreshing.value) return
         refreshing.value = true
         viewModelScope.launch {
             try {
                 val cid = settings.selectedClassId.first() ?: return@launch
+                // Błędy zbierane (dawniej poza zmianą układu strony ignorowane - przycisk
+                // odświeżania bez internetu po prostu "nic nie robił").
+                val failures = java.util.concurrent.ConcurrentHashMap<String, Throwable>()
                 coroutineScope {
                     launch {
                         repo.syncTimetable(cid, anchor.value)
                             .onSuccess { notificationsRepo.markLoaded("timetable") }
-                            .onFailure {
-                                if (it is SchoolPageChangedException)
-                                    notificationsRepo.setLastSyncError(SchoolPageChangedException.USER_MESSAGE)
-                            }
+                            .onFailure { failures[SyncOutcome.TIMETABLE] = it }
                     }
                     launch {
                         substitutionsRepo.syncAll()
                             .onSuccess { notificationsRepo.markLoaded("subs") }
+                            .onFailure { failures[SyncOutcome.SUBSTITUTIONS] = it }
                     }
                 }
+                val message = SyncOutcome.errorMessage(failures)
+                notificationsRepo.setLastSyncError(message)
+                if (failures.size < 2) notificationsRepo.setLastSyncAt(java.time.Instant.now())
+                _refreshMessage.value = message
             } finally {
                 refreshing.value = false
             }

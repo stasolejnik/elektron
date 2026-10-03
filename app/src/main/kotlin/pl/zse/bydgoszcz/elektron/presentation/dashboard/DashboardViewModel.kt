@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import java.time.LocalDateTime
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
@@ -270,26 +271,36 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             val cid = selected.first()
             try {
+                // Porażki źródeł (zbierane, nie ignorowane): dawniej odświeżenie bez internetu
+                // zapisywało "zsynchronizowano teraz" i kasowało komunikat o błędzie.
+                val failures = java.util.concurrent.ConcurrentHashMap<String, Throwable>()
+                var anySuccess = false
                 withContext(Dispatchers.IO) {
                     coroutineScope {
                         // Lista klas (sidebar) dawniej odświeżała się tylko w tle co 15 min.
                         launch { timetableRepo.syncSidebar() }
                         launch {
                             val r = timetableRepo.syncTimetable(cid ?: return@launch, LocalDate.now())
-                            if (r.isSuccess) notificationsRepo.markLoaded("timetable")
+                            r.onSuccess { anySuccess = true; notificationsRepo.markLoaded("timetable") }
+                                .onFailure { failures[SyncOutcome.TIMETABLE] = it }
                         }
                         launch {
                             val r = substitutionsRepo.syncAll()
-                            if (r.isSuccess) notificationsRepo.markLoaded("subs")
+                            r.onSuccess { anySuccess = true; notificationsRepo.markLoaded("subs") }
+                                .onFailure { failures[SyncOutcome.SUBSTITUTIONS] = it }
                         }
                         launch {
                             val r = announcementsRepo.syncAll()
-                            if (r.isSuccess) notificationsRepo.markLoaded("anns")
+                            r.onSuccess { anySuccess = true; notificationsRepo.markLoaded("anns") }
+                                .onFailure { failures["anns"] = it }
                         }
                     }
                 }
-                notificationsRepo.setLastSyncAt(Instant.now())
-                notificationsRepo.setLastSyncError(null)
+                if (anySuccess) notificationsRepo.setLastSyncAt(Instant.now())
+                notificationsRepo.setLastSyncError(
+                    SyncOutcome.errorMessage(failures) ?: if (!anySuccess && failures.isNotEmpty())
+                        SyncErrors.userMessage(failures.values.first()) else null
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

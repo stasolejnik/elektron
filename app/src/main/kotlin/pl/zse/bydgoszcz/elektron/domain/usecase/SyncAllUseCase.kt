@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.domain.usecase
 
+import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,25 +32,32 @@ class SyncAllUseCase @Inject constructor(
     var pageChanged: Boolean = false
         private set
 
+    /** Źródła, które zawiodły w ostatnim przebiegu (klucze jak w SyncOutcome). */
+    var failures: Map<String, Throwable> = emptyMap()
+        private set
+
     suspend operator fun invoke(classId: String?, anchorDate: LocalDate = LocalDate.now()): Int =
         withContext(Dispatchers.IO) {
             var ok = 0
             pageChanged = false
+            val failed = mutableMapOf<String, Throwable>()
             timetableRepo.syncSidebar().onSuccess { ok++ }.onFailure { Log.w(TAG, "sidebar fail", it) }
             if (classId != null) {
                 timetableRepo.syncTimetable(classId, anchorDate)
                     .onSuccess { ok++; notificationsRepo.markLoaded("timetable") }
                     .onFailure {
                         Log.w(TAG, "timetable fail", it)
+                        failed[SyncOutcome.TIMETABLE] = it
                         if (it is SchoolPageChangedException) pageChanged = true
                     }
             }
             substitutionsRepo.syncAll()
                 .onSuccess { ok++; notificationsRepo.markLoaded("subs") }
-                .onFailure { Log.w(TAG, "substitutions fail", it) }
+                .onFailure { Log.w(TAG, "substitutions fail", it); failed[SyncOutcome.SUBSTITUTIONS] = it }
             announcementsRepo.syncAll()
                 .onSuccess { ok++; notificationsRepo.markLoaded("anns") }
-                .onFailure { Log.w(TAG, "announcements fail", it) }
+                .onFailure { Log.w(TAG, "announcements fail", it); failed["anns"] = it }
+            failures = failed
             ok
         }
 

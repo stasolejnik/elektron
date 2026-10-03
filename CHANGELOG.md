@@ -4,6 +4,43 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.0-rc1] - 2026-10-02 (20)
+
+Pierwsza wersja kandydująca do wydania 1.0.0.
+
+### Dodane
+- Nowy widok tygodnia (jak w eduVulcan): po lewej godziny, 5 kolumn dni, lekcje rozmieszczone
+  według godzin (okienka i przerwy widać), w kafelku tylko nazwa przedmiotu (dzielenie wyrazów),
+  linia bieżącej godziny, przewijanie w pionie. Dotknięcie lekcji (także w widoku dnia) otwiera
+  szczegóły: dzień, godziny, przedmiot, grupa, sala, nauczyciel, zastępstwo.
+- Raport błędu z surowymi logami (po awarii i z „Zgłoś problem” w Ustawieniach): przewijany
+  podgląd, „Kopiuj logi”, „Zgłoś przez e-mail” (raport trafia do schowka, a wiadomość do
+  kontakt.elektron@pm.me prosi o jego wklejenie - programy pocztowe ucinały długie treści)
+  i „Zgłoś na GitHubie”. Raport zawiera ślad stosu, wątek, stan synchronizacji, stan powiadomień,
+  baterii i sieci oraz ostatnie logi aplikacji (bez szumu systemowego).
+- Kontakt z deweloperem: kontakt.elektron@pm.me (Ustawienia → O aplikacji, README, polityka
+  prywatności).
+- Tryb dewelopera: symulacja zastępstwa, odwołania lekcji, ogłoszenia (z powiadomieniami)
+  i awarii aplikacji, raport błędu, usuwanie symulacji.
+
+### Zmienione
+- „Sprawdź aktualizacje” w osobnej sekcji „Aktualizacje”, nad „O aplikacji”.
+- Wersja release bez zaciemniania nazw (R8 nadal zmniejsza kod): ślady stosu w raportach
+  błędów są czytelne bez pliku mapowania.
+- Licencja w Ustawieniach jako plakietka GPLv3 (dotknięcie otwiera tekst licencji); informacja
+  o źródłach danych przeniesiona do README.
+- Repozytorium: przezroczyste logo (`docs/logo.svg`, `docs/logo.png`).
+
+### Naprawione
+- Czas do końca lekcji/przerwy w planie był nieaktualny po powrocie do aplikacji pozostawionej
+  w tle (zegar tykał co 30 s niezależnie od ekranu) - teraz aktualizuje się od razu.
+- Okno raportu błędu na małych ekranach - przewijane, przyciski zawsze dostępne.
+- Ręczne odświeżanie na stronie głównej bez internetu zapisywało „zsynchronizowano teraz”
+  i kasowało komunikat o błędzie - dane wyglądały na aktualne.
+- Odświeżanie w planie lekcji ignorowało błędy (poza zmianą układu strony) - teraz komunikat.
+- Synchronizacja w tle kasowała komunikat o błędzie, gdy pobrała się choć część danych - nie
+  było widać, że np. strona zastępstw nie działa.
+
 ## [0.6.6-beta] - 2026-10-02 (19)
 
 ### Zmienione
@@ -201,6 +238,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[1.0.0-rc1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc1
 [0.6.6-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.6-beta
 [0.6.5-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.5-beta
 [0.6.4-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.4-beta

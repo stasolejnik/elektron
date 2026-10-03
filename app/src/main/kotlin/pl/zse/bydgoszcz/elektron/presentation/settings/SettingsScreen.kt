@@ -1,5 +1,15 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
+import android.os.SystemClock
+import android.widget.Toast
+import androidx.compose.foundation.layout.width
+import pl.zse.bydgoszcz.elektron.crash.openContactEmail
+import pl.zse.bydgoszcz.elektron.crash.ReportDialog
 import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import androidx.compose.foundation.layout.Box
 import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
@@ -72,6 +82,7 @@ import pl.zse.bydgoszcz.elektron.presentation.common.pressable
 
 private const val REPO_URL = "https://github.com/stasolejnik/elektron"
 private const val PRIVACY_URL = "https://github.com/stasolejnik/elektron/blob/main/PRYWATNOSC.md"
+private const val LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +93,54 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
+    // Tryb dewelopera.
+    val devMode by viewModel.devMode.collectAsStateWithLifecycle()
+    val devMessage by viewModel.devMessage.collectAsStateWithLifecycle()
+    val toastContext = LocalContext.current
+    var toast by remember { mutableStateOf<Toast?>(null) }
+    val showToast: (String) -> Unit = { text ->
+        toast?.cancel()
+        toast = Toast.makeText(toastContext, text, Toast.LENGTH_SHORT).also { it.show() }
+    }
+    LaunchedEffect(devMessage) {
+        devMessage?.let { showToast(it); viewModel.consumeDevMessage() }
+    }
+    var logoTaps by remember { mutableIntStateOf(0) }
+    var lastLogoTap by remember { mutableLongStateOf(0L) }
+    val onLogoTap: () -> Unit = {
+        val t = SystemClock.uptimeMillis()
+        logoTaps = if (t - lastLogoTap < 700) logoTaps + 1 else 1
+        lastLogoTap = t
+        if (!devMode && logoTaps >= 5) {
+            viewModel.setDevMode(true)
+            logoTaps = 0
+            showToast("Tryb dewelopera włączony.")
+        }
+    }
+    var confirmCrash by remember { mutableStateOf(false) }
+    if (confirmCrash) {
+        AlertDialog(
+            onDismissRequest = { confirmCrash = false },
+            title = { Text("Symulować awarię?") },
+            text = { Text("Aplikacja zamknie się z błędem. Po ponownym uruchomieniu pojawi się okno raportu (kopiowanie logów, e-mail, GitHub).") },
+            confirmButton = { TextButton(onClick = { confirmCrash = false; viewModel.devCrash() }) { Text("Zamknij z błędem") } },
+            dismissButton = { TextButton(onClick = { confirmCrash = false }) { Text("Anuluj") } }
+        )
+    }
+
+    val feedbackReport by viewModel.feedbackReport.collectAsStateWithLifecycle()
+    feedbackReport?.let { report ->
+        ReportDialog(
+            title = "Zgłoś problem",
+            intro = "Opisz w wiadomości, co nie działa. Raport techniczny poniżej zostanie dołączony.",
+            report = report,
+            issueUrl = CrashReport.feedbackUrl(
+                BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.FLAVOR,
+                Build.VERSION.RELEASE ?: "?", Build.VERSION.SDK_INT, "${Build.MANUFACTURER} ${Build.MODEL}"
+            ),
+            onDismiss = viewModel::closeFeedback
+        )
+    }
     val linkColor = MaterialTheme.colorScheme.primary
     val ctx = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -232,6 +291,27 @@ fun SettingsScreen(
                 }
             }
 
+            // Aktualizacje (GitHub Releases) - osobna sekcja tuż nad "O aplikacji"; nie w wersji F-Droid.
+            if (BuildConfig.UPDATE_CHECK) {
+                item {
+                    GroupedSection("Aktualizacje") {
+                        ActionRow("Sprawdź aktualizacje") { viewModel.checkForUpdates() }
+                        when (val st = updateStatus) {
+                            SettingsViewModel.UpdateStatus.Idle -> Unit
+                            SettingsViewModel.UpdateStatus.Checking -> UpdateNote("Sprawdzam…")
+                            SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
+                            SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
+                            is SettingsViewModel.UpdateStatus.Available -> {
+                                UpdateNote("Dostępna wersja ${st.update.versionName}.")
+                                Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                                    UpdateActions(st.update, onLater = null)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 GroupedSection("O aplikacji") {
                     Column(
@@ -242,6 +322,11 @@ fun SettingsScreen(
                             painter = painterResource(R.drawable.ic_logo),
                             contentDescription = null,
                             modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onLogoTap
+                                )
                         )
                         Spacer(Modifier.height(8.dp))
                         Text("eLektron", style = MaterialTheme.typography.titleLarge)
@@ -253,64 +338,58 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center)
-                    Text(
-                        "eLektron to wolne oprogramowanie: możesz go używać w dowolnym celu, " +
-                            "zajrzeć do kodu, zmieniać go i udostępniać dalej - także zmienione " +
-                            "wersje, na tej samej licencji.",
-                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
                     RowDivider()
-                    // Sprawdzanie aktualizacji (GitHub Releases) — nie w wersji F-Droid.
-                    if (BuildConfig.UPDATE_CHECK) {
-                    ActionRow("Sprawdź aktualizacje") { viewModel.checkForUpdates() }
-                    when (val st = updateStatus) {
-                        SettingsViewModel.UpdateStatus.Idle -> Unit
-                        SettingsViewModel.UpdateStatus.Checking -> UpdateNote("Sprawdzam…")
-                        SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
-                        SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
-                        is SettingsViewModel.UpdateStatus.Available -> {
-                            UpdateNote("Dostępna wersja ${st.update.versionName}.")
-                            Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
-                                UpdateActions(st.update, onLater = null)
-                            }
-                        }
-                    }
-                    RowDivider()
-                    }
                     ActionRow("Kod źródłowy na GitHubie", trailingIcon = true) {
                         SafeUrls.open(ctx, REPO_URL)
                     }
                     RowDivider()
-                    ActionRow("Zgłoś problem", trailingIcon = true) {
-                        SafeUrls.open(ctx, CrashReport.feedbackUrl(
-                            BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.FLAVOR,
-                            Build.VERSION.RELEASE ?: "?", Build.VERSION.SDK_INT,
-                            "${Build.MANUFACTURER} ${Build.MODEL}"
-                        ))
+                    // Raport z logami: kopiowanie, e-mail do dewelopera albo zgłoszenie na GitHubie.
+                    ActionRow("Zgłoś problem") { viewModel.openFeedback() }
+                    RowDivider()
+                    ActionRow(CrashReport.CONTACT_EMAIL, trailingIcon = true) {
+                        if (!openContactEmail(ctx)) SafeUrls.open(ctx, REPO_URL)
                     }
                     RowDivider()
                     ActionRow("Polityka prywatności", trailingIcon = true) {
                         SafeUrls.open(ctx, PRIVACY_URL)
                     }
-                    RowDivider()
-                    ActionRow("Licencja: GNU GPL v3.0 lub nowsza", trailingIcon = true) {
-                        SafeUrls.open(ctx, "https://www.gnu.org/licenses/gpl-3.0.html")
+                }
+            }
+
+            if (devMode) {
+                item {
+                    GroupedSection(
+                        "Tryb dewelopera",
+                        footer = "Symulacje są widoczne tylko na tym telefonie: zastępstwo trafia na najbliższą lekcję " +
+                            "(plan, zastępstwa, strona główna, widżety) i wysyła powiadomienie. Znikają po " +
+                            "„Usuń symulacje” albo przy synchronizacji tego dnia ze stroną szkoły."
+                    ) {
+                        ActionRow("Symuluj zastępstwo") { viewModel.devSimulateSubstitution(freed = false) }
+                        RowDivider()
+                        ActionRow("Symuluj odwołanie lekcji") { viewModel.devSimulateSubstitution(freed = true) }
+                        RowDivider()
+                        ActionRow("Symuluj ogłoszenie") { viewModel.devSimulateAnnouncement() }
+                        RowDivider()
+                        ActionRow("Usuń symulacje") { viewModel.devClearSimulations() }
+                        RowDivider()
+                        ActionRow("Raport błędu (bez awarii)") { viewModel.openFeedback() }
+                        RowDivider()
+                        ActionRow("Symuluj awarię aplikacji") { confirmCrash = true }
+                        RowDivider()
+                        ActionRow("Wyłącz tryb dewelopera") { viewModel.setDevMode(false) }
                     }
                 }
             }
 
+            // Licencja: plakietka GPLv3 (dotknięcie otwiera tekst licencji).
             item {
-                Text(
-                    "Źródła danych: plan.zse.bydgoszcz.pl, zastepstwa.zse.bydgoszcz.pl, zse.bydgoszcz.pl (RSS). " +
-                        "Dane pobierane są wyłącznie z publicznie dostępnych stron szkoły, z poszanowaniem robots.txt.",
-                    Modifier.padding(horizontal = 16.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+                Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
+                    Image(
+                        painter = painterResource(R.drawable.gpl_v3),
+                        contentDescription = "Licencja GNU GPL w wersji 3 lub nowszej - otwórz tekst licencji",
+                        modifier = Modifier.width(112.dp).pressable { SafeUrls.open(ctx, LICENSE_URL) }
+                    )
+                }
             }
         }
     }

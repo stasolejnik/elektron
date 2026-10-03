@@ -67,6 +67,8 @@ class AnnouncementsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deleteSimulated(): Int = withContext(Dispatchers.IO) { dao.deleteDevEntries() }
+
     override fun observeAll(): Flow<List<Announcement>> =
         dao.observeAll().map { list -> list.map(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
 

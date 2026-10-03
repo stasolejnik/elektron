@@ -34,3 +34,9 @@
 # Widżety Glance: receivery są w manifeście (R8 je zachowuje), EntryPoint Hilt też.
 # Zostawiamy nazwy klas widżetów — launcher odwołuje się do nich po nazwie.
 -keep class pl.zse.bydgoszcz.elektron.widget.** { *; }
+
+# --- 1.0.0-rc1: czytelne raporty błędów ---
+# Bez zaciemniania nazw (kod jest otwarty, więc niczego nie chroni): ślad stosu w raporcie
+# pokazuje prawdziwe klasy i pliki, np. DeveloperTools.crash(DeveloperTools.kt:120), a nie
+# K2.a.run(SourceFile:25) - bez pliku mapowania. Zmniejszanie i optymalizacja kodu zostają.
+-dontobfuscate

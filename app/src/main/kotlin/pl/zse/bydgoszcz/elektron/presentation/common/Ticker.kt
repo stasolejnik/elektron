@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -28,14 +29,20 @@ fun currentDateFlow(): Flow<java.time.LocalDate> =
     minuteTicker(60_000L).map { java.time.LocalDate.now() }.distinctUntilChanged()
 
 /**
- * Aktualna data i godzina dla UI, odświeżane równo z pełną [periodMs] (domyślnie co 30 s) -
- * np. "zostało X min" przy trwającej lekcji w planie.
+ * Aktualna data i godzina dla UI ("zostało X min", "Za X min"), odświeżane równo z pełną
+ * [periodMs] - i OD RAZU przy każdym powrocie na ekran (STARTED). Dawniej zegar tykał tylko co
+ * 30 s: po powrocie do aplikacji, która została w tle na planie, widniał stary czas.
+ * W tle nie tyka (oszczędność baterii).
  */
 @androidx.compose.runtime.Composable
-fun rememberNow(periodMs: Long = 30_000L): androidx.compose.runtime.State<java.time.LocalDateTime> =
-    androidx.compose.runtime.produceState(java.time.LocalDateTime.now(), periodMs) {
-        while (true) {
-            delay(periodMs - System.currentTimeMillis() % periodMs)
-            value = java.time.LocalDateTime.now()
+fun rememberNow(periodMs: Long = 30_000L): androidx.compose.runtime.State<java.time.LocalDateTime> {
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    return androidx.compose.runtime.produceState(java.time.LocalDateTime.now(), owner, periodMs) {
+        owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                value = java.time.LocalDateTime.now()
+                delay(periodMs - System.currentTimeMillis() % periodMs)
+            }
         }
     }
+}

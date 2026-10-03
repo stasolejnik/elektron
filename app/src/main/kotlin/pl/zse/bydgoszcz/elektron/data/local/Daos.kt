@@ -111,6 +111,10 @@ interface SubstitutionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<SubstitutionEntity>)
 
+    /** Symulowane zastępstwa z trybu dewelopera (id "dev|..."). */
+    @Query("DELETE FROM substitutions WHERE substr(id, 1, 4) = 'dev|'")
+    suspend fun deleteDevEntries(): Int
+
     /** Jeden dzień - zastępowany świeżym kompletem z tej samej strony. */
     @Query("DELETE FROM substitutions WHERE dateEpochDay = :day")
     suspend fun deleteForDay(day: Long)
