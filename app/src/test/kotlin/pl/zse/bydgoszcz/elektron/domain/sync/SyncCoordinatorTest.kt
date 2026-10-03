@@ -309,14 +309,15 @@ class SyncCoordinatorTest {
     fun initialSyncPendingSurvivesProcessRestartAfterReset() = runBlocking<Unit> {
         coordinator.sync(SyncRequest.full())
         assertFalse(coordinator.initialSyncPending.first())
-        timetable.gate = CompletableDeferred()
+        val gate = CompletableDeferred<Unit>()
+        timetable.gate = gate
         timetable.blockOnce = true
         coordinator.resetCacheAndResync("o3")                            // baza czyszczona, plan czeka
         withTimeout(10_000) { timetable.started.await() }
         // "Restart procesu": nowy koordynator (pusta pamięć) na tej samej bazie i ustawieniach.
         val afterRestart = newCoordinator().coordinator
         assertTrue(afterRestart.initialSyncPending.first())
-        timetable.gate!!.complete(Unit)
+        gate.complete(Unit)
         eventually<Boolean>({ afterRestart.initialSyncPending.first() }) { !it }
     }
 
