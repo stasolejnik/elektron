@@ -149,7 +149,7 @@ class SyncCoordinatorTest {
     // --- Wspólna praca ---
 
     @Test
-    fun twoParallelCallsWithSameRequestDoOneFetch() = runBlocking {
+    fun twoParallelCallsWithSameRequestDoOneFetch() = runBlocking<Unit> {
         timetable.gate = CompletableDeferred()
         val a = async(Dispatchers.Default) { coordinator.sync(SyncRequest.full()) }
         withTimeout(10_000) { timetable.started.await() }
@@ -164,7 +164,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun differentPlanDateIsSeparateWork() = runBlocking {
+    fun differentPlanDateIsSeparateWork() = runBlocking<Unit> {
         val thisWeek = SyncRequest.of(SyncOutcome.TIMETABLE)
         val nextWeek = SyncRequest.of(SyncOutcome.TIMETABLE, anchorDate = LocalDate.now().plusWeeks(1))
         timetable.gate = CompletableDeferred()
@@ -178,7 +178,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun cancelledCallerDoesNotCancelWorkOthersWaitFor() = runBlocking {
+    fun cancelledCallerDoesNotCancelWorkOthersWaitFor() = runBlocking<Unit> {
         timetable.gate = CompletableDeferred()
         val a = async(Dispatchers.Default) { coordinator.sync(SyncRequest.full()) }
         withTimeout(10_000) { timetable.started.await() }
@@ -193,7 +193,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun lastWaiterLeavingCancelsWorkAndClearsSyncingFlag() = runBlocking {
+    fun lastWaiterLeavingCancelsWorkAndClearsSyncingFlag() = runBlocking<Unit> {
         timetable.gate = CompletableDeferred()
         val a = async(Dispatchers.Default) { coordinator.sync(SyncRequest.full()) }
         withTimeout(10_000) { timetable.started.await() }
@@ -205,7 +205,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun classChangeInterruptsWaitersWithoutCancellation() = runBlocking {
+    fun classChangeInterruptsWaitersWithoutCancellation() = runBlocking<Unit> {
         timetable.gate = CompletableDeferred()
         timetable.blockedClass = "o3"
         val a = async(Dispatchers.Default) { coordinator.sync(SyncRequest.full()) }
@@ -222,7 +222,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun resetWaitsForRunningWorkBeforeClearingDatabase() = runBlocking {
+    fun resetWaitsForRunningWorkBeforeClearingDatabase() = runBlocking<Unit> {
         db.announcementDao().upsertAll(listOf(AnnouncementEntity(
             id = "znacznik", title = "x", url = "https://zse/x", publishedAtEpochSeconds = Instant.now().epochSecond,
             excerpt = null, coverImageUrl = null, fullHtml = null, isRead = false, source = "RSS_NEWS"
@@ -243,7 +243,7 @@ class SyncCoordinatorTest {
     // --- Wspólne kroki po synchronizacji ---
 
     @Test
-    fun failedSourceDoesNotBlockOthers() = runBlocking {
+    fun failedSourceDoesNotBlockOthers() = runBlocking<Unit> {
         subs.error = IOException("Zastępstwa: HTTP 503 dla x")
         val r = coordinator.sync(SyncRequest.full())
         assertTrue(SyncOutcome.SUBSTITUTIONS in r.failures)
@@ -253,7 +253,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun onlyTimetableOrSubstitutionsSetLastSync() = runBlocking {
+    fun onlyTimetableOrSubstitutionsSetLastSync() = runBlocking<Unit> {
         timetable.error = IOException("Plan lekcji: HTTP 503")
         subs.error = IOException("Zastępstwa: HTTP 503")
         val r = coordinator.sync(SyncRequest.full())
@@ -265,7 +265,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun announcementsOnlyRefreshKeepsPlanError() = runBlocking {
+    fun announcementsOnlyRefreshKeepsPlanError() = runBlocking<Unit> {
         timetable.error = IOException("Plan lekcji: HTTP 503")
         coordinator.sync(SyncRequest.full())
         val error = t.notificationsRepo.observeLastSyncError().first()
@@ -277,7 +277,7 @@ class SyncCoordinatorTest {
     // --- Powiadomienia: pierwsza synchronizacja (instalacja, zmiana klasy, reset) bez powiadomień ---
 
     @Test
-    fun firstSyncAfterInstallClassChangeAndResetDoesNotNotify() = runBlocking {
+    fun firstSyncAfterInstallClassChangeAndResetDoesNotNotify() = runBlocking<Unit> {
         subs.items = listOf(sub("1D", "A"))
         coordinator.sync(SyncRequest.full())
         assertTrue("pierwsza synchronizacja po instalacji", sink.substitutions.isEmpty())
@@ -306,7 +306,7 @@ class SyncCoordinatorTest {
     // --- Flaga "pierwsza synchronizacja po zmianie klasy" ---
 
     @Test
-    fun initialSyncPendingSurvivesProcessRestartAfterReset() = runBlocking {
+    fun initialSyncPendingSurvivesProcessRestartAfterReset() = runBlocking<Unit> {
         coordinator.sync(SyncRequest.full())
         assertFalse(coordinator.initialSyncPending.first())
         timetable.gate = CompletableDeferred()
@@ -321,7 +321,7 @@ class SyncCoordinatorTest {
     }
 
     @Test
-    fun failedFirstSyncEndsPendingSoGroupsCanOfferRetry() = runBlocking {
+    fun failedFirstSyncEndsPendingSoGroupsCanOfferRetry() = runBlocking<Unit> {
         timetable.error = IOException("Plan lekcji: HTTP 503")
         coordinator.selectClass("o4")
         eventually({ t.notificationsRepo.observeLastSyncError().first() }) { it != null }
