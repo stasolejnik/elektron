@@ -75,6 +75,10 @@ fun lessonIntent(context: Context, target: LessonTarget): Intent =
 fun openLessonAction(context: Context, target: LessonTarget): Action =
     actionStartActivity(lessonIntent(context, target))
 
+/** Otwarcie sekcji aplikacji (np. "substitutions") - ten sam klucz co skróty. */
+fun openSectionAction(section: String): Action =
+    actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to section))
+
 /** Otwarcie aplikacji na stronie głównej — także z wierszy list w widżetach. */
 fun openAppAction(): Action =
     actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to "dashboard"))

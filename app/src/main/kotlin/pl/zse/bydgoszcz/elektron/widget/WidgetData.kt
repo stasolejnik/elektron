@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import android.util.Log
+
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
@@ -224,6 +226,8 @@ object WidgetDataLoader {
                     note = SubstitutionDisplay.notes(s)
                 )
             }.toList()
+        // Diagnostyka (raport "Zgłoś problem"): czy widżet miał wiersze i jakie cele.
+        Log.i("SubstitutionsWidget", "Stan: ${subs.size} zastępstw: ${subs.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}")
         return SubsWidgetState.Ready(ClassNames.clean(short), subs)
     }
 
