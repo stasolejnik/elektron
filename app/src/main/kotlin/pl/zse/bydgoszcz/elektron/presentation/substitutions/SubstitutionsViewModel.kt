@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
@@ -40,6 +41,7 @@ class SubstitutionsViewModel @Inject constructor(
     settings: SettingsRepository,
     timetableRepo: TimetableRepository,
     private val notificationsRepo: NotificationsRepository,
+    coordinator: SyncCoordinator,
     private val widgetUpdater: WidgetUpdater,
     private val reminders: LessonReminderScheduler
 ) : ViewModel() {
@@ -48,7 +50,7 @@ class SubstitutionsViewModel @Inject constructor(
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     /** Trwa pierwsza synchronizacja albo odświeżanie — pusta lista to wtedy "ładowanie", nie "brak". */
-    val isLoading: StateFlow<Boolean> = combine(notificationsRepo.observeInitialSyncPending(), _isRefreshing) { p, r -> p || r }
+    val isLoading: StateFlow<Boolean> = combine(coordinator.initialSyncPending, _isRefreshing) { p, r -> p || r }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Pull-to-refresh: pobiera świeże zastępstwa ze strony szkoły. */

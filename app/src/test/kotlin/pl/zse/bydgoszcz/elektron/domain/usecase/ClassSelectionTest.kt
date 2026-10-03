@@ -28,17 +28,13 @@ import pl.zse.bydgoszcz.elektron.data.remote.dto.TimetableDto
 import pl.zse.bydgoszcz.elektron.data.remote.sources.AnnouncementsSource
 import pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsSource
 import pl.zse.bydgoszcz.elektron.data.remote.sources.TimetableSource
-import pl.zse.bydgoszcz.elektron.data.repository.AnnouncementsRepositoryImpl
 import pl.zse.bydgoszcz.elektron.data.repository.NotificationsRepositoryImpl
-import pl.zse.bydgoszcz.elektron.data.repository.SubstitutionsRepositoryImpl
-import pl.zse.bydgoszcz.elektron.data.repository.TimetableRepositoryImpl
 import pl.zse.bydgoszcz.elektron.data.repository.inMemoryDb
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderMode
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
 import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
 import pl.zse.bydgoszcz.elektron.testutil.FakeSettings
-import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
-import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
+import pl.zse.bydgoszcz.elektron.testutil.TestCoordinator
 import java.net.UnknownHostException
 import java.time.Instant
 
@@ -79,12 +75,13 @@ class ClassSelectionTest {
     @After fun tearDown() = db.close()
 
     private fun classSelection(): ClassSelection {
-        val timetableRepo = TimetableRepositoryImpl(timetableSource, db.schoolClassDao(), db.teacherDao(), db.roomDao(),
-            db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
-        notificationsRepo = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
-        return ClassSelection(settings, timetableRepo, SubstitutionsRepositoryImpl(Subs(), db.substitutionDao(), db),
-            AnnouncementsRepositoryImpl(Anns(), db.announcementDao(), db), notificationsRepo,
-            WidgetUpdater(context), LessonReminderScheduler(context, settings, timetableRepo), db)
+        val t = TestCoordinator(context, db, settings, timetableSource, Subs(), Anns(), object : pl.zse.bydgoszcz.elektron.work.NotificationSink {
+            override suspend fun postSubstitution(sub: pl.zse.bydgoszcz.elektron.domain.model.Substitution, originalSubject: String?) {}
+            override suspend fun postAnnouncement(ann: pl.zse.bydgoszcz.elektron.domain.model.Announcement) {}
+            override suspend fun postGeneric(title: String, body: String, deepLink: String?) {}
+        })
+        notificationsRepo = t.notificationsRepo
+        return ClassSelection(t.coordinator)
     }
 
     /** ClassSelection działa we własnym zasięgu (Dispatchers.IO) - czekamy na warunek. */

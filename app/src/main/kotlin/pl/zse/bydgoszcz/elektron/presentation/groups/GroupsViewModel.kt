@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.groups
 
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,7 @@ class GroupsViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val timetableRepo: TimetableRepository,
     notificationsRepo: NotificationsRepository,
+    coordinator: SyncCoordinator,
     private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
@@ -79,7 +81,7 @@ class GroupsViewModel @Inject constructor(
     val state: StateFlow<State> = combine(
         inputs,
         notificationsRepo.observeLoadedResources(),
-        notificationsRepo.observeInitialSyncPending(),
+        coordinator.initialSyncPending,
         retrying,
         draft
     ) { inp, loaded, pending, retry, pendingChanges ->

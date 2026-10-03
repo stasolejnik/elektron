@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.announcements
 
+import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import androidx.lifecycle.ViewModel
@@ -24,6 +25,7 @@ import javax.inject.Inject
 class AnnouncementsViewModel @Inject constructor(
     private val repo: AnnouncementsRepository,
     private val notificationsRepo: NotificationsRepository,
+    coordinator: SyncCoordinator,
     private val widgetUpdater: WidgetUpdater,
     private val reminders: LessonReminderScheduler
 ) : ViewModel() {
@@ -66,7 +68,7 @@ class AnnouncementsViewModel @Inject constructor(
         combine(indexed, query) { all, q -> all to q },
         visibleCount,
         refreshing,
-        combine(loadingMore, loadMoreError, archiveExhausted, notificationsRepo.observeInitialSyncPending()) { l, e, x, p ->
+        combine(loadingMore, loadMoreError, archiveExhausted, coordinator.initialSyncPending) { l, e, x, p ->
             Flags(l, e, x, p)
         }
     ) { (all, q), count, refresh, flags ->
