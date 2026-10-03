@@ -17,16 +17,13 @@
 
 ## O projekcie
 
-- **Inspiracja:** [Atom](https://github.com/kacpergorka/atom) autorstwa
-  [Kacpra Górki](https://github.com/kacpergorka) - aplikacja dla uczniów i nauczycieli ZSE na
-  iOS, iPadOS i macOS. Dziękujemy za pomysł. eLektron jest niezależnym projektem na Androida
-  napisanym od zera: nie jest kopią ani rozszerzeniem Atomu, nie zawiera jego kodu i nie
-  korzysta z jego API. Dane pobiera bezpośrednio z publicznych stron szkoły.
-- **Autorstwo:** 100% kodu napisała AI - Claude (Anthropic). Autor projektu, Stanisław Olejnik
-  (uczeń ZSE w Bydgoszczy), projektował funkcje, testował aplikację na telefonie i zgłaszał
-  poprawki; nie napisał kodu i nie jest programistą (interesuje się Linuksem). Kod jest
-  otwarty - błędy można zgłaszać w [Issues](https://github.com/stasolejnik/elektron/issues).
-- **Stan:** wersja kandydująca 1.0.0 (rc). Projekt niepowiązany ze szkołą ani z firmą VULCAN.
+Inspiracją był [Atom](https://github.com/kacpergorka/atom) [Kacpra Górki](https://github.com/kacpergorka),
+aplikacja dla ZSE na urządzenia Apple. Dziękuję za pomysł. eLektron to mój niezależny projekt
+na Androida, napisany od zera, bez kodu i API Atomu.
+
+Cały kod napisała AI (Claude, Anthropic). Ja wymyślam funkcje, testuję i zgłaszam poprawki;
+sam nie programuję. Obecnie wersja kandydująca 1.0.0. Projekt nie jest powiązany ze szkołą
+ani z firmą VULCAN.
 
 ## Funkcje
 
@@ -45,8 +42,8 @@
 
 1. Pobierz `eLektron-<wersja>.apk` z [Releases](https://github.com/stasolejnik/elektron/releases)
    i zezwól na instalację z nieznanego źródła.
-2. Wybierz klasę, a potem grupy zajęciowe (zmiana później: **Ustawienia → Klasa** i
-   **Ustawienia → Grupy zajęciowe**).
+2. Wybierz klasę, a potem grupy zajęciowe (później można je zmienić w Ustawieniach, w sekcjach
+   **Klasa** i **Grupy zajęciowe**).
 
 Aktualizacje (wariant `gms`): aplikacja sprawdza GitHub Releases najwyżej co 12 h, pobiera APK,
 weryfikuje SHA-256 (gdy wydanie ją podaje), nazwę pakietu i `versionCode`, po czym otwiera
@@ -58,18 +55,18 @@ systemowy instalator. Ustawienia zostają.
   dodatkowo push FCM wysyłany przez
   [elektron-push-watcher](https://github.com/stasolejnik/elektron-push-watcher).
 - Opóźnienia wynikają z Doze, optymalizacji baterii i ograniczeń nakładek producentów
-  (np. Xiaomi, Huawei, Samsung). Przypomnienia używają `AlarmManager` - bez uprawnienia do
+  (np. Xiaomi, Huawei, Samsung). Przypomnienia używają `AlarmManager`; bez uprawnienia do
   dokładnych alarmów mogą przyjść później.
-- Gdy powiadomienia nie docierają: **Ustawienia → Powiadomienia**, uprawnienia systemowe
-  aplikacji oraz **Ustawienia → Działanie w tle → Wyłącz optymalizację baterii** (tam też
-  poradnik dla konkretnych producentów).
+- Gdy powiadomienia nie docierają, sprawdź w Ustawieniach sekcję **Powiadomienia**, uprawnienia
+  systemowe aplikacji oraz **Wyłącz optymalizację baterii** w sekcji **Działanie w tle** (tam
+  jest też poradnik dla konkretnych producentów).
 
 ## Zgłaszanie błędów
 
-**Ustawienia → Zgłoś problem** tworzy raport (wersja aplikacji i Androida, model, stan
-uprawnień, ostatnie logi aplikacji - bez danych osobowych) do wysłania e-mailem lub
+Przycisk **Zgłoś problem** w Ustawieniach tworzy raport (wersja aplikacji i Androida, model,
+stan uprawnień, ostatnie logi aplikacji, bez danych osobowych) do wysłania e-mailem lub
 w [Issues](https://github.com/stasolejnik/elektron/issues). Po awarii aplikacja sama proponuje
-raport. Kontakt: **[kontakt.elektron@pm.me](mailto:kontakt.elektron@pm.me)**.
+raport. Kontakt ze mną: **[kontakt.elektron@pm.me](mailto:kontakt.elektron@pm.me)**.
 
 ## Prywatność
 
@@ -113,7 +110,7 @@ Wymagania: JDK 17, Android SDK.
 ./gradlew :app:testFossDebugUnitTest :app:assembleFossDebug
 ```
 
-Wariant `gms` wymaga `app/google-services.json` (poza repozytorium - patrz
+Wariant `gms` wymaga `app/google-services.json` (poza repozytorium, patrz
 [PORADNIK_PUSH.md](PORADNIK_PUSH.md)). Podpisywanie wydań: `keystore.properties`
 (wzór: [keystore.properties.example](keystore.properties.example)).
 Historia zmian: [CHANGELOG.md](CHANGELOG.md).
@@ -134,5 +131,5 @@ Copyright © 2026 Stanisław Olejnik
 
 eLektron jest wolnym oprogramowaniem: możesz go rozpowszechniać i modyfikować na warunkach
 [GNU General Public License](LICENSE) w wersji 3 lub (według Twojego wyboru) dowolnej
-późniejszej. Aplikacja jest napisana od podstaw i nie zawiera kodu aplikacji Atom -
-szczegóły w [NOTICE](NOTICE).
+późniejszej. Aplikacja jest napisana od podstaw i nie zawiera kodu aplikacji Atom
+(szczegóły w [NOTICE](NOTICE)).
