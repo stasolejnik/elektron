@@ -1,0 +1,1 @@
+Dotknięcie zastępstwa (zakładka i widżet) otwiera szczegóły lekcji w planie, widżety Następna lekcja i Plan dnia też. Szczegóły lekcji w całości od razu, jedna wspólna synchronizacja, poprawki stabilności i widżetów.
