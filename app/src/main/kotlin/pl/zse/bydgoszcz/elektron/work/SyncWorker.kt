@@ -2,7 +2,6 @@ package pl.zse.bydgoszcz.elektron.work
 
 import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
-import java.time.LocalDateTime
 import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
@@ -14,8 +13,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
-import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
-import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
 import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
@@ -23,7 +20,6 @@ import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException
 import pl.zse.bydgoszcz.elektron.domain.usecase.SyncAllUseCase
-import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import java.time.Instant
 import java.time.LocalDate
@@ -40,14 +36,14 @@ class SyncWorker @AssistedInject constructor(
     private val sink: NotificationSink,
     private val timetableRepo: TimetableRepository,
     private val widgetUpdater: WidgetUpdater,
-    private val reminders: LessonReminderScheduler
+    private val reminders: LessonReminderScheduler,
+    private val substitutionNotifier: SubstitutionNotifier
 ) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
         notificationsRepo.setIsSyncing(true)
         try {
             val classId = settings.selectedClassId.first()
-            val notifSubs = settings.notificationsSubstitutions.first()
             val notifAnns = settings.notificationsAnnouncements.first()
 
             val ok = syncAll(classId)
@@ -81,34 +77,7 @@ class SyncWorker @AssistedInject constructor(
                 val freshAnns = currentAnns.filter { it.id !in seenAnns }
 
                 if (initialDone) {
-                    if (notifSubs && classId != null && freshSubs.isNotEmpty()) {
-                        val short = timetableRepo.observeClasses().first()
-                            .firstOrNull { it.id == classId }?.shortName
-                        val forClass = if (short != null) {
-                            freshSubs.filter { SubstitutionRelevance.matchesClass(it, short) }
-                        } else emptyList()
-                        // Grupy zajęciowe: pomijamy zastępstwa dla grupy, do której użytkownik nie należy.
-                        val groups = settings.groupSelections(classId).first()
-                        val lessonsForSubs = if (forClass.isEmpty()) emptyList() else runCatchingCancellable {
-                            timetableRepo.getLessonsOnce(classId, forClass.minOf { it.date }, forClass.maxOf { it.date })
-                        }.getOrDefault(emptyList())
-                        // Bez powiadomień o zastępstwach, których lekcja już minęła (np. wczorajsze
-                        // albo poranne odczytane dopiero po południu - po poprawce parsera 0.6.4
-                        // pojawiły się naraz wszystkie dotąd gubione wpisy).
-                        val ends = SubstitutionRelevance.lessonEnds(lessonsForSubs)
-                        val now = LocalDateTime.now()
-                        val relevant = forClass
-                            .filter { LessonGroups.substitutionRelevant(it, lessonsForSubs, groups) }
-                            .filterNot { SubstitutionRelevance.isOver(it, now, ends) }
-                        val visibleLessons = LessonGroups.filter(lessonsForSubs, groups)  // raz, nie w pętli
-                        relevant.forEach { sub ->
-                            // Przedmiot grupy, której dotyczy zastępstwo (dawniej pierwszej grupy lekcji).
-                            val subject = visibleLessons
-                                .firstOrNull { it.date == sub.date && it.number == sub.lessonNumber }
-                                ?.let { LessonGroups.subjectFor(sub, it.groups) }
-                            sink.postSubstitution(sub, subject)
-                        }
-                    }
+                    if (classId != null) substitutionNotifier.notifyFresh(freshSubs)
                     if (notifAnns && freshAnns.isNotEmpty()) {
                         freshAnns.take(5).forEach { ann ->
                             sink.postAnnouncement(ann)

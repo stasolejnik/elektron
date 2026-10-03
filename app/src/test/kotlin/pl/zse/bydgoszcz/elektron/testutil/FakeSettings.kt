@@ -21,6 +21,7 @@ class FakeSettings(
     val classIdFlow = MutableStateFlow(classId)
     val notifySubs = MutableStateFlow(true)
     val reminderFlow = MutableStateFlow(reminders)
+    val groupSelectionsFlow = MutableStateFlow<Map<String, String>>(emptyMap())
 
     override val selectedClassId: Flow<String?> = classIdFlow
     override suspend fun setSelectedClassId(id: String) { classIdFlow.value = id }
@@ -54,8 +55,8 @@ class FakeSettings(
     override suspend fun setTimetableLook(look: TimetableLook) {}
     override val lastSeenVersionCode: Flow<Int> = flowOf(0)
     override suspend fun setLastSeenVersionCode(code: Int) {}
-    override fun groupSelections(classId: String): Flow<Map<String, String>> = flowOf(emptyMap())
-    override val activeGroupSelections: Flow<Map<String, String>> = flowOf(emptyMap())
+    override fun groupSelections(classId: String): Flow<Map<String, String>> = groupSelectionsFlow
+    override val activeGroupSelections: Flow<Map<String, String>> = groupSelectionsFlow
     override suspend fun setGroupSelection(classId: String, subject: String, choice: String?) {}
     override val groupsConfiguredFor: Flow<String?> = flowOf(classId)
     override suspend fun setGroupsConfiguredFor(classId: String) {}

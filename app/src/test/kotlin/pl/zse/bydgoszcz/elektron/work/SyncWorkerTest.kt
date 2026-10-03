@@ -117,7 +117,8 @@ class SyncWorkerTest {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
                 SyncWorker(appContext, workerParameters, syncAll, settings, substitutionsRepo, announcementsRepo,
                     notificationsRepo, sink, timetableRepo, WidgetUpdater(appContext),
-                    LessonReminderScheduler(appContext, settings, timetableRepo))
+                    LessonReminderScheduler(appContext, settings, timetableRepo),
+                    SubstitutionNotifier(settings, timetableRepo, notificationsRepo, sink))
         }
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).setWorkerFactory(factory).build()
         return runBlocking { worker.doWork() }

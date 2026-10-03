@@ -19,6 +19,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import kotlinx.coroutines.flow.catch
 import java.io.IOException
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -48,9 +49,24 @@ private val Context.elektronSettings: DataStore<Preferences> by preferencesDataS
 )
 
 @Singleton
-class SettingsRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+class SettingsRepositoryImpl internal constructor(
+    private val store: DataStore<Preferences>
 ) : SettingsRepository {
+
+    @Inject constructor(@ApplicationContext context: Context) : this(context.elektronSettings)
+
+    /**
+     * Zapis ustawień odporny na błąd pliku (np. brak miejsca na dysku): dawniej IOException
+     * z DataStore wywracał aplikację przy przełączeniu dowolnej opcji. Zapis wtedy przepada
+     * (ustawienie zostaje po staremu) - logujemy i działamy dalej.
+     */
+    private suspend fun safeEdit(transform: suspend (MutablePreferences) -> Unit) {
+        try {
+            store.edit(transform)
+        } catch (e: IOException) {
+            Log.w("SettingsRepository", "Nie udało się zapisać ustawień", e)
+        }
+    }
 
     private object Keys {
         val SELECTED_CLASS_ID = stringPreferencesKey("selected_class_id")
@@ -85,7 +101,7 @@ class SettingsRepositoryImpl @Inject constructor(
     }
 
     // Błąd odczytu pliku (IOException) = domyślne ustawienia zamiast awarii kolektora.
-    private val prefs: Flow<Preferences> = context.elektronSettings.data.catch { e ->
+    private val prefs: Flow<Preferences> = store.data.catch { e ->
         if (e is IOException) {
             Log.w("SettingsRepository", "Nie udało się odczytać ustawień", e)
             emit(emptyPreferences())
@@ -97,7 +113,7 @@ class SettingsRepositoryImpl @Inject constructor(
     // (ponowne zapytania do bazy na Starcie i w Planie).
     override val selectedClassId: Flow<String?> = prefs.map { it[Keys.SELECTED_CLASS_ID] }.distinctUntilChanged()
     override suspend fun setSelectedClassId(id: String) {
-        context.elektronSettings.edit { it[Keys.SELECTED_CLASS_ID] = id }
+        safeEdit { it[Keys.SELECTED_CLASS_ID] = id }
     }
 
     override val themeMode: Flow<ThemeMode> = prefs.map {
@@ -105,39 +121,39 @@ class SettingsRepositoryImpl @Inject constructor(
             .getOrDefault(ThemeMode.SYSTEM)
     }.distinctUntilChanged()
     override suspend fun setThemeMode(mode: ThemeMode) {
-        context.elektronSettings.edit { it[Keys.THEME_MODE] = mode.name }
+        safeEdit { it[Keys.THEME_MODE] = mode.name }
     }
 
     override val dynamicColor: Flow<Boolean> = prefs.map { it[Keys.DYNAMIC_COLOR] ?: false }.distinctUntilChanged()
     override suspend fun setDynamicColor(enabled: Boolean) {
-        context.elektronSettings.edit { it[Keys.DYNAMIC_COLOR] = enabled }
+        safeEdit { it[Keys.DYNAMIC_COLOR] = enabled }
     }
 
     override val notificationsSubstitutions: Flow<Boolean> =
         prefs.map { it[Keys.NOTIF_SUBSTITUTIONS] ?: true }.distinctUntilChanged()
     override suspend fun setNotificationsSubstitutions(enabled: Boolean) {
-        context.elektronSettings.edit { it[Keys.NOTIF_SUBSTITUTIONS] = enabled }
+        safeEdit { it[Keys.NOTIF_SUBSTITUTIONS] = enabled }
     }
 
     override val notificationsAnnouncements: Flow<Boolean> =
         prefs.map { it[Keys.NOTIF_ANNOUNCEMENTS] ?: false }.distinctUntilChanged()
     override suspend fun setNotificationsAnnouncements(enabled: Boolean) {
-        context.elektronSettings.edit { it[Keys.NOTIF_ANNOUNCEMENTS] = enabled }
+        safeEdit { it[Keys.NOTIF_ANNOUNCEMENTS] = enabled }
     }
 
     override val showNextLesson: Flow<Boolean> = prefs.map { it[Keys.SHOW_NEXT_LESSON] ?: true }.distinctUntilChanged()
     override suspend fun setShowNextLesson(enabled: Boolean) {
-        context.elektronSettings.edit { it[Keys.SHOW_NEXT_LESSON] = enabled }
+        safeEdit { it[Keys.SHOW_NEXT_LESSON] = enabled }
     }
 
     override val showSubstitutions: Flow<Boolean> = prefs.map { it[Keys.SHOW_SUBSTITUTIONS] ?: true }.distinctUntilChanged()
     override suspend fun setShowSubstitutions(enabled: Boolean) {
-        context.elektronSettings.edit { it[Keys.SHOW_SUBSTITUTIONS] = enabled }
+        safeEdit { it[Keys.SHOW_SUBSTITUTIONS] = enabled }
     }
 
     override val showAnnouncements: Flow<Boolean> = prefs.map { it[Keys.SHOW_ANNOUNCEMENTS] ?: true }.distinctUntilChanged()
     override suspend fun setShowAnnouncements(enabled: Boolean) {
-        context.elektronSettings.edit { it[Keys.SHOW_ANNOUNCEMENTS] = enabled }
+        safeEdit { it[Keys.SHOW_ANNOUNCEMENTS] = enabled }
     }
 
     // Bez zapisanego wyboru: z dawnego przełącznika "Otwieraj plan w trakcie lekcji" (0.5).
@@ -146,14 +162,14 @@ class SettingsRepositoryImpl @Inject constructor(
             ?: if (it[Keys.SMART_START] ?: true) StartScreen.SMART else StartScreen.DASHBOARD
     }.distinctUntilChanged()
     override suspend fun setStartScreen(screen: StartScreen) {
-        context.elektronSettings.edit { it[Keys.START_SCREEN] = screen.key }
+        safeEdit { it[Keys.START_SCREEN] = screen.key }
     }
 
     override val reminderSettings: Flow<ReminderSettings> = prefs.map {
         ReminderSettings(ReminderMode.fromKey(it[Keys.REMINDER_MODE]), it[Keys.REMINDER_MINUTES] ?: 10)
     }.distinctUntilChanged()
     override suspend fun setReminderSettings(value: ReminderSettings) {
-        context.elektronSettings.edit {
+        safeEdit {
             it[Keys.REMINDER_MODE] = value.mode.key
             it[Keys.REMINDER_MINUTES] = value.minutesBefore
         }
@@ -167,7 +183,7 @@ class SettingsRepositoryImpl @Inject constructor(
         )
     }.distinctUntilChanged()
     override suspend fun setQuietHours(value: QuietHours) {
-        context.elektronSettings.edit {
+        safeEdit {
             it[Keys.QUIET_ENABLED] = value.enabled
             it[Keys.QUIET_FROM] = value.from.hour * 60 + value.from.minute
             it[Keys.QUIET_TO] = value.to.hour * 60 + value.to.minute
@@ -178,7 +194,7 @@ class SettingsRepositoryImpl @Inject constructor(
         AccentSetting(AccentColor.fromKey(it[Keys.ACCENT]), it[Keys.ACCENT_CUSTOM] ?: AccentSetting.DEFAULT_CUSTOM)
     }.distinctUntilChanged()
     override suspend fun setAccent(value: AccentSetting) {
-        context.elektronSettings.edit {
+        safeEdit {
             it[Keys.ACCENT] = value.color.key
             it[Keys.ACCENT_CUSTOM] = value.custom
         }
@@ -192,7 +208,7 @@ class SettingsRepositoryImpl @Inject constructor(
         )
     }.distinctUntilChanged()
     override suspend fun setWidgetLook(value: WidgetLook) {
-        context.elektronSettings.edit {
+        safeEdit {
             it[Keys.WIDGET_OPACITY] = value.opacity
             it[Keys.WIDGET_TEACHER] = value.showTeacher
             it[Keys.WIDGET_ROOM] = value.showRoom
@@ -203,7 +219,7 @@ class SettingsRepositoryImpl @Inject constructor(
         prefs.map { SubjectStyles.decode(it[Keys.SUBJECT_STYLES]) }.distinctUntilChanged()
 
     override suspend fun setSubjectStyle(subject: String, style: SubjectStyle) {
-        context.elektronSettings.edit {
+        safeEdit {
             val current = SubjectStyles.decode(it[Keys.SUBJECT_STYLES]).toMutableMap()
             if (style.isDefault) current.remove(subject) else current[subject] = style
             it[Keys.SUBJECT_STYLES] = SubjectStyles.encode(current)
@@ -219,7 +235,7 @@ class SettingsRepositoryImpl @Inject constructor(
     }.distinctUntilChanged()
 
     override suspend fun setTimetableLook(look: TimetableLook) {
-        context.elektronSettings.edit {
+        safeEdit {
             it[Keys.LOOK_WEEK] = look.weekView
             it[Keys.LOOK_ROOM] = look.showRoom
             it[Keys.LOOK_TEACHER] = look.showTeacher
@@ -228,7 +244,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val lastSeenVersionCode: Flow<Int> = prefs.map { it[Keys.LAST_SEEN_VERSION] ?: 0 }.distinctUntilChanged()
     override suspend fun setLastSeenVersionCode(code: Int) {
-        context.elektronSettings.edit { it[Keys.LAST_SEEN_VERSION] = code }
+        safeEdit { it[Keys.LAST_SEEN_VERSION] = code }
     }
 
     // Format: "przedmiot\twybór" w liniach — nazwy przedmiotów z Optivum nie zawierają
@@ -250,7 +266,7 @@ class SettingsRepositoryImpl @Inject constructor(
         selectedClassId.flatMapLatest { cid -> if (cid == null) flowOf(emptyMap()) else groupSelections(cid) }
 
     override suspend fun setGroupSelection(classId: String, subject: String, choice: String?) {
-        context.elektronSettings.edit {
+        safeEdit {
             val current = decodeGroups(it[Keys.groups(classId)]).toMutableMap()
             if (choice == null) current.remove(subject) else current[subject] = choice
             it[Keys.groups(classId)] = encodeGroups(current)
@@ -259,6 +275,6 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val groupsConfiguredFor: Flow<String?> = prefs.map { it[Keys.GROUPS_CONFIGURED_FOR] }.distinctUntilChanged()
     override suspend fun setGroupsConfiguredFor(classId: String) {
-        context.elektronSettings.edit { it[Keys.GROUPS_CONFIGURED_FOR] = classId }
+        safeEdit { it[Keys.GROUPS_CONFIGURED_FOR] = classId }
     }
 }
