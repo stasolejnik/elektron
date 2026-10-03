@@ -92,4 +92,54 @@ class SubstitutionsRepositoryImplTest {
         SubstitutionsRepositoryImpl(emptyDay, db.substitutionDao(), db).syncAll()
         assertTrue(repo.getAllFrom(today).isEmpty())
     }
+
+    private fun realPage(html: String): SubstitutionsPage {
+        val doc = org.jsoup.Jsoup.parse(html, "https://zastepstwa.zse.bydgoszcz.pl/")
+        val parsed = pl.zse.bydgoszcz.elektron.data.remote.parser.ZastepstwaParser.parseDetailed(doc)
+        return SubstitutionsPage(pl.zse.bydgoszcz.elektron.data.remote.parser.ZastepstwaParser.pageDates(doc),
+            parsed.items, parsed.incompleteDates)
+    }
+
+    @Test
+    fun unreadableEntryKeepsPreviouslySavedDay() = runTest {
+        // Zapisana strona z 01.10.2026, potem ta sama strona z celowo uszkodzonym wpisem 1D
+        // (nietypowy zapis klasy). Dawniej dzień był czyszczony, a wpis 1D znikał z aplikacji.
+        // Data strony przesunięta na dziś - starsze niż 60 dni wpisy repozytorium sprząta.
+        val html = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html")!!.use { it.readBytes().toString(Charsets.UTF_8) }
+            .replace("01.10.2026", today.format(fmt))
+        var page = realPage(html)
+        val pageSource = object : SubstitutionsSource {
+            override suspend fun fetchSubstitutions() = page.items
+            override suspend fun fetchPage() = page
+        }
+        val repo = SubstitutionsRepositoryImpl(pageSource, db.substitutionDao(), db)
+        val day = today
+        repo.syncAll()
+        assertEquals(32, repo.getAllFrom(day).count { it.date == day })
+
+        page = realPage(html.replace("1 D(2) - Zajęcia Świetlicowe", "1Dg2 - Zajęcia Świetlicowe"))
+        assertTrue(repo.syncAll().isSuccess)
+        val after = repo.getAllFrom(day).filter { it.date == day }
+        assertEquals(32, after.size)
+        assertTrue(after.any { it.classShortName == "1D" && it.lessonNumber == 7 })
+    }
+
+    @Test
+    fun completeDayIsStillReplaced() = runTest {
+        // Kontrola: przy komplecie wpisów dzień nadal jest zastępowany (odwołane znikają).
+        val d = today.plusDays(1)
+        source.items = listOf(dto(d, 1), dto(d, 2))
+        repo.syncAll()
+        val pageSource = object : SubstitutionsSource {
+            override suspend fun fetchSubstitutions() = listOf(dto(d, 2))
+            override suspend fun fetchPage() = SubstitutionsPage(setOf(d.format(fmt)), listOf(dto(d, 2)), incompleteDates = setOf(d.format(fmt)))
+        }
+        // Niekompletny dzień: nic nie kasujemy.
+        SubstitutionsRepositoryImpl(pageSource, db.substitutionDao(), db).syncAll()
+        assertEquals(listOf(1, 2), repo.getAllFrom(d).map { it.lessonNumber })
+        // Kompletny: zastąpiony.
+        source.items = listOf(dto(d, 2))
+        repo.syncAll()
+        assertEquals(listOf(2), repo.getAllFrom(d).map { it.lessonNumber })
+    }
 }

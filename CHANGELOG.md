@@ -26,6 +26,17 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
   aktualny plan, więc dla tygodnia spoza zapisanych pojawia się komunikat zamiast cudzego planu.
   Błąd pobierania brakującego tygodnia pokazuje komunikat zamiast pustego tygodnia.
 - Błąd synchronizacji po wyborze klasy pokazuje polski komunikat zamiast surowego wyjątku.
+- Zastępstwa dla grup: gdy grupa 1 i grupa 2 mają zastępstwa na tej samej lekcji, każda widzi
+  swoje (w planie, widżetach i przypomnieniach). Dawniej użytkownik z grupy 2 mógł nie
+  zobaczyć swojego zastępstwa.
+- Nierozpoznany wpis na stronie zastępstw nie kasuje już poprawnie zapisanych zastępstw z tego
+  dnia - dzień jest zastępowany tylko wtedy, gdy odczytano z niego wszystkie wpisy.
+- Przedmiot w powiadomieniu o zastępstwie pochodzi z grupy, której zastępstwo dotyczy
+  (dawniej zawsze z pierwszej grupy lekcji).
+
+### Zmienione
+- Test zgodności identyfikatorów zastępstw z watcherem powiadomień push (te same ID w aplikacji
+  i w elektron-push-watcher, bez podwójnych powiadomień).
 
 ## [1.0.0-rc1] - 2026-10-02 (20)
 

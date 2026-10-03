@@ -102,9 +102,10 @@ class SyncWorker @AssistedInject constructor(
                             .filterNot { SubstitutionRelevance.isOver(it, now, ends) }
                         val visibleLessons = LessonGroups.filter(lessonsForSubs, groups)  // raz, nie w pętli
                         relevant.forEach { sub ->
+                            // Przedmiot grupy, której dotyczy zastępstwo (dawniej pierwszej grupy lekcji).
                             val subject = visibleLessons
                                 .firstOrNull { it.date == sub.date && it.number == sub.lessonNumber }
-                                ?.groups?.firstOrNull()?.subject
+                                ?.let { LessonGroups.subjectFor(sub, it.groups) }
                             sink.postSubstitution(sub, subject)
                         }
                     }

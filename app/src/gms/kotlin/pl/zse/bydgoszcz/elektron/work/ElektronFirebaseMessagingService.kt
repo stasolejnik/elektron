@@ -108,9 +108,10 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
             val seen = notificationsRepo.getSeenSubstitutionIds()
             if (id in seen) return@withNotifyLock // SyncWorker już to obsłużył — bez duplikatu
 
+            // Przedmiot grupy, której dotyczy zastępstwo (dawniej pierwszej grupy lekcji).
             val subject = LessonGroups.filter(lessonsThatDay, groups)
                 .firstOrNull { it.number == sub.lessonNumber }
-                ?.groups?.firstOrNull()?.subject
+                ?.let { LessonGroups.subjectFor(sub, it.groups) }
             sink.postSubstitution(sub, subject)
             notificationsRepo.setSeenSubstitutionIds(seen + id)
         }

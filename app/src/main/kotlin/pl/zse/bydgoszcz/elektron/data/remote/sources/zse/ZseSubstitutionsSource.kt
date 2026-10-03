@@ -32,7 +32,8 @@ class ZseSubstitutionsSource @Inject constructor(
             // Zapisane zastępstwa zostają nietknięte.
             if (!resp.isSuccessful) throw java.io.IOException("Zastępstwa: HTTP ${resp.code} dla $url")
             val doc = EncodingAwareBody.asDocument(resp, forcedCharset = java.nio.charset.Charset.forName("ISO-8859-2"))
-            SubstitutionsPage(ZastepstwaParser.pageDates(doc), ZastepstwaParser.parse(doc))
+            val parsed = ZastepstwaParser.parseDetailed(doc)
+            SubstitutionsPage(ZastepstwaParser.pageDates(doc), parsed.items, parsed.incompleteDates)
         }
     }
 

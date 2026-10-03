@@ -162,10 +162,39 @@ object LessonGroups {
             if (lesson.groups.isEmpty()) return@mapNotNull lesson
             val visible = lesson.groups.filter { groupVisible(it, selections) }
             if (visible.isEmpty()) return@mapNotNull null
-            val sub = lesson.substitution
-            val keepSub = sub == null || substitutionMatchesGroups(sub, visible)
-            lesson.copy(groups = visible, substitution = if (keepSub) sub else null)
+            // Każda grupa dostaje SWOJE zastępstwo: gdy grupa 1 i grupa 2 mają zastępstwa na tej
+            // samej lekcji, wybieramy to dla grupy użytkownika (dawniej brane było pierwsze
+            // z brzegu, a jeśli dotyczyło innej grupy - zdejmowane, więc własne znikało).
+            val matching = lesson.substitutions.filter { substitutionMatchesGroups(it, visible) }
+            lesson.copy(groups = visible, substitution = pickSubstitution(matching, visible), substitutions = matching)
         }
+    }
+
+    /**
+     * Zastępstwo do pokazania dla lekcji z grupami [groups] spośród [subs] (wszystkie dla tej
+     * lekcji): najpierw dla konkretnej grupy z [groups] (np. "3 A(2)" przy grupie "-2/2"),
+     * potem dla całej lekcji (bez numeru grupy), na końcu pierwsze pasujące.
+     */
+    fun pickSubstitution(subs: List<Substitution>, groups: List<LessonGroup>): Substitution? {
+        if (subs.size <= 1) return subs.firstOrNull()
+        val matching = subs.filter { substitutionMatchesGroups(it, groups) }.ifEmpty { subs }
+        val groupNumbers = groups.mapNotNull { g -> parse(g.subject)?.label?.let(::labelNumber) }.toSet()
+        return matching.firstOrNull { it.groupNumber != null && it.groupNumber in groupNumbers }
+            ?: matching.firstOrNull { it.groupNumber == null }
+            ?: matching.first()
+    }
+
+    /**
+     * Przedmiot lekcji, której dotyczy zastępstwo (do powiadomienia): przedmiot grupy o numerze
+     * z zastępstwa ("3 A(2)" -> grupa "-2/2"), a bez numeru grupy - pierwszej z [groups]
+     * (po filtrze to grupa użytkownika). Dawniej zawsze pierwsza grupa lekcji.
+     */
+    fun subjectFor(sub: Substitution, groups: List<LessonGroup>): String? {
+        val n = sub.groupNumber
+        if (n != null) {
+            groups.firstOrNull { g -> parse(g.subject)?.label?.let(::labelNumber) == n }?.let { return it.subject }
+        }
+        return groups.firstOrNull()?.subject
     }
 
     private fun substitutionMatchesGroups(sub: Substitution, visible: List<LessonGroup>): Boolean {

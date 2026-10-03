@@ -42,8 +42,16 @@ class SubstitutionsRepositoryImpl @Inject constructor(
             // (skasowane/odwołane zastępstwa znikają, także gdy szkoła odwoła wszystkie).
             // Dawniej kasowane było wszystko od dziś: gdy szkoła opublikowała zastępstwa na
             // jutro w trakcie dzisiejszych lekcji, dzisiejsze znikały z planu.
+            // Dzień, z którego parser nie odczytał wszystkich wpisów (np. nietypowy zapis klasy):
+            // NIE kasujemy go - dotychczasowe wpisy zostają, odczytane są tylko dopisywane.
+            // Dawniej taki dzień był czyszczony i poprawne wcześniej zastępstwa znikały.
+            val incompleteDays = page.incompleteDates
+                .mapNotNull { runCatching { LocalDate.parse(it, PL_DATE) }.getOrNull()?.toEpochDay() }.toSet()
+            if (incompleteDays.isNotEmpty()) {
+                Log.w(TAG, "Niekompletnie odczytane dni ${page.incompleteDates} - zostawiam dotychczasowe wpisy")
+            }
             db.withTransaction {
-                pageDays.forEach { dao.deleteForDay(it) }
+                (pageDays - incompleteDays).forEach { dao.deleteForDay(it) }
                 dao.upsertAll(entities)
             }
             dao.deleteOlderThan(LocalDate.now().minusDays(60).toEpochDay())

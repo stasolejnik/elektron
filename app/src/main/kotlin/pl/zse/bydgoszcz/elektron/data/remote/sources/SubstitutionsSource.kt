@@ -19,5 +19,12 @@ interface SubstitutionsSource {
     }
 }
 
-/** Strona zastępstw: [dates] - dni pokazane na stronie ("dd.mm.rrrr"), [items] - wpisy. */
-data class SubstitutionsPage(val dates: Set<String>, val items: List<SubstitutionDto>)
+/**
+ * Strona zastępstw: [dates] - dni pokazane na stronie ("dd.mm.rrrr"), [items] - wpisy,
+ * [incompleteDates] - dni, z których parser nie odczytał wszystkich wpisów.
+ */
+data class SubstitutionsPage(
+    val dates: Set<String>,
+    val items: List<SubstitutionDto>,
+    val incompleteDates: Set<String> = emptySet()
+)
