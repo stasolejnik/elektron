@@ -12,6 +12,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -37,10 +39,15 @@ import javax.inject.Singleton
 class LessonReminderScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: SettingsRepository,
-    private val timetableRepo: TimetableRepository
+    private val timetableRepo: TimetableRepository,
+    private val noteReminders: NoteReminderScheduler? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
+    data class Status(val at: LocalDateTime? = null, val lesson: String? = null,
+        val exact: Boolean = false, val error: Boolean = false, val ready: Boolean = false)
+    private val _status = MutableStateFlow(Status())
+    val status: StateFlow<Status> = _status
 
     /** Przelicz w tle (bez czekania). */
     fun requestReschedule() {
@@ -48,11 +55,15 @@ class LessonReminderScheduler @Inject constructor(
     }
 
     suspend fun reschedule(now: LocalDateTime = LocalDateTime.now()) = mutex.withLock {
-        runCatchingCancellable { rescheduleLocked(now) }.onFailure { Log.w(TAG, "Nie udało się ustawić przypomnienia", it) }
+        noteReminders?.reschedule(now)
+        runCatchingCancellable { rescheduleLocked(now) }.onFailure {
+            _status.value = Status(error = true, ready = true)
+            Log.w(TAG, "Nie udało się ustawić przypomnienia", it)
+        }
     }
 
     private suspend fun rescheduleLocked(now: LocalDateTime) {
-        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        val am = context.getSystemService(AlarmManager::class.java) ?: error("Brak usługi alarmów")
         val reminderSettings = settings.reminderSettings.first()
         val classId = settings.selectedClassId.first()
         val reminder = if (reminderSettings.mode == ReminderMode.OFF || classId == null) null else {
@@ -67,6 +78,7 @@ class LessonReminderScheduler @Inject constructor(
         if (reminder == null) {
             PendingIntent.getBroadcast(context, REQUEST_CODE, baseIntent(),
                 PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)?.let { am.cancel(it) }
+            _status.value = Status(ready = true)
             return
         }
 
@@ -82,13 +94,16 @@ class LessonReminderScheduler @Inject constructor(
         val pi = PendingIntent.getBroadcast(context, REQUEST_CODE, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val at = reminder.at.atZone(zone).toInstant().toEpochMilli()
+        var exact = canUseExactAlarms(context)
         try {
-            if (canUseExactAlarms(context)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+            if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
         } catch (e: SecurityException) {
+            exact = false
             // Uprawnienie cofnięte w międzyczasie - alarm niedokładny.
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
         }
+        _status.value = Status(reminder.at, what, exact, ready = true)
     }
 
     private fun baseIntent() = Intent(context, LessonReminderReceiver::class.java)

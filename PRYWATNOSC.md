@@ -1,6 +1,6 @@
 # Polityka prywatności - eLektron
 
-Ostatnia aktualizacja: wrzesień 2026
+Ostatnia aktualizacja: październik 2026
 
 eLektron to nieoficjalna aplikacja z planem lekcji, zastępstwami i ogłoszeniami
 Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane przetwarza.
@@ -16,6 +16,7 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
 - **Ustawienia:** wybrana klasa, grupy zajęciowe, motyw, ustawienia powiadomień.
 - **Kopia danych ze strony szkoły:** plan lekcji, zastępstwa i ogłoszenia (żeby aplikacja
   działała bez internetu).
+- **Ulubione ogłoszenia:** wybrane wpisy i pobrana treść artykułów, przechowywane lokalnie również po czyszczeniu danych podręcznych.
 - **Raport ostatniej awarii** (tylko jeśli aplikacja się zamknęła z powodu błędu): wersja
   aplikacji, model telefonu, wersja Androida, techniczny opis błędu, stan ustawień ważnych dla
   działania aplikacji (czy powiadomienia są włączone, oszczędzanie baterii, dokładne alarmy,
@@ -25,7 +26,9 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
   Aplikacja nigdy nie wysyła go sama. Taki sam raport (bez awarii) tworzy przycisk
   **Zgłoś problem** w Ustawieniach.
 
-Dane te nie są nigdzie wysyłane. Ustawienia mogą trafić do kopii zapasowej Androida
+Aplikacja nie wysyła tych danych automatycznie. Przyciski **Udostępnij dzień** i **Udostępnij tydzień** pozwalają przekazać plan wybranego dnia lub tygodnia (klasę, godziny, przedmioty, sale, nauczycieli i zastępstwa) do aplikacji, którą sam wybierzesz w systemowym oknie udostępniania.
+
+Ustawienia mogą trafić do kopii zapasowej Androida
 (Google), jeśli masz ją włączoną w telefonie - kopia danych ze strony szkoły jest z niej
 wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
 
@@ -33,7 +36,7 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
 
 - **Strony szkoły** (plan.zse.bydgoszcz.pl, zastepstwa.zse.bydgoszcz.pl,
   zse.bydgoszcz.pl i zse.edu.bydgoszcz.pl): aplikacja pobiera z nich publicznie dostępne
-  informacje. Serwery szkoły widzą, jak przy każdej stronie internetowej, adres IP
+  informacje. Po otwarciu ogłoszenia lub dodaniu go do ulubionych pobiera także treść artykułu do czytania offline. Serwery szkoły widzą, jak przy każdej stronie internetowej, adres IP
   i wersję aplikacji.
 - **Firebase Cloud Messaging (Google)** - tylko w wersji z GitHuba (w wersji z F-Droid
   Firebase nie ma): służy wyłącznie do powiadomień push o nowych zastępstwach
@@ -51,6 +54,12 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
 **Wersja z F-Droid** łączy się wyłącznie ze stronami szkoły.
+
+## Notatki do lekcji
+
+Notatki i ustawienie ich przypomnień są zapisywane lokalnie na telefonie, oddzielnie od danych podręcznych szkoły. Nie są wysyłane do szkoły, Firebase ani GitHuba; mogą wejść do systemowej kopii zapasowej Androida, tak jak ustawienia. Czyszczenie danych podręcznych ich nie usuwa. Przypomnienia działają lokalnie i są domyślnie wyłączone. Treść notatki jest ukrywana na ekranie blokady zgodnie z ustawieniami systemu.
+
+Udostępnianie zastępstw przekazuje wybrane informacje do aplikacji wskazanej przez użytkownika w systemowym oknie udostępniania. Własne notatki nie są dodawane do udostępnianego planu ani zastępstw.
 
 ## Uprawnienia
 

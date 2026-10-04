@@ -137,8 +137,11 @@ class MainActivity : ComponentActivity() {
      * Nowa wersja na GitHubie: przy każdym powrocie do aplikacji (najwyżej co 12 h - limit
      * w UpdateRepository). Dawniej tylko przy starcie procesu, a proces żyje nieraz tygodniami.
      */
+    @javax.inject.Inject lateinit var noteReminders: pl.zse.bydgoszcz.elektron.work.NoteReminderScheduler
+
     override fun onStart() {
         super.onStart()
+        noteReminders.requestReschedule(force = true)
         if (BuildConfig.UPDATE_CHECK) lifecycleScope.launch { updateRepo.check(force = false) }
     }
 

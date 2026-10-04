@@ -1,5 +1,11 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionsShare
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.alpha
@@ -69,11 +75,25 @@ fun SubstitutionsScreen(
     val otherGroups by viewModel.otherGroups.collectAsStateWithLifecycle()
     val showOtherGroups by viewModel.showOtherGroups.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val context = LocalContext.current
+    fun share(items: List<Substitution>) {
+        val text = SubstitutionsShare.text(items)
+        if (text.isBlank()) return
+        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text)
+        }, "Udostępnij zastępstwa"))
+    }
+    val visibleItems = groups.flatMap { it.items } + if (showOtherGroups) otherGroups else emptyList()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { LargeTitleBar(title = "Zastępstwa", scrollBehavior = scrollBehavior) }
+        topBar = { LargeTitleBar(title = "Zastępstwa", scrollBehavior = scrollBehavior, actions = {
+            IconButton(onClick = { share(visibleItems) }, enabled = visibleItems.isNotEmpty(), colors = IconButtonDefaults.iconButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                Icon(Icons.Filled.Share, contentDescription = "Udostępnij wszystkie widoczne zastępstwa")
+            }
+        }) }
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -125,7 +145,7 @@ fun SubstitutionsScreen(
                         )
                     }
                     items(group.items, key = { it.id }) {
-                        SubstitutionRow(it, onOpenLesson, Modifier.animateItem().semantics(mergeDescendants = true) {})
+                        SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem().semantics(mergeDescendants = true) {})
                     }
                 }
                 // Zastępstwa innych grup klasy: domyślnie ukryte, na żądanie przygaszone.
@@ -145,7 +165,7 @@ fun SubstitutionsScreen(
                         items(otherGroups, key = { "other_${it.id}" }) {
                             // Okno szczegółów otworzy się tylko, jeśli ta lekcja jest w Twoim planie
                             // (po filtrze grup) - inaczej sam plan na ten dzień.
-                            SubstitutionRow(it, onOpenLesson, Modifier.animateItem().alpha(0.55f).semantics(mergeDescendants = true) {
+                            SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem().alpha(0.55f).semantics(mergeDescendants = true) {
                                 contentDescription = "Zastępstwo innej grupy"
                             })
                         }
@@ -161,12 +181,14 @@ fun SubstitutionsScreen(
 private fun SubstitutionRow(
     s: Substitution,
     onOpenLesson: (LessonTarget) -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier.semantics(mergeDescendants = true) {}
 ) {
     ElektronCard(
         modifier = modifier,
         onClick = { onOpenLesson(LessonTarget(s.date, s.lessonNumber)) },
-        onClickLabel = "Otwórz szczegóły lekcji"
+        onClickLabel = "Otwórz szczegóły lekcji",
+        onLongClick = onShare, onLongClickLabel = "Udostępnij zastępstwo"
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {

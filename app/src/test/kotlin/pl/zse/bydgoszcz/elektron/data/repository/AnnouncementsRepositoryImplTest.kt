@@ -1,6 +1,10 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -26,10 +30,17 @@ class AnnouncementsRepositoryImplTest {
         var newsError: Exception? = null
         var latestError: Exception? = null
         var archive: Map<Int, List<ArchiveItemDto>> = emptyMap()
+        var article: String? = "<p>Treść offline</p>"
+        var articleCalls = 0
+        var articleGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
         val requestedPages = mutableListOf<Int>()
         override suspend fun fetchNewsFeed(): List<RssItemDto> { newsError?.let { throw it }; return news }
         override suspend fun fetchLatestFeed(): List<RssItemDto> { latestError?.let { throw it }; return latest }
-        override suspend fun fetchArticleHtml(url: String): String? = null
+        override suspend fun fetchArticleHtml(url: String): String? {
+            articleCalls++
+            articleGate?.await()
+            return article
+        }
         override suspend fun fetchArchivePage(page: Int): List<ArchiveItemDto> {
             requestedPages += page
             return archive[page].orEmpty()
@@ -118,4 +129,80 @@ class AnnouncementsRepositoryImplTest {
         }
         assertEquals("RSS_LATEST", db.announcementDao().getById(item.guid)?.source)
     }
+    @Test fun favoriteSurvivesRssPushAndRetention() = runTest {
+        val id = "https://zse/favorite"
+        source.news = listOf(rss(id))
+        repo.syncAll().getOrThrow()
+        repo.toggleFavorite(id)
+        repo.loadFullArticle(id).getOrThrow()
+        repo.syncAll().getOrThrow()
+        repo.upsertOne(repo.observeById(id).first()!!.copy(title = "Zmieniony", isFavorite = false))
+        db.announcementDao().deleteOlderThan(Long.MAX_VALUE)
+        val saved = repo.observeById(id).first()!!
+        assertTrue(saved.isFavorite)
+        assertEquals("<p>Treść offline</p>", saved.fullHtml)
+        org.junit.Assert.assertNull(repo.observeAll().first().single().fullHtml)
+        org.junit.Assert.assertNull(repo.observeLatest(1).first().single().fullHtml)
+        repo.loadFullArticle(id).getOrThrow()
+        assertEquals(1, source.articleCalls)
+        repo.toggleFavorite(id)
+        db.announcementDao().deleteOlderThan(Long.MAX_VALUE)
+        org.junit.Assert.assertNull(db.announcementDao().getById(id))
+    }
+
+    @Test fun favoriteChangeDuringDownloadIsPreserved() = runTest {
+        val id = "https://zse/a"
+        source.news = listOf(rss(id))
+        repo.syncAll().getOrThrow()
+        source.articleGate = kotlinx.coroutines.CompletableDeferred()
+        val job = async { repo.loadFullArticle(id).getOrThrow() }
+        withTimeout(10_000) { while (source.articleCalls == 0) delay(10) }
+        repo.toggleFavorite(id)
+        source.articleGate!!.complete(Unit)
+        job.await()
+        assertTrue(repo.observeById(id).first()!!.isFavorite)
+    }
+
+    @Test fun clearFavoritesKeepsArticlesAndDoesNotRestoreBookmarksOnSync() = runTest {
+        source.news = (1..15).map { rss("https://zse/$it") }
+        repo.syncAll().getOrThrow()
+        source.news.take(14).forEach { repo.toggleFavorite(it.guid) }
+        val firstId = source.news.first().guid
+        repo.loadFullArticle(firstId).getOrThrow()
+        assertEquals(14, repo.clearFavorites())
+        assertEquals(0, repo.clearFavorites())
+        assertEquals(15, repo.count())
+        assertTrue(repo.observeAll().first().none { it.isFavorite })
+        assertEquals("<p>Treść offline</p>", repo.observeById(firstId).first()!!.fullHtml)
+        repo.syncAll().getOrThrow()
+        repo.upsertOne(repo.observeById(firstId).first()!!.copy(title = "Push", isFavorite = true))
+        assertTrue(repo.observeAll().first().none { it.isFavorite })
+        assertEquals(1, source.articleCalls)
+    }
+
+    @Test fun clearFavoritesDuringDownloadDoesNotRestoreBookmark() = runTest {
+        val id = "https://zse/a"
+        source.news = listOf(rss(id))
+        repo.syncAll().getOrThrow()
+        repo.toggleFavorite(id)
+        source.articleGate = kotlinx.coroutines.CompletableDeferred()
+        val job = async { repo.loadFullArticle(id).getOrThrow() }
+        withTimeout(10_000) { while (source.articleCalls == 0) delay(10) }
+        assertEquals(1, repo.clearFavorites())
+        source.articleGate!!.complete(Unit)
+        job.await()
+        val article = repo.observeById(id).first()!!
+        org.junit.Assert.assertFalse(article.isFavorite)
+        assertEquals("<p>Treść offline</p>", article.fullHtml)
+    }
+
+    @Test fun failedArticleDownloadDoesNotLoseFavorite() = runTest {
+        source.news = listOf(rss("https://zse/a"))
+        repo.syncAll().getOrThrow()
+        repo.toggleFavorite("https://zse/a")
+        source.article = null
+        assertTrue(repo.loadFullArticle("https://zse/a").isFailure)
+        assertTrue(repo.observeById("https://zse/a").first()!!.isFavorite)
+    }
+
 }

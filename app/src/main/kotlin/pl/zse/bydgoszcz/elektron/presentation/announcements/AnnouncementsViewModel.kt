@@ -13,12 +13,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import pl.zse.bydgoszcz.elektron.domain.model.SyncErrors
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class AnnouncementsViewModel @Inject constructor(
     private val repo: AnnouncementsRepository,
@@ -36,6 +44,8 @@ class AnnouncementsViewModel @Inject constructor(
         /** Trwa pierwsza synchronizacja — pusta lista to "ładowanie", nie "brak ogłoszeń". */
         val isInitialLoading: Boolean = false,
         val query: String = "",
+        val favoritesOnly: Boolean = false,
+        val favoriteCount: Int = 0,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     ) {
@@ -44,11 +54,70 @@ class AnnouncementsViewModel @Inject constructor(
 
     /** Ogłoszenie z tekstem znormalizowanym raz (a nie przy każdym wciśnięciu klawisza). */
     private data class Indexed(val ann: Announcement, val text: String)
+    private data class Selection(val items: List<Indexed>, val query: String, val favorites: Boolean, val favoriteCount: Int)
 
     private data class Flags(val loadingMore: Boolean, val error: Boolean, val exhausted: Boolean, val initialPending: Boolean)
 
     private val visibleCount = MutableStateFlow(PAGE_SIZE)
     private val query = MutableStateFlow("")
+    private val favoritesOnly = MutableStateFlow(false)
+    private val selectedId = MutableStateFlow<String?>(null)
+    val article = selectedId.flatMapLatest { id -> if (id == null) flowOf(null) else repo.observeById(id).onStart { emit(null) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val articleLoading = MutableStateFlow(false)
+    val articleError = MutableStateFlow<String?>(null)
+    val message = MutableStateFlow<String?>(null)
+    private var articleJob: kotlinx.coroutines.Job? = null
+    private var articleRequest = 0L
+
+    fun consumeMessage(expected: String) { if (message.value == expected) message.value = null }
+    fun setFavoritesOnly(value: Boolean) {
+        if (favoritesOnly.value == value) return
+        favoritesOnly.value = value
+        visibleCount.value = PAGE_SIZE
+    }
+    val clearingFavorites = MutableStateFlow(false)
+    fun clearFavorites() {
+        if (clearingFavorites.value) return
+        clearingFavorites.value = true
+        viewModelScope.launch {
+            try {
+                runCatchingCancellable { repo.clearFavorites() }
+                    .onSuccess { count -> message.value = if (count == 0) "Brak ogłoszeń do usunięcia z ulubionych."
+                        else "Usunięto wszystkie zakładki ($count). Ogłoszenia i pobrana treść pozostały." }
+                    .onFailure { message.value = "Nie udało się usunąć ulubionych. ${SyncErrors.userMessage(it)}" }
+            } finally { clearingFavorites.value = false }
+        }
+    }
+    fun closeArticle() { articleRequest++; articleJob?.cancel(); selectedId.value = null }
+    fun openArticle(id: String) {
+        val request = ++articleRequest
+        articleJob?.cancel()
+        selectedId.value = id
+        articleError.value = null
+        articleLoading.value = true
+        articleJob = viewModelScope.launch {
+            try {
+                repo.loadFullArticle(id).onFailure { if (request == articleRequest) articleError.value = SyncErrors.userMessage(it) }
+            } finally { if (request == articleRequest) articleLoading.value = false }
+        }
+    }
+    fun toggleFavorite(id: String) {
+        if (clearingFavorites.value) return
+        viewModelScope.launch {
+            runCatchingCancellable {
+                repo.toggleFavorite(id)
+                repo.observeById(id).first()?.isFavorite == true
+            }.onSuccess { favorite ->
+                    if (favorite) {
+                        repo.loadFullArticle(id).onFailure {
+                            if (repo.observeById(id).first()?.isFavorite == true) message.value = "Dodano do ulubionych, ale nie pobrano treści do czytania offline. Otwórz ogłoszenie, aby spróbować ponownie."
+                        }
+                    }
+                }
+                .onFailure { message.value = "Nie udało się zmienić ulubionych. ${SyncErrors.userMessage(it)}" }
+        }
+    }
 
     private val indexed = repo.observeAll().map { list ->
         list.map { Indexed(it, SearchText.normalize(it.title + " " + (it.excerpt ?: ""))) }
@@ -60,15 +129,18 @@ class AnnouncementsViewModel @Inject constructor(
     private val archiveExhausted = MutableStateFlow(false)
 
     val state: StateFlow<State> = combine(
-        combine(indexed, query) { all, q -> all to q },
+        combine(indexed, query, favoritesOnly) { all, q, favorites ->
+            val saved = all.filter { it.ann.isFavorite }
+            Selection(if (favorites) saved else all, q, favorites, saved.size)
+        },
         visibleCount,
         refreshing,
         combine(loadingMore, loadMoreError, archiveExhausted, coordinator.initialSyncPending) { l, e, x, p ->
             Flags(l, e, x, p)
         }
-    ) { (all, q), count, refresh, flags ->
-        val loading = flags.loadingMore
-        val error = flags.error
+    ) { (all, q, favorites, favoriteCount), count, refresh, flags ->
+        val loading = !favorites && flags.loadingMore
+        val error = !favorites && flags.error
         val exhausted = flags.exhausted
         val words = SearchText.normalize(q).split(' ').filter { it.isNotBlank() }
         val searching = words.isNotEmpty()
@@ -81,12 +153,14 @@ class AnnouncementsViewModel @Inject constructor(
             // "Pokaż więcej" jest dostępne, dopóki są wpisy w bazie ALBO archiwum strony
             // (dawniej przycisk znikał po wyczerpaniu kilkudziesięciu wpisów z RSS).
             // Przy wyszukiwaniu: dopóki archiwum się nie skończyło (szukaj w starszych).
-            hasMore = if (searching) !exhausted else all.size > count || !exhausted,
+            hasMore = if (favorites) !searching && all.size > count else if (searching) !exhausted else all.size > count || !exhausted,
+            favoritesOnly = favorites,
+            favoriteCount = favoriteCount,
             query = q,
             isRefreshing = refresh,
             isLoadingMore = loading,
             loadMoreError = error,
-            isInitialLoading = flags.initialPending,
+            isInitialLoading = !favorites && flags.initialPending,
             ready = true
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
@@ -94,16 +168,22 @@ class AnnouncementsViewModel @Inject constructor(
     fun setQuery(q: String) { query.value = q }
 
     fun loadMore() {
+        // Ulubione są lokalne: nie czekają na pobieranie archiwum rozpoczęte w innej zakładce.
+        if (favoritesOnly.value) {
+            visibleCount.value += PAGE_SIZE
+            return
+        }
         if (loadingMore.value) return
         loadingMore.value = true
         val shown = state.value.items.size
-        val searching = state.value.isSearching
+        val requestedQuery = query.value
+        val searching = requestedQuery.isNotBlank()
         viewModelScope.launch {
             try {
                 val inDb = repo.count()
                 // Przy wyszukiwaniu przeszukana jest już cała baza — od razu sięgamy do archiwum.
                 if (!searching && inDb > shown) {
-                    visibleCount.value = shown + PAGE_SIZE
+                    if (!favoritesOnly.value && query.value == requestedQuery) visibleCount.value = shown + PAGE_SIZE
                     return@launch
                 }
                 // Baza wyczerpana — starsze wpisy z archiwum strony szkoły.
@@ -111,7 +191,7 @@ class AnnouncementsViewModel @Inject constructor(
                 repo.loadOlder()
                     .onSuccess { r ->
                         if (r.exhausted && r.added == 0) archiveExhausted.value = true
-                        visibleCount.value = shown + maxOf(r.added, PAGE_SIZE)
+                        if (!favoritesOnly.value && query.value == requestedQuery) visibleCount.value = shown + maxOf(r.added, PAGE_SIZE)
                     }
                     .onFailure { loadMoreError.value = true }
             } finally {

@@ -22,6 +22,7 @@ object SyncErrors {
         var e: Throwable? = t
         while (e != null) {
             when (e) {
+                is ArticleContentException -> return ArticleContentException.USER_MESSAGE
                 is SchoolPageChangedException -> return SchoolPageChangedException.USER_MESSAGE
                 is UnknownHostException, is ConnectException, is SocketTimeoutException, is SSLException -> return OFFLINE
                 is IOException -> HTTP_CODE.find(e.message.orEmpty())?.let { return SERVER }

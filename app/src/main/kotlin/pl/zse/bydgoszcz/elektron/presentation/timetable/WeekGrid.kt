@@ -4,6 +4,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +74,8 @@ private val MONTH_SHORT = listOf("STY", "LUT", "MAR", "KWI", "MAJ", "CZE", "LIP"
 internal fun WeekGrid(
     week: List<TimetableViewModel.DayColumn>,
     modifier: Modifier = Modifier,
+    notes: Map<String, LessonNote>,
+    onNote: (Lesson) -> Unit,
     onLessonClick: (Lesson) -> Unit
 ) {
     val days = week.filter { it.dayOfWeek in DAY_SHORT.keys }.sortedBy { it.date }
@@ -110,6 +114,7 @@ internal fun WeekGrid(
                     nowMinute = if (day.date == today) now.toLocalTime().toSecondOfDay() / 60 else null,
                     nowTime = now.toLocalTime(),
                     onLessonClick = onLessonClick,
+                    notes = notes, onNote = onNote,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -176,6 +181,7 @@ private fun DayGridColumn(
     nowMinute: Int?,
     nowTime: LocalTime,
     onLessonClick: (Lesson) -> Unit,
+    notes: Map<String, LessonNote>, onNote: (Lesson) -> Unit,
     modifier: Modifier
 ) {
     val lineColor = MaterialTheme.colorScheme.outlineVariant
@@ -204,6 +210,8 @@ private fun DayGridColumn(
                 lengthMin = length,
                 ongoing = nowMinute != null && nowTime >= lesson.timeFrom && nowTime < lesson.timeTo,
                 modifier = Modifier.offset(y = from * PER_MINUTE).height(length * PER_MINUTE).fillMaxWidth(),
+                hasNote = notes.containsKey(LessonNote.key(lesson)),
+                onLongClick = if (LessonNote.canEdit(lesson, java.time.LocalDateTime.now())) ({ onNote(lesson) }) else null,
                 onClick = { onLessonClick(lesson) }
             )
         }
@@ -217,8 +225,9 @@ private fun DayGridColumn(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifier: Modifier, hasNote: Boolean, onLongClick: (() -> Unit)?, onClick: () -> Unit) {
     // Ile linii nazwy mieści kafelek (14 sp na linię, 6 dp marginesów) - wielokropek działa
     // tylko z limitem linii, a nie z ograniczoną wysokością.
     val fontScale = LocalDensity.current.fontScale   // większa czcionka systemowa = wyższe linie
@@ -249,16 +258,17 @@ private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifie
     val description = buildString {
         append("${lesson.number}. lekcja, ${lesson.timeFrom}–${lesson.timeTo}, ")
         append(names.joinToString(" / ").ifBlank { name })
+        if (hasNote) append(", zapisana notatka")
         if (sub != null) append(", zastępstwo: ${SubstitutionDisplay.headline(sub)}")
     }
     Row(
         modifier.padding(horizontal = 2.dp, vertical = 1.dp).clip(RoundedCornerShape(6.dp)).background(bg)
-            .clickable(onClick = onClick).semantics(mergeDescendants = true) { contentDescription = description }
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Dodaj lub edytuj notatkę").semantics(mergeDescendants = true) { contentDescription = description }
     ) {
         Box(Modifier.width(3.dp).fillMaxHeight().background(bar))
         Box(Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 3.dp)) {
             Text(
-                name,
+                if (hasNote) "✎ $name" else name,
                 color = fg,
                 fontSize = 12.sp,
                 lineHeight = 14.sp,

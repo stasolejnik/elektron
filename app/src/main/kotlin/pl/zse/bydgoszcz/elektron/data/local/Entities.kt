@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -88,7 +89,8 @@ data class AnnouncementEntity(
     val coverImageUrl: String?,
     val fullHtml: String?,
     val isRead: Boolean,
-    val source: String
+    val source: String,
+    @ColumnInfo(defaultValue = "0") val isFavorite: Boolean = false
 )
 
 @Entity(tableName = "notifications", indices = [Index("createdAtEpochSeconds")])

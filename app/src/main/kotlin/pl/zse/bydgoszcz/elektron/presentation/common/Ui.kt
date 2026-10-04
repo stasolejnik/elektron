@@ -3,6 +3,7 @@ package pl.zse.bydgoszcz.elektron.presentation.common
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -50,7 +51,8 @@ import androidx.compose.ui.input.pointer.pointerInput
  * Kliknięcie w stylu iOS: element lekko się zmniejsza i przygasa przy dotyku
  * (sprężyna), bez materiałowego "ripple".
  */
-fun Modifier.pressable(enabled: Boolean = true, onClickLabel: String? = null, onClick: () -> Unit): Modifier = composed {
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+fun Modifier.pressable(enabled: Boolean = true, onClickLabel: String? = null, onLongClick: (() -> Unit)? = null, onLongClickLabel: String? = null, onClick: () -> Unit): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -61,8 +63,9 @@ fun Modifier.pressable(enabled: Boolean = true, onClickLabel: String? = null, on
     val alpha by animateFloatAsState(if (pressed) 0.85f else 1f, label = "pressAlpha")
     this
         .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
-        .clickable(interactionSource = interaction, indication = null, enabled = enabled,
-            onClickLabel = onClickLabel, role = Role.Button, onClick = onClick)
+        .combinedClickable(interactionSource = interaction, indication = null, enabled = enabled,
+            onClickLabel = onClickLabel, role = Role.Button, onClick = onClick,
+            onLongClick = onLongClick, onLongClickLabel = onLongClickLabel)
 }
 
 /** Karta z domyślnym tłem powierzchni (biała / #1C1C1E), bez cienia. */
@@ -73,12 +76,14 @@ fun ElektronCard(
     onClick: (() -> Unit)? = null,
     /** Opis akcji dla czytnika ekranu (TalkBack: "dwukrotnie dotknij, aby ..."). */
     onClickLabel: String? = null,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.pressable(onClickLabel = onClickLabel, onClick = onClick) else Modifier),
+            .then(if (onClick != null) Modifier.pressable(onClickLabel = onClickLabel, onClick = onClick, onLongClick = onLongClick, onLongClickLabel = onLongClickLabel) else Modifier),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = containerColor),
         content = content

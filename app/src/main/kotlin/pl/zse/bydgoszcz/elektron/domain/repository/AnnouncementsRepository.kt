@@ -4,6 +4,11 @@ import kotlinx.coroutines.flow.Flow
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 
 interface AnnouncementsRepository {
+    /** Pełny zapis artykułu; listy ogłoszeń pomijają treść HTML. */
+    fun observeById(id: String): Flow<Announcement?>
+    suspend fun toggleFavorite(id: String)
+    /** Usuwa wszystkie zakładki, zachowując ogłoszenia i pobraną treść. */
+    suspend fun clearFavorites(): Int
     suspend fun syncAll(): Result<Unit>
     fun observeAll(): Flow<List<Announcement>>
     /** Najnowsze [limit] ogłoszeń (strona główna) — bez czytania całej tabeli. */

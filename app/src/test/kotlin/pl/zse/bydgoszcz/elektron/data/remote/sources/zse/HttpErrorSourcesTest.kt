@@ -36,5 +36,6 @@ class HttpErrorSourcesTest {
     @Test fun sidebarThrows() = assertHttpError { ZseTimetableSource(client).fetchSidebar() }
     @Test fun newsFeedThrows() = assertHttpError { ZseRssAnnouncementsSource(client).fetchNewsFeed() }
     @Test fun latestFeedThrows() = assertHttpError { ZseRssAnnouncementsSource(client).fetchLatestFeed() }
+    @Test fun articleThrows() = assertHttpError { ZseRssAnnouncementsSource(client).fetchArticleHtml("https://zse.bydgoszcz.pl/test.html") }
     @Test fun archivePageThrows() = assertHttpError { ZseRssAnnouncementsSource(client).fetchArchivePage(3) }
 }

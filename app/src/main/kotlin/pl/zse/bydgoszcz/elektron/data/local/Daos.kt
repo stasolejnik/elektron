@@ -137,14 +137,26 @@ interface SubstitutionDao {
 
 @Dao
 interface AnnouncementDao {
-    @Query("SELECT * FROM announcements ORDER BY publishedAtEpochSeconds DESC")
+    @Query("SELECT id, title, url, publishedAtEpochSeconds, excerpt, coverImageUrl, NULL AS fullHtml, isRead, source, isFavorite FROM announcements ORDER BY publishedAtEpochSeconds DESC")
     fun observeAll(): Flow<List<AnnouncementEntity>>
 
-    @Query("SELECT * FROM announcements ORDER BY publishedAtEpochSeconds DESC LIMIT :limit")
+    @Query("SELECT id, title, url, publishedAtEpochSeconds, excerpt, coverImageUrl, NULL AS fullHtml, isRead, source, isFavorite FROM announcements ORDER BY publishedAtEpochSeconds DESC LIMIT :limit")
     fun observeLatest(limit: Int): Flow<List<AnnouncementEntity>>
 
     @Query("SELECT * FROM announcements WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): AnnouncementEntity?
+
+    @Query("SELECT * FROM announcements WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<AnnouncementEntity?>
+
+    @Query("UPDATE announcements SET isFavorite = NOT isFavorite WHERE id = :id")
+    suspend fun toggleFavorite(id: String)
+
+    @Query("UPDATE announcements SET isFavorite = 0 WHERE isFavorite = 1")
+    suspend fun clearFavorites(): Int
+
+    @Query("UPDATE announcements SET fullHtml = :html WHERE id = :id")
+    suspend fun updateArticle(id: String, html: String)
 
     @Query("SELECT * FROM announcements WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<String>): List<AnnouncementEntity>
@@ -165,7 +177,7 @@ interface AnnouncementDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<AnnouncementEntity>)
 
-    @Query("DELETE FROM announcements WHERE publishedAtEpochSeconds < :beforeEpochSeconds")
+    @Query("DELETE FROM announcements WHERE publishedAtEpochSeconds < :beforeEpochSeconds AND isFavorite = 0")
     suspend fun deleteOlderThan(beforeEpochSeconds: Long)
 }
 

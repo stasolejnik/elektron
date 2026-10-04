@@ -2,6 +2,8 @@ package pl.zse.bydgoszcz.elektron.presentation.announcements
 
 import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
 import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.text.style.TextAlign
@@ -57,22 +72,48 @@ import coil.request.ImageRequest
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
-import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val article by viewModel.article.collectAsStateWithLifecycle()
+    val articleLoading by viewModel.articleLoading.collectAsStateWithLifecycle()
+    val articleError by viewModel.articleError.collectAsStateWithLifecycle()
+    val clearingFavorites by viewModel.clearingFavorites.collectAsStateWithLifecycle()
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Usunąć wszystkie z ulubionych?") },
+            text = { Text("Usuniesz wszystkie zakładki, również te ukryte przez wyszukiwanie. Ogłoszenia i pobrana treść pozostaną w aplikacji.") },
+            confirmButton = { TextButton(onClick = { confirmClear = false; viewModel.clearFavorites() },
+                enabled = !clearingFavorites) { Text("Usuń wszystkie") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Anuluj") } }
+        )
+    }
+    article?.let { AnnouncementArticleSheet(it, articleLoading, articleError,
+        onRetry = { viewModel.openArticle(it.id) },
+        onFavorite = { viewModel.toggleFavorite(it.id) }, onDismiss = viewModel::closeArticle) }
+    val snackbar = remember { SnackbarHostState() }
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); viewModel.consumeMessage(it) } }
     val fmt = DateTimeFormatter.ofPattern("d.MM.yyyy, HH:mm")
-    val ctx = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { LargeTitleBar(title = "Ogłoszenia", scrollBehavior = scrollBehavior) }
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = { LargeTitleBar(title = "Ogłoszenia", scrollBehavior = scrollBehavior, actions = {
+            if (state.favoritesOnly) {
+                IconButton(onClick = { confirmClear = true }, enabled = state.favoriteCount > 0 && !clearingFavorites) {
+                    Icon(Icons.Outlined.DeleteSweep, contentDescription = "Usuń wszystkie z ulubionych")
+                }
+            }
+        }) }
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
@@ -85,7 +126,14 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item(key = "search") {
-                    SearchField(state.query, viewModel::setQuery)
+                    Column {
+                        SearchField(state.query, viewModel::setQuery)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = !state.favoritesOnly, onClick = { viewModel.setFavoritesOnly(false) }, label = { Text("Wszystkie") })
+                            FilterChip(selected = state.favoritesOnly, onClick = { viewModel.setFavoritesOnly(true) }, label = { Text("Ulubione (${state.favoriteCount})") })
+
+                        }
+                    }
                 }
                 if (state.isSearching && state.items.isEmpty()) {
                     item(key = "no_results") {
@@ -97,27 +145,29 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                     }
                 } else if (state.items.isEmpty() && state.isInitialLoading && !state.isRefreshing) {
                     item(key = "loading") {
-                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
                             DelayedLoading { CircularProgressIndicator() }
                         }
                     }
                 } else if (state.items.isEmpty()) {
                     item(key = "empty") {
-                        Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Outlined.Campaign, contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(48.dp))
                                 Spacer(Modifier.size(12.dp))
-                                Text("Brak ogłoszeń", style = MaterialTheme.typography.titleMedium)
+                                Text(if (state.favoritesOnly) "Brak ulubionych ogłoszeń" else "Brak ogłoszeń", style = MaterialTheme.typography.titleMedium)
+                                if (state.favoritesOnly) Text("Dotknij zakładki przy ogłoszeniu, aby je tutaj zapisać.",
+                                    style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                             }
                         }
                     }
                 }
                 items(state.items, key = { it.id }) { a ->
-                    AnnouncementCard(a, fmt, Modifier.animateItem()) {
-                        SafeUrls.open(ctx, a.url)
-                    }
+                    AnnouncementCard(a, fmt, Modifier.animateItem(),
+                        onFavorite = { viewModel.toggleFavorite(a.id) }) { viewModel.openArticle(a.id) }
                 }
                 if (state.hasMore && (state.items.isNotEmpty() || state.isSearching)) {
                     item(key = "more") {
@@ -159,6 +209,7 @@ private fun AnnouncementCard(
     a: Announcement,
     fmt: DateTimeFormatter,
     modifier: Modifier = Modifier,
+    onFavorite: () -> Unit,
     onClick: () -> Unit
 ) {
     ElektronCard(modifier = modifier, onClick = onClick) {
@@ -175,13 +226,17 @@ private fun AnnouncementCard(
         }
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val local = a.publishedAt.atZone(ZoneId.systemDefault())
-                Text(local.format(fmt), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(a.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis)
+                IconButton(onClick = onFavorite) {
+                    Icon(if (a.isFavorite) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = if (a.isFavorite) "Usuń z ulubionych" else "Dodaj do ulubionych",
+                        tint = MaterialTheme.colorScheme.primary)
+                }
             }
             Spacer(Modifier.height(2.dp))
-            Text(a.title, style = MaterialTheme.typography.titleMedium, maxLines = 3,
-                overflow = TextOverflow.Ellipsis)
+            Text(a.publishedAt.atZone(ZoneId.systemDefault()).format(fmt), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             a.excerpt?.let {
                 Spacer(Modifier.height(4.dp))
                 Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 3,

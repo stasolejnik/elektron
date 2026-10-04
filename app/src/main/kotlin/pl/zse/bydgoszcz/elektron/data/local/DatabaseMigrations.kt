@@ -3,7 +3,7 @@ package pl.zse.bydgoszcz.elektron.data.local
 import androidx.room.migration.Migration
 
 /** Aktualna wersja schematu bazy. Podnosisz ją => MUSISZ dodać migrację poniżej. */
-const val DATABASE_VERSION = 2
+const val DATABASE_VERSION = 3
 
 /**
  * Migracje schematu Room.
@@ -34,6 +34,10 @@ object DatabaseMigrations {
     const val FIRST_MIGRATABLE_VERSION = 2
 
     val ALL: Array<Migration> = arrayOf(
-        // MIGRATION_2_3,
+        object : Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE announcements ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+            }
+        },
     )
 }

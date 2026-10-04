@@ -244,6 +244,16 @@ class SyncCoordinatorTest {
         assertEquals(0, db.announcementDao().count())
     }
 
+    @Test fun cacheResetKeepsFavoriteAndOfflineArticle() = runBlocking<Unit> {
+        val favorite = AnnouncementEntity("favorite", "Ważne", "https://zse/favorite", Instant.now().epochSecond,
+            null, null, "<p>Zapisana treść</p>", false, "RSS_NEWS", isFavorite = true)
+        db.announcementDao().upsertAll(listOf(favorite, favorite.copy(id = "ordinary", isFavorite = false)))
+        coordinator.resetCacheAndResync("o3")
+        eventually({ t.notificationsRepo.observeLoadedResources().first() }) { SyncOutcome.TIMETABLE in it }
+        assertEquals(favorite, db.announcementDao().getById("favorite"))
+        assertNull(db.announcementDao().getById("ordinary"))
+    }
+
     // --- Wspólne kroki po synchronizacji ---
 
     @Test
@@ -369,6 +379,87 @@ class SyncCoordinatorTest {
             store.clear()
             kotlinx.coroutines.Dispatchers.resetMain()
         }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun favoritesFilterSearchAndPagingStayOffline() = runBlocking {
+        Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())
+        val favorite = AnnouncementEntity("fav", "Zażółć ważne", "https://zse/fav", Instant.now().epochSecond,
+            "Zapisane", null, "<p>Treść</p>", false, "RSS_NEWS", isFavorite = true)
+        db.announcementDao().upsertAll((1..11).map { favorite.copy(id = "fav$it") } + favorite.copy(id = "other", isFavorite = false))
+        val repository = object : pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository by t.announcementsRepo {
+            override suspend fun loadOlder() = error("Ulubione nie mogą pobierać archiwum")
+        }
+        val vm = pl.zse.bydgoszcz.elektron.presentation.announcements.AnnouncementsViewModel(repository, coordinator)
+        val store = androidx.lifecycle.ViewModelStore()
+        store.put("favorites", vm)
+        try {
+            withTimeout(10_000) { vm.state.first { it.ready } }
+            vm.setFavoritesOnly(true)
+            val first = withTimeout(10_000) { vm.state.first { it.favoritesOnly } }
+            assertEquals(10, first.items.size)
+            assertEquals(11, first.favoriteCount)
+            assertTrue(first.items.all { it.isFavorite })
+            vm.loadMore()
+            withTimeout(10_000) { vm.state.first { it.items.size == 11 } }
+            vm.setQuery("zazolc")
+            val searching = withTimeout(10_000) { vm.state.first { it.query == "zazolc" } }
+            assertEquals(11, searching.items.size)
+            assertFalse(searching.hasMore)
+            // Wyszukiwanie ukrywa część zakładek; czyszczenie musi nadal objąć wszystkie.
+            vm.setQuery("brak wyniku")
+            val hidden = withTimeout(10_000) { vm.state.first { it.query == "brak wyniku" } }
+            assertTrue(hidden.items.isEmpty())
+            assertEquals(11, hidden.favoriteCount)
+            vm.clearFavorites()
+            withTimeout(10_000) { vm.state.first { it.favoriteCount == 0 } }
+            assertEquals(12, db.announcementDao().count())
+            assertEquals("<p>Treść</p>", db.announcementDao().getById("fav1")!!.fullHtml)
+            assertNotNull(vm.message.value)
+            vm.consumeMessage("stary komunikat")
+            assertNotNull(vm.message.value)
+            vm.consumeMessage(vm.message.value!!)
+            assertNull(vm.message.value)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun favoritesPagingDoesNotWaitForArchiveAndDoesNotShowItsError() = runBlocking {
+        Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())
+        val favorite = AnnouncementEntity("fav", "Ogłoszenie", "https://zse/fav", Instant.now().epochSecond,
+            null, null, null, false, "RSS_NEWS", isFavorite = true)
+        db.announcementDao().upsertAll((1..11).map { favorite.copy(id = "fav$it") })
+        val gate = CompletableDeferred<Unit>()
+        val started = CompletableDeferred<Unit>()
+        val repository = object : pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository by t.announcementsRepo {
+            override suspend fun count(): Int = 0
+            override suspend fun loadOlder(): Result<pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository.OlderResult> {
+                started.complete(Unit)
+                gate.await()
+                return Result.failure(IOException("offline"))
+            }
+        }
+        val vm = pl.zse.bydgoszcz.elektron.presentation.announcements.AnnouncementsViewModel(repository, coordinator)
+        val store = androidx.lifecycle.ViewModelStore()
+        store.put("paging", vm)
+        try {
+            withTimeout(10_000) { vm.state.first { it.ready } }
+            vm.loadMore()
+            withTimeout(10_000) { started.await() }
+            vm.setFavoritesOnly(true)
+            val favorites = withTimeout(10_000) { vm.state.first { it.favoritesOnly } }
+            assertFalse(favorites.isLoadingMore)
+            assertFalse(favorites.isInitialLoading)
+            vm.loadMore()
+            withTimeout(10_000) { vm.state.first { it.items.size == 11 } }
+            gate.complete(Unit)
+            withTimeout(10_000) {
+                while (vm.state.value.loadMoreError || vm.state.value.isLoadingMore) delay(10)
+            }
+            vm.setFavoritesOnly(false)
+            val all = withTimeout(10_000) { vm.state.first { !it.favoritesOnly && it.loadMoreError } }
+            assertEquals(10, all.items.size)
+        } finally { gate.complete(Unit); store.clear(); Dispatchers.resetMain() }
     }
 
     @Test fun backgroundRetriesFailedManualRefreshDespiteRecentSuccess() = runBlocking {

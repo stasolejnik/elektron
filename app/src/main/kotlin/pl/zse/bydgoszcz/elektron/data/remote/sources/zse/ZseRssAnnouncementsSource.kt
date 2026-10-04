@@ -9,6 +9,7 @@ import okhttp3.Request
 import pl.zse.bydgoszcz.elektron.data.remote.dto.ArchiveItemDto
 import pl.zse.bydgoszcz.elektron.data.remote.dto.RssItemDto
 import pl.zse.bydgoszcz.elektron.data.remote.http.EncodingAwareBody
+import pl.zse.bydgoszcz.elektron.data.remote.parser.NewsArticleParser
 import pl.zse.bydgoszcz.elektron.data.remote.parser.NewsArchiveParser
 import pl.zse.bydgoszcz.elektron.data.remote.parser.RssParser
 import pl.zse.bydgoszcz.elektron.data.remote.sources.AnnouncementsSource
@@ -34,13 +35,9 @@ class ZseRssAnnouncementsSource @Inject constructor(
     override suspend fun fetchArticleHtml(url: String): String? = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(url).get().build()
         client.newCall(req).readCancellable { resp ->
-            if (!resp.isSuccessful) {
-                Log.w(TAG, "HTTP ${resp.code} dla $url")
-                return@readCancellable null
-            }
-            val doc = EncodingAwareBody.asDocument(resp)
-            val article = doc.selectFirst("article") ?: doc.selectFirst(".content")
-            article?.html()
+            if (!resp.isSuccessful) throw java.io.IOException("Ogłoszenie: HTTP ${resp.code}")
+            NewsArticleParser.parse(EncodingAwareBody.asDocument(resp))
+                ?: throw pl.zse.bydgoszcz.elektron.domain.model.ArticleContentException()
         }
     }
 

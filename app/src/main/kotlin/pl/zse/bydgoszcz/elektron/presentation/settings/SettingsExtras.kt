@@ -15,6 +15,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,41 +90,52 @@ internal fun StartScreenSection(current: StartScreen, onChange: (StartScreen) ->
 }
 
 @Composable
-internal fun RemindersSection(current: ReminderSettings, onChange: (ReminderSettings) -> Unit) {
+internal fun RemindersSection(current: ReminderSettings, status: LessonReminderScheduler.Status,
+    onResume: () -> Unit, onChange: (ReminderSettings) -> Unit) {
     val ctx = LocalContext.current
     var choosingMode by remember { mutableStateOf(false) }
     var choosingMinutes by remember { mutableStateOf(false) }
     // Zgoda na dokładne alarmy i na powiadomienia - sprawdzane przy każdym powrocie z ustawień systemu.
     var exact by remember { mutableStateOf(LessonReminderScheduler.canUseExactAlarms(ctx)) }
-    var notificationsOn by remember { mutableStateOf(NotificationManagerCompat.from(ctx).areNotificationsEnabled()) }
+    var notificationsOn by remember { mutableStateOf(reminderNotificationsEnabled(ctx)) }
     OnResume {
-        notificationsOn = NotificationManagerCompat.from(ctx).areNotificationsEnabled()
-        val now = LessonReminderScheduler.canUseExactAlarms(ctx)
-        if (now != exact) {
-            exact = now
-            onChange(current)       // przeliczenie alarmu w nowym trybie
-        }
+        notificationsOn = reminderNotificationsEnabled(ctx)
+        onResume()
+        exact = LessonReminderScheduler.canUseExactAlarms(ctx)
     }
 
     val enabled = current.mode != ReminderMode.OFF
     GroupedSection(
         "Przypomnienia o lekcjach",
-        footer = when {
-            !enabled -> "Powiadomienie kilka minut przed lekcją - z salą, a przy zastępstwie z zastępcą."
-            !notificationsOn -> "Powiadomienia eLektronu są wyłączone w systemie - przypomnienia się nie pokażą."
-            !exact -> "Bez zgody na alarmy przypomnienie może przyjść kilka minut później."
-            else -> "Zmiany w planie i zastępstwa są uwzględniane automatycznie."
-        }
+        footer = if (!enabled) "Powiadomienie przed lekcją z salą i informacją o zastępstwie." else null
     ) {
         ValueRow("Przypomnienia", REMINDER_OPTIONS.first { it.first == current.mode }.second) { choosingMode = true }
         if (enabled) {
             RowDivider()
             ValueRow("Ile wcześniej", "${current.minutesBefore} min") { choosingMinutes = true }
+            RowDivider()
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(when {
+                    !notificationsOn -> "Powiadomienia zablokowane w systemie"
+                    status.error -> "Nie udało się ustawić przypomnienia"
+                    !status.ready -> "Sprawdzam…"
+                    status.at != null -> "Najbliższe: ${status.at.format(java.time.format.DateTimeFormatter.ofPattern("d.MM, HH:mm"))}"
+                    else -> "Brak nadchodzącej lekcji w zapisanym planie na najbliższe 7 dni"
+                }, style = MaterialTheme.typography.bodyMedium)
+                if (notificationsOn && !status.error && status.at != null) {
+                    status.lesson?.let { Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                if (notificationsOn && !exact) {
+                    Text("System może opóźnić przypomnienie bez zgody na dokładne alarmy.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             if (!notificationsOn) {
                 RowDivider()
                 ActionRow("Włącz powiadomienia", trailingChevron = true) { openNotificationSettings(ctx) }
             }
-            if (!exact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (notificationsOn && !exact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 RowDivider()
                 ActionRow("Zezwól na alarmy o czasie", trailingChevron = true) { openExactAlarmSettings(ctx) }
             }
@@ -218,7 +230,7 @@ internal fun ClassSection(classes: List<SchoolClass>, selectedId: String?, onSel
 
 /** Wiersz "etykieta ... wartość" otwierający wybór. */
 @Composable
-private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
+internal fun ValueRow(label: String, value: String, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().pressable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -229,7 +241,7 @@ private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun <T> ChoiceDialog(
+internal fun <T> ChoiceDialog(
     title: String,
     options: List<Pair<T, String>>,
     selected: T,
@@ -264,7 +276,7 @@ private fun <T> ChoiceDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimeDialog(title: String, initial: LocalTime, onPick: (LocalTime) -> Unit, onDismiss: () -> Unit) {
+internal fun TimeDialog(title: String, initial: LocalTime, onPick: (LocalTime) -> Unit, onDismiss: () -> Unit) {
     val state = rememberTimePickerState(initialHour = initial.hour, initialMinute = initial.minute, is24Hour = true)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -277,7 +289,7 @@ private fun TimeDialog(title: String, initial: LocalTime, onPick: (LocalTime) ->
 }
 
 @Composable
-private fun OnResume(block: () -> Unit) {
+internal fun OnResume(block: () -> Unit) {
     val owner = LocalLifecycleOwner.current
     val latest by rememberUpdatedState(block)   // bez tego obserwator wołałby blok z pierwszym stanem
     DisposableEffect(owner) {
@@ -287,8 +299,14 @@ private fun OnResume(block: () -> Unit) {
     }
 }
 
+internal fun reminderNotificationsEnabled(ctx: Context): Boolean =
+    NotificationManagerCompat.from(ctx).areNotificationsEnabled() &&
+        (ctx.getSystemService(android.app.NotificationManager::class.java)
+            ?.getNotificationChannel(pl.zse.bydgoszcz.elektron.work.LocalNotificationSink.CHANNEL_REMINDERS)
+            ?.importance != android.app.NotificationManager.IMPORTANCE_NONE)
+
 /** Systemowe ustawienia powiadomień eLektronu. */
-private fun openNotificationSettings(ctx: Context) {
+internal fun openNotificationSettings(ctx: Context) {
     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
         .putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

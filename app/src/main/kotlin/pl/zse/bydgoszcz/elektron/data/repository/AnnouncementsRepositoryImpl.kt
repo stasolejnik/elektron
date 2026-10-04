@@ -60,7 +60,7 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                 val entities = freshEntities.map { fresh ->
                     val existing = existingById[fresh.id]
                     if (existing == null) fresh
-                    else fresh.copy(fullHtml = existing.fullHtml ?: fresh.fullHtml)
+                    else fresh.copy(fullHtml = existing.fullHtml ?: fresh.fullHtml, isFavorite = existing.isFavorite)
                 }
                 dao.upsertAll(entities.filter { existingById[it.id] != it })
                 dao.deleteDevEntries()
@@ -82,13 +82,24 @@ class AnnouncementsRepositoryImpl @Inject constructor(
     override suspend fun count(): Int = withContext(Dispatchers.IO) { dao.count() }
 
 
+    override fun observeById(id: String): Flow<Announcement?> =
+        dao.observeById(id).map { it?.let(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
+
+    override suspend fun toggleFavorite(id: String) = withContext(Dispatchers.IO) { dao.toggleFavorite(id) }
+
+    override suspend fun clearFavorites(): Int = withContext(Dispatchers.IO) { dao.clearFavorites() }
+
+    private val articleMutex = kotlinx.coroutines.sync.Mutex()
+
     override suspend fun loadFullArticle(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
-            val current = dao.getById(id) ?: return@runCatchingCancellable
-            if (!current.fullHtml.isNullOrBlank()) return@runCatchingCancellable
-            val html = source.fetchArticleHtml(current.url)
-            if (html.isNullOrBlank()) return@runCatchingCancellable
-            dao.upsertAll(listOf(current.copy(fullHtml = html)))
+            articleMutex.withLock {
+                val current = dao.getById(id) ?: throw java.io.IOException("Brak zapisanego ogłoszenia")
+                if (!current.fullHtml.isNullOrBlank()) return@withLock
+                val html = source.fetchArticleHtml(current.url)
+                if (html.isNullOrBlank()) throw pl.zse.bydgoszcz.elektron.domain.model.ArticleContentException()
+                dao.updateArticle(id, html)
+            }
         }
     }
 
@@ -99,18 +110,21 @@ class AnnouncementsRepositoryImpl @Inject constructor(
     // Push FCM może przyjść o ogłoszeniu, które już jest w bazie — scalamy z istniejącym
     // wpisem (np. pobraną treścią artykułu), tak jak w syncAll().
     override suspend fun upsertOne(ann: Announcement) = withContext(Dispatchers.IO) {
-        val existing = dao.getById(ann.id)
-        dao.upsertAll(listOf(AnnouncementEntity(
-            id = ann.id,
-            title = ann.title,
-            url = ann.url,
-            publishedAtEpochSeconds = ann.publishedAt.epochSecond,
-            excerpt = ann.excerpt,
-            coverImageUrl = ann.coverImageUrl,
-            fullHtml = existing?.fullHtml ?: ann.fullHtml,
-            isRead = false, // kolumna nieużywana (stan "przeczytane" usunięty w 0.3.1)
-            source = ann.source.name
-        )))
+        db.withTransaction {
+            val existing = dao.getById(ann.id)
+            dao.upsertAll(listOf(AnnouncementEntity(
+                id = ann.id,
+                title = ann.title,
+                url = ann.url,
+                publishedAtEpochSeconds = ann.publishedAt.epochSecond,
+                excerpt = ann.excerpt,
+                coverImageUrl = ann.coverImageUrl,
+                fullHtml = existing?.fullHtml ?: ann.fullHtml,
+                isRead = false, // kolumna nieużywana (stan "przeczytane" usunięty w 0.3.1)
+                source = ann.source.name,
+                isFavorite = existing?.isFavorite ?: ann.isFavorite
+            )))
+        }
     }
 
     // Następna strona archiwum do pobrania (w pamięci procesu; po restarcie szacowana z bazy).

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pl.zse.bydgoszcz.elektron.domain.model.JointGroups
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
+import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
@@ -37,7 +38,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LessonDetailsSheet(lesson: Lesson, onDismiss: () -> Unit) {
+internal fun LessonDetailsSheet(lesson: Lesson, userNote: LessonNote? = null, onEditNote: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val personal = LocalPersonalization.current
     val pl = Locale("pl", "PL")
     val sub = lesson.substitution
@@ -87,6 +88,15 @@ internal fun LessonDetailsSheet(lesson: Lesson, onDismiss: () -> Unit) {
                 SubstitutionDisplay.place(sub)?.let { Field("Gdzie", it) }
                 Field("Za nauczyciela", sub.originalTeacher)
                 SubstitutionDisplay.notes(sub)?.let { Field("Uwagi", it) }
+            }
+            userNote?.let {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Field("Twoja notatka", it.text)
+                if (it.subject != LessonNote.subject(lesson))
+                    Field("Zapisana dla", it.subject, MaterialTheme.colorScheme.tertiary)
+            }
+            onEditNote?.let { action ->
+                androidx.compose.material3.TextButton(onClick = action) { Text(if (userNote == null) "Dodaj notatkę" else "Edytuj notatkę") }
             }
             lesson.note?.takeIf { sub == null && lesson.groups.isNotEmpty() }?.let { Field("Uwaga", it) }
         }

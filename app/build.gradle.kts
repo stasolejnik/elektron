@@ -31,8 +31,8 @@ android {
         applicationId = "pl.zse.bydgoszcz.elektron"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "1.0.0-rc4"
+        versionCode = 24
+        versionName = "1.0.0-rc5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -99,6 +99,8 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    sourceSets.getByName("test").resources.srcDir("schemas")
 
     testOptions {
         unitTests {

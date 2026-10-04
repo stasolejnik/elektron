@@ -16,6 +16,7 @@ import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface SystemEventsEntryPoint {
+    fun noteScheduler(): NoteReminderScheduler
     fun scheduler(): LessonReminderScheduler
     fun widgetUpdater(): WidgetUpdater
 }
@@ -36,6 +37,7 @@ class SystemEventsReceiver : BroadcastReceiver() {
             try {
                 // goAsync daje ok. 10 s.
                 withTimeoutOrNull(8_000) {
+                    ep.noteScheduler().reschedule(force = true)
                     ep.scheduler().reschedule()
                     // updateNow (czekamy), nie requestUpdate: tamto tylko startuje korutynę
                     // i od razu wraca, więc po finish() proces mógł zostać zamknięty, zanim

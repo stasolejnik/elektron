@@ -50,6 +50,7 @@ object AnnouncementMapper {
         excerpt = e.excerpt,
         coverImageUrl = e.coverImageUrl,
         fullHtml = e.fullHtml,
+        isFavorite = e.isFavorite,
         source = runCatching { AnnouncementSource.valueOf(e.source) }
             .getOrDefault(AnnouncementSource.RSS_NEWS)
     )

@@ -1,0 +1,6 @@
+- Share day/week timetables and substitutions: long press one or share all from the toolbar
+- Notes for future lessons: long press a lesson; configurable reminders and a list in Settings
+- Four launcher shortcuts
+- Offline favorites, bookmark count and clear-all confirmation
+- Preserve article formatting; compact timetable toolbar and simpler reminder status
+- Fix synchronization, large fonts and data retention

@@ -2,6 +2,7 @@ package pl.zse.bydgoszcz.elektron.presentation.common
 
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.filterNotNull
 import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
@@ -35,7 +36,9 @@ class ElektronAppViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val timetableRepo: TimetableRepository,
     coordinator: SyncCoordinator,
-    reminders: LessonReminderScheduler
+    reminders: LessonReminderScheduler,
+    noteReminders: pl.zse.bydgoszcz.elektron.work.NoteReminderScheduler,
+    notes: pl.zse.bydgoszcz.elektron.data.repository.LessonNotesRepository
 ) : ViewModel() {
 
     data class AppState(
@@ -58,6 +61,9 @@ class ElektronAppViewModel @Inject constructor(
     private val startRoute = MutableStateFlow<String?>(null)
 
     init {
+        combine(settings.selectedClassId, settings.activeGroupSelections, notes.remindersEnabled, notes.reminderTiming) { a, b, c, d -> listOf(a, b, c, d) }
+            .distinctUntilChanged().onEach { noteReminders.requestReschedule() }
+            .catch { android.util.Log.w("LessonNotes", "Nie udało się odczytać notatek", it) }.launchIn(viewModelScope)
         // Przypomnienia przeliczane przy starcie i przy każdej zmianie, która zmienia ich
         // termin lub treść (klasa, grupy, nazwy przedmiotów, ustawienia przypomnień) -
         // nie trzeba czekać na najbliższą synchronizację.

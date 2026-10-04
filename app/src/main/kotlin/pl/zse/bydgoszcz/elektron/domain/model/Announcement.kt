@@ -11,7 +11,8 @@ data class Announcement(
     val excerpt: String?,
     val coverImageUrl: String?,
     val fullHtml: String?,
-    val source: AnnouncementSource
+    val source: AnnouncementSource,
+    val isFavorite: Boolean = false
 )
 
 enum class AnnouncementSource { RSS_NEWS, RSS_LATEST, HOME_PAGE }

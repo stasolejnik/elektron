@@ -95,6 +95,12 @@ fun SettingsScreen(
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     // Tryb dewelopera.
     val devMode by viewModel.devMode.collectAsStateWithLifecycle()
+    val notesViewModel: pl.zse.bydgoszcz.elektron.presentation.timetable.LessonNotesViewModel = hiltViewModel()
+    val notesState by notesViewModel.state.collectAsStateWithLifecycle()
+    var showNotes by remember { mutableStateOf(false) }
+    if (showNotes) pl.zse.bydgoszcz.elektron.presentation.timetable.LessonNotesLibrary(
+        notesState.notes.filter { it.classId == state.selectedClassId }, notesViewModel) { showNotes = false }
+    val noteError by notesViewModel.settingsError.collectAsStateWithLifecycle()
     val devMessage by viewModel.devMessage.collectAsStateWithLifecycle()
     val toastContext = LocalContext.current
     var toast by remember { mutableStateOf<Toast?>(null) }
@@ -102,6 +108,7 @@ fun SettingsScreen(
         toast?.cancel()
         toast = Toast.makeText(toastContext, text, Toast.LENGTH_SHORT).also { it.show() }
     }
+    LaunchedEffect(noteError) { noteError?.let { showToast(it); notesViewModel.settingsError.value = null } }
     LaunchedEffect(devMessage) {
         devMessage?.let { showToast(it); viewModel.consumeDevMessage() }
     }
@@ -218,7 +225,14 @@ fun SettingsScreen(
                 }
             }
 
-            item { RemindersSection(state.reminder) { viewModel.setReminder(it) } }
+            item {
+                val reminderStatus by viewModel.reminderStatus.collectAsStateWithLifecycle()
+                RemindersSection(state.reminder, reminderStatus, viewModel::refreshReminderStatus) { viewModel.setReminder(it) }
+            }
+
+            item {
+                NoteRemindersSection(notesState.enabled, notesState.ready && !notesState.error, notesState.timing, notesViewModel::setReminderTiming, notesViewModel::refreshReminders, notesViewModel::setReminders) { showNotes = true }
+            }
 
             item { QuietHoursSection(state.quiet) { viewModel.setQuietHours(it) } }
 
@@ -424,7 +438,7 @@ internal fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> U
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(label, modifier = Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge)
         Switch(
             checked = checked, onCheckedChange = onChange,
             colors = SwitchDefaults.colors(

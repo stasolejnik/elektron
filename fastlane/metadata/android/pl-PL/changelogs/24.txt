@@ -1,0 +1,6 @@
+- Udostępnianie planu dnia/tygodnia i zastępstw: jednego po przytrzymaniu lub wszystkich z paska
+- Notatki do przyszłych lekcji: przytrzymaj lekcję; wybór czasu przypomnień i lista w Ustawieniach
+- Cztery skróty ikony aplikacji
+- Ulubione offline, liczba zakładek i usuwanie wszystkich z potwierdzeniem
+- Formatowanie ogłoszeń, zwarty pasek planu i prostszy status przypomnień
+- Poprawki synchronizacji, dużej czcionki i zachowania danych

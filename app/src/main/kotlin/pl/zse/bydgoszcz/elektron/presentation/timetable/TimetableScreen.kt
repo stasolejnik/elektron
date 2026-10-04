@@ -1,7 +1,13 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import android.content.Intent
+import androidx.compose.material.icons.filled.Share
+import pl.zse.bydgoszcz.elektron.domain.model.TimetableShare
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.combinedClickable
+import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
@@ -70,6 +76,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -101,7 +108,8 @@ import java.util.Locale
 fun TimetableScreen(
     /** Plan jest aktualnie wybraną zakładką (zmiana -> dzień startowy, patrz niżej). */
     isShown: Boolean = true,
-    viewModel: TimetableViewModel = hiltViewModel()
+    viewModel: TimetableViewModel = hiltViewModel(),
+    notesViewModel: LessonNotesViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Zapamiętany tryb (Dzień/Tydzień) znany od pierwszej klatki - bez mignięcia widoku dnia.
@@ -113,7 +121,28 @@ fun TimetableScreen(
     val scope = rememberCoroutineScope()
     // Szczegóły lekcji po dotknięciu (widok tygodnia i dnia).
     var detailsLesson by remember { mutableStateOf<Lesson?>(null) }
-    detailsLesson?.let { LessonDetailsSheet(it) { detailsLesson = null } }
+    var visiblePlan by remember { mutableStateOf<VisiblePlan?>(null) }
+    val shareContext = LocalContext.current
+    val shareStyles = LocalPersonalization.current.styles
+    val notesState by notesViewModel.state.collectAsStateWithLifecycle()
+    val noteIndex = remember(notesState.notes) { notesState.notes.associateBy { it.key } }
+    var editingLesson by remember { mutableStateOf<Lesson?>(null) }
+    LaunchedEffect(state.selectedClassId) {
+        if (detailsLesson?.classId != state.selectedClassId) detailsLesson = null
+        if (editingLesson?.classId != state.selectedClassId) editingLesson = null
+    }
+    val editNote: (Lesson) -> Unit = { lesson ->
+        if (notesState.ready && !notesState.error && LessonNote.canEdit(lesson, LocalDateTime.now())) {
+            detailsLesson = null; editingLesson = lesson
+        }
+    }
+    editingLesson?.let { lesson ->
+        LessonNoteEditor(lesson, notesState, notesViewModel) { editingLesson = null }
+    }
+    detailsLesson?.let { lesson -> LessonDetailsSheet(lesson,
+        userNote = notesState.notes.firstOrNull { it.key == LessonNote.key(lesson) },
+        onEditNote = if (notesState.ready && !notesState.error && LessonNote.canEdit(lesson, LocalDateTime.now())) ({ editNote(lesson) }) else null
+    ) { detailsLesson = null } }
     // Lekcja otwarta z zastępstwa (zakładka Zastępstwa, widżet) - żądanie jednorazowe.
     val requestedLesson by viewModel.lessonDetails.collectAsStateWithLifecycle()
     LaunchedEffect(requestedLesson) {
@@ -240,11 +269,13 @@ fun TimetableScreen(
                 actions = {
                     val dayMode = mode == TimetableViewModel.ViewMode.DAY
                     IconButton(
-                        onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) } },
+                        onClick = { scope.launch { pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0)) } },
+                        enabled = pagerState.currentPage > 0,
                         modifier = Modifier.size(40.dp)
                     ) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = if (dayMode) "Poprzedni dzień" else "Poprzedni tydzień") }
                     IconButton(
-                        onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
+                        onClick = { scope.launch { pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(pagerState.pageCount - 1)) } },
+                        enabled = pagerState.currentPage < pagerState.pageCount - 1,
                         modifier = Modifier.size(40.dp)
                     ) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = if (dayMode) "Następny dzień" else "Następny tydzień") }
                     // Odświeżanie przyciskiem (zawsze skrajnie po prawej): przeciągnięcie w dół
@@ -271,21 +302,42 @@ fun TimetableScreen(
         val syncingWeek by viewModel.syncingWeek.collectAsStateWithLifecycle()
         Box(Modifier.fillMaxSize().padding(padding)) {
             Column(Modifier.fillMaxSize()) {
-                SingleChoiceSegmentedButtonRow(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    SegmentedButton(
-                        selected = mode == TimetableViewModel.ViewMode.DAY,
-                        onClick = { viewModel.setMode(TimetableViewModel.ViewMode.DAY) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        modifier = Modifier.weight(1f)
-                    ) { Text("Dzień") }
-                    SegmentedButton(
-                        selected = mode == TimetableViewModel.ViewMode.WEEK,
-                        onClick = { viewModel.setMode(TimetableViewModel.ViewMode.WEEK) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        modifier = Modifier.weight(1f)
-                    ) { Text("Tydzień") }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
+                        SegmentedButton(
+                            selected = mode == TimetableViewModel.ViewMode.DAY,
+                            onClick = { viewModel.setMode(TimetableViewModel.ViewMode.DAY) },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Dzień") }
+                        SegmentedButton(
+                            selected = mode == TimetableViewModel.ViewMode.WEEK,
+                            onClick = { viewModel.setMode(TimetableViewModel.ViewMode.WEEK) },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Tydzień") }
+                    }
+                    val plan = visiblePlan?.takeIf {
+                        it.page == pagerState.currentPage && it.page == pagerState.targetPage && it.weekMode == (mode == TimetableViewModel.ViewMode.WEEK) &&
+                            it.lessons.isNotEmpty() && it.lessons.all { lesson -> lesson.classId == state.selectedClassId }
+                    }
+                    IconButton(enabled = plan != null, colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant), onClick = {
+                        plan?.let {
+                            val text = if (it.weekMode) TimetableShare.weekText(it.date, it.lessons, shareStyles)
+                                else TimetableShare.text(it.date, it.lessons, shareStyles)
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                            }
+                            shareContext.startActivity(Intent.createChooser(intent,
+                                if (it.weekMode) "Udostępnij plan tygodnia" else "Udostępnij plan dnia"))
+                        }
+                    }) {
+                        Icon(Icons.Filled.Share, contentDescription =
+                            if (mode == TimetableViewModel.ViewMode.WEEK) "Udostępnij tydzień" else "Udostępnij dzień")
+                    }
                 }
 
                 // Dni/tygodnie jako strony pionowe: przewijasz listę lekcji, a po dojechaniu
@@ -307,14 +359,20 @@ fun TimetableScreen(
                             val monday = date.with(java.time.DayOfWeek.MONDAY)
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
                             val pastWeek = TimetableViewModel.isPastWeek(monday, today)
-                            DayPage(date, week, clock, loading, pastWeek, pageModifier) { detailsLesson = it }
+                            val current = page == pagerState.currentPage
+                            val lessons = week?.firstOrNull { it.date == date }?.lessons.orEmpty()
+                            SideEffect { if (current) visiblePlan = VisiblePlan(page, false, date, lessons) }
+                            DayPage(date, week, clock, loading, pastWeek, pageModifier, noteIndex, editNote) { detailsLesson = it }
                         }
                         TimetableViewModel.ViewMode.WEEK -> {
                             val monday = TimetableViewModel.mondayForPage(base, page)
                             val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle(initialValue = null)
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
                             val pastWeek = TimetableViewModel.isPastWeek(monday, today)
-                            WeekPage(week, loading, pastWeek, pageModifier) { detailsLesson = it }
+                            val current = page == pagerState.currentPage
+                            val lessons = week.orEmpty().flatMap { it.lessons }
+                            SideEffect { if (current) visiblePlan = VisiblePlan(page, true, monday, lessons) }
+                            WeekPage(week, loading, pastWeek, pageModifier, noteIndex, editNote) { detailsLesson = it }
                         }
                     }
                 }
@@ -322,6 +380,8 @@ fun TimetableScreen(
         }
     }
 }
+
+private data class VisiblePlan(val page: Int, val weekMode: Boolean, val date: LocalDate, val lessons: List<Lesson>)
 
 @Composable
 private fun DayPage(
@@ -331,6 +391,8 @@ private fun DayPage(
     loading: Boolean,
     pastWeek: Boolean,
     modifier: Modifier,
+    notes: Map<String, LessonNote>,
+    onNote: (Lesson) -> Unit,
     onLessonClick: (Lesson) -> Unit
 ) {
     val lessons = week?.firstOrNull { it.date == date }?.lessons.orEmpty()
@@ -357,7 +419,9 @@ private fun DayPage(
                     is LessonClock.Before -> if (status.next.id == lesson.id) status.minutesUntil?.let { "Za $it min" } else null
                     else -> null
                 }
-                LessonRow(lesson, badge, onClick = { onLessonClick(lesson) })
+                LessonRow(lesson, badge, userNote = notes[LessonNote.key(lesson)],
+                    onLongClick = if (LessonNote.canEdit(lesson, LocalDateTime.now())) ({ onNote(lesson) }) else null,
+                    onClick = { onLessonClick(lesson) })
             }
         }
     }
@@ -369,6 +433,8 @@ private fun WeekPage(
     loading: Boolean,
     pastWeek: Boolean,
     modifier: Modifier,
+    notes: Map<String, LessonNote>,
+    onNote: (Lesson) -> Unit,
     onLessonClick: (Lesson) -> Unit
 ) {
     if (week == null || week.all { it.lessons.isEmpty() }) {
@@ -376,7 +442,7 @@ private fun WeekPage(
         return
     }
     // Siatka jak w eduVulcan: godziny po lewej, 5 dni, same nazwy przedmiotów.
-    WeekGrid(week, modifier, onLessonClick)
+    WeekGrid(week, modifier, notes, onNote, onLessonClick)
 }
 
 
@@ -443,8 +509,9 @@ private fun MessageCard(loading: Boolean, text: String, hint: String? = null) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modifier, userNote: LessonNote? = null, onLongClick: (() -> Unit)? = null, onClick: (() -> Unit)? = null) {
     val sub = lesson.substitution
     val bg = if (sub != null) MaterialTheme.colorScheme.tertiaryContainer
         else MaterialTheme.colorScheme.surfaceContainerHighest
@@ -463,7 +530,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
     val accent = MaterialTheme.colorScheme.primary
 
     Card(modifier = modifier.fillMaxWidth().padding(vertical = 1.dp)
-            .then(if (onClick != null) Modifier.clip(MaterialTheme.shapes.large).clickable(onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.clip(MaterialTheme.shapes.large).combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Dodaj lub edytuj notatkę") else Modifier)
             .semantics(mergeDescendants = true) {},
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = bg),
@@ -534,6 +601,10 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                             color = MaterialTheme.colorScheme.error)
                     }
                 }
+                userNote?.let {
+                    Text("Notatka: ${it.text}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 badge?.let {
                     Spacer(Modifier.padding(vertical = 2.dp))
                     Text(it,
@@ -553,7 +624,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 Text("${lesson.timeFrom}–${lesson.timeTo}",
                     style = MaterialTheme.typography.bodyMedium, maxLines = 1, softWrap = false,
                     color = timeColor)
-                if (ongoing && now != null) {
+                if (ongoing) {
                     Text("zostało ${LessonClock.minutesCeil(now, lesson.timeTo)} min",
                         style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
                         maxLines = 1, softWrap = false,
@@ -561,7 +632,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 }
             }
         }
-        if (ongoing && now != null) {
+        if (ongoing) {
             LinearProgressIndicator(
                 progress = { LessonClock.progress(lesson.timeFrom, lesson.timeTo, now) },
                 modifier = Modifier.fillMaxWidth().height(3.dp),

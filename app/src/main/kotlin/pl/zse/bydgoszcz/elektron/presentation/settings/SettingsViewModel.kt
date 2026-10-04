@@ -49,6 +49,9 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
+    val reminderStatus = reminders.status
+    fun refreshReminderStatus() { reminders.requestReschedule() }
+
     /** Tryb dewelopera - na czas działania aplikacji, nie zapisywany. Panel z symulacjami w Ustawieniach. */
     private val _devMode = MutableStateFlow(false)
     val devMode: StateFlow<Boolean> = _devMode

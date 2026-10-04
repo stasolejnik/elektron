@@ -55,6 +55,10 @@ class LocalNotificationSink @Inject constructor(
                 group = GROUP_ELEKTRON
             }
         )
+        mgr.createNotificationChannel(NotificationChannel(CHANNEL_NOTES, "Notatki do lekcji", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "Przypomnienia o Twoich notatkach do przyszłych lekcji."
+            group = GROUP_ELEKTRON
+        })
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_REMINDERS, "Przypomnienia o lekcjach", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Przypomnienia przed lekcją (Ustawienia -> Powiadomienia)."
@@ -154,6 +158,31 @@ class LocalNotificationSink @Inject constructor(
         safeNotify(title.hashCode(), n)
     }
 
+    fun canPostNotes(): Boolean = canNotify() && NotificationManagerCompat.from(context).areNotificationsEnabled() && (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+        context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE)
+
+    suspend fun postNote(note: pl.zse.bydgoszcz.elektron.domain.model.LessonNote, subject: String, changed: Boolean = false) {
+        if (!canPostNotes()) return
+        val target = pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(note.date, note.number)
+        val intent = deepLinkIntent("timetable").apply {
+            removeExtra(EXTRA_DEEP_LINK)
+            putExtra(pl.zse.bydgoszcz.elektron.domain.model.LessonLinks.EXTRA_LESSON,
+                pl.zse.bydgoszcz.elektron.domain.model.LessonLinks.deepLink(target))
+            data = android.net.Uri.parse(pl.zse.bydgoszcz.elektron.domain.model.LessonLinks.uri(target))
+        }
+        val pi = PendingIntent.getActivity(context, note.key.hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val body = "${note.date.format(java.time.format.DateTimeFormatter.ofPattern("d.MM"))}, ${note.number}. lekcja\n" +
+            (if (changed) "Plan się zmienił. Notatka zapisana dla: ${note.subject}.\n" else "") + note.text
+        val n = NotificationCompat.Builder(context, CHANNEL_NOTES).setSmallIcon(R.drawable.ic_stat_elektron)
+            .setContentTitle("Notatka: $subject").setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(pi)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER).setAutoCancel(true).setSilent(isQuietNow())
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build()
+        try { NotificationManagerCompat.from(context).notify("note:${note.key}", 1, n) }
+        catch (e: SecurityException) { Log.w(TAG, "Brak uprawnień", e) }
+    }
+
     /** Przypomnienie przed lekcją (LessonReminderReceiver). Znika samo po końcu lekcji. */
     suspend fun postReminder(id: Int, title: String, body: String, timeoutMs: Long) {
         if (!canNotify()) return
@@ -213,6 +242,7 @@ class LocalNotificationSink @Inject constructor(
         const val GROUP_ELEKTRON = "elektron"
         const val CHANNEL_SUBSTITUTIONS = "elektron_substitutions"
         const val CHANNEL_ANNOUNCEMENTS = "elektron_announcements"
+        const val CHANNEL_NOTES = "elektron_lesson_notes"
         const val CHANNEL_REMINDERS = "elektron_reminders"
         private const val REMINDER_ID_BASE = 0x7E000000
         const val EXTRA_DEEP_LINK = "elektron_deep_link"

@@ -11,4 +11,8 @@
     <string name="widget_substitutions_name">Zastępstwa</string>
     <string name="widget_substitutions_desc">Nadchodzące zastępstwa Twojej klasy i grup.</string>
     <string name="tile_next_lesson">Następna lekcja</string>
+    <string name="sc_dashboard_short">Strona główna</string>
+    <string name="sc_dashboard_long">Otwórz stronę główną</string>
+    <string name="sc_timetable_short">Plan lekcji</string>
+    <string name="sc_timetable_long">Otwórz plan lekcji</string>
 </resources>

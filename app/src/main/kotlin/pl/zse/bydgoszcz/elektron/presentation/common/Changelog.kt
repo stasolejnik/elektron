@@ -6,6 +6,21 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 24,
+            versionName = "1.0.0-rc5",
+            items = listOf(
+                "Udostępnianie planu dnia i tygodnia z grupami i zastępstwami",
+                "Notatki do przyszłych lekcji po przytrzymaniu; edycja, usuwanie i lista w Ustawieniach",
+                "Przypomnienia o notatkach: wybrana godzina dzień wcześniej lub liczba minut przed lekcją",
+                "Udostępnianie jednego zastępstwa po przytrzymaniu oraz wszystkich widocznych z paska",
+                "Skróty ikony: Strona główna, Plan lekcji, Zastępstwa i Ogłoszenia",
+                "Ulubione offline, liczba zakładek i usuwanie wszystkich z potwierdzeniem",
+                "Ogłoszenia zachowują formatowanie bez nadmiernych odstępów",
+                "Zwarty pasek planu, prostszy status przypomnień i poprawki dużej czcionki",
+                "Poprawki przełączania list, przypomnień i zachowania danych przy synchronizacji"
+            )
+        ),
+        Entry(
             versionCode = 23,
             versionName = "1.0.0-rc4",
             items = listOf(

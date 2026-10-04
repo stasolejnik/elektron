@@ -4,6 +4,33 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.0-rc5] - 2026-10-04 (24)
+
+Piąta wersja kandydująca do 1.0.0.
+
+- Udostępnianie planu dnia i tygodnia z wybranymi grupami i zastępstwami.
+- Własne notatki do przyszłych lekcji po przytrzymaniu w planie dnia lub tygodnia, z edycją i usuwaniem.
+- Konfigurowalne lokalne przypomnienia o notatkach: dzień wcześniej o wybranej godzinie lub 5, 10, 15, 30, 60 albo 120 minut przed lekcją.
+- „Moje notatki” w ustawieniach pozwalają odczytać i usunąć także starsze wpisy; czyszczenie danych podręcznych ich nie usuwa.
+- Udostępnianie pojedynczego zastępstwa po przytrzymaniu oraz wszystkich widocznych przyciskiem w pasku.
+- Stały wygląd przycisku udostępniania bez migania przy przełączaniu stron.
+- Cztery skróty ikony aplikacji: Strona główna, Plan lekcji, Zastępstwa, Ogłoszenia.
+- Poprawki granic przewijania planu, dużej czcionki, niezapisanych edycji i obsługi zmian klasy przy przypomnieniach.
+- Ulubione ogłoszenia z zapisaniem treści do czytania bez internetu.
+- Podgląd treści ogłoszenia w aplikacji z przyciskiem zakładki przy tytule.
+- Poprawne odczytywanie treści ze strony szkoły i rozróżnianie błędu odczytu od braku internetu.
+- Ogłoszenia zachowują formatowanie tekstu, nagłówki i listy; mniejsze odstępy między akapitami.
+- Data i status zapisu przy tytule ogłoszenia, link do strony szkoły pod treścią.
+- Zwarty pasek planu z ikoną udostępniania obok przełącznika Dzień/Tydzień.
+- Prostszy status przypomnień: najbliższy alarm i jeden komunikat o blokadzie.
+- Ulubione pozostają po synchronizacji i czyszczeniu danych podręcznych.
+- Usuwanie wszystkich zakładek z potwierdzeniem, liczba ulubionych i zakładka obok tytułu na liście.
+- Poprawki komunikatów, ładowania i przełączania między wszystkimi a ulubionymi ogłoszeniami.
+
+Udostępnianie otwiera systemowe okno wyboru aplikacji. Ulubione są zapisywane lokalnie; pobranie pełnej treści wymaga internetu, późniejsze czytanie tekstu nie. Nie dodano cyklicznych połączeń w tle.
+
+Aktualizacja z RC4 zachowuje ustawienia i dane.
+
 ## [1.0.0-rc4] - 2026-10-04 (23)
 
 Czwarta wersja kandydująca do 1.0.0: poprawki sieci, pracy w tle i stabilności.

@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.domain.sync
 
+import androidx.room.withTransaction
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -176,7 +177,12 @@ class SyncCoordinator @Inject constructor(
     }
 
     private suspend fun classChange(classId: String, reset: Boolean): SyncOutcome {
-        if (reset) db.clearAllTables()
+        if (reset) db.withTransaction {
+            val sql = db.openHelper.writableDatabase
+            listOf("lesson_groups", "lessons", "substitutions", "school_classes", "teachers", "rooms",
+                "notifications", "sync_state").forEach { sql.execSQL("DELETE FROM `$it`") }
+            sql.execSQL("DELETE FROM announcements WHERE isFavorite = 0")
+        }
         // Najpierw "loaded" wyczyszczone, potem klasa: od tej chwili initialSyncPending = true
         // (także po restarcie procesu), aż plan nowej klasy się pobierze.
         notificationsRepo.clearLoaded()
