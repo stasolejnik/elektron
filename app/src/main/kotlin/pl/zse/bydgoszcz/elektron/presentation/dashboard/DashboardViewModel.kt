@@ -34,7 +34,7 @@ import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate
 import pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow
-import pl.zse.bydgoszcz.elektron.presentation.common.minuteTicker
+import pl.zse.bydgoszcz.elektron.presentation.common.visibleMinuteTicker
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -53,6 +53,9 @@ class DashboardViewModel @Inject constructor(
     private val updateRepo: UpdateRepository,
     private val coordinator: SyncCoordinator
 ) : ViewModel() {
+    private val visible = MutableStateFlow(false)
+    fun setVisible(value: Boolean) { visible.value = value }
+
 
     /** Break = przerwa między dwiema lekcjami dziś (pokazujemy następną lekcję + czas przerwy). */
     enum class LessonStatus { Now, Break, Next, None }
@@ -151,7 +154,7 @@ class DashboardViewModel @Inject constructor(
         .combine(settings.showAnnouncements) { core, v -> core.copy(showAnnouncements = v) }
         .combine(settings.activeGroupSelections) { core, sel -> core.copy(groups = sel) }
         .combine(updateRepo.availableUpdate) { core, u -> core.copy(update = u) }
-        .combine(minuteTicker()) { core, _ -> core }
+        .combine(visibleMinuteTicker(visible)) { core, _ -> core }
         .map { core -> compute(core).copy(ready = true) }
         // Przeliczanie stanu (filtry grup, zastępstwa, odliczanie) poza wątkiem UI.
         .flowOn(Dispatchers.Default)

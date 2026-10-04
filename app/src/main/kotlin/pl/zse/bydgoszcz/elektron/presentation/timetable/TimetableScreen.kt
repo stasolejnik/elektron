@@ -303,7 +303,7 @@ fun TimetableScreen(
                         TimetableViewModel.ViewMode.DAY -> {
                             val date = TimetableViewModel.dayForPage(base, page)
                             val week by remember(date) { viewModel.week(date.with(java.time.DayOfWeek.MONDAY)) }
-                                .collectAsStateWithLifecycle()
+                                .collectAsStateWithLifecycle(initialValue = null)
                             val monday = date.with(java.time.DayOfWeek.MONDAY)
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
                             val pastWeek = TimetableViewModel.isPastWeek(monday, today)
@@ -311,7 +311,7 @@ fun TimetableScreen(
                         }
                         TimetableViewModel.ViewMode.WEEK -> {
                             val monday = TimetableViewModel.mondayForPage(base, page)
-                            val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle()
+                            val week by remember(monday) { viewModel.week(monday) }.collectAsStateWithLifecycle(initialValue = null)
                             val loading = week == null || syncingWeek == monday || state.isRefreshing
                             val pastWeek = TimetableViewModel.isPastWeek(monday, today)
                             WeekPage(week, loading, pastWeek, pageModifier) { detailsLesson = it }

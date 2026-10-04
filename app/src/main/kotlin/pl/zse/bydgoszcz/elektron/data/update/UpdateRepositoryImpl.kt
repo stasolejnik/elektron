@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import pl.zse.bydgoszcz.elektron.data.remote.http.readCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import pl.zse.bydgoszcz.elektron.BuildConfig
 import pl.zse.bydgoszcz.elektron.data.local.SyncStateDao
 import pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity
@@ -31,6 +34,7 @@ class UpdateRepositoryImpl @Inject constructor(
     private val syncStateDao: SyncStateDao
 ) : UpdateRepository {
 
+    private val checkMutex = Mutex()
     private val currentVersion = BuildConfig.VERSION_NAME
 
     override val availableUpdate: Flow<AppUpdate?> = combine(
@@ -50,33 +54,42 @@ class UpdateRepositoryImpl @Inject constructor(
     }
 
     override suspend fun check(force: Boolean): Result<AppUpdate?> = withContext(Dispatchers.IO) {
-        // Wersja F-Droid (foss): bez sprawdzania GitHuba — F-Droid sam aktualizuje aplikację
-        // i podpisuje ją własnym kluczem (APK z GitHuba i tak by się nie zainstalował).
-        if (!BuildConfig.UPDATE_CHECK) return@withContext Result.success(null)
-        runCatchingCancellable {
-            val now = Instant.now().epochSecond
-            if (!force) {
-                val last = syncStateDao.get(KEY_CHECKED)?.lastSyncEpochSeconds ?: 0L
-                if (now - last < CHECK_INTERVAL_SECONDS) {
-                    return@runCatchingCancellable decode(syncStateDao.get(KEY_LATEST)?.message)
-                        ?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
+        checkMutex.withLock {
+            // Wersja F-Droid (foss): bez sprawdzania GitHuba — F-Droid sam aktualizuje aplikację
+            // i podpisuje ją własnym kluczem (APK z GitHuba i tak by się nie zainstalował).
+            if (!BuildConfig.UPDATE_CHECK) return@withLock Result.success(null)
+            runCatchingCancellable {
+                val now = Instant.now().epochSecond
+                if (!force) {
+                    val last = syncStateDao.get(KEY_CHECKED)?.lastSyncEpochSeconds ?: 0L
+                    if (now - last in 0 until CHECK_INTERVAL_SECONDS) {
+                        return@runCatchingCancellable decode(syncStateDao.get(KEY_LATEST)?.message)
+                            ?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
+                    }
                 }
-            }
-            val request = Request.Builder().url(RELEASES_API)
-                .header("Accept", "application/vnd.github+json")
-                .get().build()
-            val releases = client.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) throw IOException("GitHub: HTTP ${resp.code}")
-                GitHubReleases.parse(resp.body?.string() ?: throw IOException("GitHub: pusta odpowiedź"))
-            }
-            val newest = releases.filterNot { it.draft }
-                .maxWithOrNull { a, b -> AppVersion.compare(a.tag, b.tag) }
-                ?.let {
-                    AppUpdate(it.tag.removePrefix("v").removePrefix("V"), it.pageUrl, it.apkUrl, it.apkSha256, it.apkSize)
+                if (!force) {
+                    val attempted = syncStateDao.get(KEY_ATTEMPTED)?.lastSyncEpochSeconds ?: 0L
+                    if (now - attempted in 0 until RETRY_INTERVAL_SECONDS) {
+                        throw IOException("Sprawdzenie aktualizacji zostanie ponowione później")
+                    }
                 }
-            syncStateDao.upsert(SyncStateEntity(KEY_CHECKED, now, "ok", null))
-            if (newest != null) syncStateDao.upsert(SyncStateEntity(KEY_LATEST, now, "ok", encode(newest)))
-            newest?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
+                syncStateDao.upsert(SyncStateEntity(KEY_ATTEMPTED, now, "attempt", null))
+                val request = Request.Builder().url(RELEASES_API)
+                    .header("Accept", "application/vnd.github+json")
+                    .get().build()
+                val releases = client.newCall(request).readCancellable { resp ->
+                    if (!resp.isSuccessful) throw IOException("GitHub: HTTP ${resp.code}")
+                    GitHubReleases.parse(resp.body?.string() ?: throw IOException("GitHub: pusta odpowiedź"))
+                }
+                val newest = releases.filterNot { it.draft }
+                    .maxWithOrNull { a, b -> AppVersion.compare(a.tag, b.tag) }
+                    ?.let {
+                        AppUpdate(it.tag.removePrefix("v").removePrefix("V"), it.pageUrl, it.apkUrl, it.apkSha256, it.apkSize)
+                    }
+                syncStateDao.upsert(SyncStateEntity(KEY_CHECKED, now, "ok", null))
+                if (newest != null) syncStateDao.upsert(SyncStateEntity(KEY_LATEST, now, "ok", encode(newest)))
+                newest?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
+            }
         }
     }
 
@@ -103,6 +116,8 @@ class UpdateRepositoryImpl @Inject constructor(
     private companion object {
         const val RELEASES_API = "https://api.github.com/repos/stasolejnik/elektron/releases?per_page=10"
         const val CHECK_INTERVAL_SECONDS = 12 * 60 * 60L
+        const val KEY_ATTEMPTED = "update_attempted"
+        const val RETRY_INTERVAL_SECONDS = 15 * 60L
         const val KEY_CHECKED = "update_checked"
         const val KEY_LATEST = "update_latest"
         const val KEY_DISMISSED = "update_dismissed"

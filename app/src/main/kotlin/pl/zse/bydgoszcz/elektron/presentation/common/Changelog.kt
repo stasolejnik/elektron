@@ -6,6 +6,19 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 23,
+            versionName = "1.0.0-rc4",
+            items = listOf(
+                "Mniejsze zużycie transferu dzięki poprawionej pamięci podręcznej sieci",
+                "Rzadsze pobieranie planu, listy klas i ogłoszeń w tle; zastępstwa nadal co 15 minut",
+                "Przypomnienia uwzględniają zastępstwa otrzymane przez push",
+                "Szybsze przerywanie pobierania przy zmianie klasy",
+                "Mniej zapisów identycznych danych i odświeżeń widżetów",
+                "Poprawki pamięci planu, dopasowania tekstu i zegarów niewidocznych zakładek",
+                "Pewniejsze wykrywanie błędnych stron szkoły i pobieranie starszych ogłoszeń"
+            )
+        ),
+        Entry(
             versionCode = 22,
             versionName = "1.0.0-rc3",
             items = listOf(

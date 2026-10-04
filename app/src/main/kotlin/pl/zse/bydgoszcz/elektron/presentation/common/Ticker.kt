@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 
 /**
@@ -36,13 +37,21 @@ fun currentDateFlow(): Flow<java.time.LocalDate> =
  */
 @androidx.compose.runtime.Composable
 fun rememberNow(periodMs: Long = 30_000L): androidx.compose.runtime.State<java.time.LocalDateTime> {
+    val visible = LocalScreenVisible.current
     val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    return androidx.compose.runtime.produceState(java.time.LocalDateTime.now(), owner, periodMs) {
+    return androidx.compose.runtime.produceState(java.time.LocalDateTime.now(), owner, periodMs, visible) {
         owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-            while (true) {
+            if (visible) while (true) {
                 value = java.time.LocalDateTime.now()
                 delay(periodMs - System.currentTimeMillis() % periodMs)
             }
         }
     }
 }
+
+/** Sąsiednie strony pagera przygotowują dane, ale nie potrzebują tykającego zegara. */
+val LocalScreenVisible = androidx.compose.runtime.staticCompositionLocalOf { true }
+
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+fun visibleMinuteTicker(visible: Flow<Boolean>): Flow<Unit> =
+    visible.flatMapLatest { if (it) minuteTicker() else kotlinx.coroutines.flow.flowOf(Unit) }

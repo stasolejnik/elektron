@@ -19,8 +19,8 @@
 
 eLektron jest inspirowany [Atomem](https://github.com/kacpergorka/atom) [Kacpra Górki](https://github.com/kacpergorka),
 aplikacją dla ZSE na urządzenia Apple, ale jest osobnym projektem na Androida, napisanym od zera.
-Cały kod napisała sztuczna inteligencja (Claude, Anthropic): ja wymyślam funkcje i testuję, sam
-nie programuję. Projekt jest nieoficjalny, niezwiązany ze szkołą ani z firmą VULCAN, a obecna
+Kod tworzą modele sztucznej inteligencji Claude (Anthropic) i ChatGPT (OpenAI): ja wymyślam
+funkcje i testuję, sam nie programuję. Projekt jest nieoficjalny, niezwiązany ze szkołą ani z firmą VULCAN, a obecna
 wersja to kandydat na 1.0.0.
 
 ## Co to jest

@@ -40,6 +40,8 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
     @Inject lateinit var substitutionsRepo: SubstitutionsRepository
     @Inject lateinit var announcementsRepo: AnnouncementsRepository
     @Inject lateinit var notificationsRepo: NotificationsRepository
+    @Inject lateinit var timetableRepo: pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+    @Inject lateinit var reminders: LessonReminderScheduler
     @Inject lateinit var sink: NotificationSink
     @Inject lateinit var widgetUpdater: WidgetUpdater
     @Inject lateinit var substitutionNotifier: SubstitutionNotifier
@@ -80,8 +82,16 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
             originalTeacher = data["originalTeacher"] ?: "",
             originalSubject = data["originalSubject"]
         )
-        substitutionsRepo.upsertOne(sub)
-        widgetUpdater.requestUpdate() // zastępstwo może zmienić lekcję na widżecie
+        val previous = substitutionsRepo.getForClassAndDay(classShortName, date).firstOrNull { it.id == id }
+        if (previous != sub) {
+            substitutionsRepo.upsertOne(sub)
+            val cid = settings.selectedClassId.first()
+            val short = timetableRepo.observeClasses().first().firstOrNull { it.id == cid }?.shortName
+            if (short != null && pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance.matchesClass(sub, short)) {
+                reminders.reschedule()
+                widgetUpdater.requestDurableUpdate()
+            }
+        }
 
         // Klasa, grupy, minione lekcje, "widziane" - ta sama logika co po synchronizacji.
         substitutionNotifier.notifyPushed(sub)

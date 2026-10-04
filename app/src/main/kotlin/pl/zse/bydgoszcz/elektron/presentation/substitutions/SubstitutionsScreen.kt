@@ -55,6 +55,12 @@ fun SubstitutionsScreen(
     onOpenLesson: (LessonTarget) -> Unit = {},
     viewModel: SubstitutionsViewModel = hiltViewModel()
 ) {
+    val visible = pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible.current
+    androidx.compose.runtime.DisposableEffect(viewModel, visible) {
+        viewModel.setVisible(visible)
+        onDispose { viewModel.setVisible(false) }
+    }
+
     val groups by viewModel.days.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()

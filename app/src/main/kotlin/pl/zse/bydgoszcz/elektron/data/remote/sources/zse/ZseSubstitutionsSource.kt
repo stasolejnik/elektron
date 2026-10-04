@@ -5,6 +5,7 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import pl.zse.bydgoszcz.elektron.data.remote.http.readCancellable
 import okhttp3.Request
 import pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto
 import pl.zse.bydgoszcz.elektron.data.remote.http.EncodingAwareBody
@@ -27,11 +28,14 @@ class ZseSubstitutionsSource @Inject constructor(
     override suspend fun fetchPage(): SubstitutionsPage = withContext(Dispatchers.IO) {
         val url = SchoolEndpoints.Substitutions.INDEX
         val req = Request.Builder().url(url).get().build()
-        client.newCall(req).execute().use { resp ->
+        client.newCall(req).readCancellable { resp ->
             // Błąd serwera to porażka synchronizacji (komunikat w aplikacji), nie "brak zastępstw".
             // Zapisane zastępstwa zostają nietknięte.
             if (!resp.isSuccessful) throw java.io.IOException("Zastępstwa: HTTP ${resp.code} dla $url")
             val doc = EncodingAwareBody.asDocument(resp, forcedCharset = java.nio.charset.Charset.forName("ISO-8859-2"))
+            if (!ZastepstwaParser.hasRecognizedLayout(doc)) {
+                throw pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException("zastępstwa")
+            }
             val parsed = ZastepstwaParser.parseDetailed(doc)
             SubstitutionsPage(ZastepstwaParser.pageDates(doc), parsed.items, parsed.incompleteDates)
         }

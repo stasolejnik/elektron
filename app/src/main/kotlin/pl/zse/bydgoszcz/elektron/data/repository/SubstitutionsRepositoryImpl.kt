@@ -51,8 +51,18 @@ class SubstitutionsRepositoryImpl @Inject constructor(
                 Log.w(TAG, "Niekompletnie odczytane dni ${page.incompleteDates} - zostawiam dotychczasowe wpisy")
             }
             db.withTransaction {
-                (pageDays - incompleteDays).forEach { dao.deleteForDay(it) }
-                dao.upsertAll(entities)
+                val byDay = entities.groupBy { it.dateEpochDay }
+                for (day in pageDays) {
+                    val old = dao.getForRange(day, day)
+                    val fresh = byDay[day].orEmpty()
+                    if (day in incompleteDays) {
+                        val oldById = old.associateBy { it.id }
+                        dao.upsertAll(fresh.filter { oldById[it.id] != it })
+                    } else if (old.toSet() != fresh.toSet()) {
+                        dao.deleteForDay(day)
+                        dao.upsertAll(fresh)
+                    }
+                }
             }
             dao.deleteOlderThan(LocalDate.now().minusDays(60).toEpochDay())
         }

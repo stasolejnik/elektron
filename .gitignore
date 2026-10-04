@@ -42,3 +42,6 @@ core.[0-9]*
 .DS_Store
 Thumbs.db
 *~
+
+# Opisy wydań F-Droid są częścią repozytorium.
+!fastlane/metadata/android/*/changelogs/*.txt

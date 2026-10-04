@@ -82,8 +82,8 @@ object OkHttpClientProvider {
                 // Zawsze rewalidacja u serwera (If-None-Match / If-Modified-Since).
                 // Bez tego OkHttp dla stron z Last-Modified bez Cache-Control liczy
                 // heurystyczną "świeżość" i mógłby serwować zastępstwa z cache godzinami.
-                // Z no-cache: 304 -> treść z cache (oszczędność transferu), 200 -> nowa treść.
-                .cacheControl(CacheControl.Builder().noCache().build())
+                // max-age=0 zachowuje walidatory; no-cache w OkHttp omija tę ścieżkę.
+                .cacheControl(CacheControl.Builder().maxAge(0, TimeUnit.SECONDS).build())
                 .build()
             return chain.proceed(req)
         }

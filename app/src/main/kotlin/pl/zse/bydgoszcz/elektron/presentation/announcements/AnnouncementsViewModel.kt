@@ -95,19 +95,19 @@ class AnnouncementsViewModel @Inject constructor(
 
     fun loadMore() {
         if (loadingMore.value) return
+        loadingMore.value = true
         val shown = state.value.items.size
         val searching = state.value.isSearching
         viewModelScope.launch {
-            val inDb = repo.count()
-            // Przy wyszukiwaniu przeszukana jest już cała baza — od razu sięgamy do archiwum.
-            if (!searching && inDb > shown) {
-                visibleCount.value = shown + PAGE_SIZE
-                return@launch
-            }
-            // Baza wyczerpana — starsze wpisy z archiwum strony szkoły.
-            loadingMore.value = true
-            loadMoreError.value = false
             try {
+                val inDb = repo.count()
+                // Przy wyszukiwaniu przeszukana jest już cała baza — od razu sięgamy do archiwum.
+                if (!searching && inDb > shown) {
+                    visibleCount.value = shown + PAGE_SIZE
+                    return@launch
+                }
+                // Baza wyczerpana — starsze wpisy z archiwum strony szkoły.
+                loadMoreError.value = false
                 repo.loadOlder()
                     .onSuccess { r ->
                         if (r.exhausted && r.added == 0) archiveExhausted.value = true

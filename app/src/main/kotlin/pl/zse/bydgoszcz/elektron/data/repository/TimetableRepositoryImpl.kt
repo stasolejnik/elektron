@@ -49,9 +49,17 @@ class TimetableRepositoryImpl @Inject constructor(
         runCatchingCancellable {
             val items = source.fetchSidebar()
             if (items.isEmpty()) return@runCatchingCancellable
-            classDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.CLASS }.map(SidebarMapper::toClassEntity))
-            teacherDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.TEACHER }.map(SidebarMapper::toTeacherEntity))
-            roomDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.ROOM }.map(SidebarMapper::toRoomEntity))
+            db.withTransaction {
+                val classes = classDao.getAll().associateBy { it.id }
+                val teachers = teacherDao.getAll().associateBy { it.code }
+                val rooms = roomDao.getAll().associateBy { it.id }
+                classDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.CLASS }
+                    .map(SidebarMapper::toClassEntity).filter { classes[it.id] != it })
+                teacherDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.TEACHER }
+                    .map(SidebarMapper::toTeacherEntity).filter { teachers[it.code] != it })
+                roomDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.ROOM }
+                    .map(SidebarMapper::toRoomEntity).filter { rooms[it.id] != it })
+            }
         }
     }
 
@@ -99,9 +107,14 @@ class TimetableRepositoryImpl @Inject constructor(
                 // Transakcja: lekcje + grupy zapisywane atomowo, UI nigdy nie zobaczy
                 // lekcji bez grup. Grupy kasują się kaskadowo (FK CASCADE).
                 db.withTransaction {
-                    lessonDao.deleteForRange(classId, fromDay, toDay)
-                    lessonDao.upsertAll(keptLessons)
-                    lessonGroupDao.upsertAll(keptGroups)
+                    val oldLessons = lessonDao.getForRange(classId, fromDay, toDay)
+                    val oldGroups = if (oldLessons.isEmpty()) emptyList() else
+                        lessonGroupDao.getForLessons(oldLessons.map { it.id })
+                    if (oldLessons.toSet() != keptLessons.toSet() || oldGroups.toSet() != keptGroups.toSet()) {
+                        lessonDao.deleteForRange(classId, fromDay, toDay)
+                        lessonDao.upsertAll(keptLessons)
+                        lessonGroupDao.upsertAll(keptGroups)
+                    }
                 }
                 // Dawniej stare tygodnie zostawały w bazie na zawsze (tysiące wierszy po roku).
                 val cutoff = LocalDate.now().minusWeeks(KEEP_PAST_WEEKS)

@@ -44,10 +44,10 @@ import javax.inject.Singleton
  * Co pobrać: źródła (klucze z SyncOutcome) i od jakiej daty plan (tydzień oglądany w Planie).
  * Dwa żądania są "tą samą pracą" tylko przy równych źródłach i dacie.
  */
-data class SyncRequest(val sources: Set<String>, val anchorDate: LocalDate = LocalDate.now()) {
+data class SyncRequest(val sources: Set<String>, val anchorDate: LocalDate = LocalDate.now(), val background: Boolean = false) {
     companion object {
         val ALL_SOURCES = setOf(SyncOutcome.SIDEBAR, SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS, SyncOutcome.ANNOUNCEMENTS)
-        fun full(anchorDate: LocalDate = LocalDate.now()) = SyncRequest(ALL_SOURCES, anchorDate)
+        fun full(anchorDate: LocalDate = LocalDate.now(), background: Boolean = false) = SyncRequest(ALL_SOURCES, anchorDate, background)
         fun of(vararg sources: String, anchorDate: LocalDate = LocalDate.now()) = SyncRequest(sources.toSet(), anchorDate)
     }
 }
@@ -188,8 +188,18 @@ class SyncCoordinator @Inject constructor(
 
     /** Jedna praca: źródła równolegle, potem wspólne kroki. Wołana pod [workMutex]. */
     private suspend fun doSync(request: SyncRequest, notify: Boolean): SyncOutcome {
-        val sources = request.sources
         val classId = settings.selectedClassId.first()
+        val now = Instant.now().epochSecond
+        fun sourceKey(source: String): String = if (source == SyncOutcome.TIMETABLE)
+            "source_${source}_${classId}"
+            else "source_$source"
+        val loaded = notificationsRepo.observeLoadedResources().first()
+        val sources = request.sources.filterTo(mutableSetOf()) { source ->
+            val last = db.syncStateDao().get(sourceKey(source))
+            !request.background || (source != SyncOutcome.SIDEBAR && source !in loaded) ||
+                BackgroundSyncPolicy.isDue(source,
+                    last?.takeIf { it.status == "ok" }?.lastSyncEpochSeconds, now)
+        }
         val failed = ConcurrentHashMap<String, Throwable>()
         val ok = ConcurrentHashMap.newKeySet<String>()
         fun Result<Unit>.record(key: String) {
@@ -206,6 +216,14 @@ class SyncCoordinator @Inject constructor(
                 if (SyncOutcome.ANNOUNCEMENTS in sources) launch { announcementsRepo.syncAll().record(SyncOutcome.ANNOUNCEMENTS) }
             }
             val outcome = SyncOutcome(ok.toSet(), failed.toMap())
+            for (source in outcome.succeeded) {
+                db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity(
+                    sourceKey(source), now, "ok", null))
+            }
+            for (source in outcome.failures.keys) {
+                db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity(
+                    sourceKey(source), now, "error", null))
+            }
             for (key in listOf(SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS, SyncOutcome.ANNOUNCEMENTS)) {
                 if (key in outcome.succeeded) notificationsRepo.markLoaded(key)
             }
@@ -223,8 +241,8 @@ class SyncCoordinator @Inject constructor(
             withContext(NonCancellable) {
                 // Przypomnienia: czekamy na ustawienie alarmu (proces workera może zaraz zniknąć).
                 reminders.reschedule()
+                widgetUpdater.updateNow()
             }
-            widgetUpdater.requestUpdate()
         }
     }
 

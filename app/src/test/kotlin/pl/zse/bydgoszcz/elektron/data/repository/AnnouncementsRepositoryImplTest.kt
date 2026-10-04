@@ -102,4 +102,20 @@ class AnnouncementsRepositoryImplTest {
         assertTrue(second.exhausted)
         assertEquals(2, db.announcementDao().count())
     }
+
+    @Test fun overlappingFeedsDoNotRewriteIdenticalAnnouncement() = runTest {
+        val item = rss("https://zse/a")
+        source.news = listOf(item)
+        source.latest = listOf(item.copy(source = RssItemDto.Source.RSS_LATEST))
+        assertTrue(repo.syncAll().isSuccess)
+        val sql = db.openHelper.writableDatabase
+        sql.execSQL("CREATE TABLE audit_writes (value INTEGER)")
+        sql.execSQL("CREATE TRIGGER audit_ann AFTER INSERT ON announcements BEGIN INSERT INTO audit_writes VALUES (1); END")
+        assertTrue(repo.syncAll().isSuccess)
+        sql.query("SELECT COUNT(*) FROM audit_writes").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+        assertEquals("RSS_LATEST", db.announcementDao().getById(item.guid)?.source)
+    }
 }

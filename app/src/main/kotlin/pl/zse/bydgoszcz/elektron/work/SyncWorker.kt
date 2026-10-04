@@ -27,7 +27,7 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         try {
-            val outcome = coordinator.sync(SyncRequest.full())
+            val outcome = coordinator.sync(SyncRequest.full(background = inputData.getBoolean("background", false)))
             // Przerwane przez zmianę klasy / reset: dane pobiera właśnie synchronizacja nowej klasy.
             if (outcome.interrupted) return Result.success()
             if (outcome.succeeded.isEmpty()) {

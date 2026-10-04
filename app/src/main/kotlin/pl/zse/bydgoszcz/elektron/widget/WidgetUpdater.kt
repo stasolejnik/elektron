@@ -45,6 +45,14 @@ class WidgetUpdater @Inject constructor(
         scope.launch { updateNow() }
     }
 
+    suspend fun requestDurableUpdate() = withContext(Dispatchers.IO) {
+        val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
+            .setInitialDelay(1, TimeUnit.SECONDS).build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "elektron_widget_refresh", ExistingWorkPolicy.REPLACE, request).result.get()
+        Unit
+    }
+
     suspend fun updateNow() {
         WidgetDataVersion.bump()     // otwarte sesje Glance wczytają dane od nowa
         runCatchingCancellable {
@@ -55,10 +63,10 @@ class WidgetUpdater @Inject constructor(
         }.onFailure { Log.w(TAG, "Nie udało się odświeżyć widżetów", it) }
     }
 
-    /** Zaplanuj odświeżenie na [at] (z ograniczeniem 1 min – 3 h, zabezpieczenie przed zmianą czasu). */
+    /** Zaplanuj odświeżenie na [at] (z ograniczeniem 1 min – 24 h, zabezpieczenie przed zmianą czasu). */
     fun scheduleTick(at: LocalDateTime) {
         val delay = Duration.between(LocalDateTime.now(), at).plusSeconds(5)
-            .coerceIn(Duration.ofMinutes(1), Duration.ofHours(3))
+            .coerceIn(Duration.ofMinutes(1), Duration.ofDays(1))
         val request = OneTimeWorkRequestBuilder<WidgetTickWorker>()
             .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
             .build()
@@ -93,3 +101,16 @@ class WidgetTickWorker @AssistedInject constructor(
  * workera, a pozostałe widżety (i kafelek) zostawały nieodświeżone do następnego dzwonka.
  */
 internal suspend fun runTickUpdate(update: suspend () -> Unit) = withContext(NonCancellable) { update() }
+
+/** Trwałe odświeżenie po serii pushy; nie zależy od życia usługi FCM. */
+@HiltWorker
+class WidgetRefreshWorker @AssistedInject constructor(
+    @Assisted ctx: Context,
+    @Assisted params: WorkerParameters,
+    private val updater: WidgetUpdater
+) : CoroutineWorker(ctx, params) {
+    override suspend fun doWork(): Result {
+        updater.updateNow()
+        return Result.success()
+    }
+}

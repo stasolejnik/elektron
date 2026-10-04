@@ -31,6 +31,7 @@ class SyncScheduler @Inject constructor(
         // backendu wysyłającego push). UPDATE zamiast KEEP, żeby ta zmiana z 30 na 15 min
         // faktycznie dotarła też do osób, które już mają zaplanowaną starą, 30-minutową pracę.
         val req = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+            .setInputData(androidx.work.workDataOf("background" to true))
             .setConstraints(networkConstraints())
             .setInitialDelay(1, TimeUnit.MINUTES)
             .build()

@@ -142,4 +142,23 @@ class SubstitutionsRepositoryImplTest {
         repo.syncAll()
         assertEquals(listOf(2), repo.getAllFrom(d).map { it.lessonNumber })
     }
+
+    private fun watchWrites(table: String) {
+        val sql = db.openHelper.writableDatabase
+        sql.execSQL("CREATE TABLE IF NOT EXISTS audit_writes (value INTEGER)")
+        for (operation in listOf("INSERT", "UPDATE", "DELETE")) {
+            sql.execSQL("CREATE TRIGGER audit_${table}_$operation AFTER $operation ON $table BEGIN INSERT INTO audit_writes VALUES (1); END")
+        }
+    }
+
+    @Test fun identicalSyncDoesNotRewriteTables() = runTest {
+        source.items = listOf(dto(today, 1))
+        assertTrue(repo.syncAll().isSuccess)
+        watchWrites("substitutions")
+        assertTrue(repo.syncAll().isSuccess)
+        db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM audit_writes").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+    }
 }

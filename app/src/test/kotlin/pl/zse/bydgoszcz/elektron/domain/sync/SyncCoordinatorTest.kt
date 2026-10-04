@@ -1,5 +1,9 @@
 package pl.zse.bydgoszcz.elektron.domain.sync
 
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CancellationException
@@ -327,5 +331,62 @@ class SyncCoordinatorTest {
         coordinator.selectClass("o4")
         eventually({ t.notificationsRepo.observeLastSyncError().first() }) { it != null }
         eventually<Boolean>({ coordinator.initialSyncPending.first() }) { !it }
+    }
+
+    @Test fun backgroundSkipsFreshTimetableButManualRefreshDoesNot() = runTest {
+        coordinator.sync(SyncRequest.full())
+        val calls = timetable.calls.get()
+        val background = coordinator.sync(SyncRequest.full(background = true))
+        assertEquals(calls, timetable.calls.get())
+        assertEquals(setOf(SyncOutcome.SUBSTITUTIONS), background.succeeded)
+        coordinator.sync(SyncRequest.full())
+        assertEquals(calls + 1, timetable.calls.get())
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun loadMoreIsGuardedBeforeDatabaseCountReturns() = runTest {
+        kotlinx.coroutines.Dispatchers.setMain(kotlinx.coroutines.test.StandardTestDispatcher(testScheduler))
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var requests = 0
+        val repository = object : pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository by t.announcementsRepo {
+            override suspend fun count(): Int { gate.await(); return 0 }
+            override suspend fun loadOlder(): Result<pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository.OlderResult> {
+                requests++
+                return Result.success(pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository.OlderResult(1, false))
+            }
+        }
+        val vm = pl.zse.bydgoszcz.elektron.presentation.announcements.AnnouncementsViewModel(repository, coordinator)
+        val store = androidx.lifecycle.ViewModelStore()
+        store.put("test", vm)
+        try {
+            vm.loadMore()
+            runCurrent()
+            vm.loadMore()
+            gate.complete(Unit)
+            runCurrent()
+            assertEquals(1, requests)
+        } finally {
+            store.clear()
+            kotlinx.coroutines.Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun backgroundRetriesFailedManualRefreshDespiteRecentSuccess() = runBlocking {
+        coordinator.sync(SyncRequest.full())
+        timetable.error = java.io.IOException("offline")
+        coordinator.sync(SyncRequest.of(SyncOutcome.TIMETABLE))
+        val before = timetable.calls.get()
+        timetable.error = null
+        coordinator.sync(SyncRequest.full(background = true))
+        assertEquals(before + 1, timetable.calls.get())
+    }
+
+    @Test fun missingLoadedMarkerOverridesBackgroundInterval() = runBlocking {
+        coordinator.sync(SyncRequest.full())
+        val before = timetable.calls.get()
+        t.notificationsRepo.clearLoaded()
+        coordinator.sync(SyncRequest.full(background = true))
+        assertEquals(before + 1, timetable.calls.get())
+        assertTrue(SyncOutcome.TIMETABLE in t.notificationsRepo.observeLoadedResources().first())
     }
 }

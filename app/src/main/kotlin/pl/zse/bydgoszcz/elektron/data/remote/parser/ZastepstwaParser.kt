@@ -40,6 +40,15 @@ object ZastepstwaParser {
             if (cells.size != 1) null else DATE_RE.find(cells[0].text())?.groupValues?.get(1)
         }.toSet()
 
+    fun hasRecognizedLayout(doc: Document): Boolean {
+        if (pageDates(doc).isNotEmpty()) return true
+        // Pusty eksport w dni wolne jest poprawny; strona awarii HTTP 200 nie jest.
+        return doc.title().trim().equals("Inf. o zast.", ignoreCase = true) &&
+            doc.select("table tr").none { row ->
+                row.select("> td, > th").firstOrNull()?.text()?.trim()?.toIntOrNull() != null
+            }
+    }
+
     fun parse(doc: Document): List<SubstitutionDto> = parseDetailed(doc).items
 
     /**

@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -142,16 +143,16 @@ class TimetableViewModel @Inject constructor(
      * końca przy przewijaniu planu - każdy obejrzany tydzień zostawał w pamięci na zawsze.
      * Usunięty tydzień, jeśli wciąż jest na ekranie, działa dalej (jest tylko poza buforem).
      */
-    private val weekCache = object : LinkedHashMap<LocalDate, StateFlow<List<DayColumn>?>>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<LocalDate, StateFlow<List<DayColumn>?>>?) =
+    private val weekCache = object : LinkedHashMap<LocalDate, Flow<List<DayColumn>?>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<LocalDate, Flow<List<DayColumn>?>>?) =
             size > WEEK_CACHE_SIZE
     }
 
     /**
      * Lekcje tygodnia od [monday] (po filtrze grup). null = jeszcze nie wczytane.
-     * Buforowane per poniedziałek — sąsiednie strony pagera korzystają z gotowych danych.
+     * Przepływy per poniedziałek; ich zbieranie kończy się wraz ze stroną pagera.
      */
-    fun week(monday: LocalDate): StateFlow<List<DayColumn>?> = weekCache.getOrPut(monday) {
+    fun week(monday: LocalDate): Flow<List<DayColumn>?> = weekCache.getOrPut(monday) {
         settings.selectedClassId.flatMapLatest { cid ->
             if (cid == null) flowOf(emptyList())
             else combine(
@@ -163,7 +164,7 @@ class TimetableViewModel @Inject constructor(
                     DayColumn(d, d.dayOfWeek, lessons.filter { it.date == d }.sortedBy { it.number })
                 }
             }
-        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.flowOn(Dispatchers.Default)
     }
 
     fun setMode(m: ViewMode) {

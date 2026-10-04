@@ -4,6 +4,22 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.0-rc4] - 2026-10-04 (23)
+
+Czwarta wersja kandydująca do 1.0.0: poprawki sieci, pracy w tle i stabilności.
+
+- Mniejsze zużycie transferu dzięki poprawionej pamięci podręcznej sieci.
+- Rzadsze pobieranie planu, listy klas i ogłoszeń w tle; zastępstwa nadal co 15 minut.
+- Przypomnienia uwzględniają zastępstwa otrzymane przez push.
+- Szybsze przerywanie pobierania przy zmianie klasy.
+- Mniej zapisów identycznych danych i odświeżeń widżetów.
+- Poprawki pamięci planu, dopasowania tekstu i zegarów niewidocznych zakładek.
+- Pewniejsze wykrywanie błędnych stron szkoły i pobieranie starszych ogłoszeń.
+
+W tle: zastępstwa co 15 minut, ogłoszenia raz na godzinę, plan co 6 godzin, lista klas raz na dobę. Android może opóźniać pracę. Ręczne odświeżanie działa od razu.
+
+Plik APK jest podpisany tym samym kluczem co poprzednie wydanie. Zainstaluj go jako aktualizację; ustawienia i wybrana klasa zostają.
+
 ## [1.0.0-rc3] - 2026-10-03 (22)
 
 Trzecia wersja kandydująca do 1.0.0: szczegóły lekcji z zastępstw i widżetów, jedna wspólna synchronizacja i poprawki stabilności.

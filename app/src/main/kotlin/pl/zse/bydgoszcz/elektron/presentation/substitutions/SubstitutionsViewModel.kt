@@ -28,7 +28,7 @@ import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow
-import pl.zse.bydgoszcz.elektron.presentation.common.minuteTicker
+import pl.zse.bydgoszcz.elektron.presentation.common.visibleMinuteTicker
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -40,6 +40,9 @@ class SubstitutionsViewModel @Inject constructor(
     timetableRepo: TimetableRepository,
     private val coordinator: SyncCoordinator
 ) : ViewModel() {
+    private val visible = MutableStateFlow(false)
+    fun setVisible(value: Boolean) { visible.value = value }
+
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -101,7 +104,7 @@ class SubstitutionsViewModel @Inject constructor(
         startDay.flatMapLatest { day -> repo.observeFrom(day) },
         lessonsFlow,
         settings.activeGroupSelections,
-        minuteTicker()
+        visibleMinuteTicker(visible)
     ) { (_, short), subs, lessons, groups, _ ->
         if (short == null) return@combine Content(emptyList(), false)
         val now = LocalDateTime.now()

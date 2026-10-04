@@ -1,0 +1,1 @@
+Mniejsze zużycie transferu i mniej pracy w tle. Poprawione przypomnienia po push, anulowanie pobierania, pamięć planu i widżety. Mniej zapisów identycznych danych. Poprawki starszych ogłoszeń i wykrywania błędnych odpowiedzi serwera.

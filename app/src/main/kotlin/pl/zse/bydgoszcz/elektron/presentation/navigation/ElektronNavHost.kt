@@ -153,6 +153,10 @@ fun ElektronNavHost(
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                     .graphicsLayer { alpha = sectionAlpha.value }
             ) { page ->
+                androidx.compose.runtime.CompositionLocalProvider(
+                    pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible provides
+                        (pagerState.settledPage == page && !overlayOpen)
+                ) {
                 when (bottomDestinations[page].route) {
                     ElektronRoutes.DASHBOARD -> DashboardScreen(
                         onOpenTimetable = { goTo(ElektronRoutes.TIMETABLE) },
@@ -165,6 +169,7 @@ fun ElektronNavHost(
                         onOpenGroups = { showGroups = true },
                         onOpenSubjects = { showSubjects = true }
                     )
+                }
                 }
             }
         }

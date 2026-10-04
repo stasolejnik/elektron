@@ -1,0 +1,1 @@
+Reduced network traffic and background work. Fixed reminders after push updates, download cancellation, timetable memory and widgets. Fewer writes of unchanged data. Improved archive loading and detection of invalid server responses.

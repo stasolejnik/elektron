@@ -23,6 +23,9 @@ interface SchoolClassDao {
 
 @Dao
 interface TeacherDao {
+    @Query("SELECT * FROM teachers")
+    suspend fun getAll(): List<TeacherEntity>
+
     @Query("SELECT * FROM teachers ORDER BY fullName")
     fun observeAll(): Flow<List<TeacherEntity>>
 
@@ -38,6 +41,9 @@ interface TeacherDao {
 
 @Dao
 interface RoomDao {
+    @Query("SELECT * FROM rooms")
+    suspend fun getAll(): List<RoomEntity>
+
     @Query("SELECT * FROM rooms ORDER BY name")
     fun observeAll(): Flow<List<RoomEntity>>
 

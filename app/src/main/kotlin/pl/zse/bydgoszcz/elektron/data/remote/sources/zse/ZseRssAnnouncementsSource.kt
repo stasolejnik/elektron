@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import pl.zse.bydgoszcz.elektron.data.remote.http.readCancellable
 import okhttp3.Request
 import pl.zse.bydgoszcz.elektron.data.remote.dto.ArchiveItemDto
 import pl.zse.bydgoszcz.elektron.data.remote.dto.RssItemDto
@@ -32,10 +33,10 @@ class ZseRssAnnouncementsSource @Inject constructor(
 
     override suspend fun fetchArticleHtml(url: String): String? = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(url).get().build()
-        client.newCall(req).execute().use { resp ->
+        client.newCall(req).readCancellable { resp ->
             if (!resp.isSuccessful) {
                 Log.w(TAG, "HTTP ${resp.code} dla $url")
-                return@withContext null
+                return@readCancellable null
             }
             val doc = EncodingAwareBody.asDocument(resp)
             val article = doc.selectFirst("article") ?: doc.selectFirst(".content")
@@ -45,7 +46,7 @@ class ZseRssAnnouncementsSource @Inject constructor(
 
     override suspend fun fetchArchivePage(page: Int): List<ArchiveItemDto> = withContext(Dispatchers.IO) {
         val url = SchoolEndpoints.School.homePage(page)
-        client.newCall(Request.Builder().url(url).get().build()).execute().use { resp ->
+        client.newCall(Request.Builder().url(url).get().build()).readCancellable { resp ->
             // Błąd serwera to nie "koniec archiwum" - "Pokaż więcej" pokaże błąd i da się ponowić.
             if (!resp.isSuccessful) throw java.io.IOException("Archiwum ogłoszeń: HTTP ${resp.code} dla $url")
             NewsArchiveParser.parseList(EncodingAwareBody.asDocument(resp))
@@ -53,8 +54,8 @@ class ZseRssAnnouncementsSource @Inject constructor(
     }
 
     override suspend fun fetchArticleDate(url: String): Instant? = withContext(Dispatchers.IO) {
-        client.newCall(Request.Builder().url(url).get().build()).execute().use { resp ->
-            if (!resp.isSuccessful) return@withContext null
+        client.newCall(Request.Builder().url(url).get().build()).readCancellable { resp ->
+            if (!resp.isSuccessful) return@readCancellable null
             NewsArchiveParser.parseArticleDate(EncodingAwareBody.asDocument(resp))
         }
     }
@@ -62,10 +63,13 @@ class ZseRssAnnouncementsSource @Inject constructor(
     private suspend fun fetchFeed(url: String, source: RssItemDto.Source): List<RssItemDto> =
         withContext(Dispatchers.IO) {
             val req = Request.Builder().url(url).get().build()
-            client.newCall(req).execute().use { resp ->
+            client.newCall(req).readCancellable { resp ->
                 // Błąd serwera to porażka kanału, nie "brak ogłoszeń" (dawniej liczony jako udany sync).
                 if (!resp.isSuccessful) throw java.io.IOException("Ogłoszenia: HTTP ${resp.code} dla $url")
                 val doc = EncodingAwareBody.asDocument(resp, xmlMode = true)
+                if (doc.selectFirst("rss > channel") == null) {
+                    throw pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException("ogłoszenia")
+                }
                 RssParser.parse(doc, source)
             }
         }

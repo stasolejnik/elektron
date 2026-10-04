@@ -172,4 +172,23 @@ class TimetableRepositoryImplTest {
         db.lessonDao().upsertAll(listOf(lesson(1, "08:00", "08:45"), lesson(2, "", ""), lesson(3, "10:00", "xx")))
         assertEquals(listOf(1), repo.getLessonsOnce("o3", monday, monday).map { it.number })
     }
+
+    private fun watchWrites(table: String) {
+        val sql = db.openHelper.writableDatabase
+        sql.execSQL("CREATE TABLE IF NOT EXISTS audit_writes (value INTEGER)")
+        for (operation in listOf("INSERT", "UPDATE", "DELETE")) {
+            sql.execSQL("CREATE TRIGGER audit_${table}_$operation AFTER $operation ON $table BEGIN INSERT INTO audit_writes VALUES (1); END")
+        }
+    }
+
+    @Test fun identicalSyncDoesNotRewriteTables() = runTest {
+        assertTrue(repo.syncTimetable("o3", monday).isSuccess)
+        watchWrites("lessons")
+        watchWrites("lesson_groups")
+        assertTrue(repo.syncTimetable("o3", monday).isSuccess)
+        db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM audit_writes").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+    }
 }

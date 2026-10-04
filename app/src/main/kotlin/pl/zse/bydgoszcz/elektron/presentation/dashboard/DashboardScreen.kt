@@ -79,6 +79,12 @@ fun DashboardScreen(
     onOpenSubstitutions: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
+    val visible = pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible.current
+    androidx.compose.runtime.DisposableEffect(viewModel, visible) {
+        viewModel.setVisible(visible)
+        onDispose { viewModel.setVisible(false) }
+    }
+
     val state by viewModel.state.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val openUrl = { url: String -> SafeUrls.open(ctx, url); Unit }

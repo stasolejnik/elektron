@@ -34,8 +34,11 @@ class AnnouncementsRepositoryImpl @Inject constructor(
 
     override suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
-            val newsResult = runCatchingCancellable { source.fetchNewsFeed() }
-            val latestResult = runCatchingCancellable { source.fetchLatestFeed() }
+            val (newsResult, latestResult) = coroutineScope {
+                val news = async { runCatchingCancellable { source.fetchNewsFeed() } }
+                val latest = async { runCatchingCancellable { source.fetchLatestFeed() } }
+                news.await() to latest.await()
+            }
             // Oba kanały z błędem (np. brak internetu) - to porażka synchronizacji, nie "pusto".
             // Dawniej sync kończył się sukcesem bez danych i aplikacja uznawała ogłoszenia za
             // aktualne. Zapisane ogłoszenia zostają nietknięte.
@@ -49,17 +52,17 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                 Log.w(TAG, "Oba kanały puste — nie nadpisuję")
                 return@runCatchingCancellable
             }
-            val freshEntities = all.mapNotNull(AnnouncementMapper::toEntity)
+            val freshEntities = all.mapNotNull(AnnouncementMapper::toEntity).associateBy { it.id }.values.toList()
             // REPLACE nadpisywał pobraną treść artykułu (fullHtml) przy każdym syncu —
             // scalamy z tym, co już jest w Room, zanim wstawimy.
-            val existingById = dao.getByIds(freshEntities.map { it.id }).associateBy { it.id }
-            val entities = freshEntities.map { fresh ->
-                val existing = existingById[fresh.id]
-                if (existing == null) fresh
-                else fresh.copy(fullHtml = existing.fullHtml ?: fresh.fullHtml)
-            }
             db.withTransaction {
-                dao.upsertAll(entities)
+                val existingById = dao.getByIds(freshEntities.map { it.id }).associateBy { it.id }
+                val entities = freshEntities.map { fresh ->
+                    val existing = existingById[fresh.id]
+                    if (existing == null) fresh
+                    else fresh.copy(fullHtml = existing.fullHtml ?: fresh.fullHtml)
+                }
+                dao.upsertAll(entities.filter { existingById[it.id] != it })
                 dao.deleteDevEntries()
             }
             // 2 lata (dawniej 180 dni) — inaczej sync kasowałby starsze ogłoszenia
