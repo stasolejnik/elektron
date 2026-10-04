@@ -4,6 +4,17 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.0-rc5.1] - 2026-10-04 (25)
+
+Hotfix RC5. Aktualizacja zachowuje notatki, ustawienia i ulubione.
+
+- Stały stan panelu edycji notatek: wpisywanie tekstu i zapisywanie nie uruchamiają ponownie animacji otwierania.
+- Usunięte podwójne dopasowanie panelu do klawiatury; ochrona niezapisanych zmian pozostaje.
+- Własne notatki w trzech widżetach, osobno od uwag szkoły przy zastępstwach.
+- Podgląd dopasowany do dostępnego miejsca i powiększenia czcionki; pełna treść w szczegółach lekcji.
+- Odświeżanie widżetów po zapisaniu i usunięciu notatki, bez dodatkowych połączeń sieciowych.
+- Porównywanie numerów hotfixów: RC5 rozpoznaje RC5.1 jako nowsze wydanie.
+
 ## [1.0.0-rc5] - 2026-10-04 (24)
 
 Piąta wersja kandydująca do 1.0.0.

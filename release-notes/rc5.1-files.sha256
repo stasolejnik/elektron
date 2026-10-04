@@ -1,0 +1,17 @@
+5afcee0ddaf951742b351c454e44dd2e6fffe4154c8bf6b0f33441599e4f0664  CHANGELOG.md
+38b586ae73ed00ac3d7dc123454673d99d504be1ef2d4f93a7eb97945b308cf1  app/build.gradle.kts
+4cd1a3096b8ef67348d3419c3e2956fc276aeebc7295d5a797889c9e005d75be  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/domain/model/AppVersion.kt
+0873ba0e0bba47600031e4080c85466eaec14d3e64c19034e8cf3584d35cf3ff  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/presentation/common/Changelog.kt
+b1988b563c0b6383c81b0d91173468aee936718dc32d684646f09286bb38330c  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/presentation/timetable/LessonNoteEditor.kt
+19ceeb5a49a0bdf6fb15fee64f59acaa1848e7a4ab7de5e20e8fa92602fb3537  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/presentation/timetable/LessonNotesViewModel.kt
+9d6fd1bc89db146fcfeabf98a050fd5fd9695fc760f51340d87dfe82b5aaf709  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/widget/DayPlanWidget.kt
+31d7369ae0e3bea605b9575e1a9713370321b5bc411ed40eaf67c8c690eb5a5a  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/widget/NextLessonWidget.kt
+f1b2ef8b1522274a0aa5cba757c3d678f35a38f316aec0cf6f4d19b1b600d049  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/widget/SubstitutionsWidget.kt
+ea35b7ca5888d8a6a262f258f58053a46ea75e85facf465a26c7d5a3e7eee0af  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/widget/WidgetData.kt
+b49f0d101161ac1aa7a2f63a0520ebbb5fe286b53792b1c7d3cfc800ebea0d2c  app/src/main/kotlin/pl/zse/bydgoszcz/elektron/widget/WidgetNoteLayout.kt
+7dff0766c2778344ac028e360cf04e4e47ec0c070b9b6a1c254ef07ea5f2e9cd  app/src/test/kotlin/pl/zse/bydgoszcz/elektron/domain/model/AppVersionTest.kt
+0944190a563b20cb8cec30dd16802302b97e1a06a87c9d302d6aa0ba4356c0ba  app/src/test/kotlin/pl/zse/bydgoszcz/elektron/presentation/timetable/NoteSheetStateTest.kt
+49e902061d2b89394a4d64b58bbfb2e0c611f9b4426ecbf9feca746957605efc  app/src/test/kotlin/pl/zse/bydgoszcz/elektron/widget/WidgetNotesTest.kt
+57de00977bb898d7a218d63da9a6b043ad75da3b991d73a1564fb8efd6506543  fastlane/metadata/android/en-US/changelogs/25.txt
+1b4714b937982ca61d2bdedd39fd12980a026adeea9ec65950cbb9eacbb0fa86  fastlane/metadata/android/pl-PL/changelogs/25.txt
+4e89a254701499b44a11eaa89e7d4e2713aa904d28b7f5bafa90f7493c0b7d42  release-notes/1.0.0-rc5.1.md

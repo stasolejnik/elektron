@@ -1,0 +1,1 @@
+RC5 hotfix: note editing no longer restarts the sheet animation while typing or saving. Personal notes appear in all three widgets, with previews sized to available space and system font scaling. Widgets refresh after saving or deleting a note. RC5.1 updates are detected correctly. Existing notes and settings are preserved.

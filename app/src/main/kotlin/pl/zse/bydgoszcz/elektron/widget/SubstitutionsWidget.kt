@@ -94,14 +94,14 @@ class SubstitutionsWidget : GlanceAppWidget() {
                 // wierszy listy nie docierały do aplikacji - trafiały w tło widżetu (strona
                 // główna). Zwykłe elementy mają własne PendingIntenty.
                 val height = LocalSize.current.height.value
-                val rows = SubstitutionRows.layout(height, state.items.size)
+                val rows = WidgetNoteLayout.substitutions(height, state.items, LocalContext.current.resources.configuration.fontScale)
                 val shown = state.items.take(rows.shown)
                 LaunchedEffect(state.items, rows) {
                     Log.i(TAG, "Rysuję ${shown.size} z ${state.items.size} wierszy (+${rows.more} więcej, " +
                         "wysokość ${height.toInt()} dp): ${shown.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}")
                 }
                 Column(GlanceModifier.fillMaxWidth().defaultWeight()) {
-                    shown.forEach { SubRow(it) }
+                    shown.forEachIndexed { index, sub -> SubRow(sub, rows.noteLines[index]) }
                     if (rows.more > 0) MoreRow(rows.more)
                 }
             }
@@ -122,12 +122,13 @@ class SubstitutionsWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun SubRow(sub: WidgetSubstitution) {
+    private fun SubRow(sub: WidgetSubstitution, noteLines: Int) {
         // Dotknięcie: plan na ten dzień i szczegóły lekcji. Opis dla czytnika ekranu zawiera
         // treść wiersza (opis kontenera zastępuje odczyt tekstów w środku).
         val description = buildString {
             append("Lekcja ${sub.lessonNumber}, ${sub.title}, ${sub.dayLabel}, ${sub.detail}")
             sub.note?.let { append(", $it") }
+            sub.userNote?.let { append(", Notatka: $it") }
             append(". Otwórz szczegóły lekcji")
         }
         Column(
@@ -149,6 +150,9 @@ class SubstitutionsWidget : GlanceAppWidget() {
                         style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
                     sub.note?.let {
                         Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    }
+                    if (noteLines > 0) sub.userNote?.let {
+                        Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 11.sp), maxLines = noteLines)
                     }
                 }
             }

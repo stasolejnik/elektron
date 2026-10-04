@@ -1,0 +1,1 @@
+Hotfix RC5: naprawione miganie panelu notatek podczas pisania i zapisywania. Notatki widoczne w trzech widżetach, z podglądem dopasowanym do dostępnego miejsca i rozmiaru czcionki. Widżety odświeżają się po zapisie i usunięciu. Poprawne rozpoznawanie wersji RC5.1. Dane i ustawienia pozostają zachowane.

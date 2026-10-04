@@ -6,6 +6,17 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(
+            versionCode = 25,
+            versionName = "1.0.0-rc5.1",
+            items = listOf(
+                "Edytor notatek nie otwiera się ponownie podczas pisania i zapisywania",
+                "Notatki w widżetach Następna lekcja, Plan dnia i Zastępstwa",
+                "Długość podglądu zależy od miejsca i rozmiaru czcionki; pełna treść po dotknięciu lekcji",
+                "Widżety odświeżają notatki po zapisaniu lub usunięciu",
+                "Poprawne wykrywanie aktualizacji hotfix RC5.1"
+            )
+        ),
+        Entry(
             versionCode = 24,
             versionName = "1.0.0-rc5",
             items = listOf(

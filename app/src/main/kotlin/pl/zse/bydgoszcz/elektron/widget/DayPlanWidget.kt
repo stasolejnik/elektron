@@ -16,6 +16,7 @@ import androidx.glance.action.clickable
 import androidx.glance.semantics.contentDescription
 import androidx.glance.semantics.semantics
 import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.compose.runtime.LaunchedEffect
 import android.util.Log
 import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
@@ -50,9 +51,7 @@ import pl.zse.bydgoszcz.elektron.R
  */
 class DayPlanWidget : GlanceAppWidget() {
 
-    override val sizeMode: SizeMode = SizeMode.Responsive(
-        setOf(DpSize(250.dp, 110.dp), DpSize(250.dp, 250.dp))
-    )
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val load: suspend () -> Pair<WidgetState, WidgetPalette> = {
@@ -163,7 +162,7 @@ class DayPlanWidget : GlanceAppWidget() {
             .padding(horizontal = 8.dp, vertical = 5.dp)
         // Dotknięcie lekcji: Plan na ten dzień i szczegóły tej lekcji.
         val description = listOfNotNull("$dayLabel, lekcja ${lesson.number}", lesson.title, lesson.timeRange,
-            lesson.room?.let { "sala $it" }, lesson.note).joinToString(", ") + ". Otwórz szczegóły lekcji"
+            lesson.room?.let { "sala $it" }, lesson.note, lesson.userNote?.let { "Notatka: $it" }).joinToString(", ") + ". Otwórz szczegóły lekcji"
         val action = target?.let { openLessonAction(LocalContext.current, it) } ?: openAppAction()
         Column(
             GlanceModifier.fillMaxWidth().padding(bottom = 2.dp).clickable(action)
@@ -178,6 +177,11 @@ class DayPlanWidget : GlanceAppWidget() {
                     Text(meta, style = TextStyle(color = if (past) WidgetColors.textFaded else WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
                     lesson.note?.let {
                         Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    }
+                    val scale = LocalContext.current.resources.configuration.fontScale
+                    val lines = WidgetNoteLayout.lines(LocalSize.current.height.value, 90f + if (lesson.note != null) 18f * scale else 0f, scale)
+                    if (lines > 0) lesson.userNote?.let {
+                        Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 11.sp), maxLines = lines)
                     }
                 }
             }

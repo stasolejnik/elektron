@@ -10,12 +10,14 @@ import pl.zse.bydgoszcz.elektron.data.repository.LessonNotesRepository
 import pl.zse.bydgoszcz.elektron.domain.model.*
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.work.NoteReminderScheduler
+import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import javax.inject.Inject
 
 @HiltViewModel
 class LessonNotesViewModel @Inject constructor(
     private val repository: LessonNotesRepository,
-    private val scheduler: NoteReminderScheduler
+    private val scheduler: NoteReminderScheduler,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
     data class State(val notes: List<LessonNote> = emptyList(), val enabled: Boolean = false,
         val timing: NoteReminderSettings = NoteReminderSettings(),
@@ -36,7 +38,7 @@ class LessonNotesViewModel @Inject constructor(
             try {
                 runCatchingCancellable { repository.save(LessonNote(lesson.classId, lesson.date, lesson.number,
                     LessonNote.subject(lesson), text, 0)) }
-                    .onSuccess { scheduler.requestReschedule(); onSaved() }
+                    .onSuccess { scheduler.requestReschedule(); widgetUpdater.requestUpdate(); onSaved() }
                     .onFailure { error.value = "Nie udało się zapisać notatki. Spróbuj ponownie." }
             } finally { saving.value = false }
         }
@@ -47,7 +49,7 @@ class LessonNotesViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 runCatchingCancellable { repository.delete(note.key) }
-                    .onSuccess { scheduler.requestReschedule(); onDeleted() }
+                    .onSuccess { scheduler.requestReschedule(); widgetUpdater.requestUpdate(); onDeleted() }
                     .onFailure { error.value = "Nie udało się usunąć notatki." }
             } finally { saving.value = false }
         }

@@ -49,7 +49,7 @@ import pl.zse.bydgoszcz.elektron.R
  */
 class NextLessonWidget : GlanceAppWidget() {
 
-    override val sizeMode: SizeMode = SizeMode.Responsive(setOf(SMALL, WIDE))
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val load: suspend () -> Pair<WidgetState, WidgetPalette> = {
@@ -80,7 +80,7 @@ class NextLessonWidget : GlanceAppWidget() {
             action = target?.let { openLessonAction(LocalContext.current, it) },
             description = ready?.let { r ->
                 val l = r.focus
-                listOfNotNull("${r.dayLabel}, lekcja ${l.number}", l.title, l.timeRange, l.room?.let { "sala $it" }, l.detail, l.note)
+                listOfNotNull("${r.dayLabel}, lekcja ${l.number}", l.title, l.timeRange, l.room?.let { "sala $it" }, l.detail, l.note, l.userNote?.let { "Notatka: $it" })
                     .joinToString(", ") + ". Otwórz szczegóły lekcji"
             }
         ) {
@@ -119,6 +119,17 @@ class NextLessonWidget : GlanceAppWidget() {
             state.isToday -> "NASTĘPNA"
             else -> state.dayLabel.uppercase()
         }
+        val scale = LocalContext.current.resources.configuration.fontScale.coerceAtLeast(1f)
+        val height = LocalSize.current.height.value
+        val compact = height < 210f * scale
+        val titleLines = if (compact) 1 else 2
+        val showTimeStatus = height >= 150f * scale
+        val showDetail = lesson.detail != null && height >= 180f * scale &&
+            ((!state.focusIsNow && state.breakFrom == null) || lesson.isSubstitution)
+        val reserved = 30f + scale * (18f + 20f * titleLines + 16f +
+            (if (compact) 0f else 36f) + (if (showDetail) 16f else 0f) +
+            (if (lesson.note != null) 18f else 0f) + (if (showTimeStatus) 28f else 0f))
+        val noteLines = WidgetNoteLayout.lines(height, reserved, scale)
         Column(GlanceModifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
                 Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(16.dp))
@@ -126,22 +137,26 @@ class NextLessonWidget : GlanceAppWidget() {
                 Text(label, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             }
             Spacer(GlanceModifier.defaultWeight())
-            Text("${lesson.number}", style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-            Text(lesson.title, style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 2)
+            if (!compact) Text("${lesson.number}", style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+            Text(if (compact) "${lesson.number}. ${lesson.title}" else lesson.title,
+                style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = titleLines)
             Spacer(GlanceModifier.height(2.dp))
             val where = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
             Text(where, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
             // Przy trwającej lekcji miejsce zajmuje pasek postępu — nazwisko tylko przed lekcją
             // (i zawsze przy zastępstwie, bo to kluczowa informacja).
-            if ((!state.focusIsNow && state.breakFrom == null) || lesson.isSubstitution) lesson.detail?.let {
+            if (showDetail) lesson.detail?.let {
                 Text(it, style = TextStyle(color = if (lesson.isSubstitution) accent else WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
             }
             lesson.note?.let {
                 Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
             }
+            if (noteLines > 0) lesson.userNote?.let {
+                Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 12.sp), maxLines = noteLines)
+            }
             // Czas: w trakcie lekcji pasek postępu + "Zostało X min", przed lekcją "Za X min".
             val now = LocalTime.now()
-            if (state.focusIsNow) {
+            if (showTimeStatus && state.focusIsNow) {
                 val total = Duration.between(lesson.timeFrom, lesson.timeTo).seconds.coerceAtLeast(1)
                 val done = Duration.between(lesson.timeFrom, now).seconds.coerceIn(0, total)
                 Spacer(GlanceModifier.height(6.dp))
@@ -153,7 +168,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 )
                 val left = LessonClock.minutesCeil(now, lesson.timeTo)
                 Text("Zostało $left min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-            } else if (state.breakFrom != null) {
+            } else if (showTimeStatus && state.breakFrom != null) {
                 // Przerwa: pasek postępu przerwy i ile do następnej lekcji.
                 val total = Duration.between(state.breakFrom, lesson.timeFrom).seconds.coerceAtLeast(1)
                 val done = Duration.between(state.breakFrom, now).seconds.coerceIn(0, total)
@@ -166,7 +181,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 )
                 val until = LessonClock.minutesCeil(now, lesson.timeFrom)
                 Text("Lekcja za $until min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-            } else if (state.isToday) {
+            } else if (showTimeStatus && state.isToday) {
                 // Przed pierwszą lekcją i w okienku - dopiero 30 min przed lekcją (dawniej 60).
                 val until = LessonClock.minutesCeil(now, lesson.timeFrom)
                 if (now <= lesson.timeFrom && until <= LessonClock.COUNTDOWN_MINUTES) {
@@ -178,14 +193,26 @@ class NextLessonWidget : GlanceAppWidget() {
 
     @Composable
     private fun Following(lesson: WidgetLesson) {
+        val scale = LocalContext.current.resources.configuration.fontScale.coerceAtLeast(1f)
+        val height = LocalSize.current.height.value
+        val titleLines = if (height >= 180f * scale) 2 else 1
+        val reserved = 28f + scale * (18f + titleLines * 20f + 16f +
+            (if (lesson.room != null) 16f else 0f) + (if (lesson.note != null) 18f else 0f))
+        val noteLines = WidgetNoteLayout.lines(height, reserved, scale)
         Column(GlanceModifier.fillMaxSize()) {
             Text("POTEM", style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold))
             Spacer(GlanceModifier.defaultWeight())
             val color = if (lesson.isSubstitution) WidgetColors.substitution else WidgetColors.textPrimary
-            Text("${lesson.number}. ${lesson.title}", style = TextStyle(color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = 2)
+            Text("${lesson.number}. ${lesson.title}", style = TextStyle(color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = titleLines)
             Text(lesson.timeRange, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
             lesson.room?.let {
                 Text("s. $it", style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
+            }
+            lesson.note?.let {
+                Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp), maxLines = 1)
+            }
+            if (noteLines > 0) lesson.userNote?.let {
+                Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 12.sp), maxLines = noteLines)
             }
         }
     }

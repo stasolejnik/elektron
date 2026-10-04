@@ -26,14 +26,9 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
     val dirty = text != note?.text.orEmpty()
     val dismiss = { if (!saving) { if (dirty) confirmDiscard = true else onDismiss() } }
     LaunchedEffect(lesson.id) { viewModel.clearError() }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { target ->
-        if (target == SheetValue.Hidden && (saving || dirty)) {
-            if (!saving) confirmDiscard = true
-            false
-        } else true
-    })
+    val sheetState = rememberNoteSheetState(dirty, saving) { confirmDiscard = true }
     ModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 12.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Notatka do lekcji", style = MaterialTheme.typography.headlineSmall)
             Text(lesson.groups.mapNotNull { LocalPersonalization.current.subjectName(it.subject) }.distinct().joinToString(" / ").ifBlank { "Lekcja" },
@@ -65,4 +60,30 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
     if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false }, title = { Text("Odrzucić niezapisane zmiany?") },
         confirmButton = { TextButton(onClick = { confirmDiscard = false; onDismiss() }) { Text("Odrzuć") } },
         dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Wróć do notatki") } })
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun rememberNoteSheetState(dirty: Boolean, saving: Boolean, onDiscard: () -> Unit): SheetState {
+    val confirm = rememberNoteSheetConfirmation(dirty, saving, onDiscard)
+    return rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = confirm)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun rememberNoteSheetConfirmation(dirty: Boolean, saving: Boolean, onDiscard: () -> Unit): (SheetValue) -> Boolean {
+    val latestDirty by rememberUpdatedState(dirty)
+    val latestSaving by rememberUpdatedState(saving)
+    val latestDiscard by rememberUpdatedState(onDiscard)
+    // Material 3 keys rememberSaveable by this callback. A new callback on every edit
+    // recreates the sheet in Hidden state and starts its opening animation again.
+    val confirm: (SheetValue) -> Boolean = remember {
+        { target ->
+            if (target == SheetValue.Hidden && (latestSaving || latestDirty)) {
+                if (!latestSaving) latestDiscard()
+                false
+            } else true
+        }
+    }
+    return confirm
 }

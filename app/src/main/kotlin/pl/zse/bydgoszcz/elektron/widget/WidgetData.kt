@@ -1,6 +1,9 @@
 package pl.zse.bydgoszcz.elektron.widget
 
 import android.util.Log
+import pl.zse.bydgoszcz.elektron.data.repository.LessonNotesRepository
+import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
+import pl.zse.bydgoszcz.elektron.domain.model.NoteReminders
 
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
@@ -40,6 +43,7 @@ interface WidgetEntryPoint {
     fun timetable(): TimetableRepository
     fun substitutions(): SubstitutionsRepository
     fun widgetUpdater(): WidgetUpdater
+    fun lessonNotes(): LessonNotesRepository
 }
 
 /** Lekcja przygotowana do wyświetlenia w widżecie. */
@@ -54,7 +58,8 @@ data class WidgetLesson(
     /** Zastępstwo: informacja zamiast sali i uwagi ze strony ("za ostatnią lekcję"). */
     val note: String? = null,
     /** Własny kolor przedmiotu (ARGB) z Ustawień -> Przedmioty; null = akcent. */
-    val color: Long? = null
+    val color: Long? = null,
+    val userNote: String? = null
 ) {
     val timeRange: String get() = "$timeFrom–$timeTo"
 }
@@ -67,7 +72,8 @@ data class WidgetSubstitution(
     val lessonNumber: Int,
     val title: String,
     val detail: String,
-    val note: String? = null
+    val note: String? = null,
+    val userNote: String? = null
 )
 
 sealed interface SubsWidgetState {
@@ -153,7 +159,8 @@ object WidgetDataLoader {
         }.getOrDefault(emptyList())
         val styles = runCatchingCancellable { ep.settings().subjectStyles.first() }.getOrDefault(emptyMap())
         val look = runCatchingCancellable { ep.settings().widgetLook.first() }.getOrDefault(WidgetLook())
-        return buildState(lessons, nowDt, styles, look)
+        val notes = runCatchingCancellable { ep.lessonNotes().notes.first() }.getOrDefault(emptyList())
+        return buildState(lessons, nowDt, styles, look, notes)
     }
 
     /**
@@ -166,7 +173,8 @@ object WidgetDataLoader {
         lessons: List<Lesson>,
         nowDt: LocalDateTime,
         styles: Map<String, SubjectStyle> = emptyMap(),
-        look: WidgetLook = WidgetLook()
+        look: WidgetLook = WidgetLook(),
+        notes: List<LessonNote> = emptyList()
     ): WidgetState {
         val today = nowDt.toLocalDate()
         val now = nowDt.toLocalTime()
@@ -179,6 +187,7 @@ object WidgetDataLoader {
             ?: return WidgetState.NoLessons(className)
 
         val dayLessons = byDay.getValue(day).sortedBy { it.number }
+        val notesByKey = notes.associateBy { it.key }
         val isToday = day == today
         val focusIndex = if (isToday) dayLessons.indexOfFirst { it.timeTo > now }.coerceAtLeast(0) else 0
         val focusLesson = dayLessons[focusIndex]
@@ -197,7 +206,7 @@ object WidgetDataLoader {
             className = className,
             dayLabel = dayLabel(day, today),
             date = day,
-            lessons = dayLessons.map { toWidgetLesson(it, styles, look) },
+            lessons = dayLessons.map { toWidgetLesson(it, styles, look).copy(userNote = userNote(it, notesByKey)) },
             focusIndex = focusIndex,
             focusIsNow = focusIsNow,
             isToday = isToday,
@@ -227,6 +236,8 @@ object WidgetDataLoader {
             .getOrDefault(emptyList())
         val ends = SubstitutionRelevance.lessonEnds(lessons)
         val nowDt = LocalDateTime.of(today, now)
+        val notesByKey = runCatchingCancellable { ep.lessonNotes().notes.first() }.getOrDefault(emptyList()).associateBy { it.key }
+        val shownLessons = LessonGroups.filter(lessons, groups).associateBy { LessonNote.key(it) }
         val subs = runCatchingCancellable { ep.substitutions().getAllFrom(today) }.getOrDefault(emptyList())
             .asSequence()
             .filter { SubstitutionRelevance.matchesClass(it, short) }
@@ -240,7 +251,8 @@ object WidgetDataLoader {
                     lessonNumber = s.lessonNumber,
                     title = SubstitutionDisplay.headline(s),
                     detail = SubstitutionDisplay.place(s) ?: "za ${s.originalTeacher}",
-                    note = SubstitutionDisplay.notes(s)
+                    note = SubstitutionDisplay.notes(s),
+                    userNote = shownLessons[LessonNote.key(classId, s.date, s.lessonNumber)]?.let { userNote(it, notesByKey) }
                 )
             }.toList()
         // Diagnostyka (raport "Zgłoś problem"): czy widżet miał wiersze i jakie cele.
@@ -253,6 +265,10 @@ object WidgetDataLoader {
         today.plusDays(1) -> "Jutro"
         else -> day.dayOfWeek.getDisplayName(TextStyle.FULL, PL).replaceFirstChar { it.titlecase(PL) }
     }
+
+    internal fun userNote(lesson: Lesson, notesByKey: Map<String, LessonNote>): String? =
+        notesByKey[LessonNote.key(lesson)]?.takeIf { NoteReminders.matchesGroups(it, lesson) }
+            ?.text?.takeIf { it.isNotBlank() }
 
     private fun toWidgetLesson(l: Lesson, styles: Map<String, SubjectStyle>, look: WidgetLook): WidgetLesson {
         val sub = l.substitution

@@ -31,8 +31,8 @@ android {
         applicationId = "pl.zse.bydgoszcz.elektron"
         minSdk = 26
         targetSdk = 35
-        versionCode = 24
-        versionName = "1.0.0-rc5"
+        versionCode = 25
+        versionName = "1.0.0-rc5.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
