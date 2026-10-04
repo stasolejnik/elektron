@@ -1,4 +1,4 @@
-1023b9266ef6ff92d37c866d0d6ec23352b274d1495c220cac072ef41b67f6d5  .gitignore
+02ef3f8374953ddc6e8584dd35562fb5cfcb0840acd6e44c512a2e71d51c88ae  .gitignore
 73348f4e49a9cd248cd0a19c34fe7449e39790a26f04803bfe17cb3ed1df0bbf  CHANGELOG.md
 3045a2e2e423a4bc6d2ddfa87fc7e467d6bdbf4969f1c7265e3b71665b616330  README.md
 8078c221bf3ec901161a46f0186f0511ede54f75f326219488212cf92c0d0111  app/build.gradle.kts
@@ -43,4 +43,3 @@ f42bcd4418ccde8708841416e5cb1eece22d68cd80d34d25bf9ee07d53905cc5  app/src/test/k
 930246c5eb84a08c19b3cc348659c5b0ce68043a5efd5fe2de3eed0244abb5b5  fastlane/metadata/android/en-US/changelogs/23.txt
 80d213358fd1ee65fdb2e3a6b68036ffc4fe0b42aaced4de61b0fe1d2638ca21  fastlane/metadata/android/pl-PL/changelogs/23.txt
 4e4d12d3efb20376b648235174a1f7db421afea377a552d62b71477c4fa29782  release-notes/1.0.0-rc4.md
-2ee50c87f4ee11aa454082c0a8b5af74331c7255d7114404bf3120d6c1a85f15  scripts/publish-rc4.sh
