@@ -91,6 +91,9 @@ object OkHttpClientProvider {
 
     private class RetryInterceptor(private val maxRetries: Int) : Interceptor {
         override fun intercept(chain: Interceptor.Chain): Response {
+            // The pedestrian routing service allows at most one request per second.
+            // Its caller handles throttling; do not bypass it with automatic retries.
+            if (chain.request().url.host == "routing.openstreetmap.de") return chain.proceed(chain.request())
             var attempt = 0
             var lastError: IOException? = null
             while (attempt < maxRetries) {

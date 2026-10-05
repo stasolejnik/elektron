@@ -1,6 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsTransit
+import androidx.compose.material.icons.outlined.DirectionsTransit
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.EventBusy
@@ -41,16 +43,21 @@ val bottomDestinations = listOf(
     BottomDestination(ElektronRoutes.SETTINGS, "Ustawienia", Icons.Outlined.Settings, Icons.Filled.Settings)
 )
 
+fun bottomDestinationsForTransit(enabled: Boolean): List<BottomDestination> =
+    if (!enabled) bottomDestinations else bottomDestinations.toMutableList().apply {
+        add(3, BottomDestination(ElektronRoutes.TRANSIT, "Odjazdy", Icons.Outlined.DirectionsTransit, Icons.Filled.DirectionsTransit))
+    }
+
 /**
  * Pasek zakładek w stylu iOS: cienka linia nad paskiem, aktywna zakładka wyróżniona
  * kolorem akcentu i wypełnioną ikoną (bez materiałowej "pigułki" pod ikoną).
  */
 @Composable
-fun ElektronBottomBar(currentRoute: String?, onNavigate: (String) -> Unit) {
+fun ElektronBottomBar(currentRoute: String?, onNavigate: (String) -> Unit, destinations: List<BottomDestination> = bottomDestinations) {
     Column {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 0.dp) {
-            bottomDestinations.forEach { dest ->
+            destinations.forEach { dest ->
                 val selected = currentRoute == dest.route
                 NavigationBarItem(
                     selected = selected,

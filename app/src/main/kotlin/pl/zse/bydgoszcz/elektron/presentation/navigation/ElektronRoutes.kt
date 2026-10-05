@@ -4,6 +4,7 @@ object ElektronRoutes {
     const val DASHBOARD = "dashboard"
     const val TIMETABLE = "timetable"
     const val SUBSTITUTIONS = "substitutions"
+    const val TRANSIT = "transit"
     const val ANNOUNCEMENTS = "announcements"
     const val SETTINGS = "settings"
 }

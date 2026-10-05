@@ -89,7 +89,8 @@ private const val LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html"
 fun SettingsScreen(
     onOpenGroups: () -> Unit = {},
     onOpenSubjects: () -> Unit = {},
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    transitViewModel: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
@@ -212,6 +213,8 @@ fun SettingsScreen(
                     SwitchRow("Ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
                 }
             }
+
+            item { pl.zse.bydgoszcz.elektron.presentation.transit.TransitSettingsSection(transitViewModel) }
 
             item { WidgetsSection(state.widgetLook) { viewModel.setWidgetLook(it) } }
 

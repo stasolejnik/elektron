@@ -6,13 +6,15 @@ package pl.zse.bydgoszcz.elektron.domain.model
  */
 object AppVersion {
 
-    private data class Parsed(val core: List<Int>, val preWord: String?, val preNumbers: List<Int>)
+    private data class Parsed(val core: List<Int>, val preWord: String?, val preNumbers: List<Int>, val development: Boolean)
 
     private val PRE_WORD = Regex("^([a-z]+)")
     private val PRE_NUMBER = Regex("(\\d+)")
 
     private fun parse(version: String): Parsed {
         var s = version.trim().removePrefix("v").removePrefix("V").removeSuffix("-debug")
+        val development = s.endsWith("-dev")
+        s = s.removeSuffix("-dev")
         val dash = s.indexOf('-')
         val coreText = if (dash < 0) s else s.substring(0, dash)
         val core = coreText.split('.').map { it.toIntOrNull() ?: 0 }
@@ -21,7 +23,8 @@ object AppVersion {
         return Parsed(
             core = core,
             preWord = pre?.let { PRE_WORD.find(it)?.groupValues?.get(1) ?: it },
-            preNumbers = PRE_NUMBER.findAll(s).map { it.value.toIntOrNull() ?: 0 }.toList()
+            preNumbers = PRE_NUMBER.findAll(s).map { it.value.toIntOrNull() ?: 0 }.toList(),
+            development = development
         )
     }
 
@@ -41,7 +44,7 @@ object AppVersion {
             if (c != 0) return c
         }
         // Ta sama wersja bazowa: wydanie stabilne jest nowsze od każdej przedpremierowej.
-        if (pa.preWord == null && pb.preWord == null) return 0
+        if (pa.preWord == null && pb.preWord == null) return pb.development.compareTo(pa.development)
         if (pa.preWord == null) return 1
         if (pb.preWord == null) return -1
         val rank = preRank(pa.preWord).compareTo(preRank(pb.preWord))
@@ -50,7 +53,7 @@ object AppVersion {
             val c = pa.preNumbers.getOrElse(i) { 0 }.compareTo(pb.preNumbers.getOrElse(i) { 0 })
             if (c != 0) return c
         }
-        return 0
+        return pb.development.compareTo(pa.development)
     }
 
     fun isNewer(candidate: String, current: String): Boolean = compare(candidate, current) > 0

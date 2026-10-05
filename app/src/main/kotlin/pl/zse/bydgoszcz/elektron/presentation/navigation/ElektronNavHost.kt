@@ -36,7 +36,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.presentation.announcements.AnnouncementsScreen
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronBottomBar
-import pl.zse.bydgoszcz.elektron.presentation.common.bottomDestinations
+import pl.zse.bydgoszcz.elektron.presentation.common.bottomDestinationsForTransit
+import pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel
+import pl.zse.bydgoszcz.elektron.presentation.transit.TransitScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pl.zse.bydgoszcz.elektron.presentation.dashboard.DashboardScreen
 import pl.zse.bydgoszcz.elektron.presentation.groups.GroupsScreen
 import pl.zse.bydgoszcz.elektron.presentation.settings.SettingsScreen
@@ -61,13 +64,36 @@ fun ElektronNavHost(
     startRoute: String = ElektronRoutes.DASHBOARD
 ) {
     val scope = rememberCoroutineScope()
+    val transitViewModel: TransitViewModel = hiltViewModel()
+    val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
+    // Restore pager indices only after knowing whether the extra tab exists.
+    // Otherwise a rotation on Odjazdy can restore the Ogłoszenia page instead.
+    if (!transitSettings.ready) {
+        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            androidx.compose.material3.CircularProgressIndicator()
+        }
+        return
+    }
+    val bottomDestinations = bottomDestinationsForTransit(transitSettings.preferences.visible)
     // Strona startowa tylko przy pierwszym utworzeniu (stan pagera jest zapisywany, więc obrót
     // ekranu czy powrót z tła nie przeskakują z powrotem).
     // Deep link (widżet, powiadomienie, skrót) ma pierwszeństwo przed inteligentnym startem —
     // inaczej zimny start z widżetu w godzinach lekcji pokazywał Plan i przeskakiwał dalej.
     val initialRoute = routeForDeepLink(deepLink) ?: startRoute
     val startPage = bottomDestinations.indexOfFirst { it.route == initialRoute }.coerceAtLeast(0)
-    val pagerState = rememberPagerState(initialPage = startPage) { bottomDestinations.size }
+    // Pager may still invoke callbacks from the previous composition while page count changes.
+    // Count and keys must read the same current list, with safe access for retained pages.
+    val currentDestinations by androidx.compose.runtime.rememberUpdatedState(bottomDestinations)
+    val pagerState = rememberPagerState(initialPage = startPage) { currentDestinations.size }
+    val previousDestinations = remember { mutableStateOf(bottomDestinations) }
+    val preservedRoute = previousDestinations.value.getOrNull(pagerState.currentPage)?.route ?: ElektronRoutes.DASHBOARD
+    LaunchedEffect(bottomDestinations) {
+        if (previousDestinations.value != bottomDestinations) {
+            val index = bottomDestinations.indexOfFirst { it.route == preservedRoute }.coerceAtLeast(0)
+            pagerState.scrollToPage(index)
+            previousDestinations.value = bottomDestinations
+        }
+    }
     var showGroups by rememberSaveable { mutableStateOf(false) }
     var showSubjects by rememberSaveable { mutableStateOf(false) }
     val overlayOpen = showGroups || showSubjects
@@ -79,9 +105,13 @@ fun ElektronNavHost(
     val animateTo: suspend (Int) -> Unit = { index ->
         val current = pagerState.currentPage
         if (abs(index - current) > 1) {
-            sectionAlpha.animateTo(0f, tween(90))
-            pagerState.scrollToPage(index)
-            sectionAlpha.animateTo(1f, tween(160))
+            try {
+                sectionAlpha.animateTo(0f, tween(90))
+                pagerState.scrollToPage(index)
+                sectionAlpha.animateTo(1f, tween(160))
+            } finally {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { sectionAlpha.snapTo(1f) }
+            }
         } else {
             pagerState.animateScrollToPage(
                 index,
@@ -134,7 +164,7 @@ fun ElektronNavHost(
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
-                ElektronBottomBar(bottomDestinations[pagerState.targetPage].route, goTo)
+                ElektronBottomBar(bottomDestinations.getOrNull(pagerState.targetPage)?.route, goTo, bottomDestinations)
             }
         ) { padding ->
             HorizontalPager(
@@ -147,7 +177,7 @@ fun ElektronNavHost(
                     snapPositionalThreshold = 0.2f,
                     snapAnimationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
                 ),
-                key = { bottomDestinations[it].route },
+                key = { destinationPageKey(currentDestinations, it) },
                 // consumeWindowInsets: sekcje mają własne Scaffoldy — bez tego dolne wcięcie
                 // (pasek nawigacji) liczyłoby się podwójnie.
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
@@ -157,17 +187,19 @@ fun ElektronNavHost(
                     pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible provides
                         (pagerState.settledPage == page && !overlayOpen)
                 ) {
-                when (bottomDestinations[page].route) {
+                when (currentDestinations.getOrNull(page)?.route) {
                     ElektronRoutes.DASHBOARD -> DashboardScreen(
                         onOpenTimetable = { goTo(ElektronRoutes.TIMETABLE) },
                         onOpenSubstitutions = { goTo(ElektronRoutes.SUBSTITUTIONS) }
                     )
                     ElektronRoutes.TIMETABLE -> TimetableScreen(isShown = pagerState.settledPage == page)
                     ElektronRoutes.SUBSTITUTIONS -> SubstitutionsScreen(onOpenLesson = openLesson)
+                    ElektronRoutes.TRANSIT -> TransitScreen(transitViewModel) { goTo(ElektronRoutes.SETTINGS) }
                     ElektronRoutes.ANNOUNCEMENTS -> AnnouncementsScreen()
                     ElektronRoutes.SETTINGS -> SettingsScreen(
                         onOpenGroups = { showGroups = true },
-                        onOpenSubjects = { showSubjects = true }
+                        onOpenSubjects = { showSubjects = true },
+                        transitViewModel = transitViewModel
                     )
                 }
                 }

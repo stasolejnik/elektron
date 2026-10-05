@@ -13,7 +13,7 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
 
 ## Dane zapisane na telefonie
 
-- **Ustawienia:** wybrana klasa, grupy zajęciowe, motyw, ustawienia powiadomień.
+- **Ustawienia:** wybrana klasa, grupy zajęciowe, motyw, ustawienia powiadomień oraz przystanek docelowy i przełącznik eksperymentalnych odjazdów.
 - **Kopia danych ze strony szkoły:** plan lekcji, zastępstwa i ogłoszenia (żeby aplikacja
   działała bez internetu).
 - **Ulubione ogłoszenia:** wybrane wpisy i pobrana treść artykułów, przechowywane lokalnie również po czyszczeniu danych podręcznych.
@@ -53,7 +53,30 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   instalację zawsze zatwierdzasz sam. GitHub widzi przy tym adres IP i wersję aplikacji; nie są
   wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
-**Wersja z F-Droid** łączy się wyłącznie ze stronami szkoły.
+- **BUSearch (eksperymentalne odjazdy ze szkoły):** po otwarciu wyboru przystanku aplikacja
+  pobiera publiczny katalog z api.busearch.pl. Katalog jest zapisywany w pamięci podręcznej;
+  wyszukiwanie nazw i wybór celu odbywają się lokalnie. Przy samym wyborze celu nie są
+  przesyłane wpisywane frazy, wybrany przystanek ani lokalizacja telefonu. Serwer widzi adres IP i wersję aplikacji.
+  Po otwarciu zakładki Odjazdy albo ręcznym odświeżeniu wysyła do planera BUSearch stały
+  punkt szkoły, współrzędne wybranego przystanku docelowego i czas rozpoczęcia podróży.
+  Dzięki temu pobiera połączenia i godziny odjazdów. Cel podróży jest więc przekazywany
+  dostawcy tylko przy wyszukiwaniu połączeń. Preferowany przystanek początkowy jest wtedy
+  również przekazywany planerowi. Historia pięciu ostatnich celów i pięciu ostatnich
+  przystanków początkowych jest zapisywana wyłącznie lokalnie wraz z ustawieniami; może
+  wejść do systemowej kopii zapasowej Androida. Funkcja nie korzysta z GPS ani cyklicznych
+  połączeń w tle.
+- **Trasy piesze (FOSSGIS / OpenStreetMap):** przy sprawdzaniu odjazdów aplikacja może
+  wysłać do routing.openstreetmap.de stały punkt szkoły i współrzędne przystanków początkowych,
+  aby obliczyć dojście ulicami i ścieżkami. Serwer widzi IP i wersję aplikacji; nie otrzymuje
+  GPS telefonu, celu podróży, klasy ani notatek. Wyniki są zapisywane lokalnie na 7 dni.
+  Zasady: https://routing.openstreetmap.de/about.html
+- **OpenStreetMap:** wybranie widoku mapy pobiera jej fragmenty z tile.openstreetmap.org.
+  Serwer widzi adres IP, wersję aplikacji i oglądany obszar mapy. GPS, klasa, notatki i
+  nazwa wybranego celu nie są do niego wysyłane. Fragmenty mapy są przechowywane lokalnie
+  w pamięci podręcznej. Zasady prywatności: https://osmfoundation.org/wiki/Privacy_Policy
+
+**Wersja z F-Droid** łączy się ze stronami szkoły i, po otwarciu wyboru przystanku,
+również z katalogiem i planerem BUSearch oraz, po otwarciu mapy, z OpenStreetMap oraz z planerem tras pieszych FOSSGIS. Nie zawiera Firebase ani sprawdzania aktualizacji z GitHuba.
 
 ## Notatki do lekcji
 

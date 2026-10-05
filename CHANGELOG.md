@@ -4,6 +4,20 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.0-rc6] (33)
+
+Nowa funkcja **Odjazdy ze szkoły** pozwala znaleźć połączenie komunikacji miejskiej
+ze szkoły przy Karłowicza 20 do wybranego przystanku w Bydgoszczy.
+
+- Włączenie w Ustawieniach po wybraniu celu; osobna zakładka między Zastępstwami a Ogłoszeniami.
+- Wyszukiwanie przystanków i wybór na mapie OpenStreetMap, bez GPS.
+- Przystanek początkowy, linia, kierunek, godziny rozkładowe, przyjazd i czas dojścia ulicami oraz ścieżkami.
+- Wybór preferowanego przystanku początkowego oraz zmiana celu bezpośrednio w Odjazdach.
+- Domyślnie połączenia bezpośrednie; przesiadki można włączyć w Ustawieniach.
+- Osobne listy pięciu ostatnich celów i przystanków początkowych.
+- Przystanki początkowe uporządkowane od najbliższego szkoły; „Pokaż więcej” dla późniejszych odjazdów.
+- Ręczne odświeżanie i informacja o czasie ostatniego sprawdzenia.
+
 ## [1.0.0-rc5.1] - 2026-10-04 (25)
 
 Hotfix RC5. Aktualizacja zachowuje notatki, ustawienia i ulubione.

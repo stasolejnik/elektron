@@ -31,8 +31,8 @@ android {
         applicationId = "pl.zse.bydgoszcz.elektron"
         minSdk = 26
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.0.0-rc5.1"
+        versionCode = 33
+        versionName = "1.0.0-rc6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -142,6 +142,7 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.jsoup)
     implementation(libs.coil.compose)
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation(libs.glance.appwidget)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

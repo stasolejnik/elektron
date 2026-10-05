@@ -46,3 +46,6 @@ Thumbs.db
 
 # Opisy wydań F-Droid są częścią repozytorium.
 !fastlane/metadata/android/*/changelogs/*.txt
+
+# Licencja biblioteki mapy dołączona do aplikacji.
+!app/src/main/assets/licenses/osmdroid.txt

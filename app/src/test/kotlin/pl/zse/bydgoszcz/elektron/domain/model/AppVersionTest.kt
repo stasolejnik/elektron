@@ -6,6 +6,19 @@ import org.junit.Test
 
 class AppVersionTest {
     @Test
+    fun finalRcIsNewerThanItsDevelopmentBuild() {
+        assertTrue(AppVersion.isNewer("v1.0.0-rc6", "1.0.0-rc6-dev"))
+        assertTrue(AppVersion.isNewer("v1.0.0-rc6", "1.0.0-rc6-dev-debug"))
+        assertFalse(AppVersion.isNewer("1.0.0-rc6-dev", "1.0.0-rc6"))
+        assertTrue(AppVersion.isNewer("1.0.0-rc7-dev", "1.0.0-rc6"))
+        assertTrue(AppVersion.isNewer("1.0.0-rc6-dev", "1.0.0-rc5.1"))
+    }
+    @Test
+    fun stableDevelopmentBuildIsOlderThanTheStableRelease() {
+        assertTrue(AppVersion.isNewer("1.0.0", "1.0.0-dev"))
+        assertFalse(AppVersion.isNewer("v1.0.0-dev", "1.0.0"))
+    }
+    @Test
     fun ordering() {
         assertTrue(AppVersion.isNewer("0.5.0-beta", "0.5.0-alpha"))
         assertTrue(AppVersion.isNewer("0.5.0", "0.5.0-rc1"))

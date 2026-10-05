@@ -1,0 +1,1 @@
+Nowa funkcja Odjazdy ze szkoły: wyszukaj cel lub wybierz go na mapie OpenStreetMap bez GPS. Sprawdź linię, kierunek, godziny odjazdu i przyjazdu oraz dojście pieszo. Ustaw preferowany przystanek początkowy, korzystaj z pięciu ostatnich wyborów i pokaż późniejsze odjazdy. Domyślnie połączenia bezpośrednie; przesiadki opcjonalnie. Włącz funkcję w Ustawieniach.

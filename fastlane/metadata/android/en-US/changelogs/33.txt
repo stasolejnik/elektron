@@ -1,0 +1,1 @@
+New school departures feature: search for a destination or select it on OpenStreetMap without GPS. See the line, direction, scheduled departure and arrival times, and walking time. Choose a preferred boarding stop, access five recent choices, and show later departures. Direct services by default; transfers are optional. Enable the feature in Settings.

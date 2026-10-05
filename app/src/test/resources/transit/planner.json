@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "szukanoOd": 1791219276210,
+  "strona": 1,
+  "maxStron": 3,
+  "nastepneWhenMs": 1791219828992,
+  "nastepnaStrona": 2,
+  "kursowWOknie": 912,
+  "ustawienia": {
+    "predkoscMarszu": 1.35,
+    "maxDojscieM": 900,
+    "maxPrzesiadkaM": 350,
+    "minPrzesiadkaS": 60,
+    "wykluczLinie": []
+  },
+  "polaczenia": [
+    {
+      "wyjscieMs": 1791219351237,
+      "odjazdMs": 1791219480000,
+      "przyjazdMs": 1791219722831,
+      "czasPodrozyMin": 6,
+      "czasOdTerazMin": 1,
+      "przesiadki": 0,
+      "linie": [
+        "6"
+      ],
+      "odcinki": [
+        {
+          "rodzaj": "pieszo",
+          "zPrzystanku": {
+            "id": null,
+            "nazwa": "Miejsce startu"
+          },
+          "doPrzystanku": {
+            "id": 24,
+            "nazwa": "Jagiellońska - Łużycka"
+          },
+          "odjazdMs": 1791219351237,
+          "przyjazdMs": 1791219480000
+        },
+        {
+          "rodzaj": "przejazd",
+          "linia": "6",
+          "cel": "Bielawy",
+          "zPrzystanku": {
+            "id": 24,
+            "nazwa": "Jagiellońska - Łużycka"
+          },
+          "doPrzystanku": {
+            "id": 26,
+            "nazwa": "Rondo Jagiellonów"
+          },
+          "odjazdMs": 1791219480000,
+          "przyjazdMs": 1791219720000,
+          "przystankow": 2,
+          "poDrodze": [
+            {
+              "id": 24,
+              "nazwa": "Jagiellońska - Łużycka",
+              "at": 1791219480000
+            },
+            {
+              "id": 25,
+              "nazwa": "Dworzec Autobusowy",
+              "at": 1791219600000
+            },
+            {
+              "id": 26,
+              "nazwa": "Rondo Jagiellonów",
+              "at": 1791219720000
+            }
+          ]
+        },
+        {
+          "rodzaj": "pieszo",
+          "zPrzystanku": {
+            "id": 26,
+            "nazwa": "Rondo Jagiellonów"
+          },
+          "doPrzystanku": {
+            "id": null,
+            "nazwa": "Miejsce docelowe"
+          },
+          "odjazdMs": 1791219720000,
+          "przyjazdMs": 1791219722831
+        }
+      ]
+    }
+  ]
+}

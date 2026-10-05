@@ -5,6 +5,14 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(33, "1.0.0-rc6", listOf(
+            "Nowa funkcja Odjazdy ze szkoły, włączana w Ustawieniach po wyborze celu",
+            "Wyszukiwanie przystanków i mapa OpenStreetMap bez GPS",
+            "Linia, kierunek, godziny rozkładowe, przyjazd i czas dojścia pieszo",
+            "Wybór preferowanego przystanku początkowego oraz zmiana celu w Odjazdach",
+            "Połączenia bezpośrednie lub opcjonalnie z przesiadką",
+            "Pięć ostatnich celów i przystanków początkowych; Pokaż więcej dla późniejszych odjazdów"
+        )),
         Entry(
             versionCode = 25,
             versionName = "1.0.0-rc5.1",
