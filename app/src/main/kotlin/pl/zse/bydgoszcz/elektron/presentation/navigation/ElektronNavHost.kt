@@ -74,7 +74,7 @@ fun ElektronNavHost(
         }
         return
     }
-    val bottomDestinations = bottomDestinationsForTransit(transitSettings.preferences.visible)
+    val bottomDestinations = bottomDestinationsForTransit(true)
     // Strona startowa tylko przy pierwszym utworzeniu (stan pagera jest zapisywany, więc obrót
     // ekranu czy powrót z tła nie przeskakują z powrotem).
     // Deep link (widżet, powiadomienie, skrót) ma pierwszeństwo przed inteligentnym startem —
@@ -164,7 +164,7 @@ fun ElektronNavHost(
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
-                ElektronBottomBar(bottomDestinations.getOrNull(pagerState.targetPage)?.route, goTo, bottomDestinations)
+                ElektronBottomBar(bottomDestinations.getOrNull(pagerState.targetPage)?.route, goTo, pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(transitSettings.preferences.hiddenTabs, transitSettings.preferences.visible))
             }
         ) { padding ->
             HorizontalPager(
@@ -190,11 +190,13 @@ fun ElektronNavHost(
                 when (currentDestinations.getOrNull(page)?.route) {
                     ElektronRoutes.DASHBOARD -> DashboardScreen(
                         onOpenTimetable = { goTo(ElektronRoutes.TIMETABLE) },
-                        onOpenSubstitutions = { goTo(ElektronRoutes.SUBSTITUTIONS) }
+                        onOpenSubstitutions = { goTo(ElektronRoutes.SUBSTITUTIONS) },
+                        onOpenTransit = { goTo(ElektronRoutes.TRANSIT) },
+                        transitViewModel = transitViewModel
                     )
                     ElektronRoutes.TIMETABLE -> TimetableScreen(isShown = pagerState.settledPage == page)
                     ElektronRoutes.SUBSTITUTIONS -> SubstitutionsScreen(onOpenLesson = openLesson)
-                    ElektronRoutes.TRANSIT -> TransitScreen(transitViewModel) { goTo(ElektronRoutes.SETTINGS) }
+                    ElektronRoutes.TRANSIT -> TransitScreen(transitViewModel)
                     ElektronRoutes.ANNOUNCEMENTS -> AnnouncementsScreen()
                     ElektronRoutes.SETTINGS -> SettingsScreen(
                         onOpenGroups = { showGroups = true },

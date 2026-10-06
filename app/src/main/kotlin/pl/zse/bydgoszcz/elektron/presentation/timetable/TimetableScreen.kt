@@ -102,6 +102,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.flow.onStart
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,8 +115,10 @@ fun TimetableScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Zapamiętany tryb (Dzień/Tydzień) znany od pierwszej klatki - bez mignięcia widoku dnia.
     val savedWeekView = LocalPersonalization.current.look.weekView
-    remember { viewModel.initSavedMode(savedWeekView) }
-    val mode by viewModel.viewMode.collectAsStateWithLifecycle()
+    val modeFlow = remember(viewModel, savedWeekView) {
+        viewModel.viewMode.onStart { viewModel.initSavedMode(savedWeekView) }
+    }
+    val mode by modeFlow.collectAsStateWithLifecycle(initialValue = viewModel.modeForOpening(savedWeekView))
     val plLocale = Locale("pl", "PL")
     val dateFmt = DateTimeFormatter.ofPattern("dd.MM", plLocale)
     val scope = rememberCoroutineScope()
@@ -126,18 +129,18 @@ fun TimetableScreen(
     val shareStyles = LocalPersonalization.current.styles
     val notesState by notesViewModel.state.collectAsStateWithLifecycle()
     val noteIndex = remember(notesState.notes) { notesState.notes.associateBy { it.key } }
-    var editingLesson by remember { mutableStateOf<Lesson?>(null) }
+    val editingLesson by notesViewModel.editorLesson.collectAsStateWithLifecycle()
     LaunchedEffect(state.selectedClassId) {
         if (detailsLesson?.classId != state.selectedClassId) detailsLesson = null
-        if (editingLesson?.classId != state.selectedClassId) editingLesson = null
+        if (state.selectedClassId != null && editingLesson?.classId != state.selectedClassId) notesViewModel.closeEditor()
     }
     val editNote: (Lesson) -> Unit = { lesson ->
         if (notesState.ready && !notesState.error && LessonNote.canEdit(lesson, LocalDateTime.now())) {
-            detailsLesson = null; editingLesson = lesson
+            detailsLesson = null; notesViewModel.openEditor(lesson)
         }
     }
     editingLesson?.let { lesson ->
-        LessonNoteEditor(lesson, notesState, notesViewModel) { editingLesson = null }
+        LessonNoteEditor(lesson, notesState, notesViewModel) { notesViewModel.closeEditor() }
     }
     detailsLesson?.let { lesson -> LessonDetailsSheet(lesson,
         userNote = notesState.notes.firstOrNull { it.key == LessonNote.key(lesson) },

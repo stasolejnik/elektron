@@ -11,10 +11,16 @@ plugins {
 // F-Droid: wariant "foss" nie może zawierać Firebase ani wtyczki Google Services.
 // Wtyczkę stosujemy więc tylko, gdy budowany jest wariant "gms" (albo wszystkie naraz).
 // Build F-Droid (np. assembleFossRelease) obejdzie się bez niej i bez google-services.json.
-val buildsFossOnly = gradle.startParameter.taskNames.let { tasks ->
-    tasks.isNotEmpty() && tasks.all { it.contains("foss", ignoreCase = true) }
+val variantTasks = gradle.startParameter.taskNames.filter { name ->
+    !name.startsWith("-") && (name.contains("foss", ignoreCase = true) || name.contains("gms", ignoreCase = true))
 }
-if (!buildsFossOnly) apply(plugin = "com.google.gms.google-services")
+val needsGoogleServices = providers.gradleProperty("elektron.gms").orNull?.toBooleanStrictOrNull()
+    ?: (variantTasks.isEmpty() || variantTasks.any { it.contains("gms", ignoreCase = true) })
+if (needsGoogleServices) {
+    apply(plugin = "com.google.gms.google-services")
+    // Mixed-variant invocations must never require Google configuration for foss.
+    tasks.matching { it.name.contains("Foss") && it.name.endsWith("GoogleServices") }.configureEach { enabled = false }
+}
 
 // Podpis release: dane klucza w keystore.properties (w .gitignore, NIGDY w repozytorium).
 // Brak pliku => assembleRelease buduje niepodpisany APK (nie wysypuje się na świeżym klonie).
@@ -31,8 +37,8 @@ android {
         applicationId = "pl.zse.bydgoszcz.elektron"
         minSdk = 26
         targetSdk = 35
-        versionCode = 33
-        versionName = "1.0.0-rc6"
+        versionCode = 34
+        versionName = "1.0.0-rc7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }

@@ -70,7 +70,7 @@ class DayPlanWidget : GlanceAppWidget() {
 
     @Composable
     private fun Content(state: WidgetState) {
-        WidgetContainer {
+        WidgetContainer(target = "timetable") {
             when (state) {
                 WidgetState.NoClass -> WidgetMessage("Otwórz eLektron i wybierz klasę.")
                 is WidgetState.NoLessons -> WidgetMessage("Brak lekcji w najbliższych dniach.")

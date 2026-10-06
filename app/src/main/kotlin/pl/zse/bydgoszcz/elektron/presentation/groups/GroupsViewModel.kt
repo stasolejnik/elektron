@@ -55,6 +55,8 @@ class GroupsViewModel @Inject constructor(
         val ready: Boolean = false
     )
 
+    val saving = MutableStateFlow(false)
+    val saveError = MutableStateFlow<String?>(null)
     private val retrying = MutableStateFlow(false)
 
     /**
@@ -120,6 +122,7 @@ class GroupsViewModel @Inject constructor(
 
     /** choice == null: pokazuj wszystkie grupy; LessonGroups.NONE: nie chodzę. */
     fun setChoice(subject: String, choice: String?) {
+        if (saving.value) return
         draft.value = draft.value + (subject to choice)
     }
 
@@ -128,21 +131,22 @@ class GroupsViewModel @Inject constructor(
      * na 2 grupy). [option] == null -> "Wszystkie".
      */
     fun applyDivision(key: String, option: String?) {
+        if (saving.value) return
         draft.value = draft.value + LessonGroups.applyDivision(state.value.subjects, key, option)
     }
 
     /** Zapisuje szkic (Zapisz w Ustawieniach, Dalej przy pierwszym uruchomieniu). */
     private suspend fun commit() {
-        val cid = settings.selectedClassId.first() ?: return
+        val cid = settings.selectedClassId.first() ?: error("Nie wybrano klasy")
         val changes = draft.value
-        if (changes.isEmpty()) return
-        changes.forEach { (subject, choice) -> settings.setGroupSelection(cid, subject, choice) }
+        settings.saveGroupChoices(cid, changes)
         draft.value = emptyMap()
         widgetUpdater.requestUpdate()
     }
 
     /** Anuluj: odrzuca niezapisane zmiany. */
     fun cancel(onDone: () -> Unit = {}) {
+        if (saving.value) return
         draft.value = emptyMap()
         onDone()
     }
@@ -163,10 +167,14 @@ class GroupsViewModel @Inject constructor(
 
     /** Zamyka krok konfiguracji grup dla bieżącej klasy. */
     fun finish(onDone: () -> Unit = {}) {
+        if (saving.value) return
+        saving.value = true; saveError.value = null
         viewModelScope.launch {
-            commit()
-            settings.selectedClassId.first()?.let { settings.setGroupsConfiguredFor(it) }
-            onDone()
+            try {
+                pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { commit() }
+                    .onSuccess { onDone() }
+                    .onFailure { saveError.value = "Nie udało się zapisać grup. Twoje zmiany pozostały; spróbuj ponownie." }
+            } finally { saving.value = false }
         }
     }
 }

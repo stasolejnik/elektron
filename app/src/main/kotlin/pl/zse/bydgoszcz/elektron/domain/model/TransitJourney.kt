@@ -35,14 +35,11 @@ data class TransitJourney(val rides: List<TransitRide>, val walkMinutes: Int, va
 object TransitJourneys {
     /** Keep a departure visible until it leaves, even after the walking deadline passes. */
     fun rank(journeys: List<TransitJourney>, nowMs: Long, preferredOrigin: TransitDestination? = null, allowTransfers: Boolean = true): List<TransitJourney> {
-        val upcoming = journeys.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) }.groupBy { it.key }.values.map { variants ->
+        return journeys.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) &&
+            (preferredOrigin == null || it.rides.first().fromId in preferredOrigin.stopIds)
+        }.groupBy { it.key }.values.map { variants ->
             variants.minWith(compareBy<TransitJourney> { it.arrivalMs }.thenBy { it.transfers })
-        }
-        val candidates = upcoming.filter { it.walkAvailable && it.reachable(nowMs) }.ifEmpty { upcoming }
-        val first = candidates.minWithOrNull(compareBy<TransitJourney> {
-            if (preferredOrigin != null && it.rides.first().fromId in preferredOrigin.stopIds) 0 else 1
-        }.thenBy { it.transfers }.thenBy { it.distanceMeters }.thenBy { it.departureMs }.thenBy { it.arrivalMs }) ?: return emptyList()
-        return listOf(first) + upcoming.filter { it.key != first.key }.sortedWith(
-            compareBy<TransitJourney> { it.departureMs }.thenBy { it.arrivalMs })
+        }.sortedWith(compareBy<TransitJourney> { it.arrivalMs }.thenBy { it.departureMs }
+            .thenBy { it.rides.first().line }.thenBy { it.rides.first().fromId })
     }
 }

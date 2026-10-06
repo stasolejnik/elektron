@@ -137,6 +137,9 @@ interface SubstitutionDao {
 
 @Dao
 interface AnnouncementDao {
+    @Query("SELECT * FROM announcements WHERE isFavorite = 1")
+    suspend fun getFavorites(): List<AnnouncementEntity>
+
     @Query("SELECT id, title, url, publishedAtEpochSeconds, excerpt, coverImageUrl, NULL AS fullHtml, isRead, source, isFavorite FROM announcements ORDER BY publishedAtEpochSeconds DESC")
     fun observeAll(): Flow<List<AnnouncementEntity>>
 

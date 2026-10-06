@@ -13,13 +13,15 @@ data class TransitDestination(val name: String, val stopIds: List<String>, val l
 
 data class TransitPreferences(
     val destination: TransitDestination? = null,
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     val preferredOrigin: TransitDestination? = null,
     val allowTransfers: Boolean = false,
     val recentDestinations: List<TransitDestination> = emptyList(),
-    val recentOrigins: List<TransitDestination> = emptyList()
+    val recentOrigins: List<TransitDestination> = emptyList(),
+    val hiddenTabs: Set<String> = emptySet(),
+    val showOnDashboard: Boolean = true
 ) {
-    val visible: Boolean get() = enabled && destination != null
+    val visible: Boolean get() = enabled
 }
 
 internal fun rememberTransitStop(previous: List<TransitDestination>, selected: TransitDestination): List<TransitDestination> =

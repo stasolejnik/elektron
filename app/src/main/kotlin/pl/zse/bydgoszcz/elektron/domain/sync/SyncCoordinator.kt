@@ -177,12 +177,12 @@ class SyncCoordinator @Inject constructor(
     }
 
     private suspend fun classChange(classId: String, reset: Boolean): SyncOutcome {
-        if (reset) db.withTransaction {
+        if (reset) announcementsRepo.resetArchive { db.withTransaction {
             val sql = db.openHelper.writableDatabase
             listOf("lesson_groups", "lessons", "substitutions", "school_classes", "teachers", "rooms",
                 "notifications", "sync_state").forEach { sql.execSQL("DELETE FROM `$it`") }
             sql.execSQL("DELETE FROM announcements WHERE isFavorite = 0")
-        }
+        } }
         // Najpierw "loaded" wyczyszczone, potem klasa: od tej chwili initialSyncPending = true
         // (także po restarcie procesu), aż plan nowej klasy się pobierze.
         notificationsRepo.clearLoaded()
@@ -228,7 +228,7 @@ class SyncCoordinator @Inject constructor(
             }
             for (source in outcome.failures.keys) {
                 db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity(
-                    sourceKey(source), now, "error", null))
+                    sourceKey(source), now, "error", SyncOutcome.errorMessage(mapOf(source to outcome.failures.getValue(source))) ?: pl.zse.bydgoszcz.elektron.domain.model.SyncErrors.userMessage(outcome.failures.getValue(source))))
             }
             for (key in listOf(SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS, SyncOutcome.ANNOUNCEMENTS)) {
                 if (key in outcome.succeeded) notificationsRepo.markLoaded(key)
@@ -236,7 +236,12 @@ class SyncCoordinator @Inject constructor(
             // Komunikat tylko gdy praca dotyczyła planu albo zastępstw - odświeżenie samych
             // ogłoszeń nie kasuje komunikatu o niedziałającym planie.
             if (SyncOutcome.TIMETABLE in sources || SyncOutcome.SUBSTITUTIONS in sources) {
-                notificationsRepo.setLastSyncError(outcome.userError())
+                val unresolved = listOf(SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS).mapNotNull { source ->
+                    db.syncStateDao().get(sourceKey(source))?.takeIf { it.status == "error" }?.let { saved ->
+                        saved.message ?: SyncOutcome.errorMessage(mapOf(source to java.io.IOException("Poprzednia próba nie powiodła się.")))
+                    }
+                }.distinct()
+                notificationsRepo.setLastSyncError(unresolved.takeIf { it.isNotEmpty() }?.joinToString("\n") ?: outcome.userError())
             }
             if (SyncOutcome.freshDataLoaded(outcome.succeeded)) notificationsRepo.setLastSyncAt(Instant.now())
             if (SyncOutcome.SUBSTITUTIONS in outcome.succeeded || SyncOutcome.ANNOUNCEMENTS in outcome.succeeded) {

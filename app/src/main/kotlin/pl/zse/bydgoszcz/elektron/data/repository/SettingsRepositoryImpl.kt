@@ -277,4 +277,13 @@ class SettingsRepositoryImpl internal constructor(
     override suspend fun setGroupsConfiguredFor(classId: String) {
         safeEdit { it[Keys.GROUPS_CONFIGURED_FOR] = classId }
     }
+    override suspend fun saveGroupChoices(classId: String, changes: Map<String, String?>) {
+        store.edit { prefs ->
+            val current = decodeGroups(prefs[Keys.groups(classId)]).toMutableMap()
+            changes.forEach { (subject, choice) -> if (choice == null) current.remove(subject) else current[subject] = choice }
+            prefs[Keys.groups(classId)] = encodeGroups(current)
+            prefs[Keys.GROUPS_CONFIGURED_FOR] = classId
+        }
+    }
+
 }

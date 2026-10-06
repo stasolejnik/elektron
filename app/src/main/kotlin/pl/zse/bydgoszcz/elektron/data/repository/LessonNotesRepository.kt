@@ -62,6 +62,15 @@ class LessonNotesRepository internal constructor(private val store: DataStore<Pr
         }
         claimed
     }
+    /** Failed delivery must not consume a reminder or alter a newer edit. */
+    suspend fun releaseReminder(key: String, revision: Long) = withContext(Dispatchers.IO) {
+        store.edit { prefs ->
+            prefs[entries] = encode(decode(prefs[entries]).map { note ->
+                if (note.key == key && note.revision == revision && note.reminded) note.copy(reminded = false)
+                else note
+            })
+        }; Unit
+    }
     private fun encode(notes: List<LessonNote>): String = JSONArray().apply {
         notes.forEach { n -> put(JSONObject().put("class", n.classId).put("date", n.date.toString())
             .put("number", n.number).put("subject", n.subject).put("text", n.text)

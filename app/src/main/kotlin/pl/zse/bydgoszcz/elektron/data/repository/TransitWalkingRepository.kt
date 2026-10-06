@@ -23,13 +23,18 @@ import javax.inject.Singleton
 import kotlin.math.ceil
 
 @Singleton
-class TransitWalkingRepository internal constructor(private val client: OkHttpClient, private val cacheFile: File? = null) {
+class TransitWalkingRepository internal constructor(private val client: OkHttpClient, private val cacheFile: File? = null,
+    private val elapsedMs: () -> Long = { android.os.SystemClock.elapsedRealtime() }) {
     @Inject constructor(client: OkHttpClient, @ApplicationContext context: Context) : this(client, File(context.cacheDir, "transit_walks.json"))
     data class Path(val minutes: Int, val distanceMeters: Double, val savedAt: Long)
     private val lock = Mutex()
     private val cache = mutableMapOf<String, Path>()
     private var restored = false
-    private var lastRequest = 0L
+    private var lastRequest: Long? = null
+    // Short, memory-only cooldowns avoid repeating optional routing work when offline
+    // or when the router cannot reach a platform. Departure refreshes remain independent.
+    private var retryAfter = 0L
+    private val unavailableUntil = linkedMapOf<String, Long>()
     private fun cacheKey(stop: TransitDestination) = "${SchoolTransit.LATITUDE},${SchoolTransit.LONGITUDE}:${stop.latitude},${stop.longitude}"
 
     private fun restoreCache() {
@@ -72,12 +77,16 @@ class TransitWalkingRepository internal constructor(private val client: OkHttpCl
             synchronized(cache) { restoreCache() }
             val now = System.currentTimeMillis()
             val unique = stops.distinctBy { cacheKey(it) }.take(50)
-            val missing = synchronized(cache) { unique.filter { cache[cacheKey(it)]?.let { path -> now - path.savedAt in 0..604_800_000L } != true } }
-            if (missing.isNotEmpty()) runCatchingCancellable {
+            val elapsed = elapsedMs()
+            unavailableUntil.entries.removeAll { it.value <= elapsed }
+            val missing = synchronized(cache) { unique.filter {
+                cache[cacheKey(it)]?.let { path -> now - path.savedAt in 0..604_800_000L } != true &&
+                    cacheKey(it) !in unavailableUntil
+            } }
+            if (missing.isNotEmpty() && elapsed >= retryAfter) runCatchingCancellable {
                 // At most one request per second, including retries after failures/cancellation.
-                val elapsed = System.nanoTime() / 1_000_000
-                delay((1000 - (elapsed - lastRequest)).coerceAtLeast(0))
-                lastRequest = System.nanoTime() / 1_000_000
+                lastRequest?.let { delay((1000 - (elapsedMs() - it)).coerceAtLeast(0)) }
+                lastRequest = elapsedMs()
                 val coords = listOf("${SchoolTransit.LONGITUDE},${SchoolTransit.LATITUDE}") + missing.map { "${it.longitude},${it.latitude}" }
                 val url = "https://routing.openstreetmap.de/routed-foot/table/v1/foot/${coords.joinToString(";")}?sources=0&destinations=${(1..missing.size).joinToString(";")}&annotations=duration,distance"
                 val request = Request.Builder().url(url)
@@ -95,17 +104,21 @@ class TransitWalkingRepository internal constructor(private val client: OkHttpCl
                 val durations = json.getJSONArray("durations").getJSONArray(0)
                 val distances = json.getJSONArray("distances").getJSONArray(0)
                 val destinations = json.getJSONArray("destinations")
+                val resolved = mutableMapOf<String, Path>()
                 missing.forEachIndexed { i, stop ->
                     if (!durations.isNull(i) && !distances.isNull(i)) {
                         val duration = durations.getDouble(i); val distance = distances.getDouble(i)
                         if (duration.isFinite() && duration in 0.0..7200.0 && distance.isFinite() && distance in 0.0..10000.0 &&
                             destinations.getJSONObject(i).getDouble("distance") <= 50) {
-                            synchronized(cache) { cache[cacheKey(stop)] = Path(ceil(duration / 60).toInt().coerceAtLeast(1), distance, now) }
+                            resolved[cacheKey(stop)] = Path(ceil(duration / 60).toInt().coerceAtLeast(1), distance, now)
                         }
                     }
                 }
+                missing.filter { cacheKey(it) !in resolved }.forEach { unavailableUntil[cacheKey(it)] = elapsedMs() + 300_000L }
+                while (unavailableUntil.size > 100) unavailableUntil.remove(unavailableUntil.keys.first())
+                synchronized(cache) { cache.putAll(resolved) }
                 synchronized(cache) { cache.entries.removeAll { now - it.value.savedAt !in 0..604_800_000L } }
-                cacheFile?.let { file -> runCatching {
+                cacheFile?.takeIf { resolved.isNotEmpty() }?.let { file -> runCatching {
                     val data = JSONObject()
                     synchronized(cache) { cache.entries.take(100).map { it.key to it.value } }.forEach { (key, path) -> data.put(key, JSONObject().put("minutes", path.minutes).put("distance", path.distanceMeters).put("saved", path.savedAt)) }
                     val atomic = AtomicFile(file)
@@ -113,7 +126,7 @@ class TransitWalkingRepository internal constructor(private val client: OkHttpCl
                     try { output.write(data.toString().toByteArray()); atomic.finishWrite(output) }
                     catch (e: Exception) { atomic.failWrite(output); throw e }
                 } }
-            }
+            }.onFailure { retryAfter = elapsedMs() + 60_000L }
             synchronized(cache) { cachedPaths(stops, now) }
         }
     }

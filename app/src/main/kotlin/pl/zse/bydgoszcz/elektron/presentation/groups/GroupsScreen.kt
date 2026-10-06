@@ -76,6 +76,8 @@ fun GroupsScreen(
     viewModel: GroupsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val saving by viewModel.saving.collectAsStateWithLifecycle()
+    val saveError by viewModel.saveError.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     LaunchedEffect(Unit) { viewModel.startEditing() }
     var confirmDiscard by remember { mutableStateOf(false) }
@@ -118,7 +120,7 @@ fun GroupsScreen(
                 Surface(color = MaterialTheme.colorScheme.background) {
                     Button(
                         onClick = { viewModel.finish(onClose) },
-                        enabled = state.status != GroupsViewModel.Status.LOADING,
+                        enabled = !saving && state.status != GroupsViewModel.Status.LOADING,
                         modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                             .padding(horizontal = 20.dp, vertical = 12.dp).height(52.dp)
                     ) {
@@ -139,7 +141,7 @@ fun GroupsScreen(
                         ) { Text("Anuluj", style = MaterialTheme.typography.titleMedium) }
                         Button(
                             onClick = { viewModel.finish(onClose) },
-                            enabled = state.hasChanges,
+                            enabled = !saving && state.hasChanges,
                             modifier = Modifier.weight(1f).height(52.dp)
                         ) { Text("Zapisz", style = MaterialTheme.typography.titleMedium) }
                     }
@@ -147,11 +149,13 @@ fun GroupsScreen(
             }
         }
     ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+        saveError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
         AnimatedContent(
             targetState = state.status,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             label = "groupsStatus",
-            modifier = Modifier.fillMaxSize().padding(padding).revealWhen(state.ready)
+            modifier = Modifier.weight(1f).revealWhen(state.ready)
         ) { status ->
             when (status) {
                 GroupsViewModel.Status.LOADING -> CenterMessage(loading = true,
@@ -167,6 +171,7 @@ fun GroupsScreen(
                     onAction = viewModel::retry)
                 GroupsViewModel.Status.READY -> SubjectList(state, viewModel::setChoice, viewModel::applyDivision)
             }
+        }
         }
     }
 }

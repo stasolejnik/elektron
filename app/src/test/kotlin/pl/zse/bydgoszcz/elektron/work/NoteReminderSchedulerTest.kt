@@ -41,7 +41,10 @@ class NoteReminderSchedulerTest {
     @Test fun eveningDeliversAllDueNotesOnceAndTapOpensCorrectLesson() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
-        WorkManager.initialize(app, Configuration.Builder().build())
+        runCatching { WorkManager.getInstance(app) }.getOrElse {
+            WorkManager.initialize(app, Configuration.Builder().build())
+            WorkManager.getInstance(app)
+        }
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val file = File(app.cacheDir, "reminder-notes.preferences_pb").apply { delete() }
         val repo = LessonNotesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
@@ -83,6 +86,43 @@ class NoteReminderSchedulerTest {
             scheduler.deliver(edited.key, edited.revision, now.plusHours(1))
             assertFalse(repo.notes.first().first { it.key == edited.key }.reminded)
             assertEquals(2, mgr.activeNotifications.size)
+            mgr.cancelAll()
+            permissionRevokedAfterClaimDoesNotConsumeReminder()
         } finally { scope.cancel(); scope.coroutineContext[Job]!!.join() }
     }
+    private suspend fun permissionRevokedAfterClaimDoesNotConsumeReminder() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val file = File(app.cacheDir, "reminder-permission-${System.nanoTime()}.preferences_pb")
+        val repo = LessonNotesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
+        val day = LocalDate.now().plusDays(2)
+        val lesson = Lesson("l1", "o3", "1D", day, DayOfWeek.fromIso(day.dayOfWeek.value)!!,
+            1, LocalTime.of(9, 0), LocalTime.of(9, 45), emptyList(), null, null)
+        var revokeDuringDelivery = true
+        val settings = object : pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository by FakeSettings() {
+            override val subjectStyles: Flow<Map<String, SubjectStyle>> = flow {
+                if (revokeDuringDelivery) shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+                emit(emptyMap())
+            }
+        }
+        val sink = LocalNotificationSink(app, settings)
+        val scheduler = NoteReminderScheduler(app, repo, settings, Plan(listOf(lesson)), sink)
+        try {
+            repo.save(LessonNote("o3", day, 1, "mat", "Ważna notatka", 0))
+            repo.setReminders(true)
+            val saved = repo.notes.first().single()
+            val now = day.minusDays(1).atTime(18, 0)
+            try { scheduler.deliver(saved.key, saved.revision, now); fail("Delivery failure must be reported") }
+            catch (_: java.io.IOException) { }
+            assertFalse(repo.notes.first().single().reminded)
+            assertEquals(0, app.getSystemService(NotificationManager::class.java).activeNotifications.size)
+            revokeDuringDelivery = false
+            shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+            scheduler.deliver(saved.key, saved.revision, now)
+            assertTrue(repo.notes.first().single().reminded)
+            assertEquals(1, app.getSystemService(NotificationManager::class.java).activeNotifications.size)
+        } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
+    }
+
 }

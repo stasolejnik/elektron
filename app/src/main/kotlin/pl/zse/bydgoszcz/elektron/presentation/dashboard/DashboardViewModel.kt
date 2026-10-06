@@ -83,6 +83,7 @@ class DashboardViewModel @Inject constructor(
         val latestAnnouncements: List<Announcement> = emptyList(),
         val isRefreshing: Boolean = false,
         val lastSyncAt: Instant? = null,
+        val showDeparture: Boolean = false,
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true,
@@ -232,9 +233,9 @@ class DashboardViewModel @Inject constructor(
             className = className,
             isSyncing = c.syncing,
             lastSyncError = c.error,
-            loadingTimetable = (stillLoadingBase || !timetableLoaded) && lesson == null,
-            loadingSubs = (stillLoadingBase || !subsLoaded) && upcoming.isEmpty(),
-            loadingAnns = (stillLoadingBase || !annsLoaded) && c.anns.isEmpty(),
+            loadingTimetable = (stillLoadingBase || (c.syncing && !timetableLoaded)) && lesson == null,
+            loadingSubs = (stillLoadingBase || (c.syncing && !subsLoaded)) && upcoming.isEmpty(),
+            loadingAnns = (stillLoadingBase || (c.syncing && !annsLoaded)) && c.anns.isEmpty(),
             nextLesson = lesson,
             nextLessonDayLabel = dayLabel,
             nextLessonStatus = status,
@@ -256,6 +257,12 @@ class DashboardViewModel @Inject constructor(
             latestAnnouncements = c.anns.take(3),
             isRefreshing = c.refresh,
             lastSyncAt = c.lastSync,
+            showDeparture = pl.zse.bydgoszcz.elektron.domain.model.DashboardDepartures.isTime(lessons.map { lesson ->
+                val sub = c.subs.firstOrNull { it.date == lesson.date && it.lessonNumber == lesson.number &&
+                    c.classShort != null && SubstitutionRelevance.matchesClass(it, c.classShort) &&
+                    LessonGroups.substitutionRelevant(it, c.lessons, c.groups) }
+                if (sub == null) lesson else lesson.copy(substitution = sub)
+            }, nowDt),
             showNextLesson = c.showNextLesson,
             showSubstitutions = c.showSubstitutions,
             showAnnouncements = c.showAnnouncements

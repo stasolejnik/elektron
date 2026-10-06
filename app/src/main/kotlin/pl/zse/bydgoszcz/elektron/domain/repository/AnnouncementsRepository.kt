@@ -26,6 +26,9 @@ interface AnnouncementsRepository {
      * Wczytuje starsze ogłoszenia z archiwum strony szkoły (RSS zawiera tylko najnowsze).
      * Wynik: liczba dodanych wpisów; [OlderResult.exhausted] = archiwum się skończyło.
      */
+    val archiveGeneration: Flow<Long> get() = kotlinx.coroutines.flow.flowOf(0L)
+    /** Serialize cache removal with archive loading and invalidate pagination. */
+    suspend fun resetArchive(clear: suspend () -> Unit = {}) { clear() }
     suspend fun loadOlder(): Result<OlderResult>
 
     data class OlderResult(val added: Int, val exhausted: Boolean)

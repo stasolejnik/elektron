@@ -13,7 +13,7 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
 
 ## Dane zapisane na telefonie
 
-- **Ustawienia:** wybrana klasa, grupy zajęciowe, motyw, ustawienia powiadomień oraz przystanek docelowy i przełącznik eksperymentalnych odjazdów.
+- **Ustawienia:** wybrana klasa, grupy zajęciowe, motyw, ustawienia powiadomień oraz przystanek docelowy i wybrane ikony dolnego paska i widoczność kafelka odjazdu na stronie głównej.
 - **Kopia danych ze strony szkoły:** plan lekcji, zastępstwa i ogłoszenia (żeby aplikacja
   działała bez internetu).
 - **Ulubione ogłoszenia:** wybrane wpisy i pobrana treść artykułów, przechowywane lokalnie również po czyszczeniu danych podręcznych.
@@ -28,8 +28,8 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
 
 Aplikacja nie wysyła tych danych automatycznie. Przyciski **Udostępnij dzień** i **Udostępnij tydzień** pozwalają przekazać plan wybranego dnia lub tygodnia (klasę, godziny, przedmioty, sale, nauczycieli i zastępstwa) do aplikacji, którą sam wybierzesz w systemowym oknie udostępniania.
 
-Ustawienia mogą trafić do kopii zapasowej Androida
-(Google), jeśli masz ją włączoną w telefonie - kopia danych ze strony szkoły jest z niej
+Ustawienia oraz wybrane ulubione ogłoszenia wraz z pobraną treścią mogą trafić do kopii zapasowej Androida
+(Google), jeśli masz ją włączoną w telefonie - zwykła baza podręczna danych ze strony szkoły jest z niej
 wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
 
 ## Połączenia z internetem
@@ -53,12 +53,13 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   instalację zawsze zatwierdzasz sam. GitHub widzi przy tym adres IP i wersję aplikacji; nie są
   wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
-- **BUSearch (eksperymentalne odjazdy ze szkoły):** po otwarciu wyboru przystanku aplikacja
+- **BUSearch (odjazdy ze szkoły):** po otwarciu wyboru przystanku aplikacja
   pobiera publiczny katalog z api.busearch.pl. Katalog jest zapisywany w pamięci podręcznej;
   wyszukiwanie nazw i wybór celu odbywają się lokalnie. Przy samym wyborze celu nie są
   przesyłane wpisywane frazy, wybrany przystanek ani lokalizacja telefonu. Serwer widzi adres IP i wersję aplikacji.
   Po otwarciu zakładki Odjazdy albo ręcznym odświeżeniu wysyła do planera BUSearch stały
-  punkt szkoły, współrzędne wybranego przystanku docelowego i czas rozpoczęcia podróży.
+  punkt szkoły albo identyfikatory stanowisk wybranego przystanku początkowego,
+  współrzędne przystanku docelowego i czas rozpoczęcia podróży.
   Dzięki temu pobiera połączenia i godziny odjazdów. Cel podróży jest więc przekazywany
   dostawcy tylko przy wyszukiwaniu połączeń. Preferowany przystanek początkowy jest wtedy
   również przekazywany planerowi. Historia pięciu ostatnich celów i pięciu ostatnich

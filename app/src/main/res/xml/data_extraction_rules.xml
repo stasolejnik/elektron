@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Kopia zapasowa (Android 12+): ustawienia (DataStore: klasa, grupy, motyw, powiadomienia)
-  są przywracane na nowym telefonie. Baza Room to tylko cache ze strony szkoły + stan
+  oraz ulubione ogłoszenia (files/favorite_announcements.json) są przywracane na nowym telefonie.
+  Baza Room zawiera podręczną kopię danych ze strony szkoły + stan
   synchronizacji — wykluczona, żeby po przywróceniu nie było starych danych, a pierwszy sync
   zbudował stan od nowa (bez lawiny powiadomień).
 -->

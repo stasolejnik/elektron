@@ -39,14 +39,18 @@ fun currentDateFlow(): Flow<java.time.LocalDate> =
 fun rememberNow(periodMs: Long = 30_000L): androidx.compose.runtime.State<java.time.LocalDateTime> {
     val visible = LocalScreenVisible.current
     val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    return androidx.compose.runtime.produceState(java.time.LocalDateTime.now(), owner, periodMs, visible) {
+    val now = androidx.compose.runtime.remember(owner, periodMs, visible) {
+        androidx.compose.runtime.mutableStateOf(java.time.LocalDateTime.now())
+    }
+    androidx.compose.runtime.LaunchedEffect(owner, periodMs, visible) {
         owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             if (visible) while (true) {
-                value = java.time.LocalDateTime.now()
+                now.value = java.time.LocalDateTime.now()
                 delay(periodMs - System.currentTimeMillis() % periodMs)
             }
         }
     }
+    return now
 }
 
 /** Sąsiednie strony pagera przygotowują dane, ale nie potrzebują tykającego zegara. */

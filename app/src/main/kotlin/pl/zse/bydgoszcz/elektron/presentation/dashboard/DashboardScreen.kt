@@ -77,6 +77,8 @@ fun DashboardScreen(
     onOpenTimetable: () -> Unit = {},
     /** Dotknięcie zastępstwa - przejście do zakładki Zastępstwa. */
     onOpenSubstitutions: () -> Unit = {},
+    onOpenTransit: () -> Unit = {},
+    transitViewModel: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel = hiltViewModel(),
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val visible = pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible.current
@@ -153,6 +155,9 @@ fun DashboardScreen(
                         }
                     }
 
+                    item(key = "departure") {
+                        DashboardDeparture(transitViewModel, state.showDeparture, onOpenTransit)
+                    }
                     if (state.showSubstitutions) {
                         item(key = "h_subs") {
                             val t = if (state.upcomingSubstitutions.isEmpty()) "Zastępstwa"

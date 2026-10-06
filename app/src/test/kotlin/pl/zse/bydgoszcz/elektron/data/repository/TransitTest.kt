@@ -38,31 +38,39 @@ class TransitTest {
             catch (_: Exception) { }
         }
     }
-    @Test fun enablingRequiresDestinationAndClearingAlsoDisables() = runBlocking {
+    @Test fun tabDefaultsToVisibleAndDoesNotRequireADestination() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val file = File(context.cacheDir, "transit-${System.nanoTime()}.preferences_pb")
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val store = PreferenceDataStoreFactory.create(scope = scope, produceFile = { file })
         val repo = TransitPreferencesRepository(store)
         try {
+            assertTrue(repo.preferences.first().visible)
+            assertNull(repo.preferences.first().destination)
+            // Old experimental opt-out must not hide the newly enabled standard tab.
+            store.edit { it[androidx.datastore.preferences.core.booleanPreferencesKey("enabled")] = false }
+            assertTrue(repo.preferences.first().visible)
+            repo.setEnabled(false)
             assertFalse(repo.preferences.first().visible)
-            try { repo.setEnabled(true); fail("A destination must be chosen first") }
-            catch (_: IllegalArgumentException) { }
+            repo.setEnabled(true)
             val destination = TransitDestination("Rondo Jagiellonów", listOf("9", "10"), 53.125, 18.005)
             repo.select(destination)
             assertEquals(destination, repo.preferences.first().destination)
-            assertFalse(repo.preferences.first().enabled)
+            assertTrue(repo.preferences.first().enabled)
             repo.setEnabled(true)
             assertTrue(repo.preferences.first().visible)
             repo.setEnabled(false)
             assertEquals(destination, repo.preferences.first().destination)
             repo.setEnabled(true)
             store.edit { it[stringPreferencesKey("destination")] = "invalid" }
-            assertFalse("Corrupted destination must hide the tab", repo.preferences.first().visible)
+            assertTrue("A missing goal keeps the picker accessible", repo.preferences.first().visible)
             repo.select(destination)
             repo.clearDestination()
             assertNull(repo.preferences.first().destination)
+            assertTrue(repo.preferences.first().visible)
+            repo.setEnabled(false)
             assertFalse(repo.preferences.first().visible)
+            assertFalse(TransitPreferencesRepository(store).preferences.first().visible)
         } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
     }
     @Test fun persistenceSurvivesRepositoryRestart() = runBlocking {
@@ -75,11 +83,18 @@ class TransitTest {
             repo.select(destination); repo.setEnabled(true)
             val origin = TransitDestination("Jagiellońska - Łużycka", listOf("24"), 53.12194, 18.02764)
             repo.selectOrigin(origin)
+            repo.setTabVisible("announcements", false)
+            repo.setShowOnDashboard(false)
             scope.cancel(); scope.coroutineContext[Job]!!.join()
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
             repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
             assertEquals(destination, repo.preferences.first().destination)
             assertEquals(origin, repo.preferences.first().preferredOrigin)
+            assertEquals(setOf("announcements"), repo.preferences.first().hiddenTabs)
+            assertFalse(repo.preferences.first().showOnDashboard)
+            repo.setTabVisible("announcements", true)
+            assertTrue(repo.preferences.first().hiddenTabs.isEmpty())
+            assertTrue(runCatching { repo.setTabVisible("settings", false) }.isFailure)
             assertTrue(repo.preferences.first().visible)
             repo.selectOrigin(null)
             assertNull(repo.preferences.first().preferredOrigin)

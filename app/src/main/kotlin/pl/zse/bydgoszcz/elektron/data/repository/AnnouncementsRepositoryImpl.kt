@@ -10,6 +10,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -29,11 +30,41 @@ import javax.inject.Singleton
 class AnnouncementsRepositoryImpl @Inject constructor(
     private val source: AnnouncementsSource,
     private val dao: AnnouncementDao,
-    private val db: AppDatabase
+    private val db: AppDatabase,
+    private val favoritesStore: FavoriteAnnouncementsStore
 ) : AnnouncementsRepository {
+    internal constructor(source: AnnouncementsSource, dao: AnnouncementDao, db: AppDatabase) :
+        this(source, dao, db, FavoriteAnnouncementsStore(null))
+    private val favoritesMutex = kotlinx.coroutines.sync.Mutex()
+    private var favoritesReady = false
+    private suspend fun restoreFavorites() = favoritesMutex.withLock {
+        if (!favoritesReady) {
+            val saved = favoritesStore.read()
+            val existing = dao.getFavorites()
+            val merged = (saved.orEmpty() + existing).associateBy { it.id }.values.toList()
+            // Write migration before changing the original cache; a failed write loses nothing.
+            favoritesStore.write(merged)
+            db.withTransaction {
+                val known = dao.getByIds(merged.map { it.id }).associateBy { it.id }
+                dao.upsertAll(merged.map { favorite -> known[favorite.id]?.copy(isFavorite = true,
+                    fullHtml = known[favorite.id]?.fullHtml ?: favorite.fullHtml) ?: favorite })
+            }
+            favoritesReady = true
+        }
+    }
+    private suspend fun restoreFavoritesForRead() {
+        // A full disk must not crash readers or hide articles still present in Room.
+        runCatchingCancellable { restoreFavorites() }
+            .onFailure { Log.w(TAG, "Nie udało się odtworzyć trwałego zapisu ulubionych; zachowuję bazę", it) }
+    }
+    private suspend fun persistFavorites() = favoritesMutex.withLock {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { favoritesStore.write(dao.getFavorites()) }
+    }
+
 
     override suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
+            restoreFavorites()
             val (newsResult, latestResult) = coroutineScope {
                 val news = async { runCatchingCancellable { source.fetchNewsFeed() } }
                 val latest = async { runCatchingCancellable { source.fetchLatestFeed() } }
@@ -68,37 +99,62 @@ class AnnouncementsRepositoryImpl @Inject constructor(
             // 2 lata (dawniej 180 dni) — inaczej sync kasowałby starsze ogłoszenia
             // wczytane z archiwum przez "Pokaż więcej".
             dao.deleteOlderThan(Instant.now().minusSeconds(60L * 60 * 24 * 730).epochSecond)
+            persistFavorites()
         }
     }
 
     override suspend fun deleteSimulated(): Int = withContext(Dispatchers.IO) { dao.deleteDevEntries() }
 
     override fun observeAll(): Flow<List<Announcement>> =
-        dao.observeAll().map { list -> list.map(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
+        dao.observeAll().onStart { restoreFavoritesForRead() }.map { list -> list.map(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
 
     override fun observeLatest(limit: Int): Flow<List<Announcement>> =
-        dao.observeLatest(limit).map { list -> list.map(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
+        dao.observeLatest(limit).onStart { restoreFavoritesForRead() }.map { list -> list.map(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
 
     override suspend fun count(): Int = withContext(Dispatchers.IO) { dao.count() }
 
 
     override fun observeById(id: String): Flow<Announcement?> =
-        dao.observeById(id).map { it?.let(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
+        dao.observeById(id).onStart { restoreFavoritesForRead() }.map { it?.let(AnnouncementMapper::toDomain) }.flowOn(Dispatchers.Default)
 
-    override suspend fun toggleFavorite(id: String) = withContext(Dispatchers.IO) { dao.toggleFavorite(id) }
+    override suspend fun toggleFavorite(id: String) = withContext(Dispatchers.IO) {
+        restoreFavorites()
+        favoritesMutex.withLock {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                db.withTransaction {
+                    dao.toggleFavorite(id)
+                    // A failed durable write must roll back the visible bookmark change.
+                    favoritesStore.write(dao.getFavorites())
+                }
+            }
+        }
+    }
 
-    override suspend fun clearFavorites(): Int = withContext(Dispatchers.IO) { dao.clearFavorites() }
+    override suspend fun clearFavorites(): Int = withContext(Dispatchers.IO) {
+        restoreFavorites()
+        favoritesMutex.withLock {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                db.withTransaction {
+                    val count = dao.clearFavorites()
+                    favoritesStore.write(emptyList())
+                    count
+                }
+            }
+        }
+    }
 
     private val articleMutex = kotlinx.coroutines.sync.Mutex()
 
     override suspend fun loadFullArticle(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
+            restoreFavorites()
             articleMutex.withLock {
                 val current = dao.getById(id) ?: throw java.io.IOException("Brak zapisanego ogłoszenia")
                 if (!current.fullHtml.isNullOrBlank()) return@withLock
                 val html = source.fetchArticleHtml(current.url)
                 if (html.isNullOrBlank()) throw pl.zse.bydgoszcz.elektron.domain.model.ArticleContentException()
                 dao.updateArticle(id, html)
+                if (dao.getById(id)?.isFavorite == true) persistFavorites()
             }
         }
     }
@@ -110,6 +166,7 @@ class AnnouncementsRepositoryImpl @Inject constructor(
     // Push FCM może przyjść o ogłoszeniu, które już jest w bazie — scalamy z istniejącym
     // wpisem (np. pobraną treścią artykułu), tak jak w syncAll().
     override suspend fun upsertOne(ann: Announcement) = withContext(Dispatchers.IO) {
+        restoreFavorites()
         db.withTransaction {
             val existing = dao.getById(ann.id)
             dao.upsertAll(listOf(AnnouncementEntity(
@@ -125,11 +182,19 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                 isFavorite = existing?.isFavorite ?: ann.isFavorite
             )))
         }
+        persistFavorites()
     }
 
     // Następna strona archiwum do pobrania (w pamięci procesu; po restarcie szacowana z bazy).
     private var nextArchivePage: Int? = null
     private val archiveMutex = kotlinx.coroutines.sync.Mutex()
+    override val archiveGeneration = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    override suspend fun resetArchive(clear: suspend () -> Unit) = archiveMutex.withLock {
+        clear()
+        nextArchivePage = null
+        archiveGeneration.value++
+        Unit
+    }
 
     override suspend fun loadOlder(): Result<AnnouncementsRepository.OlderResult> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
@@ -168,8 +233,14 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                                 source = AnnouncementSource.RSS_NEWS.name
                             )
                         }
-                        dao.upsertAll(entities)
-                        added = entities.size
+                        added = db.withTransaction {
+                            // RSS/push may have saved the same article while dates were downloading.
+                            // Preserve its bookmark and offline content rather than replacing it.
+                            val existing = dao.existingUrls(entities.map { it.url }).toSet()
+                            val missing = entities.filter { it.url !in existing }.distinctBy { it.id }
+                            dao.upsertAll(missing)
+                            missing.size
+                        }
                     }
                     page++
                 }

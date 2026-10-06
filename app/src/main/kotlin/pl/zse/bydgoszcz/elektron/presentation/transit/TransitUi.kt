@@ -18,51 +18,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pl.zse.bydgoszcz.elektron.presentation.common.*
 
 @Composable
-fun TransitSettingsSection(viewModel: TransitViewModel) {
+fun TransitVisibilitySection(viewModel: TransitViewModel) {
     val state by viewModel.settings.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val error by viewModel.settingsError.collectAsStateWithLifecycle()
-    var picker by rememberSaveable { mutableStateOf(false) }
-    var originPicker by rememberSaveable { mutableStateOf(false) }
-    val destination = state.preferences.destination
-    GroupedSection("Funkcje eksperymentalne", footer = "Odjazdy ze szkoły przy Karłowicza 20. Najpierw wybierz cel, potem włącz zakładkę. Wybór nie korzysta z GPS. Przystanki i połączenia pochodzą z BUSearch, mapa z OpenStreetMap.") {
-        Text("Odjazdy ze szkoły", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { viewModel.query.value = ""; picker = true }, enabled = state.ready && !state.failed && !saving,
-                modifier = Modifier.weight(1f)) {
-                Text(destination?.name?.let { "Przystanek docelowy: $it" } ?: "Wybierz przystanek docelowy")
-            }
-            if (destination != null) IconButton(onClick = viewModel::clear, enabled = !saving) {
-                Icon(Icons.Filled.Close, "Usuń wybrany przystanek docelowy")
+    GroupedSection("Pasek nawigacji", footer = "Ukryte zakładki nadal otworzysz przesunięciem ekranu. Ustawienia pozostają dostępne na pasku.") {
+        bottomDestinationsForTransit(true).filter { it.route != "settings" }.forEachIndexed { index, destination ->
+            if (index > 0) HorizontalDivider()
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(destination.label, Modifier.weight(1f))
+                val checked = if (destination.route == "transit") state.preferences.visible else destination.route !in state.preferences.hiddenTabs
+                Switch(checked = checked, onCheckedChange = { viewModel.setTabVisible(destination.route, it) },
+                    enabled = state.ready && !state.failed && !saving)
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Pokaż zakładkę Odjazdy", Modifier.weight(1f).padding(end = 8.dp))
-            Switch(checked = state.preferences.visible, onCheckedChange = viewModel::setEnabled,
-                enabled = state.ready && !state.failed && destination != null && !saving)
-        }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { viewModel.query.value = ""; originPicker = true }, enabled = state.ready && !state.failed && !saving, modifier = Modifier.weight(1f)) {
-                Text(state.preferences.preferredOrigin?.name?.let { "Odjazd z: $it" } ?: "Preferowany przystanek początkowy")
-            }
-            if (state.preferences.preferredOrigin != null) IconButton(onClick = { viewModel.selectOrigin(null) }, enabled = !saving) {
-                Icon(Icons.Filled.Close, "Usuń preferowany przystanek początkowy")
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Pokaż połączenia z przesiadką", Modifier.weight(1f).padding(end = 8.dp))
-            Switch(checked = state.preferences.allowTransfers, onCheckedChange = viewModel::setAllowTransfers,
-                enabled = state.ready && !state.failed && !saving)
-        }
-        val context = androidx.compose.ui.platform.LocalContext.current
-        TextButton(onClick = { SafeUrls.open(context, "https://www.openstreetmap.org/fixthemap") }, modifier = Modifier.padding(horizontal = 8.dp)) {
-            Text("Zgłoś nieprawidłowe dane mapy", style = MaterialTheme.typography.labelSmall)
-        }
-        if (state.failed) Text("Nie udało się odczytać ustawień odjazdów.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-        if (!picker && !originPicker) error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        if (state.failed) Text("Nie udało się odczytać ustawień paska.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
     }
-    if (picker) StopPicker(viewModel) { picker = false }
-    if (originPicker) StopPicker(viewModel, origin = true) { originPicker = false }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -131,12 +103,14 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
                 error?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                }
+                if (error != null || stale) {
                     TextButton(onClick = { viewModel.loadStops(force = true) }, enabled = !loading && !saving) { Text("Spróbuj ponownie") }
                 }
                 writeError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
                 if (!loading && mapStops.isEmpty() && recent.isEmpty() && error == null) Text("Nie znaleziono przystanku. Spróbuj krótszej nazwy.", Modifier.padding(vertical = 16.dp))
                 if (mapMode) {
-                    Text("Dotknij znacznika, aby wybrać cel. Mapa działa bez GPS.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
+                    Text("Dotknij znacznika, aby wybrać przystanek. Mapa działa bez GPS.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
                     Box(Modifier.weight(1f)) {
                         TransitMap(mapStops, if (origin) settings.preferences.preferredOrigin else settings.preferences.destination, saving, choose)
                     }

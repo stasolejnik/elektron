@@ -480,4 +480,69 @@ class SyncCoordinatorTest {
         assertEquals(before + 1, timetable.calls.get())
         assertTrue(SyncOutcome.TIMETABLE in t.notificationsRepo.observeLoadedResources().first())
     }
+    @Test fun refreshingSubstitutionsDoesNotClearTimetableFailure() = runBlocking<Unit> {
+        timetable.error = IOException("Plan: HTTP 503")
+        coordinator.sync(SyncRequest.full())
+        val error = t.notificationsRepo.observeLastSyncError().first()
+        coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+        assertEquals(error, t.notificationsRepo.observeLastSyncError().first())
+        timetable.error = null
+        coordinator.sync(SyncRequest.of(SyncOutcome.TIMETABLE))
+        assertNull(t.notificationsRepo.observeLastSyncError().first())
+    }
+    @Test fun refreshingTimetableDoesNotClearSubstitutionFailure() = runBlocking<Unit> {
+        subs.error = IOException("Zastępstwa: HTTP 503")
+        coordinator.sync(SyncRequest.full())
+        val error = t.notificationsRepo.observeLastSyncError().first()
+        coordinator.sync(SyncRequest.of(SyncOutcome.TIMETABLE))
+        assertEquals(error, t.notificationsRepo.observeLastSyncError().first())
+        subs.error = null
+        coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+        assertNull(t.notificationsRepo.observeLastSyncError().first())
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun dashboardStopsLoadingAfterFailedInitialSync() = runBlocking<Unit> {
+        Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())
+        val updates = object : pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository {
+            override val availableUpdate = kotlinx.coroutines.flow.flowOf<pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate?>(null)
+            override suspend fun check(force: Boolean) = Result.success<pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate?>(null)
+            override suspend fun dismiss(versionName: String) = Unit
+        }
+        val vm = pl.zse.bydgoszcz.elektron.presentation.dashboard.DashboardViewModel(settings, t.substitutionsRepo,
+            t.announcementsRepo, t.notificationsRepo, t.timetableRepo, updates, coordinator)
+        val owner = androidx.lifecycle.ViewModelStore().apply { put("dashboard", vm) }
+        try {
+            timetable.error = IOException("Offline")
+            subs.error = IOException("Offline")
+            anns.error = IOException("Offline")
+            coordinator.sync(SyncRequest.full())
+            val state = withTimeout(10_000) { vm.state.first { it.ready && !it.isSyncing && it.lastSyncError != null } }
+            assertFalse(state.loadingTimetable)
+            assertFalse(state.loadingSubs)
+            assertFalse(state.loadingAnns)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun failedGroupSaveKeepsDraftAndDoesNotCloseEditor() = runBlocking<Unit> {
+        Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())
+        val failedSettings = object : pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository by settings {
+            override suspend fun saveGroupChoices(classId: String, changes: Map<String, String?>) { throw IOException("ENOSPC") }
+        }
+        val vm = pl.zse.bydgoszcz.elektron.presentation.groups.GroupsViewModel(failedSettings, t.timetableRepo,
+            t.notificationsRepo, coordinator, pl.zse.bydgoszcz.elektron.widget.WidgetUpdater(context))
+        val owner = androidx.lifecycle.ViewModelStore().apply { put("groups", vm) }
+        var closed = false
+        try {
+            vm.state.first { it.ready }
+            vm.setChoice("ang", "1/2"); vm.setChoice("wf", "2/2")
+            vm.finish { closed = true }
+            vm.saveError.first { it != null }
+            val state = vm.state.first { it.hasChanges }
+            assertFalse(closed)
+            assertEquals(mapOf("ang" to "1/2", "wf" to "2/2"), state.selections)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
 }

@@ -52,7 +52,11 @@ class SubstitutionsWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val load: suspend () -> Pair<SubsWidgetState, WidgetPalette> = {
-            WidgetDataLoader.loadSubstitutions(context) to WidgetDataLoader.palette(context)
+            val state = WidgetDataLoader.loadSubstitutions(context)
+            if (state is SubsWidgetState.Ready) state.refreshAt?.let {
+                WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(it)
+            }
+            state to WidgetDataLoader.palette(context)
         }
         val initial = loadSnapshot(load)
         provideContent {
@@ -63,7 +67,7 @@ class SubstitutionsWidget : GlanceAppWidget() {
 
     @Composable
     private fun Content(state: SubsWidgetState) {
-        WidgetContainer {
+        WidgetContainer(target = "substitutions") {
             when (state) {
                 SubsWidgetState.NoClass -> WidgetMessage("Otwórz eLektron i wybierz klasę.")
                 is SubsWidgetState.Ready -> Subs(state)

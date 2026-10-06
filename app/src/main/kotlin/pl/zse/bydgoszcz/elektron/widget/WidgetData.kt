@@ -78,7 +78,7 @@ data class WidgetSubstitution(
 
 sealed interface SubsWidgetState {
     data object NoClass : SubsWidgetState
-    data class Ready(val className: String?, val items: List<WidgetSubstitution>) : SubsWidgetState
+    data class Ready(val className: String?, val items: List<WidgetSubstitution>, val refreshAt: LocalDateTime? = null) : SubsWidgetState
 }
 
 sealed interface WidgetState {
@@ -257,7 +257,8 @@ object WidgetDataLoader {
             }.toList()
         // Diagnostyka (raport "Zgłoś problem"): czy widżet miał wiersze i jakie cele.
         Log.i("SubstitutionsWidget", "Stan: ${subs.size} zastępstw: ${subs.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}")
-        return SubsWidgetState.Ready(ClassNames.clean(short), subs)
+        val refreshAt = nextSubstitutionChange(nowDt, subs.map { it.target }, ends)
+        return SubsWidgetState.Ready(ClassNames.clean(short), subs, refreshAt)
     }
 
     private fun dayLabel(day: LocalDate, today: LocalDate): String = when (day) {
@@ -306,3 +307,9 @@ object WidgetDataLoader {
         )
     }
 }
+
+/** Midnight updates date labels; today's known lesson ends remove completed substitutions. */
+internal fun nextSubstitutionChange(now: LocalDateTime, targets: List<LessonTarget>, ends: Map<Int, LocalTime>): LocalDateTime =
+    (targets.filter { it.date == now.toLocalDate() }.mapNotNull { target ->
+        ends[target.lessonNumber]?.let { now.toLocalDate().atTime(it) }?.takeIf { it > now }
+    } + now.toLocalDate().plusDays(1).atStartOfDay()).minOrNull()!!

@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
     viewModel: LessonNotesViewModel, onDismiss: () -> Unit) {
     val note = state.notes.firstOrNull { it.key == LessonNote.key(lesson) }
-    var text by rememberSaveable(LessonNote.key(lesson)) { mutableStateOf(note?.text.orEmpty()) }
+    val text by viewModel.editorText.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
@@ -37,7 +37,7 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
                 style = MaterialTheme.typography.bodyMedium)
             if (note != null && note.subject != LessonNote.subject(lesson)) Text(
                 "Plan tej lekcji się zmienił. Notatka była zapisana dla: ${note.subject}.", color = MaterialTheme.colorScheme.tertiary)
-            OutlinedTextField(value = text, onValueChange = { if (it.length <= LessonNote.MAX_LENGTH) text = it },
+            OutlinedTextField(value = text, onValueChange = { if (it.length <= LessonNote.MAX_LENGTH) viewModel.editText(it) },
                 label = { Text("Twoja notatka") }, placeholder = { Text("Np. powtórzyć rozdział 3") },
                 minLines = 4, maxLines = 8, modifier = Modifier.fillMaxWidth(), enabled = !saving,
                 supportingText = { Text("${text.length}/${LessonNote.MAX_LENGTH}") })

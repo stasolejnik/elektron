@@ -35,4 +35,14 @@ class SettingsWriteFailureTest {
         assertEquals(3, store.attempts)
         assertEquals(ThemeMode.SYSTEM, repo.themeMode.first())
     }
+    @Test fun groupChoicesFailAsOneWriteAndReportFailure() = runBlocking {
+        val store = FullDiskStore()
+        val repo = SettingsRepositoryImpl(store)
+        try { repo.saveGroupChoices("o3", mapOf("ang" to "1/2", "wf" to "2/2")); org.junit.Assert.fail("Expected failure") }
+        catch (_: IOException) { }
+        assertEquals(1, store.attempts)
+        assertEquals(emptyMap<String, String>(), repo.groupSelections("o3").first())
+        org.junit.Assert.assertNull(repo.groupsConfiguredFor.first())
+    }
+
 }

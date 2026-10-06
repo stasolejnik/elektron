@@ -48,8 +48,12 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 - **Wygląd:** własne nazwy i kolory przedmiotów, jasny lub ciemny motyw, kolor akcentu
   i kolory z tapety na Androidzie 12 lub nowszym.
 
-Odjazdy włączysz w **Ustawieniach**, w sekcji **Funkcje eksperymentalne**, po wybraniu
-przystanku docelowego. Zakładka pojawi się między Zastępstwami a Ogłoszeniami. Punktem
+Zakładka **Odjazdy** jest domyślnie dostępna między Zastępstwami a Ogłoszeniami.
+Wybierz w niej przystanek docelowy, aby zobaczyć trzy najbliższe czasowo przyjazdy do celu.
+W tej samej zakładce zmienisz przystanek początkowy i włączysz przesiadki.
+Ikony dolnego paska wybierzesz w **Ustawieniach → Pasek nawigacji**.
+Na stronie głównej, podczas ostatniej lekcji i po zajęciach, możesz zobaczyć najbliższy
+odjazd. Kafelek wyłączysz w **Ustawieniach → Strona główna**. Punktem
 początkowym jest szkoła przy **Mieczysława Karłowicza 20 w Bydgoszczy**. Godziny pochodzą
 z rozkładu, a dojście jest wyznaczane ulicami i ścieżkami. Sprawdzanie nowych połączeń
 wymaga internetu; funkcja nie korzysta z lokalizacji telefonu.

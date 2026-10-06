@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.action.clickable
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
@@ -69,19 +70,19 @@ class NextLessonWidget : GlanceAppWidget() {
     @Composable
     private fun Content(state: WidgetState) {
         // Pokazywana lekcja (także jutrzejsza - data TEGO dnia): dotknięcie całego widżetu
-        // otwiera Plan i jej szczegóły. Bez lekcji (komunikat) - strona główna jak dotąd.
+        // otwiera Plan. Dotknięcie konkretnej lekcji zachowuje jej własny cel.
         val target = WidgetTargets.focus(state)
         val ready = state as? WidgetState.Ready
         LaunchedEffect(target) {
-            Log.i(TAG, "Cel: ${target?.let { "${it.date}/${it.lessonNumber}" } ?: "brak lekcji (strona główna)"}" +
+            Log.i(TAG, "Cel: ${target?.let { "${it.date}/${it.lessonNumber}" } ?: "brak lekcji (plan lekcji)"}" +
                 (ready?.let { ", lekcji w stanie: ${it.lessons.size}" } ?: ""))
         }
         WidgetContainer(
-            action = target?.let { openLessonAction(LocalContext.current, it) },
+            target = "timetable",
             description = ready?.let { r ->
                 val l = r.focus
                 listOfNotNull("${r.dayLabel}, lekcja ${l.number}", l.title, l.timeRange, l.room?.let { "sala $it" }, l.detail, l.note, l.userNote?.let { "Notatka: $it" })
-                    .joinToString(", ") + ". Otwórz szczegóły lekcji"
+                    .joinToString(", ") + ". Otwórz plan lekcji"
             }
         ) {
             when (state) {
@@ -95,7 +96,7 @@ class NextLessonWidget : GlanceAppWidget() {
                             val following = state.following
                             if (following != null) {
                                 Spacer(GlanceModifier.width(12.dp))
-                                Box(GlanceModifier.defaultWeight().fillMaxHeight()) { Following(following) }
+                                Box(GlanceModifier.defaultWeight().fillMaxHeight()) { Following(following, state.date) }
                             }
                         }
                     } else {
@@ -139,6 +140,7 @@ class NextLessonWidget : GlanceAppWidget() {
             Spacer(GlanceModifier.defaultWeight())
             if (!compact) Text("${lesson.number}", style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             Text(if (compact) "${lesson.number}. ${lesson.title}" else lesson.title,
+                modifier = GlanceModifier.clickable(openLessonAction(LocalContext.current, pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(state.date, lesson.number))),
                 style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = titleLines)
             Spacer(GlanceModifier.height(2.dp))
             val where = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
@@ -192,7 +194,7 @@ class NextLessonWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun Following(lesson: WidgetLesson) {
+    private fun Following(lesson: WidgetLesson, date: java.time.LocalDate) {
         val scale = LocalContext.current.resources.configuration.fontScale.coerceAtLeast(1f)
         val height = LocalSize.current.height.value
         val titleLines = if (height >= 180f * scale) 2 else 1
@@ -203,7 +205,8 @@ class NextLessonWidget : GlanceAppWidget() {
             Text("POTEM", style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold))
             Spacer(GlanceModifier.defaultWeight())
             val color = if (lesson.isSubstitution) WidgetColors.substitution else WidgetColors.textPrimary
-            Text("${lesson.number}. ${lesson.title}", style = TextStyle(color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = titleLines)
+            Text("${lesson.number}. ${lesson.title}", modifier = GlanceModifier.clickable(openLessonAction(LocalContext.current,
+                pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(date, lesson.number))), style = TextStyle(color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = titleLines)
             Text(lesson.timeRange, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
             lesson.room?.let {
                 Text("s. $it", style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)

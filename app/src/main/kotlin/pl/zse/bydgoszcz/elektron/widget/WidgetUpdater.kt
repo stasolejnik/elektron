@@ -38,6 +38,7 @@ import javax.inject.Singleton
 class WidgetUpdater @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    private val tickMutex = kotlinx.coroutines.sync.Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** Odśwież widżety w tle (po syncu, zmianie klasy lub grup). */
@@ -64,14 +65,28 @@ class WidgetUpdater @Inject constructor(
     }
 
     /** Zaplanuj odświeżenie na [at] (z ograniczeniem 1 min – 24 h, zabezpieczenie przed zmianą czasu). */
-    fun scheduleTick(at: LocalDateTime) {
-        val delay = Duration.between(LocalDateTime.now(), at).plusSeconds(5)
-            .coerceIn(Duration.ofMinutes(1), Duration.ofDays(1))
-        val request = OneTimeWorkRequestBuilder<WidgetTickWorker>()
-            .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_TICK, ExistingWorkPolicy.REPLACE, request)
-    }
+    fun scheduleTick(at: LocalDateTime): kotlinx.coroutines.Job = scope.launch(Dispatchers.IO) {
+            tickMutex.lock()
+            try {
+                val now = LocalDateTime.now()
+                val delay = Duration.between(now, at).plusSeconds(5).coerceIn(Duration.ofMinutes(1), Duration.ofDays(1))
+                val planned = System.currentTimeMillis() + delay.toMillis()
+                val wm = WorkManager.getInstance(context)
+                val earlier = wm.getWorkInfosForUniqueWork(WORK_TICK).get().any { info ->
+                    info.state == androidx.work.WorkInfo.State.ENQUEUED && info.tags.any { tag ->
+                        tag.removePrefix("tick-at:").toLongOrNull()?.let { it <= planned } == true
+                    }
+                }
+                if (earlier) return@launch
+                val request = OneTimeWorkRequestBuilder<WidgetTickWorker>().addTag("tick-at:$planned")
+                    .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS).build()
+                wm.enqueueUniqueWork(WORK_TICK, ExistingWorkPolicy.REPLACE, request).result.get()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Log.w(TAG, "Nie udało się zaplanować odświeżenia widżetów", e)
+            } finally { tickMutex.unlock() }
+        }
+
 
     companion object {
         private const val TAG = "WidgetUpdater"

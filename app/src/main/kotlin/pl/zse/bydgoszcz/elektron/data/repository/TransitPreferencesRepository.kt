@@ -25,12 +25,14 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     private val transfersKey = booleanPreferencesKey("allow_transfers")
     private val recentDestinationsKey = stringPreferencesKey("recent_destinations")
     private val recentOriginsKey = stringPreferencesKey("recent_origins")
-    private val enabledKey = booleanPreferencesKey("enabled")
+    private val hiddenTabsKey = stringSetPreferencesKey("hidden_navigation_tabs")
+    private val dashboardKey = booleanPreferencesKey("show_dashboard_departure")
+    private val enabledKey = booleanPreferencesKey("show_tab")
     val preferences: Flow<TransitPreferences> = store.data.map {
         val destination = decode(it[destinationKey])
         val origin = decode(it[originKey])
-        TransitPreferences(destination, destination != null && it[enabledKey] == true, origin,
-            it[transfersKey] == true, history(it[recentDestinationsKey], destination), history(it[recentOriginsKey], origin))
+        TransitPreferences(destination, it[enabledKey] ?: true, origin,
+            it[transfersKey] == true, history(it[recentDestinationsKey], destination), history(it[recentOriginsKey], origin), it[hiddenTabsKey].orEmpty(), it[dashboardKey] ?: true)
     }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     suspend fun select(destination: TransitDestination) = withContext(Dispatchers.IO) {
@@ -57,14 +59,26 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     }
     suspend fun setEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
         store.edit {
-            require(!enabled || decode(it[destinationKey]) != null) { "Najpierw wybierz przystanek docelowy." }
             it[enabledKey] = enabled
         }; Unit
+    }
+    suspend fun setTabVisible(route: String, visible: Boolean) {
+        require(route in setOf("dashboard", "timetable", "substitutions", "transit", "announcements"))
+        if (route == "transit") { setEnabled(visible); return }
+        withContext(Dispatchers.IO) {
+            store.edit { prefs ->
+                val hidden = prefs[hiddenTabsKey].orEmpty()
+                prefs[hiddenTabsKey] = if (visible) hidden - route else hidden + route
+            }
+        }
+    }
+    suspend fun setShowOnDashboard(show: Boolean) = withContext(Dispatchers.IO) {
+        store.edit { it[dashboardKey] = show }; Unit
     }
     suspend fun clearDestination() = withContext(Dispatchers.IO) {
         store.edit {
             it[recentDestinationsKey] = encodeHistory(history(it[recentDestinationsKey], decode(it[destinationKey])))
-            it.remove(destinationKey); it[enabledKey] = false
+            it.remove(destinationKey)
         }; Unit
     }
     private fun history(raw: String?, current: TransitDestination?) = decodeHistory(raw).ifEmpty { listOfNotNull(current) }

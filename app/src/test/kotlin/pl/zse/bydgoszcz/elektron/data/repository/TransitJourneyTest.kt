@@ -56,12 +56,12 @@ class TransitJourneyTest {
         assertTrue(parse(invalid).isEmpty())
         assertTrue(TransitJourneyParser.parse(fixture(), destination, emptyMap(), now).isEmpty())
     }
-    @Test fun directConnectionFromNearestReachableStopRanksFirst() {
+    @Test fun departuresStayChronologicalRegardlessOfDistanceOrReachability() {
         val base = parse().single()
         val laterNearest = base.copy(rides = base.rides.map { it.copy(departureMs = it.departureMs + 600_000L, arrivalMs = it.arrivalMs + 600_000L) }, distanceMeters = 100.0)
         val earlierDistant = base.copy(rides = base.rides.map { it.copy(fromId = "25") }, distanceMeters = 800.0, walkMinutes = 1)
         val ranked = TransitJourneys.rank(listOf(earlierDistant, laterNearest), now)
-        assertEquals(laterNearest.key, ranked.first().key)
+        assertEquals(earlierDistant.key, ranked.first().key)
         assertTrue("A faster alternative remains visible", ranked.any { it.key == earlierDistant.key })
         assertTrue(TransitJourneys.rank(listOf(laterNearest), laterNearest.departureMs).isEmpty())
     }
@@ -128,13 +128,35 @@ class TransitJourneyTest {
         assertEquals(results.size, results.map { it.key }.distinct().size)
     }
 
-    @Test fun preferredStopTakesPriorityWithoutHidingOtherDepartures() {
+    @Test fun selectedStopExcludesOtherDepartures() {
         val base = parse().single()
         val other = base.copy(rides = base.rides.map { it.copy(fromId = "25") }, distanceMeters = 400.0)
         val origin = TransitDestination("Preferowany", listOf("25"), 53.123, 18.027)
         val ranked = TransitJourneys.rank(listOf(base, other), now, origin)
         assertEquals("25", ranked.first().rides.first().fromId)
-        assertEquals(2, ranked.size)
+        assertEquals(1, ranked.size)
         assertFalse(TransitJourneyRepository.Result(destination.key, listOf(base), now, originKey = "24").canReuse(destination.key, now, "25"))
     }
+    @Test fun walkingUpdatesDoNotReorderOrHideCoursesBeforeDeparture() {
+        val base = parse().single()
+        val first = base.copy(rides = base.rides.map { it.copy(departureMs = now + 60_000L, arrivalMs = now + 600_000L) }, walkAvailable = false, walkPending = true)
+        val later = base.copy(rides = base.rides.map { it.copy(departureMs = now + 420_000L, arrivalMs = now + 900_000L) })
+        val input = listOf(later, first)
+        assertEquals(listOf(first.key, later.key), TransitJourneys.rank(input, now).map { it.key })
+        assertEquals(listOf(first.key, later.key), TransitJourneys.rank(input.map { it.copy(walkMinutes = 8, walkAvailable = true, walkPending = false) }, now + 59_999L).map { it.key })
+        assertEquals(listOf(later.key), TransitJourneys.rank(input, first.departureMs).map { it.key })
+    }
+
+    @Test fun firstThreeJourneysArriveSoonestRegardlessOfDistanceOrDepartureOrder() {
+        val base = parse().single()
+        fun trip(line: String, departure: Long, arrival: Long, distance: Double) = base.copy(
+            rides = base.rides.map { it.copy(line = line, departureMs = now + departure, arrivalMs = now + arrival) }, distanceMeters = distance)
+        val earlyDepartureSlowArrival = trip("1", 60_000L, 1_800_000L, 20.0)
+        val fastest = trip("2", 300_000L, 600_000L, 900.0)
+        val second = trip("3", 120_000L, 900_000L, 700.0)
+        val third = trip("4", 180_000L, 1_200_000L, 500.0)
+        assertEquals(listOf(fastest.key, second.key, third.key),
+            TransitJourneys.rank(listOf(earlyDepartureSlowArrival, third, second, fastest), now).take(3).map { it.key })
+    }
+
 }

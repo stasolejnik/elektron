@@ -128,6 +128,16 @@ class AnnouncementsViewModel @Inject constructor(
     /** Archiwum strony szkoły się skończyło — nie ma już czego dociągać. */
     private val archiveExhausted = MutableStateFlow(false)
 
+    init {
+        viewModelScope.launch {
+            repo.archiveGeneration.collect {
+                archiveExhausted.value = false
+                loadMoreError.value = false
+                visibleCount.value = PAGE_SIZE
+            }
+        }
+    }
+
     val state: StateFlow<State> = combine(
         combine(indexed, query, favoritesOnly) { all, q, favorites ->
             val saved = all.filter { it.ann.isFavorite }
@@ -180,20 +190,22 @@ class AnnouncementsViewModel @Inject constructor(
         val searching = requestedQuery.isNotBlank()
         viewModelScope.launch {
             try {
+                val requestedGeneration = repo.archiveGeneration.first()
                 val inDb = repo.count()
                 // Przy wyszukiwaniu przeszukana jest już cała baza — od razu sięgamy do archiwum.
                 if (!searching && inDb > shown) {
-                    if (!favoritesOnly.value && query.value == requestedQuery) visibleCount.value = shown + PAGE_SIZE
+                    if (repo.archiveGeneration.first() == requestedGeneration && !favoritesOnly.value && query.value == requestedQuery) visibleCount.value = shown + PAGE_SIZE
                     return@launch
                 }
                 // Baza wyczerpana — starsze wpisy z archiwum strony szkoły.
                 loadMoreError.value = false
                 repo.loadOlder()
                     .onSuccess { r ->
+                        if (repo.archiveGeneration.first() != requestedGeneration) return@onSuccess
                         if (r.exhausted && r.added == 0) archiveExhausted.value = true
                         if (!favoritesOnly.value && query.value == requestedQuery) visibleCount.value = shown + maxOf(r.added, PAGE_SIZE)
                     }
-                    .onFailure { loadMoreError.value = true }
+                    .onFailure { if (repo.archiveGeneration.first() == requestedGeneration) loadMoreError.value = true }
             } finally {
                 loadingMore.value = false
             }
@@ -207,6 +219,7 @@ class AnnouncementsViewModel @Inject constructor(
             try {
                 // Przez koordynator (markLoaded, powiadomienia, widżety - tam). Komunikatu o planie
                 // i zastępstwach odświeżenie samych ogłoszeń nie rusza.
+                repo.resetArchive()
                 coordinator.sync(SyncRequest.of(SyncOutcome.ANNOUNCEMENTS))
             } finally {
                 // Dawniej bez try/finally — wyjątek zostawiał wieczny spinner odświeżania.

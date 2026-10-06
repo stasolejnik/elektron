@@ -1,6 +1,7 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -16,36 +17,55 @@ import javax.inject.Singleton
 @Singleton
 class TransitJourneyRepository @Inject constructor(private val client: OkHttpClient, private val catalog: TransitStopCatalog, private val walking: TransitWalkingRepository) {
     internal constructor(client: OkHttpClient, catalog: TransitStopCatalog) : this(client, catalog, TransitWalkingRepository(client))
-    data class Result(val destinationKey: String, val journeys: List<TransitJourney>, val fetchedAt: Long, val originKey: String? = null, val nextWhenMs: Long? = null, val allowTransfers: Boolean = false, val boardingStops: List<TransitDestination> = emptyList()) {
+    data class Result(val destinationKey: String, val journeys: List<TransitJourney>, val fetchedAt: Long, val originKey: String? = null, val nextWhenMs: Long? = null, val allowTransfers: Boolean = false, val boardingStops: List<TransitDestination> = emptyList(), val platformCursors: Map<String, Long>? = null) {
         fun canReuse(key: String, nowMs: Long, origin: String? = null, transfers: Boolean = false): Boolean = destinationKey == key && originKey == origin && allowTransfers == transfers && nowMs - fetchedAt in 0 until 60_000L &&
             (journeys.isEmpty() || journeys.any { it.departureMs > nowMs })
     }
-    suspend fun find(destination: TransitDestination, origin: TransitDestination? = null, afterMs: Long? = null, allowTransfers: Boolean = false): Result = withContext(Dispatchers.IO) {
+    private data class Batch(val platform: String, val journeys: List<TransitJourney>, val cursor: Long?)
+    suspend fun find(destination: TransitDestination, origin: TransitDestination? = null, afterMs: Long? = null, allowTransfers: Boolean = false, platformCursors: Map<String, Long>? = null): Result = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val platforms = catalog.load().platforms.associateBy { it.stopIds.single() }
-        var whenMs = afterMs ?: (now + SchoolTransit.BUFFER_MINUTES * 60_000L)
-        var nextWhenMs: Long? = null
-        val journeys = mutableListOf<TransitJourney>()
-        // Try the next window when the current one has no matching departures.
-        for (page in 0..1) {
-            val body = JSONObject().put("from", JSONObject().put("lat", origin?.latitude ?: SchoolTransit.LATITUDE).put("lon", origin?.longitude ?: SchoolTransit.LONGITUDE))
-                .put("to", JSONObject().put("lat", destination.latitude).put("lon", destination.longitude))
-                .put("maxPrzesiadki", if (allowTransfers) 1 else 0).put("ksztalt", false).put("whenMs", whenMs)
-            val request = Request.Builder().url("https://api.busearch.pl/bydgoszcz/api/polaczenia")
-                .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
-            val response = client.newCall(request).readCancellable {
-                if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
-                val source = it.body?.source() ?: throw IOException("Pusta odpowiedź")
-                source.request(4_000_001)
-                if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
-                JSONObject(source.readUtf8())
-            }
-            journeys += TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers)
-            val next = response.optLong("nastepneWhenMs", 0)
-            nextWhenMs = next.takeIf { it > whenMs && it <= now + 24 * 60 * 60_000L }
-            if (journeys.isNotEmpty() || nextWhenMs == null) break
-            whenMs = nextWhenMs
+        // A selected stop is a constraint, not just a coordinate near other stops.
+        // Query each platform of the selected stop using the API's documented stopId.
+        val startingPoints = origin?.stopIds?.map { JSONObject().put("stopId", it.toLongOrNull() ?: it) }
+            ?: listOf(JSONObject().put("lat", SchoolTransit.LATITUDE).put("lon", SchoolTransit.LONGITUDE))
+        val batches = kotlinx.coroutines.coroutineScope {
+            val permits = kotlinx.coroutines.sync.Semaphore(2)
+            // Each platform has its own search window. Finished platforms must not be
+            // fetched again, and later windows must not restart at another platform's cursor.
+            startingPoints.filter { afterMs == null || platformCursors == null || it.optString("stopId") in platformCursors }.map { from -> async {
+                permits.acquire()
+                try {
+                    val platform = from.optString("stopId")
+                    var whenMs = if (afterMs != null) platformCursors?.get(platform) ?: afterMs else now
+                    var cursor: Long? = null
+                    val trips = mutableListOf<TransitJourney>()
+                    repeat(2) {
+                        val body = JSONObject().put("from", from)
+                            .put("to", JSONObject().put("lat", destination.latitude).put("lon", destination.longitude))
+                            .put("maxPrzesiadki", if (allowTransfers) 1 else 0).put("ksztalt", false).put("whenMs", whenMs)
+                        val request = Request.Builder().url("https://api.busearch.pl/bydgoszcz/api/polaczenia")
+                            .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
+                        val response = client.newCall(request).readCancellable {
+                            if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
+                            val source = it.body?.source() ?: throw IOException("Pusta odpowiedź")
+                            source.request(4_000_001)
+                            if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
+                            JSONObject(source.readUtf8())
+                        }
+                        trips += TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers)
+                            .filter { origin == null || it.rides.first().fromId in origin.stopIds }
+                        cursor = response.optLong("nastepneWhenMs", 0).takeIf { it > whenMs && it <= now + 24 * 60 * 60_000L }
+                        if (trips.isNotEmpty() || cursor == null) return@async Batch(platform, trips.toList(), cursor)
+                        whenMs = cursor!!
+                    }
+                    Batch(platform, trips.toList(), cursor)
+                } finally { permits.release() }
+            } }.map { it.await() }
         }
+        val journeys = batches.flatMap { it.journeys }
+        val nextCursors = batches.mapNotNull { batch -> batch.cursor?.let { batch.platform to it } }.toMap()
+        val nextWhenMs = nextCursors.values.minOrNull()
         val boardingStops = journeys.mapNotNull { platforms[it.rides.first().fromId] }.distinctBy { it.key }
         val paths = walking.cachedFromSchool(boardingStops)
         val withPaths = journeys.map { trip ->
@@ -53,7 +73,7 @@ class TransitJourneyRepository @Inject constructor(private val client: OkHttpCli
             if (path != null) trip.copy(walkMinutes = path.minutes, distanceMeters = path.distanceMeters, walkAvailable = true)
             else trip.copy(walkAvailable = false, walkPending = true)
         }
-        Result(destination.key, TransitJourneys.rank(withPaths, System.currentTimeMillis(), origin, allowTransfers), System.currentTimeMillis(), origin?.key, nextWhenMs, allowTransfers, boardingStops)
+        Result(destination.key, TransitJourneys.rank(withPaths, System.currentTimeMillis(), origin, allowTransfers), System.currentTimeMillis(), origin?.key, nextWhenMs, allowTransfers, boardingStops, nextCursors)
     }
     /** Walking requests do not block displaying or paging departures. */
     suspend fun enrichWalking(result: Result): Result = withContext(Dispatchers.IO) {

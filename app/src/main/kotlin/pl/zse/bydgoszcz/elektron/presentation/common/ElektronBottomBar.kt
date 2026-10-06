@@ -48,6 +48,13 @@ fun bottomDestinationsForTransit(enabled: Boolean): List<BottomDestination> =
         add(3, BottomDestination(ElektronRoutes.TRANSIT, "Odjazdy", Icons.Outlined.DirectionsTransit, Icons.Filled.DirectionsTransit))
     }
 
+/** Hiding an icon keeps the page available through swipes and deep links. */
+fun visibleBottomDestinations(hidden: Set<String>, showTransit: Boolean): List<BottomDestination> =
+    bottomDestinationsForTransit(true).filter { destination ->
+        destination.route == ElektronRoutes.SETTINGS ||
+            (destination.route !in hidden && (destination.route != ElektronRoutes.TRANSIT || showTransit))
+    }
+
 /**
  * Pasek zakładek w stylu iOS: cienka linia nad paskiem, aktywna zakładka wyróżniona
  * kolorem akcentu i wypełnioną ikoną (bez materiałowej "pigułki" pod ikoną).
@@ -68,7 +75,7 @@ fun ElektronBottomBar(currentRoute: String?, onNavigate: (String) -> Unit, desti
                     label = {
                         // Rozmiar dopasowany do miejsca: przy większej czcionce systemowej etykiety
                         // były ucinane ("Zastępstw", "Ogłoszeni").
-                        FitText(dest.label, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = (-0.2).sp))
+                        FitText(if (dest.route == ElektronRoutes.DASHBOARD) "Start" else dest.label, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = (-0.2).sp))
                     },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,

@@ -39,7 +39,9 @@ class LocalNotificationSink @Inject constructor(
 
         mgr.createNotificationChannelGroup(
             NotificationChannelGroup(GROUP_ELEKTRON, "eLektron").apply {
-                description = "Powiadomienia z aplikacji eLektron"
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    description = "Powiadomienia z aplikacji eLektron"
+                }
             }
         )
 
@@ -161,8 +163,8 @@ class LocalNotificationSink @Inject constructor(
     fun canPostNotes(): Boolean = canNotify() && NotificationManagerCompat.from(context).areNotificationsEnabled() && (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
         context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE)
 
-    suspend fun postNote(note: pl.zse.bydgoszcz.elektron.domain.model.LessonNote, subject: String, changed: Boolean = false) {
-        if (!canPostNotes()) return
+    suspend fun postNote(note: pl.zse.bydgoszcz.elektron.domain.model.LessonNote, subject: String, changed: Boolean = false): Boolean {
+        if (!canPostNotes()) return false
         val target = pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(note.date, note.number)
         val intent = deepLinkIntent("timetable").apply {
             removeExtra(EXTRA_DEEP_LINK)
@@ -179,8 +181,10 @@ class LocalNotificationSink @Inject constructor(
             .setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(pi)
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setAutoCancel(true).setSilent(isQuietNow())
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build()
-        try { NotificationManagerCompat.from(context).notify("note:${note.key}", 1, n) }
-        catch (e: SecurityException) { Log.w(TAG, "Brak uprawnień", e) }
+        return try {
+            NotificationManagerCompat.from(context).notify("note:${note.key}", 1, n)
+            true
+        } catch (e: SecurityException) { Log.w(TAG, "Brak uprawnień", e); false }
     }
 
     /** Przypomnienie przed lekcją (LessonReminderReceiver). Znika samo po końcu lekcji. */

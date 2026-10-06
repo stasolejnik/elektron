@@ -29,4 +29,12 @@ class TickUpdateTest {
         job.join()
         assertEquals(listOf("Następna lekcja", "Plan dnia", "Zastępstwa", "Kafelek"), refreshed.toList())
     }
+    @Test fun substitutionsAloneRefreshAtLessonEndAndMidnight() {
+        val now = java.time.LocalDateTime.of(2026, 10, 6, 10, 0)
+        val target = pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(now.toLocalDate(), 3)
+        val end = java.time.LocalTime.of(10, 45)
+        assertEquals(now.toLocalDate().atTime(end), nextSubstitutionChange(now, listOf(target), mapOf(3 to end)))
+        assertEquals(now.toLocalDate().plusDays(1).atStartOfDay(), nextSubstitutionChange(now.plusHours(1), listOf(target), mapOf(3 to end)))
+    }
+
 }

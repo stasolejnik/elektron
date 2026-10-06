@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
@@ -82,6 +83,10 @@ class TimetableViewModel @Inject constructor(
      * Zapamiętany tryb z personalizacji (wczytanej przed pokazaniem aplikacji) - ekran woła
      * to przy pierwszym wyświetleniu, więc tydzień jest od pierwszej klatki, bez mignięcia dnia.
      */
+    /** Initial UI value before the lifecycle collector starts; does not mutate state. */
+    fun modeForOpening(weekView: Boolean): ViewMode =
+        if (modeInitialized) mode.value else if (weekView) ViewMode.WEEK else ViewMode.DAY
+
     fun initSavedMode(weekView: Boolean) {
         if (modeInitialized) return
         modeInitialized = true
@@ -143,18 +148,9 @@ class TimetableViewModel @Inject constructor(
      * końca przy przewijaniu planu - każdy obejrzany tydzień zostawał w pamięci na zawsze.
      * Usunięty tydzień, jeśli wciąż jest na ekranie, działa dalej (jest tylko poza buforem).
      */
-    private val weekCache = object : LinkedHashMap<LocalDate, Flow<List<DayColumn>?>>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<LocalDate, Flow<List<DayColumn>?>>?) =
-            size > WEEK_CACHE_SIZE
-    }
-
-    /**
-     * Lekcje tygodnia od [monday] (po filtrze grup). null = jeszcze nie wczytane.
-     * Przepływy per poniedziałek; ich zbieranie kończy się wraz ze stroną pagera.
-     */
-    fun week(monday: LocalDate): Flow<List<DayColumn>?> = weekCache.getOrPut(monday) {
+    private val weekCache = SharedWeekCache<LocalDate, List<DayColumn>?>(viewModelScope, WEEK_CACHE_SIZE) { monday ->
         settings.selectedClassId.flatMapLatest { cid ->
-            if (cid == null) flowOf(emptyList())
+            val data: Flow<List<DayColumn>?> = if (cid == null) flowOf(emptyList())
             else combine(
                 repo.observeLessons(cid, monday, monday.plusDays(4)),
                 settings.activeGroupSelections
@@ -164,8 +160,11 @@ class TimetableViewModel @Inject constructor(
                     DayColumn(d, d.dayOfWeek, lessons.filter { it.date == d }.sortedBy { it.number })
                 }
             }
+            data.onStart { emit(null) }
         }.flowOn(Dispatchers.Default)
     }
+
+    fun week(monday: LocalDate): Flow<List<DayColumn>?> = weekCache.get(monday)
 
     fun setMode(m: ViewMode) {
         modeInitialized = true

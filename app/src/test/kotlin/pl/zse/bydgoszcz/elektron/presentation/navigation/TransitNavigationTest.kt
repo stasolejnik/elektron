@@ -36,4 +36,11 @@ class TransitNavigationTest {
         assertEquals(5, count())
         assertEquals("removed-page-5", key(5))
     }
+    @Test fun hiddenIconsKeepAllPagesAndSettingsAccessible() {
+        val hidden = setOf("dashboard", "timetable", "substitutions", "announcements", "settings")
+        assertEquals(listOf("settings"), pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(hidden, false).map { it.route })
+        assertEquals(6, bottomDestinationsForTransit(true).size)
+        assertEquals(listOf("transit", "settings"), pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(hidden, true).map { it.route })
+    }
+
 }

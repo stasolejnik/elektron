@@ -75,4 +75,9 @@ interface SettingsRepository {
     /** Klasa, dla której użytkownik przeszedł krok wyboru grup (null = jeszcze nigdy). */
     val groupsConfiguredFor: Flow<String?>
     suspend fun setGroupsConfiguredFor(classId: String)
+    /** Atomic production write; failures propagate to the groups editor. */
+    suspend fun saveGroupChoices(classId: String, changes: Map<String, String?>) {
+        changes.forEach { (subject, choice) -> setGroupSelection(classId, subject, choice) }
+        setGroupsConfiguredFor(classId)
+    }
 }

@@ -33,6 +33,8 @@ class AnnouncementsRepositoryImplTest {
         var article: String? = "<p>Treść offline</p>"
         var articleCalls = 0
         var articleGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        var dateGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        val dateStarted = kotlinx.coroutines.CompletableDeferred<Unit>()
         val requestedPages = mutableListOf<Int>()
         override suspend fun fetchNewsFeed(): List<RssItemDto> { newsError?.let { throw it }; return news }
         override suspend fun fetchLatestFeed(): List<RssItemDto> { latestError?.let { throw it }; return latest }
@@ -45,7 +47,11 @@ class AnnouncementsRepositoryImplTest {
             requestedPages += page
             return archive[page].orEmpty()
         }
-        override suspend fun fetchArticleDate(url: String): Instant? = Instant.parse("2025-01-10T10:00:00Z")
+        override suspend fun fetchArticleDate(url: String): Instant? {
+            dateStarted.complete(Unit)
+            dateGate?.await()
+            return Instant.parse("2025-01-10T10:00:00Z")
+        }
     }
 
     private lateinit var db: AppDatabase
@@ -203,6 +209,107 @@ class AnnouncementsRepositoryImplTest {
         source.article = null
         assertTrue(repo.loadFullArticle("https://zse/a").isFailure)
         assertTrue(repo.observeById("https://zse/a").first()!!.isFavorite)
+    }
+
+    @Test fun archiveDoesNotOverwriteArticleSavedWhileItsDateWasDownloading() = kotlinx.coroutines.runBlocking {
+        val id = "https://zse/concurrent"
+        source.archive = mapOf(1 to listOf(archiveItem(id)))
+        source.dateGate = kotlinx.coroutines.CompletableDeferred()
+        val loading = async { repo.loadOlder().getOrThrow() }
+        withTimeout(10_000) { source.dateStarted.await() }
+        source.news = listOf(rss(id))
+        repo.syncAll().getOrThrow()
+        repo.toggleFavorite(id)
+        repo.loadFullArticle(id).getOrThrow()
+        val saved = db.announcementDao().getById(id)!!
+        source.dateGate!!.complete(Unit)
+        assertEquals(0, loading.await().added)
+        assertEquals(saved, db.announcementDao().getById(id))
+        assertTrue(db.announcementDao().getById(id)!!.isFavorite)
+    }
+
+    @Test fun favoritesMigrateAndRestoreIntoAnEmptyDatabaseWithoutNetwork() = kotlinx.coroutines.runBlocking {
+        val file = java.io.File.createTempFile("favorites-backup", ".json").apply { delete() }
+        val store = FavoriteAnnouncementsStore(file)
+        val id = "https://zse/backup"
+        val existing = AnnouncementEntity(id, "Zapisane", id, 1_800_000_000, "Opis", null, "<b>Offline</b>", false, "RSS_NEWS", true)
+        db.announcementDao().upsertAll(listOf(existing))
+        try {
+            repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, store)
+            repo.observeAll().first()
+            assertEquals(existing, store.read()!!.single())
+            assertTrue(file.setLastModified(1_000_000L))
+            store.write(listOf(existing))
+            assertEquals(1_000_000L, file.lastModified())
+            db.announcementDao().clearFavorites()
+            db.announcementDao().deleteOlderThan(Long.MAX_VALUE)
+            repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, FavoriteAnnouncementsStore(file))
+            assertTrue(repo.observeAll().first().single().isFavorite)
+            assertEquals("<b>Offline</b>", repo.observeById(id).first()!!.fullHtml)
+            repo.clearFavorites()
+            db.announcementDao().deleteOlderThan(Long.MAX_VALUE)
+            repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, FavoriteAnnouncementsStore(file))
+            assertTrue(repo.observeAll().first().isEmpty())
+        } finally { file.delete() }
+    }
+    @Test fun resetArchiveRestartsPaginationEvenAfterExhaustion() = kotlinx.coroutines.runBlocking {
+        source.archive = mapOf(1 to listOf(archiveItem("https://zse/1")), 2 to listOf(archiveItem("https://zse/2")))
+        assertEquals(1, repo.loadOlder().getOrThrow().added)
+        assertEquals(1, repo.loadOlder().getOrThrow().added)
+        assertTrue(repo.loadOlder().getOrThrow().exhausted)
+        val generation = repo.archiveGeneration.first()
+        repo.resetArchive { db.announcementDao().deleteOlderThan(Long.MAX_VALUE) }
+        assertTrue(repo.archiveGeneration.first() > generation)
+        assertEquals(1, repo.loadOlder().getOrThrow().added)
+        assertEquals(1, source.requestedPages.last())
+    }
+
+    @Test fun failedFavoriteMigrationLeavesOriginalArticleUntouched() = kotlinx.coroutines.runBlocking {
+        val directory = java.nio.file.Files.createTempDirectory("favorite-blocked").toFile()
+        val blocked = java.io.File(directory, "parent").apply { writeText("Not a directory") }
+        val store = FavoriteAnnouncementsStore(java.io.File(blocked, "favorites.json"))
+        val existing = AnnouncementEntity("https://zse/a", "A", "https://zse/a", 1_800_000_000, null, null, "<p>Offline</p>", false, "RSS_NEWS", true)
+        db.announcementDao().upsertAll(listOf(existing))
+        try {
+            repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, store)
+            assertTrue(repo.observeAll().first().single().isFavorite)
+            assertEquals(existing, db.announcementDao().getById(existing.id))
+        } finally { directory.deleteRecursively() }
+    }
+
+    @Test fun failedBookmarkRemovalKeepsDatabaseAndBackupConsistent() = failedBookmarkWrite(clearAll = false, initiallyFavorite = true)
+    @Test fun failedBookmarkAdditionKeepsDatabaseAndBackupConsistent() = failedBookmarkWrite(clearAll = false, initiallyFavorite = false)
+    @Test fun failedClearFavoritesKeepsDatabaseAndBackupConsistent() = failedBookmarkWrite(clearAll = true, initiallyFavorite = true)
+
+    private fun failedBookmarkWrite(clearAll: Boolean, initiallyFavorite: Boolean) = kotlinx.coroutines.runBlocking {
+        val directory = java.nio.file.Files.createTempDirectory("favorite-write-failure").toFile()
+        val parent = java.io.File(directory, "store").apply { mkdirs() }
+        val savedParent = java.io.File(directory, "saved-store")
+        val file = java.io.File(parent, "favorites.json")
+        val store = FavoriteAnnouncementsStore(file)
+        val existing = AnnouncementEntity("https://zse/a", "A", "https://zse/a", 1_800_000_000, null, null, "<p>Offline</p>", false, "RSS_NEWS", initiallyFavorite)
+        db.announcementDao().upsertAll(listOf(existing))
+        try {
+            repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, store)
+            repo.observeAll().first() // Finish migration before simulating an unavailable directory.
+            val originalBackup = file.readText()
+            assertTrue(parent.renameTo(savedParent))
+            parent.writeText("Not a directory")
+            val failure = runCatching { if (clearAll) repo.clearFavorites() else repo.toggleFavorite(existing.id) }
+            assertTrue(failure.exceptionOrNull() is java.io.IOException)
+            assertEquals(existing, db.announcementDao().getById(existing.id))
+            assertEquals(initiallyFavorite, repo.observeById(existing.id).first()!!.isFavorite)
+            assertTrue(parent.delete())
+            assertTrue(savedParent.renameTo(parent))
+            assertEquals(originalBackup, file.readText())
+            // Retrying after storage recovers must change both copies exactly once.
+            if (clearAll) assertEquals(1, repo.clearFavorites()) else repo.toggleFavorite(existing.id)
+            val expected = !initiallyFavorite
+            assertEquals(expected, db.announcementDao().getById(existing.id)!!.isFavorite)
+            assertEquals(if (expected) listOf(existing.id) else emptyList<String>(), store.read()!!.map { it.id })
+            repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, FavoriteAnnouncementsStore(file))
+            assertEquals(expected, repo.observeById(existing.id).first()!!.isFavorite)
+        } finally { directory.deleteRecursively() }
     }
 
 }

@@ -93,6 +93,7 @@ fun SettingsScreen(
     transitViewModel: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     // Tryb dewelopera.
     val devMode by viewModel.devMode.collectAsStateWithLifecycle()
@@ -211,10 +212,12 @@ fun SettingsScreen(
                     SwitchRow("Zastępstwa", state.showSubstitutions) { viewModel.setShowSubstitutions(it) }
                     RowDivider()
                     SwitchRow("Ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
+                    RowDivider()
+                    SwitchRow("Najbliższy odjazd", transitSettings.preferences.showOnDashboard) { transitViewModel.setShowOnDashboard(it) }
                 }
             }
 
-            item { pl.zse.bydgoszcz.elektron.presentation.transit.TransitSettingsSection(transitViewModel) }
+            item { pl.zse.bydgoszcz.elektron.presentation.transit.TransitVisibilitySection(transitViewModel) }
 
             item { WidgetsSection(state.widgetLook) { viewModel.setWidgetLook(it) } }
 
