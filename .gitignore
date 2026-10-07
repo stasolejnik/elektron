@@ -40,13 +40,26 @@ fix_*.sh
 .env.*
 !.env.example
 
-# --- Lokalne plany, raporty AI i wyniki kolejnych prób ---
-/docs/RC*_PLAN.md
-/docs/RC*_REPORT_FIXES.md
-/docs/RC*_FINAL_CHECK.md
-/docs/AUDIT_FIXES_*.md
-/release-notes/*-iter*.md
+# --- Robocze dokumenty pozostają lokalnie ---
+# W docs publiczne są grafiki; dokumenty użytkownika są w katalogu głównym.
+/docs/**/*.md
+/reports/
+/audits/
+/iterations/
+/local-notes/
+*REPORT*.md
+*report*.md
+*AUDIT*.md
+*audit*.md
+*_PLAN.md
+*_plan.md
+*-iter*.md
+*_iter*.md
+
+# Tylko końcowe opisy wersji; pozostałą zawartość sprawdza kontrola repozytorium.
 /release-notes/*-files.sha256
+/release-notes/*-iter*
+/release-notes/*_iter*
 *.bak
 *.orig
 *.rej
