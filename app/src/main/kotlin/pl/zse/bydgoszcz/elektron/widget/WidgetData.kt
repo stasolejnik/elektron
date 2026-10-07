@@ -78,12 +78,14 @@ data class WidgetSubstitution(
 
 sealed interface SubsWidgetState {
     data object NoClass : SubsWidgetState
-    data class Ready(val className: String?, val items: List<WidgetSubstitution>, val refreshAt: LocalDateTime? = null) : SubsWidgetState
+    data object Failed : SubsWidgetState
+    data class Ready(val className: String?, val items: List<WidgetSubstitution>, val refreshAt: LocalDateTime? = null, val readError: Boolean = false) : SubsWidgetState
 }
 
 sealed interface WidgetState {
     /** Nie wybrano klasy — widżet zaprasza do otwarcia aplikacji. */
     data object NoClass : WidgetState
+    data object Failed : WidgetState
 
     /** Brak lekcji w najbliższym tygodniu (np. wakacje albo plan jeszcze nie pobrany). */
     data class NoLessons(val className: String?) : WidgetState
@@ -110,7 +112,8 @@ sealed interface WidgetState {
          * Kiedy odświeżyć widżet: przy zmianie stanu, a w trakcie lekcji i na godzinę przed
          * zmianą co 5 min (pasek postępu i "Zostało X min" pozostają aktualne).
          */
-        val refreshAt: LocalDateTime
+        val refreshAt: LocalDateTime,
+        val readError: Boolean = false
     ) : WidgetState {
         val focus: WidgetLesson get() = lessons[focusIndex]
         val following: WidgetLesson? get() = lessons.getOrNull(focusIndex + 1)
@@ -148,15 +151,17 @@ object WidgetDataLoader {
         return WidgetPalettes.create(context, mode, dynamic, opacity, accent)
     }
 
-    suspend fun load(context: Context): WidgetState {
+    suspend fun load(context: Context): WidgetState = runCatchingCancellable { loadChecked(context) }
+        .onFailure { Log.w("WidgetData", "Nie udało się odczytać danych", it) }
+        .getOrDefault(WidgetState.Failed)
+
+    private suspend fun loadChecked(context: Context): WidgetState {
         val ep = entryPoint(context)
         val classId = ep.settings().selectedClassId.first() ?: return WidgetState.NoClass
         val groups = ep.settings().groupSelections(classId).first()
         val nowDt = LocalDateTime.now()
         val today = nowDt.toLocalDate()
-        val lessons = runCatchingCancellable {
-            LessonGroups.filter(ep.timetable().getLessonsOnce(classId, today, today.plusDays(7)), groups)
-        }.getOrDefault(emptyList())
+        val lessons = LessonGroups.filter(ep.timetable().getLessonsOnce(classId, today, today.plusDays(7)), groups)
         val styles = runCatchingCancellable { ep.settings().subjectStyles.first() }.getOrDefault(emptyMap())
         val look = runCatchingCancellable { ep.settings().widgetLook.first() }.getOrDefault(WidgetLook())
         val notes = runCatchingCancellable { ep.lessonNotes().notes.first() }.getOrDefault(emptyList())
@@ -224,7 +229,11 @@ object WidgetDataLoader {
      * Nadchodzące zastępstwa dla klasy i grup użytkownika (do widżetu "Zastępstwa").
      * Dzisiejsze po zakończeniu lekcji znikają, jak w aplikacji.
      */
-    suspend fun loadSubstitutions(context: Context): SubsWidgetState {
+    suspend fun loadSubstitutions(context: Context): SubsWidgetState = runCatchingCancellable { loadSubstitutionsChecked(context) }
+        .onFailure { Log.w("WidgetData", "Nie udało się odczytać danych", it) }
+        .getOrDefault(SubsWidgetState.Failed)
+
+    private suspend fun loadSubstitutionsChecked(context: Context): SubsWidgetState {
         val ep = entryPoint(context)
         val classId = ep.settings().selectedClassId.first() ?: return SubsWidgetState.NoClass
         val short = ep.timetable().observeClasses().first().firstOrNull { it.id == classId }?.shortName
@@ -232,13 +241,12 @@ object WidgetDataLoader {
         val groups = ep.settings().groupSelections(classId).first()
         val today = LocalDate.now()
         val now = LocalTime.now()
-        val lessons = runCatchingCancellable { ep.timetable().getLessonsOnce(classId, today, today.plusDays(14)) }
-            .getOrDefault(emptyList())
+        val lessons = ep.timetable().getLessonsOnce(classId, today, today.plusDays(14))
         val ends = SubstitutionRelevance.lessonEnds(lessons)
         val nowDt = LocalDateTime.of(today, now)
         val notesByKey = runCatchingCancellable { ep.lessonNotes().notes.first() }.getOrDefault(emptyList()).associateBy { it.key }
         val shownLessons = LessonGroups.filter(lessons, groups).associateBy { LessonNote.key(it) }
-        val subs = runCatchingCancellable { ep.substitutions().getAllFrom(today) }.getOrDefault(emptyList())
+        val subs = ep.substitutions().getAllFrom(today)
             .asSequence()
             .filter { SubstitutionRelevance.matchesClass(it, short) }
             .filter { LessonGroups.substitutionRelevant(it, lessons, groups) }
@@ -313,3 +321,10 @@ internal fun nextSubstitutionChange(now: LocalDateTime, targets: List<LessonTarg
     (targets.filter { it.date == now.toLocalDate() }.mapNotNull { target ->
         ends[target.lessonNumber]?.let { now.toLocalDate().atTime(it) }?.takeIf { it > now }
     } + now.toLocalDate().plusDays(1).atStartOfDay()).minOrNull()!!
+
+/** Zachowaj ostatni odczyt w otwartej sesji, ale nie przedstawiaj go jako świeżych danych. */
+internal fun retainWidgetData(previous: WidgetState, fresh: WidgetState): WidgetState =
+    if (fresh == WidgetState.Failed && previous is WidgetState.Ready) previous.copy(readError = true) else fresh
+
+internal fun retainSubsWidgetData(previous: SubsWidgetState, fresh: SubsWidgetState): SubsWidgetState =
+    if (fresh == SubsWidgetState.Failed && previous is SubsWidgetState.Ready) previous.copy(readError = true) else fresh

@@ -26,6 +26,15 @@ class SyncScheduler @Inject constructor(
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_MANUAL, ExistingWorkPolicy.REPLACE, req)
     }
 
+    fun syncSubstitutionsNow() {
+        val req = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setInputData(androidx.work.workDataOf("source" to pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS))
+            .setConstraints(networkConstraints())
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_PUSH_SUBS, ExistingWorkPolicy.KEEP, req)
+    }
+
     fun ensurePeriodic() {
         // 15 min = realne minimum WorkManagera (Androida nie da się oszukać krócej bez
         // backendu wysyłającego push). UPDATE zamiast KEEP, żeby ta zmiana z 30 na 15 min
@@ -43,6 +52,7 @@ class SyncScheduler @Inject constructor(
         .build()
 
     companion object {
+        const val WORK_PUSH_SUBS = "elektron_push_substitutions_sync"
         const val WORK_MANUAL = "elektron_manual_sync"
         const val WORK_PERIODIC = "elektron_periodic_sync"
     }

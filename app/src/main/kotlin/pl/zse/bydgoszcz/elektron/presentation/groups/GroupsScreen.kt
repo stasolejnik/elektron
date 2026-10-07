@@ -79,7 +79,7 @@ fun GroupsScreen(
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val saveError by viewModel.saveError.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    LaunchedEffect(Unit) { viewModel.startEditing() }
+    LaunchedEffect(state.classId) { viewModel.startEditing(state.classId) }
     var confirmDiscard by remember { mutableStateOf(false) }
     val leave: () -> Unit = { if (state.hasChanges) { confirmDiscard = true } else { viewModel.cancel(onClose) } }
     BackHandler(enabled = !asSetupStep) { leave() }

@@ -25,13 +25,17 @@ class SettingsWriteFailureTest {
     }
 
     @Test
-    fun writeErrorIsSwallowedAndSettingStaysUnchanged() = runBlocking {
+    fun writeErrorIsReportedAndSettingStaysUnchanged() = runBlocking {
         val store = FullDiskStore()
         val repo = SettingsRepositoryImpl(store)
-        // Dawniej: IOException leciał dalej - awaria przy przełączeniu dowolnej opcji.
-        repo.setThemeMode(ThemeMode.DARK)
-        repo.setSelectedClassId("o3")
-        repo.setGroupSelection("o3", "ang", "1/2")
+        for (write in listOf<suspend () -> Unit>(
+            { repo.setThemeMode(ThemeMode.DARK) },
+            { repo.setSelectedClassId("o3") },
+            { repo.setGroupSelection("o3", "ang", "1/2") }
+        )) {
+            try { write(); org.junit.Assert.fail("Expected IOException") }
+            catch (_: IOException) { }
+        }
         assertEquals(3, store.attempts)
         assertEquals(ThemeMode.SYSTEM, repo.themeMode.first())
     }

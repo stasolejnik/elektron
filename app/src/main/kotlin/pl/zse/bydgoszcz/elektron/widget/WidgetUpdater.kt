@@ -56,12 +56,12 @@ class WidgetUpdater @Inject constructor(
 
     suspend fun updateNow() {
         WidgetDataVersion.bump()     // otwarte sesje Glance wczytają dane od nowa
-        runCatchingCancellable {
-            NextLessonWidget().updateAll(context)
-            DayPlanWidget().updateAll(context)
-            SubstitutionsWidget().updateAll(context)
-            NextLessonTileService.requestUpdate(context)
-        }.onFailure { Log.w(TAG, "Nie udało się odświeżyć widżetów", it) }
+        refreshWidgetTargets(
+            { NextLessonWidget().updateAll(context) },
+            { DayPlanWidget().updateAll(context) },
+            { SubstitutionsWidget().updateAll(context) },
+            { NextLessonTileService.requestUpdate(context) }
+        ).forEach { result -> result.onFailure { Log.w(TAG, "Nie udało się odświeżyć jednego z widżetów", it) } }
     }
 
     /** Zaplanuj odświeżenie na [at] (z ograniczeniem 1 min – 24 h, zabezpieczenie przed zmianą czasu). */
@@ -129,3 +129,7 @@ class WidgetRefreshWorker @AssistedInject constructor(
         return Result.success()
     }
 }
+
+/** One broken launcher widget must not prevent updating the remaining targets. */
+internal suspend fun refreshWidgetTargets(vararg targets: suspend () -> Unit): List<Result<Unit>> =
+    targets.map { target -> runCatchingCancellable { target() } }

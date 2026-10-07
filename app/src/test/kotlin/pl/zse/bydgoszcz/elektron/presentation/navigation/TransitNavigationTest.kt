@@ -43,4 +43,14 @@ class TransitNavigationTest {
         assertEquals(listOf("transit", "settings"), pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(hidden, true).map { it.route })
     }
 
+    @Test fun reorderedButtonsAndPagerUseStableRouteKeys() {
+        val order = listOf("settings", "announcements", "dashboard", "timetable", "substitutions", "transit")
+        val pages = bottomDestinationsForTransit(true, order)
+        assertEquals(order, pages.map { it.route })
+        assertEquals("timetable", destinationPageKey(pages, pages.indexOfFirst { it.route == "timetable" }))
+        val visible = pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(setOf("announcements"), false, order)
+        assertEquals(listOf("settings", "dashboard", "timetable", "substitutions"), visible.map { it.route })
+        assertEquals(order.filterNot { it == "transit" }, bottomDestinationsForTransit(false, order).map { it.route })
+    }
+
 }

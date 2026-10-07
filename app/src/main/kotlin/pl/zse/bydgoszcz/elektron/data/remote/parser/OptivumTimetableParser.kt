@@ -61,7 +61,8 @@ object OptivumTimetableParser {
         var warnings = 0
         for (row in table.select("tr")) {
             val nrCell = row.selectFirst("td.nr") ?: continue
-            val number = nrCell.text().trim().toIntOrNull() ?: continue
+            val number = nrCell.text().trim().toIntOrNull()
+            if (number == null || number !in 0..12) { warnings++; continue }
             val gCell = row.selectFirst("td.g")
             val (from, to) = parseTime(gCell?.text() ?: "")
             if (from.isEmpty()) {
@@ -97,7 +98,7 @@ object OptivumTimetableParser {
         }
         Log.i(TAG, "Sparsowano $classId: wierszy=$dataRows, komórek=${lessons.size}, ostrzeżeń=$warnings")
         // Tabela bez ani jednego wiersza z godzinami lekcji = inny układ niż znany.
-        return TimetableDto(classId, className, generatedAt, validFrom, lessons, layoutOk = dataRows > 0)
+        return TimetableDto(classId, className, generatedAt, validFrom, lessons, layoutOk = dataRows > 0 && warnings == 0 && tables.size == 1)
     }
 
     private fun parseTime(raw: String): Pair<String, String> {

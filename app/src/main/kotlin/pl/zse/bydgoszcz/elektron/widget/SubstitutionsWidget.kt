@@ -60,7 +60,7 @@ class SubstitutionsWidget : GlanceAppWidget() {
         }
         val initial = loadSnapshot(load)
         provideContent {
-            val (state, palette) = rememberLiveWidgetData(initial, load)
+            val (state, palette) = rememberLiveWidgetData(initial, load) { old, fresh -> retainSubsWidgetData(old.first, fresh.first) to fresh.second }
             CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
         }
     }
@@ -69,6 +69,7 @@ class SubstitutionsWidget : GlanceAppWidget() {
     private fun Content(state: SubsWidgetState) {
         WidgetContainer(target = "substitutions") {
             when (state) {
+                SubsWidgetState.Failed -> WidgetMessage("Nie udało się odczytać danych. Otwórz aplikację i spróbuj ponownie.")
                 SubsWidgetState.NoClass -> WidgetMessage("Otwórz eLektron i wybierz klasę.")
                 is SubsWidgetState.Ready -> Subs(state)
             }
@@ -81,7 +82,7 @@ class SubstitutionsWidget : GlanceAppWidget() {
             Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
                 Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(18.dp))
                 Spacer(GlanceModifier.width(6.dp))
-                Text("Zastępstwa", modifier = GlanceModifier.defaultWeight(),
+                Text(if (state.readError) "Błąd odczytu · zapisane dane" else "Zastępstwa", modifier = GlanceModifier.defaultWeight(),
                     style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 1)
                 state.className?.let {
                     Text(it, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)

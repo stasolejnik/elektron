@@ -165,4 +165,14 @@ class OptivumTimetableParserTest {
         assertEquals("Cd", g.teacherCode)
         assertEquals(null, g.room)
     }
+    @Test fun partialTableIsRejectedEvenWhenAnotherRowIsValid() {
+        val good = "<tr><td class='nr'>1</td><td class='g'>8:00-8:45</td>" +
+            (1..5).joinToString("") { "<td class='l'><span class='p'>mat</span></td>" } + "</tr>"
+        val broken = good.replace("8:00-8:45", "brak godziny")
+        val dto = OptivumTimetableParser.parse(Jsoup.parse("<table class='tabela'>$good$broken</table>"), "o3")
+        assertTrue(dto.lessons.isNotEmpty())
+        assertTrue(!dto.layoutOk)
+        assertTrue(!OptivumTimetableParser.parse(Jsoup.parse("<table class='tabela'>$good${good.replace("class='nr'>1", "class='nr'>x")}</table>"), "o3").layoutOk)
+    }
+
 }

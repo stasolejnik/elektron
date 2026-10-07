@@ -63,7 +63,7 @@ class DayPlanWidget : GlanceAppWidget() {
         }
         val initial = loadSnapshot(load)
         provideContent {
-            val (state, palette) = rememberLiveWidgetData(initial, load)
+            val (state, palette) = rememberLiveWidgetData(initial, load) { old, fresh -> retainWidgetData(old.first, fresh.first) to fresh.second }
             CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
         }
     }
@@ -72,6 +72,7 @@ class DayPlanWidget : GlanceAppWidget() {
     private fun Content(state: WidgetState) {
         WidgetContainer(target = "timetable") {
             when (state) {
+                WidgetState.Failed -> WidgetMessage("Nie udało się odczytać danych. Otwórz aplikację i spróbuj ponownie.")
                 WidgetState.NoClass -> WidgetMessage("Otwórz eLektron i wybierz klasę.")
                 is WidgetState.NoLessons -> WidgetMessage("Brak lekcji w najbliższych dniach.")
                 is WidgetState.Ready -> Plan(state)
@@ -90,7 +91,7 @@ class DayPlanWidget : GlanceAppWidget() {
             ) {
                 Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(18.dp))
                 Spacer(GlanceModifier.width(6.dp))
-                Text("Plan · ${state.dayLabel}", modifier = GlanceModifier.defaultWeight(),
+                Text(if (state.readError) "Błąd odczytu · zapisany plan" else "Plan · ${state.dayLabel}", modifier = GlanceModifier.defaultWeight(),
                     style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 1)
                 state.className?.let {
                     Text(it, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
@@ -98,8 +99,9 @@ class DayPlanWidget : GlanceAppWidget() {
             }
             // Dziś: minione lekcje schowane (licznik w nagłówku) — mały widżet od razu
             // pokazuje to, co ważne, zamiast listy od pierwszej lekcji.
-            val visible = if (state.isToday) state.lessons.drop(state.focusIndex) else state.lessons
-            val pastCount = if (state.isToday) state.focusIndex else 0
+            val startIndex = WidgetNoteLayout.dayPlanStart(state)
+            val visible = state.lessons.drop(startIndex)
+            val pastCount = startIndex
             if (pastCount > 0) {
                 Text(
                     "$pastCount ${lessonsWord(pastCount)} za Tobą",
@@ -123,7 +125,8 @@ class DayPlanWidget : GlanceAppWidget() {
                         // Trwająca lekcja: "zostało X min" (jak w widżecie Następna lekcja i w planie).
                         remaining = if (state.isToday && state.focusIsNow && lesson.number == state.focus.number)
                             "zostało ${LessonClock.minutesCeil(LocalTime.now(), lesson.timeTo)} min" else null,
-                        past = false
+                        past = state.isToday && lesson.timeTo <= LocalTime.now(),
+                        visibleLessonCount = visible.size
                     )
                 }
             }
@@ -137,7 +140,8 @@ class DayPlanWidget : GlanceAppWidget() {
         dayLabel: String,
         highlighted: Boolean,
         past: Boolean,
-        remaining: String? = null
+        remaining: String? = null,
+        visibleLessonCount: Int = 1
     ) {
         val numberColor = when {
             past -> WidgetColors.textFaded
@@ -179,7 +183,7 @@ class DayPlanWidget : GlanceAppWidget() {
                         Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                     }
                     val scale = LocalContext.current.resources.configuration.fontScale
-                    val lines = WidgetNoteLayout.lines(LocalSize.current.height.value, 90f + if (lesson.note != null) 18f * scale else 0f, scale)
+                    val lines = WidgetNoteLayout.dayPlanLines(LocalSize.current.height.value, visibleLessonCount, lesson.note != null, scale)
                     if (lines > 0) lesson.userNote?.let {
                         Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 11.sp), maxLines = lines)
                     }

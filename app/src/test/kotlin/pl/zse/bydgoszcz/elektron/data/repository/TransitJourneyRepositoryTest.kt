@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class TransitJourneyRepositoryTest {
-    @Test fun requestUsesFixedSchoolAndDestinationAndReusesLocalStopCatalog() = runBlocking {
+    @Test fun requestUsesNearbyBoardingPlatformsAndDestinationAndReusesLocalStopCatalog() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Context>()
         val directory = File(app.cacheDir, "transit-repository-${System.nanoTime()}").apply { mkdirs() }
         val context = object : ContextWrapper(app) { override fun getCacheDir() = directory }
@@ -45,7 +45,8 @@ class TransitJourneyRepositoryTest {
                 assertEquals("/bydgoszcz/api/polaczenia", request.url.encodedPath)
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                 val body = JSONObject(buffer.readUtf8())
-                assertEquals(SchoolTransit.LATITUDE, body.getJSONObject("from").getDouble("lat"), 0.0)
+                assertEquals(24, body.getJSONObject("from").getInt("stopId"))
+                assertFalse(body.getJSONObject("from").has("lat"))
                 assertEquals(target.longitude, body.getJSONObject("to").getDouble("lon"), 0.0)
                 assertEquals(plans.get() - 1, body.getInt("maxPrzesiadki")); assertFalse(body.getBoolean("ksztalt"))
                 assertTrue(body.getLong("whenMs") in System.currentTimeMillis() - 60_000L..System.currentTimeMillis())
@@ -186,6 +187,49 @@ class TransitJourneyRepositoryTest {
             assertTrue(exhausted.journeys.isEmpty())
             assertEquals(2, counts[24]!!.get())
             assertEquals(3, counts[25]!!.get())
+        } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll(); directory.deleteRecursively() }
+    }
+
+    @Test fun oneFailedPlatformKeepsOtherDepartures() = platformFailure(allFail = false, malformed = false)
+    @Test fun malformedPlatformDoesNotDiscardOtherDepartures() = platformFailure(allFail = false, malformed = true)
+    @Test fun allFailedPlatformsRemainAnErrorRatherThanAnEmptyTimetable() = platformFailure(allFail = true, malformed = false)
+
+    private fun platformFailure(allFail: Boolean, malformed: Boolean) = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val directory = File(app.cacheDir, "transit-partial-${System.nanoTime()}").apply { mkdirs() }
+        val context = object : ContextWrapper(app) { override fun getCacheDir() = directory }
+        val target = TransitDestination("Cel", listOf("27"), 53.12, 18.007)
+        val origin = TransitDestination("Start", listOf("24", "25"), 53.123, 18.027)
+        val now = System.currentTimeMillis()
+        val plans = AtomicInteger()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            var code = 200
+            val json = if (request.url.encodedPath.endsWith("/stops")) {
+                """[{"id":24,"nazwa":"Start","lat":53.123,"lon":18.027},{"id":25,"nazwa":"Start","lat":53.1231,"lon":18.0271}]"""
+            } else {
+                plans.incrementAndGet()
+                val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
+                val id = JSONObject(buffer.readUtf8()).getJSONObject("from").getInt("stopId")
+                if (allFail || id == 25) {
+                    if (!malformed) code = 503
+                    "niepoprawna odpowiedź"
+                } else {
+                    """{"ok":true,"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"5","cel":"Cel","zPrzystanku":{"id":24,"nazwa":"Start"},"doPrzystanku":{"id":27,"nazwa":"Cel"},"odjazdMs":${now + 60_000L},"przyjazdMs":${now + 300_000L}}]}]}"""
+                }
+            }
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("Test").body(json.toResponseBody()).build()
+        }.build()
+        try {
+            val outcome = runCatching { TransitJourneyRepository(client, TransitStopCatalog(context, client)).find(target, origin) }
+            assertEquals(2, plans.get())
+            if (allFail) assertTrue(outcome.exceptionOrNull() is java.io.IOException)
+            else {
+                val result = outcome.getOrThrow()
+                assertTrue(result.partialFailure)
+                assertEquals("24", result.journeys.single().rides.first().fromId)
+                assertTrue(result.canReuse(target.key, System.currentTimeMillis(), origin.key))
+            }
         } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll(); directory.deleteRecursively() }
     }
 

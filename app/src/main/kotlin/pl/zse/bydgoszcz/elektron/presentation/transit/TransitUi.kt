@@ -22,15 +22,12 @@ fun TransitVisibilitySection(viewModel: TransitViewModel) {
     val state by viewModel.settings.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val error by viewModel.settingsError.collectAsStateWithLifecycle()
-    GroupedSection("Pasek nawigacji", footer = "Ukryte zakładki nadal otworzysz przesunięciem ekranu. Ustawienia pozostają dostępne na pasku.") {
+    GroupedSection("Pasek nawigacji", footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność. Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów. Zakładkę Odjazdy włącza się osobno.") {
         bottomDestinationsForTransit(true).filter { it.route != "settings" }.forEachIndexed { index, destination ->
             if (index > 0) HorizontalDivider()
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(destination.label, Modifier.weight(1f))
-                val checked = if (destination.route == "transit") state.preferences.visible else destination.route !in state.preferences.hiddenTabs
-                Switch(checked = checked, onCheckedChange = { viewModel.setTabVisible(destination.route, it) },
-                    enabled = state.ready && !state.failed && !saving)
-            }
+            val checked = if (destination.route == "transit") state.preferences.visible else destination.route !in state.preferences.hiddenTabs
+            pl.zse.bydgoszcz.elektron.presentation.settings.SwitchRow(destination.label, checked,
+                enabled = state.ready && !state.failed && !saving) { viewModel.setTabVisible(destination.route, it) }
         }
         if (state.failed) Text("Nie udało się odczytać ustawień paska.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }

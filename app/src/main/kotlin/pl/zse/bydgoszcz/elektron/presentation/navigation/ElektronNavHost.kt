@@ -74,24 +74,32 @@ fun ElektronNavHost(
         }
         return
     }
-    val bottomDestinations = bottomDestinationsForTransit(true)
+    val bottomDestinations = bottomDestinationsForTransit(transitSettings.preferences.visible, transitSettings.preferences.navigationOrder)
     // Strona startowa tylko przy pierwszym utworzeniu (stan pagera jest zapisywany, więc obrót
     // ekranu czy powrót z tła nie przeskakują z powrotem).
     // Deep link (widżet, powiadomienie, skrót) ma pierwszeństwo przed inteligentnym startem —
     // inaczej zimny start z widżetu w godzinach lekcji pokazywał Plan i przeskakiwał dalej.
-    val initialRoute = routeForDeepLink(deepLink) ?: startRoute
+    var savedActiveRoute by rememberSaveable { mutableStateOf<String?>(null) }
+    val initialRoute = routeForDeepLink(deepLink) ?: savedActiveRoute ?: startRoute
     val startPage = bottomDestinations.indexOfFirst { it.route == initialRoute }.coerceAtLeast(0)
     // Pager may still invoke callbacks from the previous composition while page count changes.
     // Count and keys must read the same current list, with safe access for retained pages.
     val currentDestinations by androidx.compose.runtime.rememberUpdatedState(bottomDestinations)
     val pagerState = rememberPagerState(initialPage = startPage) { currentDestinations.size }
     val previousDestinations = remember { mutableStateOf(bottomDestinations) }
+    var reorderRoute by remember { mutableStateOf<String?>(null) }
+    var routeRestored by remember { mutableStateOf(false) }
     val preservedRoute = previousDestinations.value.getOrNull(pagerState.currentPage)?.route ?: ElektronRoutes.DASHBOARD
     LaunchedEffect(bottomDestinations) {
+        if (!routeRestored) {
+            pagerState.scrollToPage(bottomDestinations.indexOfFirst { it.route == initialRoute }.coerceAtLeast(0))
+            routeRestored = true
+        }
         if (previousDestinations.value != bottomDestinations) {
-            val index = bottomDestinations.indexOfFirst { it.route == preservedRoute }.coerceAtLeast(0)
+            val index = bottomDestinations.indexOfFirst { it.route == (reorderRoute ?: preservedRoute) }.coerceAtLeast(0)
             pagerState.scrollToPage(index)
             previousDestinations.value = bottomDestinations
+            reorderRoute = null
         }
     }
     var showGroups by rememberSaveable { mutableStateOf(false) }
@@ -122,12 +130,17 @@ fun ElektronNavHost(
     // Dzień startowy planu: liczony przy wyjściu z zakładki planu (w tle - po powrocie plan
     // już stoi na właściwym dniu) i przy wejściu do niej (mógł minąć koniec lekcji).
     val timetableViewModel: TimetableViewModel = hiltViewModel()
-    val timetableIndex = bottomDestinations.indexOfFirst { it.route == ElektronRoutes.TIMETABLE }
     LaunchedEffect(pagerState) {
-        var last = pagerState.settledPage
-        snapshotFlow { pagerState.settledPage }.collect { page ->
-            if (page != last && (page == timetableIndex || last == timetableIndex)) timetableViewModel.applyOpeningDay()
-            last = page
+        var last = previousDestinations.value.getOrNull(pagerState.settledPage)?.route
+        snapshotFlow {
+            if (previousDestinations.value != currentDestinations) null
+            else currentDestinations.getOrNull(pagerState.settledPage)?.route
+        }.collect { route ->
+            if (route != null) {
+                if (route != last && (route == ElektronRoutes.TIMETABLE || last == ElektronRoutes.TIMETABLE)) timetableViewModel.applyOpeningDay()
+                last = route
+                savedActiveRoute = route
+            }
         }
     }
 
@@ -156,15 +169,30 @@ fun ElektronNavHost(
     }
 
     // Wstecz: najpierw zamyka "Twoje grupy"/"Przedmioty", potem wraca na stronę główną, dopiero potem wychodzi.
-    BackHandler(enabled = !overlayOpen && pagerState.currentPage != 0) {
-        scope.launch { animateTo(0) }
+    BackHandler(enabled = !overlayOpen && currentDestinations.getOrNull(pagerState.currentPage)?.route != ElektronRoutes.DASHBOARD) {
+        goTo(ElektronRoutes.DASHBOARD)
     }
     BackHandler(enabled = overlayOpen) { showGroups = false; showSubjects = false }
 
+    val navigationError by transitViewModel.navigationError.collectAsStateWithLifecycle()
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    LaunchedEffect(navigationError) {
+        navigationError?.let { snackbar.showSnackbar(it); transitViewModel.navigationError.value = null }
+    }
     Box(Modifier.fillMaxSize()) {
         Scaffold(
+            snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
             bottomBar = {
-                ElektronBottomBar(bottomDestinations.getOrNull(pagerState.targetPage)?.route, goTo, pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(transitSettings.preferences.hiddenTabs, transitSettings.preferences.visible))
+                ElektronBottomBar(bottomDestinations.getOrNull(pagerState.targetPage)?.route, goTo,
+                    pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(
+                        transitSettings.preferences.hiddenTabs, transitSettings.preferences.visible, transitSettings.preferences.navigationOrder),
+                    onReorder = { routes, done ->
+                        reorderRoute = currentDestinations.getOrNull(pagerState.currentPage)?.route
+                        transitViewModel.setNavigationOrder(routes) { success ->
+                            if (!success) reorderRoute = null
+                            done(success)
+                        }
+                    })
             }
         ) { padding ->
             HorizontalPager(

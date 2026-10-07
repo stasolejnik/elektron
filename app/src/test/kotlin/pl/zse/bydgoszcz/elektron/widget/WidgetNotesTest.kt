@@ -60,4 +60,19 @@ class WidgetNotesTest {
         assertEquals(listOf(0), result.noteLines)
         assertEquals(WidgetNoteLayout.Subs(0, 0, emptyList()), WidgetNoteLayout.substitutions(250f, emptyList()))
     }
+    @Test fun noteKeepsEarlierLessonsWithoutChangingTheCurrentLesson() {
+        val lessons = (1..4).map { n -> lesson.copy(id = "l$n", number = n,
+            timeFrom = LocalTime.of(7 + n, 0), timeTo = LocalTime.of(7 + n, 45)) }
+        val now = date.atTime(10, 15)
+        val without = WidgetDataLoader.buildState(lessons, now) as WidgetState.Ready
+        val with = WidgetDataLoader.buildState(lessons, now, notes = listOf(note.copy(number = 4))) as WidgetState.Ready
+        assertEquals(2, without.focusIndex)
+        assertEquals(2, WidgetNoteLayout.dayPlanStart(without))
+        assertEquals(0, WidgetNoteLayout.dayPlanStart(with))
+        assertEquals(without.focusIndex, with.focusIndex)
+        assertEquals(listOf(1, 2, 3, 4), with.lessons.map { it.number })
+        assertTrue(WidgetNoteLayout.dayPlanLines(250f, 4, false, 1f) in 1..4)
+        assertTrue(WidgetNoteLayout.dayPlanLines(400f, 1, false, 1f) <= 4)
+    }
+
 }

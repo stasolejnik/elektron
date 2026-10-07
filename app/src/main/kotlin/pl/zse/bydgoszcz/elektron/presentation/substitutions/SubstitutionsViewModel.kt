@@ -44,6 +44,13 @@ class SubstitutionsViewModel @Inject constructor(
     fun setVisible(value: Boolean) { visible.value = value }
 
 
+    val refreshMessage = MutableStateFlow<String?>(null)
+    val lastError = coordinator.observeSourceError(SyncOutcome.SUBSTITUTIONS)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val lastSuccess = coordinator.observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val wasLoaded = coordinator.observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS).map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -58,8 +65,11 @@ class SubstitutionsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // Przez koordynator: komunikat błędu, przypomnienia, widżety, powiadomienia - tam.
-                coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
-            } finally {
+                val outcome = coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+                if (!outcome.interrupted) refreshMessage.value = SyncOutcome.errorMessage(outcome.failures)
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { refreshMessage.value = pl.zse.bydgoszcz.elektron.domain.model.SyncErrors.userMessage(e) }
+            finally {
                 _isRefreshing.value = false
             }
         }

@@ -2,6 +2,7 @@ package pl.zse.bydgoszcz.elektron.presentation.timetable
 
 import android.content.Intent
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.EditNote
 import pl.zse.bydgoszcz.elektron.domain.model.TimetableShare
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
@@ -128,24 +129,38 @@ fun TimetableScreen(
     val shareContext = LocalContext.current
     val shareStyles = LocalPersonalization.current.styles
     val notesState by notesViewModel.state.collectAsStateWithLifecycle()
+    var showNotes by rememberSaveable { mutableStateOf(false) }
+    if (showNotes) LessonNotesLibrary(notesState.notes.filter { it.classId == state.selectedClassId }, notesViewModel) { showNotes = false }
     val noteIndex = remember(notesState.notes) { notesState.notes.associateBy { it.key } }
     val editingLesson by notesViewModel.editorLesson.collectAsStateWithLifecycle()
     LaunchedEffect(state.selectedClassId) {
         if (detailsLesson?.classId != state.selectedClassId) detailsLesson = null
-        if (state.selectedClassId != null && editingLesson?.classId != state.selectedClassId) notesViewModel.closeEditor()
     }
     val editNote: (Lesson) -> Unit = { lesson ->
-        if (notesState.ready && !notesState.error && LessonNote.canEdit(lesson, LocalDateTime.now())) {
+        if (notesState.ready && !notesState.error && (LessonNote.canEdit(lesson, LocalDateTime.now()) || noteIndex.containsKey(LessonNote.key(lesson)))) {
             detailsLesson = null; notesViewModel.openEditor(lesson)
         }
     }
+    val orphanedDraft by notesViewModel.orphanedDraft.collectAsStateWithLifecycle()
+    if (orphanedDraft) RestoredNoteDraft(notesViewModel)
     editingLesson?.let { lesson ->
         LessonNoteEditor(lesson, notesState, notesViewModel) { notesViewModel.closeEditor() }
     }
-    detailsLesson?.let { lesson -> LessonDetailsSheet(lesson,
-        userNote = notesState.notes.firstOrNull { it.key == LessonNote.key(lesson) },
-        onEditNote = if (notesState.ready && !notesState.error && LessonNote.canEdit(lesson, LocalDateTime.now())) ({ editNote(lesson) }) else null
-    ) { detailsLesson = null } }
+    detailsLesson?.let { target ->
+        val detailWeek by remember(target.classId, target.date) { viewModel.week(target.date.with(java.time.DayOfWeek.MONDAY)) }
+            .collectAsStateWithLifecycle(initialValue = null)
+        val lesson = detailWeek?.flatMap { it.lessons }?.firstOrNull { it.id == target.id }
+        if (lesson != null) LessonDetailsSheet(lesson,
+            userNote = notesState.notes.firstOrNull { it.key == LessonNote.key(lesson) },
+            onEditNote = if (notesState.ready && !notesState.error &&
+                (LessonNote.canEdit(lesson, LocalDateTime.now()) || noteIndex.containsKey(LessonNote.key(lesson)))) ({ editNote(lesson) }) else null
+        ) { detailsLesson = null }
+        else if (detailWeek != null) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { detailsLesson = null }, title = { Text("Lekcja nie jest już w Twoim planie") },
+            text = { Text("Plan lub wybrane grupy się zmieniły. Zapisane notatki pozostają w bibliotece.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { detailsLesson = null }) { Text("OK") } }
+        )
+    }
     // Lekcja otwarta z zastępstwa (zakładka Zastępstwa, widżet) - żądanie jednorazowe.
     val requestedLesson by viewModel.lessonDetails.collectAsStateWithLifecycle()
     LaunchedEffect(requestedLesson) {
@@ -321,6 +336,9 @@ fun TimetableScreen(
                             modifier = Modifier.weight(1f)
                         ) { Text("Tydzień") }
                     }
+                    IconButton(onClick = { showNotes = true }, enabled = notesState.ready && !notesState.error) {
+                        Icon(Icons.Filled.EditNote, contentDescription = "Moje notatki")
+                    }
                     val plan = visiblePlan?.takeIf {
                         it.page == pagerState.currentPage && it.page == pagerState.targetPage && it.weekMode == (mode == TimetableViewModel.ViewMode.WEEK) &&
                             it.lessons.isNotEmpty() && it.lessons.all { lesson -> lesson.classId == state.selectedClassId }
@@ -375,7 +393,7 @@ fun TimetableScreen(
                             val current = page == pagerState.currentPage
                             val lessons = week.orEmpty().flatMap { it.lessons }
                             SideEffect { if (current) visiblePlan = VisiblePlan(page, true, monday, lessons) }
-                            WeekPage(week, loading, pastWeek, pageModifier, noteIndex, editNote) { detailsLesson = it }
+                            WeekPage(week, loading, pastWeek, pageModifier, noteIndex, editNote, state.anchorDate, jump?.id) { detailsLesson = it }
                         }
                     }
                 }
@@ -423,7 +441,7 @@ private fun DayPage(
                     else -> null
                 }
                 LessonRow(lesson, badge, userNote = notes[LessonNote.key(lesson)],
-                    onLongClick = if (LessonNote.canEdit(lesson, LocalDateTime.now())) ({ onNote(lesson) }) else null,
+                    onLongClick = if (LessonNote.canEdit(lesson, LocalDateTime.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                     onClick = { onLessonClick(lesson) })
             }
         }
@@ -438,6 +456,8 @@ private fun WeekPage(
     modifier: Modifier,
     notes: Map<String, LessonNote>,
     onNote: (Lesson) -> Unit,
+    focusedDay: LocalDate,
+    openingId: Int?,
     onLessonClick: (Lesson) -> Unit
 ) {
     if (week == null || week.all { it.lessons.isEmpty() }) {
@@ -445,7 +465,7 @@ private fun WeekPage(
         return
     }
     // Siatka jak w eduVulcan: godziny po lewej, 5 dni, same nazwy przedmiotów.
-    WeekGrid(week, modifier, notes, onNote, onLessonClick)
+    WeekGrid(week, modifier, notes, onNote, onLessonClick, focusedDay, openingId)
 }
 
 

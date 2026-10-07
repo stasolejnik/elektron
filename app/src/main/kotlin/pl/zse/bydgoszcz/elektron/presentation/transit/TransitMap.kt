@@ -2,6 +2,9 @@ package pl.zse.bydgoszcz.elektron.presentation.transit
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +36,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.TransitDestination
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TransitMap(stops: List<TransitDestination>, destination: TransitDestination?, saving: Boolean, onSelect: (TransitDestination) -> Unit) {
     val context = LocalContext.current
@@ -44,6 +48,7 @@ internal fun TransitMap(stops: List<TransitDestination>, destination: TransitDes
     val latestSaving by rememberUpdatedState(saving)
     val density = LocalDensity.current
     val colors = MaterialTheme.colorScheme
+    val titleMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.35f).coerceAtMost(160f).dp
     val stopOverlay = remember(density.density, density.fontScale) {
         TransitStopOverlay(density.density, 12 * density.density * density.fontScale) {
             if (!latestSaving) {
@@ -89,7 +94,7 @@ internal fun TransitMap(stops: List<TransitDestination>, destination: TransitDes
         map.overlays.add(stopOverlay)
         onDispose { map.overlays.remove(stopOverlay) }
     }
-    SideEffect {
+    LaunchedEffect(map, stopOverlay, stops, selected?.key, colors.primary, colors.onPrimary, colors.surface, colors.onSurface) {
         stopOverlay.stops = stops
         stopOverlay.selectedKey = selected?.key
         stopOverlay.bottomInset = 0f
@@ -118,18 +123,24 @@ internal fun TransitMap(stops: List<TransitDestination>, destination: TransitDes
             Text("© OpenStreetMap contributors", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(4.dp))
         }
         }
-        selected?.let { stop ->
-            ElevatedCard(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stop.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { selected = null }, enabled = !saving) {
-                            Icon(Icons.Filled.Close, "Anuluj wybór przystanku")
-                        }
+    }
+    // A separate sheet window is not constrained by the remaining map height.
+    // Title scrolls if necessary; Close and Choose always keep their own touch space.
+    selected?.let { stop ->
+        ModalBottomSheet(onDismissRequest = { if (!latestSaving) selected = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f).heightIn(max = titleMaxHeight).verticalScroll(rememberScrollState())) {
+                        Text(stop.name, style = MaterialTheme.typography.titleLarge)
                     }
-                    Button(onClick = { latestSelect(stop) }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                        Text("Wybierz ten przystanek")
+                    IconButton(onClick = { selected = null }, enabled = !saving) {
+                        Icon(Icons.Filled.Close, "Anuluj wybór przystanku")
                     }
+                }
+                Button(onClick = { latestSelect(stop) }, enabled = !saving,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text("Wybierz ten przystanek")
                 }
             }
         }

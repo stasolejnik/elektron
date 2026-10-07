@@ -19,7 +19,7 @@ import pl.zse.bydgoszcz.elektron.work.SubstitutionNotifier
 class TestCoordinator(
     context: Context,
     val db: AppDatabase,
-    settings: FakeSettings,
+    settings: pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository,
     timetableSource: TimetableSource,
     substitutionsSource: SubstitutionsSource,
     announcementsSource: AnnouncementsSource,

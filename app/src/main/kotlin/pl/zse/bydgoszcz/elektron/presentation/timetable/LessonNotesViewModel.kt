@@ -19,7 +19,8 @@ class LessonNotesViewModel @Inject constructor(
     private val scheduler: NoteReminderScheduler,
     private val widgetUpdater: WidgetUpdater,
     private val savedState: androidx.lifecycle.SavedStateHandle,
-    private val timetable: pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+    private val timetable: pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository,
+    private val settings: pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 ) : ViewModel() {
     data class State(val notes: List<LessonNote> = emptyList(), val enabled: Boolean = false,
         val timing: NoteReminderSettings = NoteReminderSettings(),
@@ -30,14 +31,35 @@ class LessonNotesViewModel @Inject constructor(
     val error = MutableStateFlow<String?>(null)
     val editorLesson = MutableStateFlow<Lesson?>(null)
     val editorText = MutableStateFlow(savedState.get<String>("editor_text").orEmpty())
+    val editorAvailable = MutableStateFlow(false)
+    val orphanedDraft = MutableStateFlow(false)
+    private var editorJob: kotlinx.coroutines.Job? = null
+    private fun observeEditor(lesson: Lesson) {
+        editorJob?.cancel()
+        editorJob = viewModelScope.launch {
+            combine(timetable.observeLessons(lesson.classId, lesson.date, lesson.date), settings.groupSelections(lesson.classId), settings.selectedClassId) { raw, groups, selectedClass ->
+                if (selectedClass == lesson.classId) LessonGroups.filter(raw, groups).firstOrNull { it.number == lesson.number } else null
+            }.catch { error.value = "Nie udało się odświeżyć lekcji. Szkic pozostaje zapisany." }
+                .collect { current ->
+                    if (current != null) {
+                        if (!editorAvailable.value) error.value = null
+                        editorAvailable.value = true
+                        editorLesson.value = current
+                    } else {
+                        editorAvailable.value = false
+                        error.value = "Lekcja nie jest już w Twoim planie. Skopiuj szkic przed zamknięciem; zapisane notatki pozostają w bibliotece."
+                    }
+                }
+        }
+    }
     init {
         val classId = savedState.get<String>("editor_class")
         val date = savedState.get<Long>("editor_date")?.let(java.time.LocalDate::ofEpochDay)
         val number = savedState.get<Int>("editor_number")
         if (classId != null && date != null && number != null) viewModelScope.launch {
             runCatchingCancellable { timetable.getLessonsOnce(classId, date, date).firstOrNull { it.number == number } }
-                .onSuccess { editorLesson.value = it }
-                .onFailure { error.value = "Nie udało się odtworzyć edytowanej lekcji. Szkic został zachowany." }
+                .onSuccess { editorLesson.value = it; orphanedDraft.value = it == null; it?.let(::observeEditor) }
+                .onFailure { orphanedDraft.value = true; error.value = "Nie udało się odtworzyć edytowanej lekcji. Szkic został zachowany." }
         }
     }
     fun editText(text: String) { editorText.value = text; savedState["editor_text"] = text }
@@ -48,24 +70,29 @@ class LessonNotesViewModel @Inject constructor(
         savedState["editor_class"] = lesson.classId
         savedState["editor_date"] = lesson.date.toEpochDay()
         savedState["editor_number"] = lesson.number
+        error.value = null; orphanedDraft.value = false; editorAvailable.value = false
         editorLesson.value = lesson
+        observeEditor(lesson)
     }
     fun closeEditor() {
-        editorLesson.value = null; editorText.value = ""
+        editorJob?.cancel(); editorJob = null
+        editorLesson.value = null; editorText.value = ""; editorAvailable.value = false; orphanedDraft.value = false; error.value = null
         listOf("editor_class", "editor_date", "editor_number", "editor_text").forEach { savedState.remove<Any>(it) }
     }
     val saving = MutableStateFlow(false)
     val settingsError = MutableStateFlow<String?>(null)
     fun save(lesson: Lesson, text: String, onSaved: () -> Unit) {
         if (saving.value || !state.value.ready || state.value.error) return
-        if (!LessonNote.canEdit(lesson, java.time.LocalDateTime.now())) {
-            error.value = "Lekcja już się rozpoczęła. Nie można dodać ani edytować notatki."; return
-        }
         saving.value = true; error.value = null
         viewModelScope.launch {
             try {
-                runCatchingCancellable { repository.save(LessonNote(lesson.classId, lesson.date, lesson.number,
-                    LessonNote.subject(lesson), text, 0)) }
+                runCatchingCancellable {
+                    check(settings.selectedClassId.first() == lesson.classId)
+                    val latest = LessonGroups.filter(timetable.getLessonsOnce(lesson.classId, lesson.date, lesson.date),
+                        settings.groupSelections(lesson.classId).first()).firstOrNull { it.number == lesson.number }
+                        ?: error("Lekcja nie jest już w planie")
+                    repository.save(LessonNote(latest.classId, latest.date, latest.number, LessonNote.subject(latest), text, 0))
+                }
                     .onSuccess { scheduler.requestReschedule(); widgetUpdater.requestUpdate(); onSaved() }
                     .onFailure { error.value = "Nie udało się zapisać notatki. Spróbuj ponownie." }
             } finally { saving.value = false }

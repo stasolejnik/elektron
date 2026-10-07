@@ -118,7 +118,7 @@ class SubstitutionsRepositoryImplTest {
         assertEquals(32, repo.getAllFrom(day).count { it.date == day })
 
         page = realPage(html.replace("1 D(2) - Zajęcia Świetlicowe", "1Dg2 - Zajęcia Świetlicowe"))
-        assertTrue(repo.syncAll().isSuccess)
+        assertTrue(repo.syncAll().exceptionOrNull() is pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException)
         val after = repo.getAllFrom(day).filter { it.date == day }
         assertEquals(32, after.size)
         assertTrue(after.any { it.classShortName == "1D" && it.lessonNumber == 7 })

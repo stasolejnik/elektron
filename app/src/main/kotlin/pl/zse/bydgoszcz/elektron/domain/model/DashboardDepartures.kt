@@ -7,6 +7,7 @@ object DashboardDepartures {
     fun isTime(lessons: List<Lesson>, now: LocalDateTime): Boolean {
         val last = lessons.filter { it.date == now.toLocalDate() && SubstitutionDisplay.takesPlace(it) }
             .maxWithOrNull(compareBy<Lesson> { it.timeTo }.thenBy { it.timeFrom }) ?: return false
-        return !now.toLocalTime().isBefore(last.timeFrom)
+        return !now.toLocalTime().isBefore(last.timeFrom) &&
+            now.isBefore(last.date.atTime(last.timeTo).plusHours(1))
     }
 }

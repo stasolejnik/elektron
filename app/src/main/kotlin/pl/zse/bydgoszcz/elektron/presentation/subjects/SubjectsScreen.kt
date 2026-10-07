@@ -61,6 +61,8 @@ import pl.zse.bydgoszcz.elektron.presentation.common.pressable
 fun SubjectsScreen(onClose: () -> Unit, viewModel: SubjectsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val saveError by viewModel.saveError.collectAsStateWithLifecycle()
+    val saving by viewModel.saving.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -115,9 +117,10 @@ fun SubjectsScreen(onClose: () -> Unit, viewModel: SubjectsViewModel = hiltViewM
     if (current != null) {
         EditSubjectDialog(
             item = current,
-            onSave = { name, color -> viewModel.save(current.key, name, color); editing = null },
-            onReset = { viewModel.reset(current.key); editing = null },
-            onDismiss = { editing = null }
+            error = saveError, saving = saving,
+            onSave = { name, color -> viewModel.save(current.key, name, color) { editing = null } },
+            onReset = { viewModel.reset(current.key) { editing = null } },
+            onDismiss = { if (!saving) { editing = null; viewModel.saveError.value = null } }
         )
     }
 }
@@ -153,6 +156,7 @@ private fun ColorDot(color: Color?, size: Int) {
 @Composable
 private fun EditSubjectDialog(
     item: SubjectsViewModel.Item,
+    error: String?, saving: Boolean,
     onSave: (String?, Long?) -> Unit,
     onReset: () -> Unit,
     onDismiss: () -> Unit
@@ -165,7 +169,9 @@ private fun EditSubjectDialog(
         title = { Text(item.key) },
         text = {
             Column {
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 OutlinedTextField(
+                    enabled = !saving,
                     value = name,
                     onValueChange = { name = it.take(40) },
                     label = { Text("Nazwa w aplikacji") },
@@ -184,7 +190,7 @@ private fun EditSubjectDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, color) }) { Text("Zapisz") } },
+        confirmButton = { TextButton(enabled = !saving, onClick = { onSave(name, color) }) { Text("Zapisz") } },
         dismissButton = {
             Row {
                 if (!item.style.isDefault) TextButton(onClick = onReset) { Text("Przywróć") }

@@ -312,4 +312,30 @@ class AnnouncementsRepositoryImplTest {
         } finally { directory.deleteRecursively() }
     }
 
+    @Test fun explicitRefreshReplacesIncompleteCacheAndFailurePreservesFullArticle() = kotlinx.coroutines.runBlocking {
+        source.news = listOf(rss("https://zse/refresh"))
+        repo.syncAll().getOrThrow()
+        source.article = "<p>Stary fragment.</p>"
+        repo.loadFullArticle("https://zse/refresh").getOrThrow()
+        source.article = "<p>Pełny pierwszy akapit.</p><p>Pełny drugi akapit.</p>"
+        repo.loadFullArticle("https://zse/refresh").getOrThrow()
+        assertEquals(1, source.articleCalls)
+        repo.refreshFullArticle("https://zse/refresh").getOrThrow()
+        assertEquals(2, source.articleCalls)
+        assertTrue(repo.observeById("https://zse/refresh").first()!!.fullHtml!!.contains("Pełny drugi"))
+        source.article = null
+        assertTrue(repo.refreshFullArticle("https://zse/refresh").isFailure)
+        assertTrue(repo.observeById("https://zse/refresh").first()!!.fullHtml!!.contains("Pełny drugi"))
+    }
+
+    @Test fun scatteredFavoritesNeverCauseArchivePagesToBeSkipped() = runTest {
+        db.announcementDao().upsertAll((1..30).map { n -> AnnouncementEntity(
+            id = "favorite-$n", title = "Ulubione", url = "https://zse/favorite-$n", publishedAtEpochSeconds = 1_800_000_000,
+            excerpt = null, coverImageUrl = null, fullHtml = null, isRead = false, source = "RSS_NEWS", isFavorite = true) })
+        source.archive = mapOf(1 to listOf(archiveItem("https://zse/missing-first-page")))
+        assertTrue(repo.loadOlder().isSuccess)
+        assertEquals(listOf(1), source.requestedPages)
+        assertTrue(repo.getAll().any { it.url == "https://zse/missing-first-page" })
+    }
+
 }

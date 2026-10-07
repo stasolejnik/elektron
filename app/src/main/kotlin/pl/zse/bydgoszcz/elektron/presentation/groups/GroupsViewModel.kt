@@ -37,7 +37,8 @@ class GroupsViewModel @Inject constructor(
     private val timetableRepo: TimetableRepository,
     notificationsRepo: NotificationsRepository,
     private val coordinator: SyncCoordinator,
-    private val widgetUpdater: WidgetUpdater
+    private val widgetUpdater: WidgetUpdater,
+    private val savedState: androidx.lifecycle.SavedStateHandle = androidx.lifecycle.SavedStateHandle()
 ) : ViewModel() {
 
     enum class Status { LOADING, READY, NO_GROUPS, FAILED }
@@ -62,9 +63,11 @@ class GroupsViewModel @Inject constructor(
     /**
      * Niezapisane zmiany: przedmiot -> wybór (null = wszystkie grupy). Wybory trafiają tu,
      * a do ustawień dopiero po "Zapisz" / "Dalej"; "Anuluj" czyści szkic. ViewModel żyje
-     * dłużej niż ekran (nakładka w Ustawieniach), więc szkic jest czyszczony przy otwarciu.
+     * dłużej niż ekran (nakładka w Ustawieniach); szkic przetrwa odtworzenie ekranu,
+     * a nowa sesja po zapisie/anulowaniu zaczyna od zapisanych wyborów.
      */
-    private val draft = MutableStateFlow<Map<String, String?>>(emptyMap())
+    private val draft = MutableStateFlow<Map<String, String?>>(savedState.get<HashMap<String, String?>>("group_draft") ?: emptyMap())
+    private fun setDraft(value: Map<String, String?>) { draft.value = value; savedState["group_draft"] = HashMap(value) }
 
     private data class Inputs(
         val classId: String?,
@@ -84,7 +87,7 @@ class GroupsViewModel @Inject constructor(
     val state: StateFlow<State> = combine(
         inputs,
         notificationsRepo.observeLoadedResources(),
-        coordinator.initialSyncPending,
+        coordinator.isSyncing,
         retrying,
         draft
     ) { inp, loaded, pending, retry, pendingChanges ->
@@ -116,14 +119,17 @@ class GroupsViewModel @Inject constructor(
     }
 
     /** Otwarcie ekranu: zaczynamy od zapisanych wyborów. */
-    fun startEditing() {
-        draft.value = emptyMap()
+    fun startEditing(classId: String? = state.value.classId) {
+        if (classId == null || savedState.get<String>("group_editor_class") == classId) return
+        setDraft(emptyMap())
+        savedState["group_editor_class"] = classId
+        saveError.value = null
     }
 
     /** choice == null: pokazuj wszystkie grupy; LessonGroups.NONE: nie chodzę. */
     fun setChoice(subject: String, choice: String?) {
         if (saving.value) return
-        draft.value = draft.value + (subject to choice)
+        setDraft(draft.value + (subject to choice))
     }
 
     /**
@@ -132,22 +138,23 @@ class GroupsViewModel @Inject constructor(
      */
     fun applyDivision(key: String, option: String?) {
         if (saving.value) return
-        draft.value = draft.value + LessonGroups.applyDivision(state.value.subjects, key, option)
+        setDraft(draft.value + LessonGroups.applyDivision(state.value.subjects, key, option))
     }
 
     /** Zapisuje szkic (Zapisz w Ustawieniach, Dalej przy pierwszym uruchomieniu). */
     private suspend fun commit() {
         val cid = settings.selectedClassId.first() ?: error("Nie wybrano klasy")
+        check(savedState.get<String>("group_editor_class") == cid) { "Klasa zmieniła się podczas edycji" }
         val changes = draft.value
         settings.saveGroupChoices(cid, changes)
-        draft.value = emptyMap()
+        setDraft(emptyMap()); savedState.remove<String>("group_editor_class")
         widgetUpdater.requestUpdate()
     }
 
     /** Anuluj: odrzuca niezapisane zmiany. */
     fun cancel(onDone: () -> Unit = {}) {
         if (saving.value) return
-        draft.value = emptyMap()
+        setDraft(emptyMap()); savedState.remove<String>("group_editor_class")
         onDone()
     }
 

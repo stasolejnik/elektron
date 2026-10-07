@@ -53,6 +53,7 @@ import java.time.LocalDate
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var updateRepo: UpdateRepository
+    @Inject lateinit var coordinator: pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 
     private val appViewModel: ElektronAppViewModel by viewModels()
     private val pendingDeepLink = MutableStateFlow<String?>(null)
@@ -70,13 +71,19 @@ class MainActivity : ComponentActivity() {
         Log.i(TAG, "onCreate (odtworzenie: ${savedInstanceState != null})")
         if (savedInstanceState == null) {
             pendingDeepLink.value = resolveDeepLink(intent)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
         }
 
         setContent {
             val state by appViewModel.state.collectAsStateWithLifecycle()
+            val permissionPrefs = remember { getSharedPreferences("notification_permission", MODE_PRIVATE) }
+            var explainNotifications by remember { mutableStateOf(false) }
+            LaunchedEffect(state.isReady, state.selectedClassId, state.groupsConfiguredFor) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && state.isReady &&
+                    state.selectedClassId != null && state.groupsConfiguredFor == state.selectedClassId &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                    !permissionPrefs.getBoolean("explained", false)) explainNotifications = true
+            }
+            val operationError by coordinator.operationError.collectAsStateWithLifecycle()
             val deepLink by pendingDeepLink.collectAsStateWithLifecycle()
             val personalization by appViewModel.personalization.collectAsStateWithLifecycle()
             // Raport z poprzedniej awarii (jeśli była) - pokazywany raz, potem usuwany.
@@ -100,6 +107,18 @@ class MainActivity : ComponentActivity() {
 
             ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor, accent = state.accent) {
                 CompositionLocalProvider(LocalPersonalization provides (personalization ?: Personalization())) {
+                    if (explainNotifications) androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { explainNotifications = false; permissionPrefs.edit().putBoolean("explained", true).apply() },
+                        title = { androidx.compose.material3.Text("Powiadomienia ze szkoły") },
+                        text = { androidx.compose.material3.Text("Możesz otrzymywać powiadomienia o nowych zastępstwach. Powiadomienia o ogłoszeniach oraz przypomnienia o lekcjach i notatkach są domyślnie wyłączone. Możesz je włączyć osobno w ustawieniach.") },
+                        confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                            explainNotifications = false; permissionPrefs.edit().putBoolean("explained", true).apply()
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }) { androidx.compose.material3.Text("Zezwól") } },
+                        dismissButton = { androidx.compose.material3.TextButton(onClick = {
+                            explainNotifications = false; permissionPrefs.edit().putBoolean("explained", true).apply()
+                        }) { androidx.compose.material3.Text("Później") } }
+                    )
                     when {
                         // Start: kółko dopiero, gdy wczytywanie trwa dłużej (zwykle to ułamek sekundy).
                         !state.isReady || personalization == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -115,6 +134,16 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    operationError?.let { message ->
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = coordinator::consumeOperationError,
+                            title = { androidx.compose.material3.Text("Zmiana nie została zakończona") },
+                            text = { androidx.compose.material3.Text(message) },
+                            confirmButton = { androidx.compose.material3.TextButton(onClick = coordinator::consumeOperationError) {
+                                androidx.compose.material3.Text("OK")
+                            } }
+                        )
+                    }
                     crashReport?.let { report ->
                         CrashReportDialog(report = report, onDismiss = {
                             CrashReporter.clear(this@MainActivity)

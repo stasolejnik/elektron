@@ -25,7 +25,7 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
     var confirmDiscard by remember { mutableStateOf(false) }
     val dirty = text != note?.text.orEmpty()
     val dismiss = { if (!saving) { if (dirty) confirmDiscard = true else onDismiss() } }
-    LaunchedEffect(lesson.id) { viewModel.clearError() }
+    val available by viewModel.editorAvailable.collectAsStateWithLifecycle()
     val sheetState = rememberNoteSheetState(dirty, saving) { confirmDiscard = true }
     ModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
@@ -41,14 +41,19 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
                 label = { Text("Twoja notatka") }, placeholder = { Text("Np. powtórzyć rozdział 3") },
                 minLines = 4, maxLines = 8, modifier = Modifier.fillMaxWidth(), enabled = !saving,
                 supportingText = { Text("${text.length}/${LessonNote.MAX_LENGTH}") })
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+                val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+                TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(text)) }) { Text("Kopiuj szkic") }
+            }
+            if (!LessonNote.canEdit(lesson, java.time.LocalDateTime.now())) Text("Lekcja już się rozpoczęła. Zapis zmieni tekst notatki, ale nie wyśle przypomnienia o tej lekcji.", style = MaterialTheme.typography.bodySmall)
             Text("Przypomnienia możesz włączyć w Ustawieniach → Notatki do lekcji.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (note != null) TextButton(onClick = { confirmDelete = true }, enabled = !saving) { Text("Usuń") }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = dismiss, enabled = !saving) { Text("Anuluj") }
-                Button(onClick = { viewModel.save(lesson, text, onDismiss) }, enabled = !saving && text.isNotBlank() && dirty) {
+                Button(onClick = { viewModel.save(lesson, text, onDismiss) }, enabled = !saving && available && text.isNotBlank() && dirty) {
                     Text(if (saving) "Zapisuję…" else "Zapisz")
                 }
             }
@@ -86,4 +91,27 @@ internal fun rememberNoteSheetConfirmation(dirty: Boolean, saving: Boolean, onDi
         }
     }
     return confirm
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun RestoredNoteDraft(viewModel: LessonNotesViewModel) {
+    val text by viewModel.editorText.collectAsStateWithLifecycle()
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var discard by rememberSaveable { mutableStateOf(false) }
+    ModalBottomSheet(onDismissRequest = { discard = true }, sheetState = rememberNoteSheetState(true, false) { discard = true }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Zachowany szkic notatki", style = MaterialTheme.typography.headlineSmall)
+            Text("Nie udało się odnaleźć lekcji. Skopiuj treść, zanim odrzucisz szkic.")
+            androidx.compose.foundation.text.selection.SelectionContainer { Text(text) }
+            Row {
+                TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(text)) }) { Text("Kopiuj szkic") }
+                TextButton(onClick = { discard = true }) { Text("Odrzuć szkic") }
+            }
+        }
+    }
+    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("Odrzucić zachowany szkic?") },
+        confirmButton = { TextButton(onClick = { viewModel.closeEditor() }) { Text("Odrzuć") } },
+        dismissButton = { TextButton(onClick = { discard = false }) { Text("Wróć") } })
 }

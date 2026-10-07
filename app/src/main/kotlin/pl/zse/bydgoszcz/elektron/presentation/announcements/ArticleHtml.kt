@@ -56,6 +56,23 @@ object ArticleHtml {
             </style></head><body>${doc.body().html()}</body></html>""".trimIndent()
     }
 
+    /** School-hosted pictures only; loaded by the gallery when the reader opens it. */
+    fun imageLinks(fragment: String, baseUrl: String): List<String> =
+        Jsoup.parseBodyFragment(fragment, baseUrl).select("img[src]").mapNotNull { image ->
+            val linked = image.closest("a[href]")?.absUrl("href")
+            val fullImage = linked?.takeIf { url -> runCatching {
+                val uri = URI(url)
+                uri.scheme in listOf("http", "https") && uri.host in setOf("zse.bydgoszcz.pl", "zse.edu.bydgoszcz.pl") &&
+                    uri.path.orEmpty().matches(Regex(".*\\.(jpg|jpeg|png|gif|webp)", RegexOption.IGNORE_CASE))
+            }.getOrDefault(false) }
+            val url = fullImage ?: image.absUrl("src")
+            runCatching {
+                val uri = URI(url)
+                if (uri.scheme !in listOf("http", "https") || uri.host !in setOf("zse.bydgoszcz.pl", "zse.edu.bydgoszcz.pl")) null
+                else url.replaceFirst(Regex("^http://"), "https://")
+            }.getOrNull()
+        }.distinct().take(30)
+
     private fun safeColor(value: String) = value.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#222222"
     private fun isWebLink(url: String): Boolean = runCatching {
         val uri = URI(url)

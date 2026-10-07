@@ -52,14 +52,17 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     val journeyError = MutableStateFlow<String?>(null)
     val moreLoading = MutableStateFlow(false)
     private var journeyJob: Job? = null
+    private var journeyMinimumCount = 1
+    private var automaticRetryAt = 0L
+    private var automaticRetryKey: Triple<String?, String?, Boolean>? = null
     private var walkingJob: Job? = null
     private var journeyKey: Triple<String?, String?, Boolean>? = null
     private var walkingKey: Triple<String?, String?, Boolean>? = null
-    private fun requestKey(prefs: TransitPreferences) = prefs.takeIf { it.destination != null }?.let {
+    private fun requestKey(prefs: TransitPreferences) = prefs.takeIf { it.canLoadJourneys }?.let {
         Triple(it.destination?.key, it.preferredOrigin?.key, it.allowTransfers)
     }
     private fun matches(result: TransitJourneyRepository.Result, prefs: TransitPreferences) =
-        result.destinationKey == prefs.destination?.key && result.originKey == prefs.preferredOrigin?.key && result.allowTransfers == prefs.allowTransfers
+        prefs.canLoadJourneys && result.destinationKey == prefs.destination?.key && result.originKey == prefs.preferredOrigin?.key && result.allowTransfers == prefs.allowTransfers
     init {
         viewModelScope.launch {
             settings.filter { it.ready }.map { requestKey(it.preferences) }.distinctUntilChanged().collect { key ->
@@ -78,43 +81,80 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     }
     private fun cancelWalkingRequest() { walkingJob?.cancel(); walkingJob = null; walkingKey = null }
     private val journeyConsumers = mutableSetOf<Any>()
-    fun startJourneySession(consumer: Any) { journeyConsumers.add(consumer); loadJourneys() }
+    fun startJourneySession(consumer: Any, minimumCount: Int = 1) { journeyConsumers.add(consumer); refreshJourneys(minimumCount) }
+    fun refreshJourneys(minimumCount: Int = 1) {
+        if (journeyConsumers.isEmpty()) return
+        if (requestKey(settings.value.preferences) == automaticRetryKey && android.os.SystemClock.elapsedRealtime() < automaticRetryAt) return
+        loadJourneys(minimumCount = minimumCount)
+    }
     fun stopJourneySession(consumer: Any) {
         if (journeyConsumers.remove(consumer) && journeyConsumers.isEmpty()) cancelJourneys()
     }
     fun cancelJourneys() { cancelJourneyRequest(); cancelWalkingRequest() }
-    fun loadJourneys(force: Boolean = false, more: Boolean = false) {
+    fun loadJourneys(force: Boolean = false, more: Boolean = false, minimumCount: Int = 1) {
         val prefs = settings.value.preferences
         val destination = prefs.destination ?: return
+        if (!prefs.canLoadJourneys) return
         val old = journeys.value?.takeIf { matches(it, prefs) }
-        val after = if (more) old?.nextWhenMs ?: return else null
-        if (!more && !force && old?.canReuse(destination.key, System.currentTimeMillis(), prefs.preferredOrigin?.key, prefs.allowTransfers) == true) {
+        val reusable = !force && old?.canReuse(destination.key, System.currentTimeMillis(), prefs.preferredOrigin?.key, prefs.allowTransfers) == true
+        val requestedCount = minimumCount.coerceIn(1, 300)
+        val existingCount = old?.journeys?.count { it.departureMs > System.currentTimeMillis() } ?: 0
+        if (!more && reusable && (existingCount >= requestedCount || old?.nextWhenMs == null)) {
             journeyError.value = null
-            if (old.journeys.any { it.walkPending } && walkingJob?.isActive != true) loadWalking(old)
+            if (old!!.journeys.any { it.walkPending } && walkingJob?.isActive != true) loadWalking(old)
             return
         }
+        val append = more || (reusable && existingCount < requestedCount)
+        val after = if (append) old?.nextWhenMs ?: return else null
         val key = requestKey(prefs)
-        if (journeyJob?.isActive == true && journeyKey == key && !force) return
+        if (journeyJob?.isActive == true && journeyKey == key && !force) {
+            journeyMinimumCount = maxOf(journeyMinimumCount, requestedCount)
+            return
+        }
         if (walkingKey != key) cancelWalkingRequest()
-        // Pagination must not interrupt a walking request for already displayed results.
         cancelJourneyRequest()
         journeyKey = key
+        journeyMinimumCount = requestedCount
         journeyLoading.value = !more; moreLoading.value = more; journeyError.value = null
         journeyJob = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            try { runCatchingCancellable { journeyRepository.find(destination, prefs.preferredOrigin, after, prefs.allowTransfers, if (more) old?.platformCursors else null) }
-                .onSuccess { result ->
-                    val current = settings.value.preferences
-                    if (matches(result, current)) {
-                        // Walking enrichment may have completed while this page was loading.
+            try {
+                runCatchingCancellable {
+                    var cursor = after
+                    var cursors = if (append) old?.platformCursors else null
+                    var merge = append
+                    // A planner page often contains one ride. Fill the requested display
+                    // batch, not just one server page. Publish each page without waiting for walks.
+                    repeat(12) {
+                        val result = journeyRepository.find(destination, prefs.preferredOrigin, cursor, prefs.allowTransfers, cursors)
+                        val current = settings.value.preferences
+                        if (!matches(result, current)) return@runCatchingCancellable
                         val previous = journeys.value?.takeIf { matches(it, current) } ?: old
-                        val published = if (more && previous != null) result.copy(journeys = pl.zse.bydgoszcz.elektron.domain.model.TransitJourneys.rank(previous.journeys + result.journeys, System.currentTimeMillis(), current.preferredOrigin, current.allowTransfers), boardingStops = (previous.boardingStops + result.boardingStops).distinctBy { it.key }) else result
+                        val published = if (merge && previous != null) result.copy(
+                            journeys = kotlinx.coroutines.withContext(Dispatchers.Default) {
+                                pl.zse.bydgoszcz.elektron.domain.model.TransitJourneys.rank(previous.journeys + result.journeys, System.currentTimeMillis(), current.preferredOrigin, current.allowTransfers)
+                            },
+                            boardingStops = (previous.boardingStops + result.boardingStops).distinctBy { it.key },
+                            partialFailure = previous.partialFailure || result.partialFailure) else result
+                        if (!matches(published, settings.value.preferences)) return@runCatchingCancellable
                         journeys.value = published
+                        automaticRetryKey = null; automaticRetryAt = 0L
                         loadWalking(published)
+                        val next = published.nextWhenMs
+                        if (published.journeys.size >= journeyMinimumCount || next == null || (cursor != null && next <= cursor!!)) return@runCatchingCancellable
+                        merge = true
+                        cursor = next
+                        cursors = published.platformCursors
                     }
-
+                }.onFailure {
+                    if (requestKey(settings.value.preferences) == key) {
+                        automaticRetryKey = key
+                        automaticRetryAt = android.os.SystemClock.elapsedRealtime() + 60_000L
+                        journeyError.value = "Nie udało się sprawdzić połączeń. Spróbuj ponownie."
+                    }
                 }
-                .onFailure { if (settings.value.preferences.destination?.key == destination.key && settings.value.preferences.preferredOrigin?.key == prefs.preferredOrigin?.key && settings.value.preferences.allowTransfers == prefs.allowTransfers) journeyError.value = "Nie udało się sprawdzić połączeń. Spróbuj ponownie." }
-            } finally { if (journeyJob === coroutineContext[Job]) { journeyLoading.value = false; moreLoading.value = false } }
+            } finally {
+                if (journeyJob === coroutineContext[Job]) { journeyLoading.value = false; moreLoading.value = false }
+            }
         }
         journeyJob?.start()
     }
@@ -164,10 +204,34 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     }
     fun select(destination: TransitDestination, onSaved: () -> Unit) = write(onSaved) { preferencesRepository.select(destination) }
     fun selectOrigin(origin: TransitDestination?, onSaved: () -> Unit = {}) = write(onSaved) { preferencesRepository.selectOrigin(origin) }
-    fun setAllowTransfers(allow: Boolean) = write { preferencesRepository.setAllowTransfers(allow) }
-    fun setTabVisible(route: String, visible: Boolean) = write { preferencesRepository.setTabVisible(route, visible) }
-    fun setShowOnDashboard(show: Boolean) = write { preferencesRepository.setShowOnDashboard(show) }
-    fun setEnabled(enabled: Boolean) = write { preferencesRepository.setEnabled(enabled) }
+    fun setAllowTransfers(allow: Boolean) = writePreference { preferencesRepository.setAllowTransfers(allow) }
+    fun setTabVisible(route: String, visible: Boolean) = writePreference { preferencesRepository.setTabVisible(route, visible) }
+    fun setShowOnDashboard(show: Boolean) = writePreference { preferencesRepository.setShowOnDashboard(show) }
+    fun setEnabled(enabled: Boolean) = writePreference { preferencesRepository.setEnabled(enabled) }
+    val navigationError = MutableStateFlow<String?>(null)
+    private val preferenceMutex = kotlinx.coroutines.sync.Mutex()
+    fun setNavigationOrder(order: List<String>, onDone: (Boolean) -> Unit) = writePreference(onDone) {
+        preferencesRepository.setNavigationOrder(order)
+    }
+    private fun writePreference(onDone: ((Boolean) -> Unit)? = null, action: suspend () -> Unit) {
+        if (!settings.value.ready || settings.value.failed) {
+            if (onDone != null) navigationError.value = "Nie udało się odczytać ustawień paska. Spróbuj ponownie."
+            onDone?.invoke(false); return
+        }
+        viewModelScope.launch {
+            preferenceMutex.lock()
+            try {
+                settingsError.value = null
+                val result = runCatchingCancellable { action() }
+                result.onFailure {
+                    val message = "Nie udało się zapisać ustawienia. Spróbuj ponownie."
+                    settingsError.value = message
+                    if (onDone != null) navigationError.value = message
+                }
+                onDone?.invoke(result.isSuccess)
+            } finally { preferenceMutex.unlock() }
+        }
+    }
     fun clear() = write { preferencesRepository.clearDestination() }
     private fun write(onSaved: () -> Unit = {}, action: suspend () -> Unit) {
         if (saving.value || !settings.value.ready || settings.value.failed) return

@@ -43,6 +43,10 @@ class LessonNotesRepository internal constructor(private val store: DataStore<Pr
         store.edit { prefs ->
             val all = decode(prefs[entries]).toMutableList()
             val old = all.firstOrNull { it.key == note.key }
+            // Reopening and saving the same note must not re-arm a delivered reminder.
+            val text = note.text.trim()
+            if (old?.text == text && old.subject == note.subject) return@edit
+            if (old == null && text.isBlank()) return@edit
             all.removeAll { it.key == note.key }
             if (note.text.isNotBlank()) all += note.copy(text = note.text.trim(),
                 revision = maxOf(System.currentTimeMillis(), (old?.revision ?: 0L) + 1), reminded = false)

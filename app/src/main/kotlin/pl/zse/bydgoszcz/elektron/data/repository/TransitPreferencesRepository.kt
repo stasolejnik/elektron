@@ -28,11 +28,13 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     private val hiddenTabsKey = stringSetPreferencesKey("hidden_navigation_tabs")
     private val dashboardKey = booleanPreferencesKey("show_dashboard_departure")
     private val enabledKey = booleanPreferencesKey("show_tab")
+    private val orderKey = stringPreferencesKey("navigation_order_v1")
     val preferences: Flow<TransitPreferences> = store.data.map {
         val destination = decode(it[destinationKey])
         val origin = decode(it[originKey])
-        TransitPreferences(destination, it[enabledKey] ?: true, origin,
-            it[transfersKey] == true, history(it[recentDestinationsKey], destination), history(it[recentOriginsKey], origin), it[hiddenTabsKey].orEmpty(), it[dashboardKey] ?: true)
+        TransitPreferences(destination, it[enabledKey] ?: false, origin,
+            it[transfersKey] == true, history(it[recentDestinationsKey], destination), history(it[recentOriginsKey], origin), it[hiddenTabsKey].orEmpty(), it[dashboardKey] ?: false,
+            pl.zse.bydgoszcz.elektron.domain.model.NavigationOrder.normalize(it[orderKey]?.split(',').orEmpty()))
     }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     suspend fun select(destination: TransitDestination) = withContext(Dispatchers.IO) {
@@ -74,6 +76,13 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     }
     suspend fun setShowOnDashboard(show: Boolean) = withContext(Dispatchers.IO) {
         store.edit { it[dashboardKey] = show }; Unit
+    }
+    suspend fun setNavigationOrder(visibleOrder: List<String>) = withContext(Dispatchers.IO) {
+        store.edit { prefs ->
+            val merged = pl.zse.bydgoszcz.elektron.domain.model.NavigationOrder.reorderVisible(
+                prefs[orderKey]?.split(',').orEmpty(), visibleOrder)
+            prefs[orderKey] = merged.joinToString(",")
+        }; Unit
     }
     suspend fun clearDestination() = withContext(Dispatchers.IO) {
         store.edit {

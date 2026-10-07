@@ -73,4 +73,22 @@ class LessonRemindersTest {
         assertEquals("$mon-2", r.lesson.id)
         assertEquals(at(mon, "08:40"), r.at)
     }
+    @Test fun deliveryRejectsDisabledMovedOrNoLongerFirstLesson() {
+        val start = at(mon, "08:50")
+        val now = at(mon, "08:45")
+        assertEquals(lessons[1], LessonReminders.due(lessons, 2, start, now, ReminderSettings(ReminderMode.EVERY)))
+        assertNull(LessonReminders.due(lessons, 2, start, now, ReminderSettings(ReminderMode.OFF)))
+        assertNull(LessonReminders.due(lessons, 2, start, now, ReminderSettings(ReminderMode.FIRST)))
+        assertNull(LessonReminders.due(lessons.map { if (it.number == 2) it.copy(timeFrom = LocalTime.of(10, 0)) else it },
+            2, start, now, ReminderSettings(ReminderMode.EVERY)))
+        assertNull(LessonReminders.due(lessons, 2, start, at(mon, "08:55"), ReminderSettings(ReminderMode.EVERY)))
+    }
+
+    @Test fun deliveryUsesCurrentSubstitutionAndRejectsExemptLesson() {
+        val updated = lessons[0].copy(note = "Zmiana sali")
+        assertEquals(updated, LessonReminders.due(listOf(updated), 1, at(mon, "08:00"), at(mon, "07:50"), ReminderSettings(ReminderMode.FIRST)))
+        val exempt = updated.copy(substitution = Substitution("s", mon, 1, "1D", null, "Uczniowie przychodzą później", null, null, "X"))
+        assertNull(LessonReminders.due(listOf(exempt), 1, at(mon, "08:00"), at(mon, "07:50"), ReminderSettings(ReminderMode.FIRST)))
+    }
+
 }

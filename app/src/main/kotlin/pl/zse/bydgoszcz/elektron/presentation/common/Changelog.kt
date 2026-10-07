@@ -6,15 +6,11 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(34, "1.0.0-rc7", listOf(
-            "Odjazdy dostępne domyślnie; trzy najbliższe czasowo przyjazdy do celu",
-            "Wybór ikon dolnego paska i krótszy podpis Start",
-            "Najbliższy odjazd na stronie głównej podczas ostatniej lekcji i po zajęciach",
-            "Dokładniejsze wyniki dla preferowanego przystanku i poprawione Pokaż więcej",
-            "Mniej powtarzanych pobrań i zapisów, oszczędniejsze obliczanie dojścia",
-            "Trwały zapis ulubionych ogłoszeń oraz bezpieczne usuwanie zakładek",
-            "Zachowanie szkicu notatki po obrocie ekranu i pewniejsze przypomnienia",
-            "Kliknięcie pustych miejsc widżetu otwiera odpowiednią zakładkę",
-            "Poprawki zapisu grup, odświeżania danych i zgodności z Androidem 8"
+            "Usprawnienia Odjazdów i wyboru przystanków",
+            "Czytelniejsze godziny i wyniki połączeń",
+            "Równy pasek nawigacji ze zmianą kolejności ikon",
+            "Pewniejszy zapis notatek, grup i ulubionych",
+            "Poprawki odświeżania danych, przypomnień i widżetów"
         )),
         Entry(33, "1.0.0-rc6", listOf(
             "Nowa funkcja Odjazdy ze szkoły, włączana w Ustawieniach po wyborze celu",

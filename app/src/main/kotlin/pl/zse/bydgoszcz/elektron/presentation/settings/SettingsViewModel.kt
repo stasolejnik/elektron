@@ -49,6 +49,13 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
+    val settingError = MutableStateFlow<String?>(null)
+    private fun writeSetting(block: suspend () -> Unit) = viewModelScope.launch {
+        runCatchingCancellable { block() }.onFailure {
+            settingError.value = "Nie udało się zapisać ustawienia. Poprzedni wybór pozostał."
+        }
+    }
+
     val reminderStatus = reminders.status
     fun refreshReminderStatus() { reminders.requestReschedule() }
 
@@ -160,7 +167,7 @@ class SettingsViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
-    fun setTheme(m: ThemeMode) = viewModelScope.launch {
+    fun setTheme(m: ThemeMode) = writeSetting {
         settings.setThemeMode(m)
         widgetUpdater.requestUpdate()   // widżety w motywie aplikacji
     }
@@ -196,41 +203,41 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setDynamicColor(enabled: Boolean) = viewModelScope.launch {
+    fun setDynamicColor(enabled: Boolean) = writeSetting {
         settings.setDynamicColor(enabled)
         widgetUpdater.requestUpdate()   // widżety w kolorach z tapety
     }
 
-    fun setStartScreen(screen: StartScreen) = viewModelScope.launch { settings.setStartScreen(screen) }
+    fun setStartScreen(screen: StartScreen) = writeSetting { settings.setStartScreen(screen) }
 
-    fun setReminder(value: ReminderSettings) = viewModelScope.launch {
+    fun setReminder(value: ReminderSettings) = writeSetting {
         settings.setReminderSettings(value)
         reminders.reschedule()
     }
 
-    fun setQuietHours(value: QuietHours) = viewModelScope.launch { settings.setQuietHours(value) }
+    fun setQuietHours(value: QuietHours) = writeSetting { settings.setQuietHours(value) }
 
-    fun setAccent(value: AccentSetting) = viewModelScope.launch {
+    fun setAccent(value: AccentSetting) = writeSetting {
         settings.setAccent(value)
         widgetUpdater.requestUpdate()   // widżety w nowym kolorze
     }
 
-    fun setWidgetLook(value: WidgetLook) = viewModelScope.launch {
+    fun setWidgetLook(value: WidgetLook) = writeSetting {
         settings.setWidgetLook(value)
         widgetUpdater.requestUpdate()
     }
 
-    fun setTimetableLook(look: TimetableLook) = viewModelScope.launch { settings.setTimetableLook(look) }
+    fun setTimetableLook(look: TimetableLook) = writeSetting { settings.setTimetableLook(look) }
 
     fun resetCache() {
         state.value.selectedClassId?.let { classSelection.resetCacheAndResync(it) }
     }
 
-    fun setNotifSubs(b: Boolean) = viewModelScope.launch { settings.setNotificationsSubstitutions(b) }
-    fun setNotifAnn(b: Boolean) = viewModelScope.launch { settings.setNotificationsAnnouncements(b) }
-    fun setShowNextLesson(b: Boolean) = viewModelScope.launch { settings.setShowNextLesson(b) }
-    fun setShowSubstitutions(b: Boolean) = viewModelScope.launch { settings.setShowSubstitutions(b) }
-    fun setShowAnnouncements(b: Boolean) = viewModelScope.launch { settings.setShowAnnouncements(b) }
+    fun setNotifSubs(b: Boolean) = writeSetting { settings.setNotificationsSubstitutions(b) }
+    fun setNotifAnn(b: Boolean) = writeSetting { settings.setNotificationsAnnouncements(b) }
+    fun setShowNextLesson(b: Boolean) = writeSetting { settings.setShowNextLesson(b) }
+    fun setShowSubstitutions(b: Boolean) = writeSetting { settings.setShowSubstitutions(b) }
+    fun setShowAnnouncements(b: Boolean) = writeSetting { settings.setShowAnnouncements(b) }
 
     companion object { private const val TAG = "SettingsViewModel" }
 }

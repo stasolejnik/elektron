@@ -6,6 +6,14 @@ internal object WidgetNoteLayout {
     fun lines(heightDp: Float, reservedDp: Float, fontScale: Float = 1f): Int =
         ((heightDp - reservedDp) / (18f * fontScale.coerceAtLeast(1f))).toInt().coerceIn(0, 2000)
 
+    fun dayPlanStart(state: WidgetState.Ready): Int =
+        if (state.lessons.any { !it.userNote.isNullOrBlank() }) 0 else if (state.isToday) state.focusIndex else 0
+
+    fun dayPlanLines(heightDp: Float, lessonCount: Int, schoolNote: Boolean, fontScale: Float): Int {
+        val perRow = (heightDp - 54f * fontScale.coerceAtLeast(1f)).coerceAtLeast(0f) / lessonCount.coerceIn(1, 4)
+        return lines(perRow, 44f * fontScale.coerceAtLeast(1f) + if (schoolNote) 18f * fontScale else 0f, fontScale).coerceIn(1, 4)
+    }
+
     data class Subs(val shown: Int, val more: Int, val noteLines: List<Int>)
 
     fun substitutions(heightDp: Float, items: List<WidgetSubstitution>, fontScale: Float = 1f): Subs {

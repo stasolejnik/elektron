@@ -38,18 +38,19 @@ class TransitTest {
             catch (_: Exception) { }
         }
     }
-    @Test fun tabDefaultsToVisibleAndDoesNotRequireADestination() = runBlocking {
+    @Test fun featureDefaultsToDisabledAndCanBeEnabledWithoutADestination() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val file = File(context.cacheDir, "transit-${System.nanoTime()}.preferences_pb")
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val store = PreferenceDataStoreFactory.create(scope = scope, produceFile = { file })
         val repo = TransitPreferencesRepository(store)
         try {
-            assertTrue(repo.preferences.first().visible)
+            assertFalse(repo.preferences.first().visible)
+            assertFalse(repo.preferences.first().showOnDashboard)
             assertNull(repo.preferences.first().destination)
-            // Old experimental opt-out must not hide the newly enabled standard tab.
+            // Missing enablement remains disabled even with old experimental preferences.
             store.edit { it[androidx.datastore.preferences.core.booleanPreferencesKey("enabled")] = false }
-            assertTrue(repo.preferences.first().visible)
+            assertFalse(repo.preferences.first().visible)
             repo.setEnabled(false)
             assertFalse(repo.preferences.first().visible)
             repo.setEnabled(true)
@@ -127,4 +128,25 @@ class TransitTest {
             assertEquals(restored.recentOrigins, repo.preferences.first().recentOrigins)
         } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
     }
+    @Test fun navigationOrderPersistsAndDoesNotDropHiddenRoutes() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "transit-order-${System.nanoTime()}.preferences_pb")
+        var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        var repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
+        try {
+            repo.setNavigationOrder(listOf("settings", "dashboard", "announcements", "timetable"))
+            repo.setTabVisible("substitutions", false)
+            repo.setShowOnDashboard(true)
+            val saved = repo.preferences.first()
+            assertEquals(listOf("settings", "dashboard", "announcements", "timetable"), saved.navigationOrder.filter { it !in setOf("substitutions", "transit") })
+            assertEquals(pl.zse.bydgoszcz.elektron.domain.model.NavigationOrder.DEFAULT.toSet(), saved.navigationOrder.toSet())
+            scope.cancel(); scope.coroutineContext[Job]!!.join()
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
+            assertEquals(saved.navigationOrder, repo.preferences.first().navigationOrder)
+            assertTrue(repo.preferences.first().showOnDashboard) // explicit student choice survives new defaults
+            assertFalse(repo.preferences.first().visible)
+        } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
+    }
+
 }

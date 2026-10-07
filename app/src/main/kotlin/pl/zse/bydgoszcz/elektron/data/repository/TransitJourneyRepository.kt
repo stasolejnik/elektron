@@ -11,24 +11,29 @@ import org.json.JSONObject
 import pl.zse.bydgoszcz.elektron.data.remote.http.readCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.*
 import java.io.IOException
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TransitJourneyRepository @Inject constructor(private val client: OkHttpClient, private val catalog: TransitStopCatalog, private val walking: TransitWalkingRepository) {
     internal constructor(client: OkHttpClient, catalog: TransitStopCatalog) : this(client, catalog, TransitWalkingRepository(client))
-    data class Result(val destinationKey: String, val journeys: List<TransitJourney>, val fetchedAt: Long, val originKey: String? = null, val nextWhenMs: Long? = null, val allowTransfers: Boolean = false, val boardingStops: List<TransitDestination> = emptyList(), val platformCursors: Map<String, Long>? = null) {
+    data class Result(val destinationKey: String, val journeys: List<TransitJourney>, val fetchedAt: Long, val originKey: String? = null, val nextWhenMs: Long? = null, val allowTransfers: Boolean = false, val boardingStops: List<TransitDestination> = emptyList(), val platformCursors: Map<String, Long>? = null, val partialFailure: Boolean = false) {
         fun canReuse(key: String, nowMs: Long, origin: String? = null, transfers: Boolean = false): Boolean = destinationKey == key && originKey == origin && allowTransfers == transfers && nowMs - fetchedAt in 0 until 60_000L &&
             (journeys.isEmpty() || journeys.any { it.departureMs > nowMs })
     }
-    private data class Batch(val platform: String, val journeys: List<TransitJourney>, val cursor: Long?)
+    private data class Batch(val platform: String, val journeys: List<TransitJourney>, val cursor: Long?, val failed: Boolean = false)
     suspend fun find(destination: TransitDestination, origin: TransitDestination? = null, afterMs: Long? = null, allowTransfers: Boolean = false, platformCursors: Map<String, Long>? = null): Result = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val platforms = catalog.load().platforms.associateBy { it.stopIds.single() }
         // A selected stop is a constraint, not just a coordinate near other stops.
         // Query each platform of the selected stop using the API's documented stopId.
-        val startingPoints = origin?.stopIds?.map { JSONObject().put("stopId", it.toLongOrNull() ?: it) }
-            ?: listOf(JSONObject().put("lat", SchoolTransit.LATITUDE).put("lon", SchoolTransit.LONGITUDE))
+        // Query boarding platforms, not a walking journey starting at school. Otherwise
+        // the server itself hides rides that depart before the student can walk there.
+        val originIds = origin?.stopIds ?: platforms.values.filter {
+            SchoolTransit.distance(it.latitude, it.longitude) <= 1000
+        }.sortedBy { SchoolTransit.distance(it.latitude, it.longitude) }.map { it.stopIds.single() }
+        val startingPoints = originIds.map { JSONObject().put("stopId", it.toLongOrNull() ?: it) }
         val batches = kotlinx.coroutines.coroutineScope {
             val permits = kotlinx.coroutines.sync.Semaphore(2)
             // Each platform has its own search window. Finished platforms must not be
@@ -37,32 +42,35 @@ class TransitJourneyRepository @Inject constructor(private val client: OkHttpCli
                 permits.acquire()
                 try {
                     val platform = from.optString("stopId")
-                    var whenMs = if (afterMs != null) platformCursors?.get(platform) ?: afterMs else now
-                    var cursor: Long? = null
-                    val trips = mutableListOf<TransitJourney>()
-                    repeat(2) {
-                        val body = JSONObject().put("from", from)
-                            .put("to", JSONObject().put("lat", destination.latitude).put("lon", destination.longitude))
-                            .put("maxPrzesiadki", if (allowTransfers) 1 else 0).put("ksztalt", false).put("whenMs", whenMs)
-                        val request = Request.Builder().url("https://api.busearch.pl/bydgoszcz/api/polaczenia")
-                            .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
-                        val response = client.newCall(request).readCancellable {
-                            if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
-                            val source = it.body?.source() ?: throw IOException("Pusta odpowiedź")
-                            source.request(4_000_001)
-                            if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
-                            JSONObject(source.readUtf8())
+                    runCatchingCancellable {
+                        var whenMs = if (afterMs != null) platformCursors?.get(platform) ?: afterMs else now
+                        var cursor: Long? = null
+                        val trips = mutableListOf<TransitJourney>()
+                        repeat(2) {
+                            val body = JSONObject().put("from", from)
+                                .put("to", JSONObject().put("lat", destination.latitude).put("lon", destination.longitude))
+                                .put("maxPrzesiadki", if (allowTransfers) 1 else 0).put("ksztalt", false).put("whenMs", whenMs)
+                            val request = Request.Builder().url("https://api.busearch.pl/bydgoszcz/api/polaczenia")
+                                .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
+                            val response = client.newCall(request).readCancellable {
+                                if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
+                                val source = it.body?.source() ?: throw IOException("Pusta odpowiedź")
+                                source.request(4_000_001)
+                                if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
+                                JSONObject(source.readUtf8())
+                            }
+                            trips += TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers)
+                                .filter { origin == null || it.rides.first().fromId in origin.stopIds }
+                            cursor = response.optLong("nastepneWhenMs", 0).takeIf { it > whenMs && it <= now + 24 * 60 * 60_000L }
+                            if (trips.isNotEmpty() || cursor == null) return@runCatchingCancellable Batch(platform, trips.toList(), cursor)
+                            whenMs = cursor!!
                         }
-                        trips += TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers)
-                            .filter { origin == null || it.rides.first().fromId in origin.stopIds }
-                        cursor = response.optLong("nastepneWhenMs", 0).takeIf { it > whenMs && it <= now + 24 * 60 * 60_000L }
-                        if (trips.isNotEmpty() || cursor == null) return@async Batch(platform, trips.toList(), cursor)
-                        whenMs = cursor!!
-                    }
-                    Batch(platform, trips.toList(), cursor)
+                        Batch(platform, trips.toList(), cursor)
+                    }.getOrElse { Batch(platform, emptyList(), null, failed = true) }
                 } finally { permits.release() }
             } }.map { it.await() }
         }
+        if (batches.isNotEmpty() && batches.all { it.failed }) throw IOException("Nie udało się sprawdzić żadnego stanowiska")
         val journeys = batches.flatMap { it.journeys }
         val nextCursors = batches.mapNotNull { batch -> batch.cursor?.let { batch.platform to it } }.toMap()
         val nextWhenMs = nextCursors.values.minOrNull()
@@ -73,7 +81,7 @@ class TransitJourneyRepository @Inject constructor(private val client: OkHttpCli
             if (path != null) trip.copy(walkMinutes = path.minutes, distanceMeters = path.distanceMeters, walkAvailable = true)
             else trip.copy(walkAvailable = false, walkPending = true)
         }
-        Result(destination.key, TransitJourneys.rank(withPaths, System.currentTimeMillis(), origin, allowTransfers), System.currentTimeMillis(), origin?.key, nextWhenMs, allowTransfers, boardingStops, nextCursors)
+        Result(destination.key, TransitJourneys.rank(withPaths, System.currentTimeMillis(), origin, allowTransfers), System.currentTimeMillis(), origin?.key, nextWhenMs, allowTransfers, boardingStops, nextCursors, partialFailure = batches.any { it.failed })
     }
     /** Walking requests do not block displaying or paging departures. */
     suspend fun enrichWalking(result: Result): Result = withContext(Dispatchers.IO) {

@@ -95,7 +95,10 @@ class LocalNotificationSink @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val showInPlan = PendingIntent.getActivity(
-            context, sub.id.hashCode() xor 0x5A5A, deepLinkIntent("timetable"),
+            context, sub.id.hashCode() xor 0x5A5A, pl.zse.bydgoszcz.elektron.widget.lessonIntent(context,
+                pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(sub.date, sub.lessonNumber)).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val n = NotificationCompat.Builder(context, CHANNEL_SUBSTITUTIONS)

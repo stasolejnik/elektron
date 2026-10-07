@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsTransit
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,10 +23,17 @@ import pl.zse.bydgoszcz.elektron.presentation.transit.formatTransitTime
 internal fun DashboardDeparture(viewModel: TransitViewModel, eligible: Boolean, onOpen: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     if (!eligible || !settings.ready || settings.failed || !settings.preferences.showOnDashboard) return
+    var showDetails by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val openDetails: () -> Unit = { if (settings.preferences.visible) onOpen() else showDetails = true }
+    if (showDetails) androidx.compose.ui.window.Dialog(onDismissRequest = { showDetails = false },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        pl.zse.bydgoszcz.elektron.presentation.transit.TransitScreen(viewModel, onClose = { showDetails = false })
+    }
+    SectionTitle("Najbliższy odjazd", Icons.Filled.DirectionsTransit)
     val prefs = settings.preferences
     if (prefs.destination == null) {
-        ElektronCard(onClick = onOpen) {
-            Text("Wybierz cel w Odjazdach, aby zobaczyć najbliższe połączenie ze szkoły.", Modifier.padding(16.dp))
+        ElektronCard(onClick = openDetails) {
+            Text("Wybierz przystanek docelowy w ustawieniach lub dotknij tutaj, aby sprawdzić połączenie ze szkoły.", Modifier.padding(16.dp))
         }
         return
     }
@@ -44,24 +53,25 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, eligible: Boolean, 
     val now = remember(tick) { System.currentTimeMillis() }
     // Foreground only; the shared minute cache avoids a second request from Departures.
     LaunchedEffect(visible, tick, prefs.destination.key, prefs.preferredOrigin?.key, prefs.allowTransfers) {
-        if (visible && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) viewModel.loadJourneys()
+        if (visible && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) viewModel.refreshJourneys()
     }
     val result by viewModel.journeys.collectAsStateWithLifecycle()
     val loading by viewModel.journeyLoading.collectAsStateWithLifecycle()
     val error by viewModel.journeyError.collectAsStateWithLifecycle()
     val matching = result?.takeIf { it.destinationKey == prefs.destination.key && it.originKey == prefs.preferredOrigin?.key && it.allowTransfers == prefs.allowTransfers }
     val trip = remember(matching, now, prefs.preferredOrigin, prefs.allowTransfers) {
-        TransitJourneys.rank(matching?.journeys.orEmpty(), now, prefs.preferredOrigin, prefs.allowTransfers).minByOrNull { it.departureMs }
+        TransitJourneys.upcoming(matching?.journeys.orEmpty(), now, prefs.preferredOrigin, prefs.allowTransfers).minByOrNull { it.departureMs }
     }
     Column {
         when {
-            trip != null -> JourneyCard(trip, now, "Najbliższy odjazd", onOpen)
+            trip != null -> JourneyCard(trip, now, "", openDetails)
             loading -> DelayedLoading { Text("Sprawdzam najbliższy odjazd…", Modifier.padding(16.dp)) }
-            else -> ElektronCard(onClick = onOpen) {
-                Text(if (error != null) "Nie udało się sprawdzić odjazdu. Otwórz Odjazdy, aby ponowić." else "Brak nadchodzących połączeń. Otwórz Odjazdy, aby sprawdzić więcej.", Modifier.padding(16.dp))
+            else -> ElektronCard(onClick = openDetails) {
+                Text(if (error != null) "Nie udało się sprawdzić odjazdu. Dotknij tutaj, aby ponowić." else "Brak nadchodzących połączeń. Dotknij tutaj, aby sprawdzić więcej.", Modifier.padding(16.dp))
             }
         }
         matching?.let { Text("Ostatnio sprawdzono: ${formatTransitTime(it.fetchedAt, now)}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
+        if (matching?.partialFailure == true) Text("Sprawdzono tylko część stanowisk. Lista może być niepełna.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (error != null && trip != null) Text("Nie udało się odświeżyć. Wyświetlam zapisany odjazd.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
 }

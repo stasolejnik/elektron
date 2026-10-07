@@ -62,7 +62,7 @@ class NextLessonWidget : GlanceAppWidget() {
         }
         val initial = loadSnapshot(load)
         provideContent {
-            val (state, palette) = rememberLiveWidgetData(initial, load)
+            val (state, palette) = rememberLiveWidgetData(initial, load) { old, fresh -> retainWidgetData(old.first, fresh.first) to fresh.second }
             CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
         }
     }
@@ -86,6 +86,7 @@ class NextLessonWidget : GlanceAppWidget() {
             }
         ) {
             when (state) {
+                WidgetState.Failed -> WidgetMessage("Nie udało się odczytać danych. Otwórz aplikację i spróbuj ponownie.")
                 WidgetState.NoClass -> WidgetMessage("Otwórz eLektron i wybierz klasę.")
                 is WidgetState.NoLessons -> WidgetMessage("Brak lekcji w najbliższych dniach.")
                 is WidgetState.Ready -> {
@@ -135,7 +136,7 @@ class NextLessonWidget : GlanceAppWidget() {
             Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
                 Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(16.dp))
                 Spacer(GlanceModifier.width(6.dp))
-                Text(label, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                Text(if (state.readError) "BŁĄD ODCZYTU · ZAPISANY PLAN" else label, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             }
             Spacer(GlanceModifier.defaultWeight())
             if (!compact) Text("${lesson.number}", style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)

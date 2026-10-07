@@ -74,6 +74,12 @@ class TimetableRepositoryImpl @Inject constructor(
                 // Zmieniony układ strony: zapisany plan zostaje, ale sync kończy się błędem,
                 // żeby użytkownik dostał komunikat zamiast cichego braku aktualizacji.
                 if (!dto.layoutOk) throw SchoolPageChangedException("plan lekcji")
+                if (dto.lessons.any { cell ->
+                    (cell.groups.isNotEmpty() || cell.note != null) &&
+                        (runCatching { java.time.LocalTime.parse(cell.timeFrom) }.getOrNull() == null ||
+                         runCatching { java.time.LocalTime.parse(cell.timeTo) }.getOrNull() == null ||
+                         cell.timeTo <= cell.timeFrom)
+                }) throw SchoolPageChangedException("plan lekcji")
                 if (dto.lessons.isEmpty()) return@runCatchingCancellable
                 // Plan Optivum to szablon tygodniowy. Dawniej zapisywaliśmy go tylko dla
                 // tygodnia anchorDate — w weekend cały zapisany tydzień był w przeszłości

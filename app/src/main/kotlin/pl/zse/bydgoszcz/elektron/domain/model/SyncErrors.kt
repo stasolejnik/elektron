@@ -22,6 +22,7 @@ object SyncErrors {
         var e: Throwable? = t
         while (e != null) {
             when (e) {
+                is IncompleteSchoolDataException -> return IncompleteSchoolDataException.USER_MESSAGE
                 is ArticleContentException -> return ArticleContentException.USER_MESSAGE
                 is SchoolPageChangedException -> return SchoolPageChangedException.USER_MESSAGE
                 is UnknownHostException, is ConnectException, is SocketTimeoutException, is SSLException -> return OFFLINE

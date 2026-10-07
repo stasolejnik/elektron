@@ -191,4 +191,19 @@ class TimetableRepositoryImplTest {
             assertEquals(0, it.getInt(0))
         }
     }
+    @Test fun invalidTimeInOneLessonDoesNotDeleteSavedTemplate() = runTest {
+        repo.syncTimetable("o3", monday)
+        val before = repo.getLessonsOnce("o3", monday, monday.plusWeeks(4))
+        val source = object : TimetableSource {
+            override suspend fun fetchSidebar() = emptyList<ClassListItemDto>()
+            override suspend fun fetchTimetable(classId: String) = TimetableDto(classId, "1D", null, null,
+                listOf(LessonCellDto(1, "08:00", "08:45", 1, listOf(LessonGroupDto("mat", null, null, null, null, null, null)), null),
+                    LessonCellDto(2, "25:00", "25:45", 1, listOf(LessonGroupDto("fiz", null, null, null, null, null, null)), null)))
+        }
+        val broken = TimetableRepositoryImpl(source, db.schoolClassDao(), db.teacherDao(), db.roomDao(),
+            db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+        assertTrue(broken.syncTimetable("o3", monday).exceptionOrNull() is SchoolPageChangedException)
+        assertEquals(before, repo.getLessonsOnce("o3", monday, monday.plusWeeks(4)))
+    }
+
 }

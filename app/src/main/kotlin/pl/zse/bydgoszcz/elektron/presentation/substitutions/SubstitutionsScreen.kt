@@ -67,6 +67,14 @@ fun SubstitutionsScreen(
         onDispose { viewModel.setVisible(false) }
     }
 
+    val lastError by viewModel.lastError.collectAsStateWithLifecycle()
+    val lastSuccess by viewModel.lastSuccess.collectAsStateWithLifecycle()
+    val wasLoaded by viewModel.wasLoaded.collectAsStateWithLifecycle()
+    val refreshMessage by viewModel.refreshMessage.collectAsStateWithLifecycle()
+    val snackbar = androidx.compose.runtime.remember { androidx.compose.material3.SnackbarHostState() }
+    androidx.compose.runtime.LaunchedEffect(refreshMessage) {
+        refreshMessage?.let { snackbar.showSnackbar(it); viewModel.refreshMessage.value = null }
+    }
     val groups by viewModel.days.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
@@ -88,6 +96,7 @@ fun SubstitutionsScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         topBar = { LargeTitleBar(title = "Zastępstwa", scrollBehavior = scrollBehavior, actions = {
             IconButton(onClick = { share(visibleItems) }, enabled = visibleItems.isNotEmpty(), colors = IconButtonDefaults.iconButtonColors(
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
@@ -107,6 +116,15 @@ fun SubstitutionsScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                lastError?.let { error -> item(key = "sync_error") {
+                    Text(error + if (wasLoaded) " Wyświetlam zapisane dane." else "", color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 12.dp))
+                } }
+                lastSuccess?.let { at -> item(key = "freshness") {
+                    Text("Zastępstwa sprawdzono: " + at.atZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("d.MM, HH:mm")),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } }
                 if (groups.isEmpty() && isLoading && !isRefreshing) {
                     item(key = "loading") {
                         Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
@@ -121,9 +139,10 @@ fun SubstitutionsScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(48.dp))
                                 Spacer(Modifier.size(12.dp))
-                                Text("Brak zastępstw", style = MaterialTheme.typography.titleMedium)
+                                Text(if (!wasLoaded || lastError != null) "Brak potwierdzonych danych" else "Brak zastępstw", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    if (todayHidden) "Dzisiejsze zastępstwa, które już minęły, są w planie lekcji."
+                                    if (!wasLoaded || lastError != null) "Nie udało się potwierdzić braku zmian. Pociągnij w dół, aby spróbować ponownie."
+                                    else if (todayHidden) "Dzisiejsze zastępstwa, które już minęły, są w planie lekcji."
                                     else if (otherGroups.isNotEmpty()) "Dla Twoich grup nie ma zaplanowanych zmian."
                                     else "Dla Twojej klasy nie ma zaplanowanych zmian.",
                                     style = MaterialTheme.typography.bodyMedium,

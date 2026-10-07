@@ -33,6 +33,11 @@ data class TransitJourney(val rides: List<TransitRide>, val walkMinutes: Int, va
 }
 
 object TransitJourneys {
+    // For already ranked repository results: filtering preserves arrival order without sorting again.
+    fun upcoming(ranked: List<TransitJourney>, nowMs: Long, preferredOrigin: TransitDestination? = null, allowTransfers: Boolean = true): List<TransitJourney> =
+        ranked.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) &&
+            (preferredOrigin == null || it.rides.first().fromId in preferredOrigin.stopIds) }
+
     /** Keep a departure visible until it leaves, even after the walking deadline passes. */
     fun rank(journeys: List<TransitJourney>, nowMs: Long, preferredOrigin: TransitDestination? = null, allowTransfers: Boolean = true): List<TransitJourney> {
         return journeys.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) &&

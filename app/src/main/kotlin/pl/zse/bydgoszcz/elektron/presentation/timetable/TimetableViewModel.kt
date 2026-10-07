@@ -113,7 +113,7 @@ class TimetableViewModel @Inject constructor(
     init {
         // Ostatnio wybrany tryb (Dzień/Tydzień) - zapamiętany w ustawieniach.
         viewModelScope.launch {
-            val week = settings.timetableLook.first().weekView
+            val week = runCatchingCancellable { settings.timetableLook.first().weekView }.getOrDefault(false)
             if (!modeInitialized) initSavedMode(week)
         }
         // Sync tylko gdy oglądanego tygodnia brakuje w bazie (plan zapisywany jest na
@@ -125,6 +125,7 @@ class TimetableViewModel @Inject constructor(
                 // Miniony tydzień spoza bazy: strona szkoły ma tylko aktualny plan - nie pobieramy
                 // (dawniej bieżący szablon trafiał jako plan sprzed miesięcy). Ekran pokazuje komunikat.
                 if (isPastWeek(monday, LocalDate.now())) return@onEach
+                runCatchingCancellable {
                 if (!repo.hasLessons(cid, monday, monday.plusDays(4))) {
                     _syncingWeek.value = monday
                     try {
@@ -135,6 +136,7 @@ class TimetableViewModel @Inject constructor(
                         }
                     } finally { _syncingWeek.value = null }
                 }
+                }.onFailure { _refreshMessage.value = pl.zse.bydgoszcz.elektron.domain.model.SyncErrors.userMessage(it) }
             }
             .launchIn(viewModelScope)
     }
@@ -171,8 +173,10 @@ class TimetableViewModel @Inject constructor(
         if (mode.value == m) return
         mode.value = m
         viewModelScope.launch {
-            val look = settings.timetableLook.first()
-            settings.setTimetableLook(look.copy(weekView = m == ViewMode.WEEK))
+            runCatchingCancellable {
+                val look = settings.timetableLook.first()
+                settings.setTimetableLook(look.copy(weekView = m == ViewMode.WEEK))
+            }.onFailure { _refreshMessage.value = "Nie udało się zapisać widoku planu. ${pl.zse.bydgoszcz.elektron.domain.model.SyncErrors.userMessage(it)}" }
         }
     }
 
@@ -203,7 +207,9 @@ class TimetableViewModel @Inject constructor(
                 )
                 // Komunikat na ekranie planu (raz); przerwane zmianą klasy - bez komunikatu.
                 if (!outcome.interrupted) _refreshMessage.value = SyncOutcome.errorMessage(outcome.failures)
-            } finally {
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { _refreshMessage.value = pl.zse.bydgoszcz.elektron.domain.model.SyncErrors.userMessage(e) }
+            finally {
                 refreshing.value = false
             }
         }

@@ -4,6 +4,16 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.0-rc7] - 2026-10-07 (34)
+
+- Niezależna karta Odjazdów na stronie głównej i wybór przystanków w Ustawieniach; karta i zakładka domyślnie wyłączone.
+- Czytelniejsze czasy w godzinach i minutach oraz poprawki wyników, paginacji i odświeżania połączeń.
+- Zmiana kolejności ikon przez przytrzymanie i przeciąganie; równe pola, okrągłe efekty dotknięcia i obsługa TalkBack.
+- Pewniejszy zapis notatek, grup, ustawień i ulubionych oraz zachowanie danych po błędach pobierania.
+- Poprawki przypomnień, powiadomień, widżetów i ograniczenie zbędnych obliczeń interfejsu.
+
+Szczegóły: [opis wydania RC7](release-notes/1.0.0-rc7.md).
+
 ## [1.0.0-rc6] (33)
 
 Nowa funkcja **Odjazdy ze szkoły** pozwala znaleźć połączenie komunikacji miejskiej

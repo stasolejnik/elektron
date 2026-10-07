@@ -95,7 +95,7 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
         )
     }
     article?.let { AnnouncementArticleSheet(it, articleLoading, articleError,
-        onRetry = { viewModel.openArticle(it.id) },
+        onRetry = { viewModel.openArticle(it.id, force = true) },
         onFavorite = { viewModel.toggleFavorite(it.id) }, onDismiss = viewModel::closeArticle) }
     val snackbar = remember { SnackbarHostState() }
     val message by viewModel.message.collectAsStateWithLifecycle()

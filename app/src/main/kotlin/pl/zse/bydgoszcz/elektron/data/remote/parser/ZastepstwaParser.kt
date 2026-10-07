@@ -71,6 +71,7 @@ object ZastepstwaParser {
         var currentTeacher: String? = null
         var candidateTeacher: String? = null   // ostatni jednokomórkowy wiersz (nie data)
         var warnings = 0
+        val malformedDays = mutableSetOf<String>()
 
         // Wszystkie tabele po kolei (dotąd: tylko pierwsza) - eksport bywa dzielony.
         for (row in tables.select("tr")) {
@@ -87,12 +88,16 @@ object ZastepstwaParser {
                         currentTeacher = null
                         candidateTeacher = null
                     }
+                    text.toIntOrNull() != null -> currentDate?.let(malformedDays::add)
                     text.isNotBlank() -> candidateTeacher = text
                 }
                 continue
             }
 
-            if (cells.size != 4) continue
+            if (cells.size != 4) {
+                if (texts.firstOrNull()?.any(Char::isDigit) == true) currentDate?.let(malformedDays::add)
+                continue
+            }
             if (texts.all { it.isEmpty() }) continue                 // odstęp między nauczycielami
 
             // Nagłówki kolumn zaczynają blok nauczyciela z wiersza tuż nad nimi.
@@ -103,6 +108,7 @@ object ZastepstwaParser {
             }
 
             val lessonNo = texts[0].toIntOrNull()
+            if (lessonNo == null && texts[0].any(Char::isDigit)) currentDate?.let(malformedDays::add)
             if (lessonNo != null) currentDate?.let { lessonRows[it] = (lessonRows[it] ?: 0) + 1 }
             // Blok nauczyciela bez wiersza nagłówków kolumn - nazwisko tuż nad wpisem.
             if (lessonNo != null && candidateTeacher != null) {
@@ -146,7 +152,7 @@ object ZastepstwaParser {
             )
         }
         val parsedPerDate = out.groupingBy { it.dateRaw }.eachCount()
-        val incomplete = lessonRows.filter { (date, rows) -> (parsedPerDate[date] ?: 0) < rows }.keys
+        val incomplete = lessonRows.filter { (date, rows) -> (parsedPerDate[date] ?: 0) < rows }.keys + malformedDays
         if (incomplete.isNotEmpty()) {
             Log.w(TAG, "Niekompletnie odczytane dni: $incomplete (wiersze z lekcją: $lessonRows, odczytane: $parsedPerDate)")
         }

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -44,14 +45,22 @@ class SubjectsViewModel @Inject constructor(
             .distinct()
             .sortedBy { it.lowercase() }
         State(loading = false, items = keys.map { Item(it, styles[it] ?: SubjectStyle()) })
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
-    fun save(key: String, name: String?, color: Long?) {
+    val saveError = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val saving = kotlinx.coroutines.flow.MutableStateFlow(false)
+    fun save(key: String, name: String?, color: Long?, onSaved: () -> Unit = {}) {
+        if (saving.value) return
+        saving.value = true; saveError.value = null
         viewModelScope.launch {
-            settings.setSubjectStyle(key, SubjectStyle(SubjectStyles.cleanName(name, key), color))
-            widgetUpdater.requestUpdate()
+            try {
+                pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable {
+                    settings.setSubjectStyle(key, SubjectStyle(SubjectStyles.cleanName(name, key), color))
+                }.onSuccess { widgetUpdater.requestUpdate(); onSaved() }
+                    .onFailure { saveError.value = "Nie udało się zapisać. Twoje zmiany pozostały; spróbuj ponownie." }
+            } finally { saving.value = false }
         }
     }
 
-    fun reset(key: String) = save(key, null, null)
+    fun reset(key: String, onSaved: () -> Unit = {}) = save(key, null, null, onSaved)
 }

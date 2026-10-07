@@ -27,7 +27,10 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         try {
-            val outcome = coordinator.sync(SyncRequest.full(background = inputData.getBoolean("background", false)))
+            val request = if (inputData.getString("source") == pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS)
+                SyncRequest.of(pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS)
+            else SyncRequest.full(background = inputData.getBoolean("background", false))
+            val outcome = coordinator.sync(request)
             // Przerwane przez zmianę klasy / reset: dane pobiera właśnie synchronizacja nowej klasy.
             if (outcome.interrupted) return Result.success()
             if (outcome.succeeded.isEmpty()) {
@@ -42,7 +45,9 @@ class SyncWorker @AssistedInject constructor(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "SyncWorker wyjątek", e)
-            notificationsRepo.setLastSyncError(SyncErrors.userMessage(e))
+            pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable {
+                notificationsRepo.setLastSyncError(SyncErrors.userMessage(e))
+            }
             return if (runAttemptCount >= MAX_RETRY_ATTEMPTS) Result.failure() else Result.retry()
         }
     }

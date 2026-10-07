@@ -545,4 +545,72 @@ class SyncCoordinatorTest {
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 
+    @Test fun failedRefreshKeepsTimeOfLastSuccessfulSourceRead() = runBlocking {
+        coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+        val success = coordinator.observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS).first()
+        assertNotNull(success)
+        subs.error = IOException("offline")
+        val result = coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+        assertTrue(SyncOutcome.SUBSTITUTIONS in result.failures)
+        assertEquals(success, coordinator.observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS).first())
+        assertNotNull(coordinator.observeSourceError(SyncOutcome.SUBSTITUTIONS).first())
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun groupDraftSurvivesRecreationButDoesNotLeakIntoAnotherClass() = runBlocking {
+        Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())
+        val owner = androidx.lifecycle.ViewModelStore()
+        val handle = androidx.lifecycle.SavedStateHandle()
+        try {
+            fun vm(saved: androidx.lifecycle.SavedStateHandle) = pl.zse.bydgoszcz.elektron.presentation.groups.GroupsViewModel(
+                settings, t.timetableRepo, t.notificationsRepo, coordinator, pl.zse.bydgoszcz.elektron.widget.WidgetUpdater(context), saved)
+            val first = vm(handle); owner.put("first", first)
+            first.state.first { it.ready }; first.startEditing("o3"); first.setChoice("ang", "1/2")
+            first.state.first { it.selections["ang"] == "1/2" }
+            val restored = vm(androidx.lifecycle.SavedStateHandle(handle.keys().associateWith { handle.get<Any>(it) }))
+            owner.put("restored", restored)
+            restored.startEditing("o3")
+            assertEquals("1/2", restored.state.first { it.ready }.selections["ang"])
+            restored.startEditing("o4")
+            assertTrue(restored.state.first { it.selections.isEmpty() }.selections.isEmpty())
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun failedClassWriteDoesNotClearPreviousCacheOrLoadedMarkers() = runBlocking {
+        coordinator.sync(SyncRequest.full())
+        val before = t.timetableRepo.getLessonsOnce("o3", LocalDate.now(), LocalDate.now().plusDays(28))
+        val loaded = t.notificationsRepo.observeLoadedResources().first()
+        val brokenSettings = object : pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository by settings {
+            override suspend fun setSelectedClassId(id: String) { throw IOException("ENOSPC") }
+        }
+        val broken = TestCoordinator(context, db, brokenSettings, timetable, subs, anns, sink)
+        broken.coordinator.resetCacheAndResync("o4")
+        eventually({ broken.coordinator.operationError.value }, { it != null })
+        assertEquals("o3", settings.selectedClassId.first())
+        assertEquals(loaded, t.notificationsRepo.observeLoadedResources().first())
+        assertEquals(before, t.timetableRepo.getLessonsOnce("o3", LocalDate.now(), LocalDate.now().plusDays(28)))
+        assertFalse(broken.coordinator.isSyncing.first())
+    }
+
+    @Test fun infrastructureFailureReturnsOutcomeAndReleasesBusyState() = runBlocking {
+        val brokenNotifications = object : pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository by t.notificationsRepo {
+            override fun observeLoadedResources() = kotlinx.coroutines.flow.flow<Set<String>> { throw IOException("Błąd odczytu bazy") }
+        }
+        val broken = SyncCoordinator(settings, t.timetableRepo, t.substitutionsRepo, t.announcementsRepo,
+            brokenNotifications, pl.zse.bydgoszcz.elektron.work.SubstitutionNotifier(settings, t.timetableRepo, brokenNotifications, sink),
+            sink, pl.zse.bydgoszcz.elektron.widget.WidgetUpdater(context),
+            pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler(context, settings, t.timetableRepo), db)
+        val outcome = broken.sync(SyncRequest.full())
+        assertTrue(outcome.succeeded.isEmpty())
+        assertEquals(SyncRequest.ALL_SOURCES, outcome.failures.keys)
+        assertFalse(broken.isSyncing.first())
+    }
+
+    @Test fun firstFailureAfterUpgradeRetainsPreviouslyStoredSuccessTime() = runBlocking {
+        db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity("source_${SyncOutcome.SUBSTITUTIONS}", 1234L, "ok", null))
+        subs.error = IOException("offline")
+        coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+        assertEquals(Instant.ofEpochSecond(1234L), coordinator.observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS).first())
+    }
+
 }

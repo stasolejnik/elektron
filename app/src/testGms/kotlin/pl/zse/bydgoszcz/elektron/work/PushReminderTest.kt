@@ -26,7 +26,7 @@ import java.time.LocalDate
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PushReminderTest {
-    @Test fun cancelledLessonPushCancelsAlarmAndCoalescesWidgets() = runBlocking {
+    @Test fun delayedPushCannotRestoreCancelledSubstitutionAndUnrelatedClassDoesNotFetch() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         WorkManagerTestInitHelper.initializeTestWorkManager(context,
             Configuration.Builder().setExecutor(SynchronousExecutor()).build())
@@ -44,9 +44,16 @@ class PushReminderTest {
             }
             val timetable = TimetableRepositoryImpl(source, db.schoolClassDao(), db.teacherDao(),
                 db.roomDao(), db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
-            val subs = SubstitutionsRepositoryImpl(object : SubstitutionsSource {
-                override suspend fun fetchSubstitutions() = error("Unexpected network")
-            }, db.substitutionDao(), db)
+            var pageItems = listOf(pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto(
+                day.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")), "Nauczyciel", 1, "1D", null, "Uczniowie zwolnieni", null, null))
+            var calls = 0
+            val subsSource = object : SubstitutionsSource {
+                override suspend fun fetchSubstitutions() = pageItems
+                override suspend fun fetchPage(): SubstitutionsPage {
+                    calls++
+                    return SubstitutionsPage(setOf(day.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))), pageItems)
+                }
+            }
             val notifications = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
             val sink = object : NotificationSink {
                 override suspend fun postSubstitution(sub: Substitution, originalSubject: String?) {}
@@ -57,25 +64,38 @@ class PushReminderTest {
             scheduler.reschedule()
             val alarms = shadowOf(context.getSystemService(AlarmManager::class.java))
             assertNotNull(alarms.peekNextScheduledAlarm())
+            val annSource = object : AnnouncementsSource {
+                override suspend fun fetchNewsFeed() = error("Unexpected network")
+                override suspend fun fetchLatestFeed() = error("Unexpected network")
+                override suspend fun fetchArticleHtml(url: String): String? = null
+                override suspend fun fetchArchivePage(page: Int) = emptyList<pl.zse.bydgoszcz.elektron.data.remote.dto.ArchiveItemDto>()
+                override suspend fun fetchArticleDate(url: String): java.time.Instant? = null
+            }
+            val t = pl.zse.bydgoszcz.elektron.testutil.TestCoordinator(context, db, settings, source, subsSource, annSource, sink)
             val service = ElektronFirebaseMessagingService().also {
                 it.settings = settings
-                it.substitutionsRepo = subs
                 it.timetableRepo = timetable
                 it.notificationsRepo = notifications
-                it.reminders = scheduler
-                it.widgetUpdater = WidgetUpdater(context)
-                it.substitutionNotifier = SubstitutionNotifier(settings, timetable, notifications, sink)
+                it.coordinator = t.coordinator
+                it.syncScheduler = SyncScheduler(context)
             }
             val message = RemoteMessage.Builder("test").setData(mapOf(
-                "type" to "substitution", "id" to "push-1", "date" to day.toString(),
+                "type" to "substitution", "id" to pl.zse.bydgoszcz.elektron.data.mapper.SubstitutionMapper.toEntity(pageItems.single())!!.id, "date" to day.toString(),
                 "lessonNumber" to "1", "classShortName" to "1D", "roomOrInfo" to "Uczniowie zwolnieni"
             )).build()
             service.onMessageReceived(message)
             assertNull(alarms.peekNextScheduledAlarm())
-            val manager = WorkManager.getInstance(context)
-            val first = manager.getWorkInfosForUniqueWork("elektron_widget_refresh").get().single()
-            service.onMessageReceived(message) // ten sam push nie tworzy kolejnej pracy
-            assertEquals(first.id, manager.getWorkInfosForUniqueWork("elektron_widget_refresh").get().single().id)
+            // Szkoła odwołała zastępstwo; opóźniony identyczny push nadal mówi "zwolnieni".
+            service.onMessageReceived(message)
+            assertEquals(1, calls) // duplikat po wspólnym odczycie nie pobiera strony ponownie
+            pageItems = emptyList()
+            t.coordinator.sync(pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+            service.onMessageReceived(message)
+            assertTrue(t.substitutionsRepo.getAllFrom(day).isEmpty())
+            assertNotNull(alarms.peekNextScheduledAlarm())
+            assertEquals(3, calls)
+            service.onMessageReceived(RemoteMessage.Builder("test").setData(message.data + ("classShortName" to "2A")).build())
+            assertEquals(3, calls)
         } finally { db.close() }
     }
 }

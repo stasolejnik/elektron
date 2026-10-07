@@ -26,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,12 +77,15 @@ internal fun WeekGrid(
     modifier: Modifier = Modifier,
     notes: Map<String, LessonNote>,
     onNote: (Lesson) -> Unit,
-    onLessonClick: (Lesson) -> Unit
+    onLessonClick: (Lesson) -> Unit,
+    focusedDay: LocalDate? = null,
+    openingId: Int? = null
 ) {
-    val days = week.filter { it.dayOfWeek in DAY_SHORT.keys }.sortedBy { it.date }
+    val days = remember(week) { week.filter { it.dayOfWeek in DAY_SHORT.keys }.sortedBy { it.date } }
     val now = rememberNow().value
     val today = now.toLocalDate()
-    val all = days.flatMap { it.lessons }
+    val selectedDay = WeekOpening.selectedDay(days.map { it.date }, focusedDay, today)
+    val all = remember(days) { days.flatMap { it.lessons } }
     // Zakres godzin siatki: od pełnej godziny przed pierwszą lekcją do pełnej godziny po ostatniej.
     val startMin = (all.minOfOrNull { it.timeFrom.hour } ?: 8) * 60
     val endMin = ((all.maxOfOrNull { it.timeTo.toSecondOfDay() / 60 } ?: (15 * 60)) + 59) / 60 * 60
@@ -89,21 +93,17 @@ internal fun WeekGrid(
     val scroll = rememberScrollState()
     val density = LocalDensity.current
 
-    // Bieżący tydzień: start w okolicy aktualnej godziny (np. po południu nie od 7:00).
-    LaunchedEffect(days.firstOrNull()?.date) {
-        if (days.any { it.date == today }) {
-            val minute = now.toLocalTime().toSecondOfDay() / 60
-            if (minute in startMin..endMin) {
-                val y = with(density) { ((minute - startMin) * PER_MINUTE - 90.dp).toPx() }
-                // Przewijanie jest dostępne dopiero po pierwszym pomiarze siatki.
-                withTimeoutOrNull(1_000) { snapshotFlow { scroll.maxValue }.first { it > 0 } }
-                scroll.scrollTo(y.toInt().coerceIn(0, scroll.maxValue))
-            }
-        }
+    // The anchor selected by the daily opening rule also controls the week view.
+    // After classes, tomorrow opens at its first lesson, not at today's late hour.
+    LaunchedEffect(days.firstOrNull()?.date, selectedDay, openingId, startMin, endMin) {
+        val minute = WeekOpening.startMinute(selectedDay, all, now) ?: startMin
+        val y = with(density) { ((minute - startMin) * PER_MINUTE - 90.dp).toPx() }
+        withTimeoutOrNull(1_000) { snapshotFlow { scroll.maxValue }.first { it > 0 } }
+        scroll.scrollTo(y.toInt().coerceIn(0, scroll.maxValue))
     }
 
     Column(modifier) {
-        WeekHeader(days, today)
+        WeekHeader(days, selectedDay)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         // Margines pod siatką - ostatnią lekcję da się przewinąć nad pasek nawigacji.
         Row(Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll).padding(bottom = 24.dp)) {
@@ -123,8 +123,8 @@ internal fun WeekGrid(
 }
 
 @Composable
-private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, today: LocalDate) {
-    val months = days.map { it.date.monthValue }.distinct()
+private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, selectedDay: LocalDate?) {
+    val months = remember(days) { days.map { it.date.monthValue }.distinct() }
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
             months.joinToString("/\n") { MONTH_SHORT[it - 1] },
@@ -134,7 +134,7 @@ private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, today: LocalDat
             textAlign = TextAlign.Center
         )
         days.forEach { day ->
-            val isToday = day.date == today
+            val isToday = day.date == selectedDay
             Column(
                 Modifier.weight(1f).semantics(mergeDescendants = true) {},
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -211,7 +211,7 @@ private fun DayGridColumn(
                 ongoing = nowMinute != null && nowTime >= lesson.timeFrom && nowTime < lesson.timeTo,
                 modifier = Modifier.offset(y = from * PER_MINUTE).height(length * PER_MINUTE).fillMaxWidth(),
                 hasNote = notes.containsKey(LessonNote.key(lesson)),
-                onLongClick = if (LessonNote.canEdit(lesson, java.time.LocalDateTime.now())) ({ onNote(lesson) }) else null,
+                onLongClick = if (LessonNote.canEdit(lesson, java.time.LocalDateTime.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                 onClick = { onLessonClick(lesson) }
             )
         }
@@ -268,7 +268,7 @@ private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifie
         Box(Modifier.width(3.dp).fillMaxHeight().background(bar))
         Box(Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 3.dp)) {
             Text(
-                if (hasNote) "✎ $name" else name,
+                listOfNotNull(if (sub != null) "↔" else null, if (hasNote) "✎" else null, name).joinToString(" "),
                 color = fg,
                 fontSize = 12.sp,
                 lineHeight = 14.sp,

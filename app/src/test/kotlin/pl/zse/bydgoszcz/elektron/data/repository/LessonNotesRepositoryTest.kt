@@ -46,6 +46,11 @@ class LessonNotesRepositoryTest {
             val saved = repo.notes.first().first { it.classId == "o3" }
             assertEquals(first.text, saved.text)
             assertTrue(repo.claimReminder(saved.key, saved.revision))
+            repo.save(saved.copy(text = "  " + saved.text + "  ", revision = 0, reminded = false))
+            val unchanged = repo.notes.first().first { it.key == saved.key }
+            assertEquals(saved.revision, unchanged.revision)
+            assertTrue(unchanged.reminded)
+            assertEquals(saved.text, unchanged.text)
             assertFalse(repo.claimReminder(saved.key, saved.revision))
             repo.releaseReminder(saved.key, saved.revision)
             assertFalse(repo.notes.first().first { it.key == saved.key }.reminded)

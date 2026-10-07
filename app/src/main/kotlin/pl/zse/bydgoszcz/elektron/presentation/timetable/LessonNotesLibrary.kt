@@ -20,6 +20,9 @@ import java.time.format.DateTimeFormatter
 @Composable
 internal fun LessonNotesLibrary(notes: List<LessonNote>, viewModel: LessonNotesViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val today = pl.zse.bydgoszcz.elektron.presentation.common.rememberNow().value.toLocalDate()
+    val sortedNotes = remember(notes, today) { notes.sortedWith(compareBy<LessonNote> { it.date < today }
+        .thenBy { if (it.date < today) -it.date.toEpochDay() else it.date.toEpochDay() }.thenBy { it.number }) }
     var deleting by remember { mutableStateOf<LessonNote?>(null) }
     val error by viewModel.error.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
@@ -30,7 +33,7 @@ internal fun LessonNotesLibrary(notes: List<LessonNote>, viewModel: LessonNotesV
             item { Text("Moje notatki", style = MaterialTheme.typography.headlineSmall) }
             error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             if (notes.isEmpty()) item { Text("Brak notatek w wybranej klasie. Przytrzymaj przyszłą lekcję w planie, aby dodać pierwszą.") }
-            items(notes.sortedWith(compareByDescending<LessonNote> { it.date }.thenBy { it.number }), key = { it.key }) { note ->
+            items(sortedNotes, key = { it.key }) { note ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("${note.date.format(DateTimeFormatter.ofPattern("d.MM.yyyy"))} · ${note.number}. lekcja", style = MaterialTheme.typography.titleMedium)

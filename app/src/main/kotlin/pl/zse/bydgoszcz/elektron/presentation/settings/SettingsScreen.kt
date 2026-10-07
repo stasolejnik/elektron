@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import androidx.compose.foundation.selection.toggleable
+
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -94,6 +96,10 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
+    val transitSaving by transitViewModel.saving.collectAsStateWithLifecycle()
+    val transitError by transitViewModel.settingsError.collectAsStateWithLifecycle()
+    var transitPicker by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    if (transitPicker != 0) pl.zse.bydgoszcz.elektron.presentation.transit.StopPicker(transitViewModel, origin = transitPicker == 2) { transitPicker = 0 }
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     // Tryb dewelopera.
     val devMode by viewModel.devMode.collectAsStateWithLifecycle()
@@ -103,6 +109,7 @@ fun SettingsScreen(
     if (showNotes) pl.zse.bydgoszcz.elektron.presentation.timetable.LessonNotesLibrary(
         notesState.notes.filter { it.classId == state.selectedClassId }, notesViewModel) { showNotes = false }
     val noteError by notesViewModel.settingsError.collectAsStateWithLifecycle()
+    val settingError by viewModel.settingError.collectAsStateWithLifecycle()
     val devMessage by viewModel.devMessage.collectAsStateWithLifecycle()
     val toastContext = LocalContext.current
     var toast by remember { mutableStateOf<Toast?>(null) }
@@ -110,6 +117,7 @@ fun SettingsScreen(
         toast?.cancel()
         toast = Toast.makeText(toastContext, text, Toast.LENGTH_SHORT).also { it.show() }
     }
+    LaunchedEffect(settingError) { settingError?.let { showToast(it); viewModel.settingError.value = null } }
     LaunchedEffect(noteError) { noteError?.let { showToast(it); notesViewModel.settingsError.value = null } }
     LaunchedEffect(devMessage) {
         devMessage?.let { showToast(it); viewModel.consumeDevMessage() }
@@ -213,7 +221,22 @@ fun SettingsScreen(
                     RowDivider()
                     SwitchRow("Ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
                     RowDivider()
-                    SwitchRow("Najbliższy odjazd", transitSettings.preferences.showOnDashboard) { transitViewModel.setShowOnDashboard(it) }
+                    val transitReady = transitSettings.ready && !transitSettings.failed && !transitSaving
+                    SwitchRow("Odjazdy na stronie głównej", transitSettings.preferences.showOnDashboard, enabled = transitReady) { transitViewModel.setShowOnDashboard(it) }
+                    if (transitSettings.preferences.showOnDashboard) {
+                        RowDivider()
+                        ActionRow("Cel: ${transitSettings.preferences.destination?.name ?: "Wybierz przystanek"}", trailingChevron = true) {
+                            if (transitReady) { transitViewModel.query.value = ""; transitPicker = 1 }
+                        }
+                        RowDivider()
+                        ActionRow("Przystanek początkowy: ${transitSettings.preferences.preferredOrigin?.name ?: "Najbliższy odpowiedni"}", trailingChevron = true) {
+                            if (transitReady) { transitViewModel.query.value = ""; transitPicker = 2 }
+                        }
+                        RowDivider()
+                        SwitchRow("Połączenia z przesiadką", transitSettings.preferences.allowTransfers, enabled = transitReady) { transitViewModel.setAllowTransfers(it) }
+                    }
+                    if (transitSettings.failed) Text("Nie udało się odczytać ustawień Odjazdów.", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
+                    transitError?.let { Text(it, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
                 }
             }
 
@@ -225,6 +248,7 @@ fun SettingsScreen(
 
             item {
                 GroupedSection("Powiadomienia") {
+                    SystemNotificationStatus()
                     SwitchRow("Nowe zastępstwa", state.notifSubs) { viewModel.setNotifSubs(it) }
                     RowDivider()
                     SwitchRow("Nowe ogłoszenia", state.notifAnn) { viewModel.setNotifAnn(it) }
@@ -438,15 +462,15 @@ internal fun RowDivider() {
 }
 
 @Composable
-internal fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().then(Modifier.toggleable(value = checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange)).padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, modifier = Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge)
         Switch(
-            checked = checked, onCheckedChange = onChange,
+            checked = checked, onCheckedChange = null, enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                 checkedThumbColor = Color.White,
@@ -491,4 +515,27 @@ private fun UpdateNote(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp))
+}
+
+@Composable
+private fun SystemNotificationStatus() {
+    val context = LocalContext.current
+    val owner = LocalLifecycleOwner.current
+    var allowed by remember { mutableStateOf(androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) }
+    DisposableEffect(owner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) allowed = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    if (!allowed) {
+        Text("Android blokuje powiadomienia eLektrona. Zmiana opcji poniżej nie odblokuje ich w systemie.",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+        ActionRow("Otwórz ustawienia powiadomień", trailingIcon = true) {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
+        }
+        RowDivider()
+    }
 }

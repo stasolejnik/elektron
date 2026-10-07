@@ -38,7 +38,11 @@ class TransitViewModelTest {
         try {
             val state = vm.settings.first { it.ready }
             assertTrue(state.failed)
-            assertTrue(state.preferences.visible)
+            assertFalse(state.preferences.visible)
+            var orderSaved: Boolean? = null
+            vm.setNavigationOrder(NavigationOrder.DEFAULT.reversed()) { orderSaved = it }
+            assertEquals(false, orderSaved)
+            assertNotNull(vm.navigationError.value)
             vm.loadJourneys()
             assertFalse(vm.journeyLoading.value)
         } finally {
@@ -63,6 +67,10 @@ class TransitViewModelTest {
             val now = System.currentTimeMillis()
             vm.journeys.value = TransitJourneyRepository.Result(goal.key, listOf(TransitJourney(listOf(
                 TransitRide("6", "Bielawy", "24", "Start", "26", "Cel", now + 600_000L, now + 900_000L)), 3, 150.0)), now)
+            prefs.setShowOnDashboard(true)
+            prefs.setEnabled(false)
+            vm.settings.first { !it.preferences.visible && it.preferences.showOnDashboard }
+            assertNotNull(vm.journeys.value) // hiding the tab preserves the dashboard session/cache
             vm.journeyError.value = "Poprzedni błąd"
             vm.loadJourneys()
             assertNull(vm.journeyError.value)
@@ -270,6 +278,156 @@ class TransitViewModelTest {
             client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll()
             Dispatchers.resetMain(); directory.deleteRecursively()
         }
+    }
+
+    @Test fun oneRideServerPagesFillThreeInitiallyAndThreeMorePerClick() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val directory = File(app.cacheDir, "transit-batches-${System.nanoTime()}").apply { mkdirs() }
+        val context = object : ContextWrapper(app) { override fun getCacheDir() = directory }
+        val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "settings.preferences_pb") }))
+        val goal = TransitDestination("Cel", listOf("26"), 53.1236, 18.007)
+        val plans = java.util.concurrent.atomic.AtomicInteger()
+        val firstStarted = java.util.concurrent.CountDownLatch(1)
+        val releaseFirst = java.util.concurrent.CountDownLatch(1)
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            val json = when {
+                request.url.encodedPath.endsWith("/stops") -> """[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]"""
+                request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[480]],"distances":[[600]]}"""
+                else -> {
+                    if (plans.incrementAndGet() == 1) {
+                        firstStarted.countDown()
+                        check(releaseFirst.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                    }
+                    val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
+                    val body = org.json.JSONObject(buffer.readUtf8())
+                    // Stop ID queries also retain imminent rides that school-coordinate
+                    // walking queries would hide before the student can reach the platform.
+                    assertEquals(24, body.getJSONObject("from").getInt("stopId"))
+                    val whenMs = body.getLong("whenMs")
+                    """{"ok":true,"nastepneWhenMs":${whenMs + 300_000L},"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Cel","zPrzystanku":{"id":24,"nazwa":"Start"},"doPrzystanku":{"id":26,"nazwa":"Cel"},"odjazdMs":${whenMs + 60_000L},"przyjazdMs":${whenMs + 240_000L}}]}]}"""
+                }
+            }
+            okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
+        }.build()
+        val catalog = TransitStopCatalog(context, client)
+        val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog))
+        val owner = ViewModelStore().apply { put("transit", vm) }
+        try {
+            prefs.select(goal); prefs.setEnabled(true)
+            vm.settings.first { it.ready && it.preferences.visible && it.preferences.destination?.key == goal.key }
+            // The home card can begin a one-ride request immediately before the full tab
+            // asks for three; the same active batch must expand instead of ignoring it.
+            vm.loadJourneys(minimumCount = 1)
+            withContext(Dispatchers.IO) { assertTrue(firstStarted.await(10, java.util.concurrent.TimeUnit.SECONDS)) }
+            vm.loadJourneys(minimumCount = 3)
+            releaseFirst.countDown()
+            vm.journeyLoading.first { !it }
+            assertEquals(3, vm.journeys.value!!.journeys.size)
+            assertEquals(3, plans.get())
+            vm.journeys.first { it?.journeys?.firstOrNull()?.walkMinutes == 8 }
+            assertTrue(vm.journeys.value!!.journeys.first().departureMs - System.currentTimeMillis() < 120_000L)
+            val consumer = Any()
+            vm.startJourneySession(consumer, 3)
+            repeat(5) { vm.refreshJourneys(3) }
+            assertEquals(3, plans.get())
+            vm.journeys.value = vm.journeys.value!!.copy(fetchedAt = System.currentTimeMillis() - 61_000L)
+            vm.refreshJourneys(3)
+            vm.journeyLoading.first { !it }
+            assertEquals(3, vm.journeys.value!!.journeys.size)
+            assertEquals(6, plans.get())
+            vm.stopJourneySession(consumer)
+            vm.loadJourneys(more = true, minimumCount = 6)
+            vm.moreLoading.first { !it }
+            assertEquals(6, vm.journeys.value!!.journeys.size)
+            assertEquals(9, plans.get())
+            assertEquals(6, vm.journeys.value!!.journeys.map { it.key }.distinct().size)
+        } finally {
+            releaseFirst.countDown()
+            owner.clear(); ioScope.cancel(); ioScope.coroutineContext[Job]!!.join()
+            client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll()
+            Dispatchers.resetMain(); directory.deleteRecursively()
+        }
+    }
+
+    @Test fun automaticRefreshNeedsVisibleConsumerAndBacksOffAfterFailureButManualRetryIsImmediate() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val directory = File(app.cacheDir, "transit-auto-${System.nanoTime()}").apply { mkdirs() }
+        val context = object : ContextWrapper(app) { override fun getCacheDir() = directory }
+        val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "settings.preferences_pb") }))
+        val plans = java.util.concurrent.atomic.AtomicInteger()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            if (!request.url.encodedPath.endsWith("/stops")) { plans.incrementAndGet(); throw java.io.IOException("Offline") }
+            okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
+                .body("""[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]""".toResponseBody()).build()
+        }.build()
+        val catalog = TransitStopCatalog(context, client)
+        val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog))
+        val owner = ViewModelStore().apply { put("transit", vm) }
+        val consumer = Any()
+        try {
+            prefs.select(TransitDestination("Cel", listOf("26"), 53.1236, 18.007)); prefs.setEnabled(true)
+            vm.settings.first { it.preferences.visible }
+            vm.refreshJourneys(3)
+            assertEquals(0, plans.get())
+            vm.startJourneySession(consumer, 3)
+            vm.journeyLoading.first { !it }
+            assertEquals(1, plans.get()); assertNotNull(vm.journeyError.value)
+            repeat(5) { vm.refreshJourneys(3) }
+            assertEquals(1, plans.get())
+            vm.loadJourneys(force = true, minimumCount = 3)
+            vm.journeyLoading.first { !it }
+            assertEquals(2, plans.get())
+            prefs.select(TransitDestination("Nowy cel", listOf("27"), 53.1236, 18.007))
+            vm.settings.first { it.preferences.destination?.key == "27" }
+            vm.refreshJourneys(3)
+            vm.journeyLoading.first { !it }
+            assertEquals(3, plans.get())
+            vm.stopJourneySession(consumer)
+            vm.refreshJourneys(3)
+            assertEquals(3, plans.get())
+        } finally {
+            owner.clear(); ioScope.cancel(); ioScope.coroutineContext[Job]!!.join()
+            client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll()
+            Dispatchers.resetMain(); directory.deleteRecursively()
+        }
+    }
+
+    @Test fun transferWriteDoesNotDisableOtherControlsAndFastChangesAreNotDropped() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val gate = CompletableDeferred<Unit>()
+        val started = CompletableDeferred<Unit>()
+        val data = kotlinx.coroutines.flow.MutableStateFlow<androidx.datastore.preferences.core.Preferences>(androidx.datastore.preferences.core.emptyPreferences())
+        var writes = 0
+        val store = object : androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {
+            override val data = data
+            override suspend fun updateData(transform: suspend (androidx.datastore.preferences.core.Preferences) -> androidx.datastore.preferences.core.Preferences): androidx.datastore.preferences.core.Preferences {
+                writes++; started.complete(Unit); gate.await()
+                return transform(data.value).also { data.value = it }
+            }
+        }
+        val client = OkHttpClient.Builder().addInterceptor { throw AssertionError("Preferences must not request journeys") }.build()
+        val catalog = TransitStopCatalog(context, client)
+        val vm = TransitViewModel(TransitPreferencesRepository(store), catalog, TransitJourneyRepository(client, catalog))
+        val owner = ViewModelStore().apply { put("transit", vm) }
+        try {
+            vm.settings.first { it.ready }
+            vm.setAllowTransfers(true); started.await()
+            assertFalse(vm.saving.value)
+            vm.setAllowTransfers(false); vm.setShowOnDashboard(true)
+            gate.complete(Unit)
+            val saved = vm.settings.first { it.preferences.showOnDashboard }
+            assertFalse(saved.preferences.allowTransfers)
+            assertFalse(saved.preferences.visible)
+            assertFalse(vm.saving.value)
+            assertEquals(3, writes)
+        } finally { gate.complete(Unit); owner.clear(); client.dispatcher.executorService.shutdown(); Dispatchers.resetMain() }
     }
 
 }

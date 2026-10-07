@@ -145,12 +145,14 @@ class AnnouncementsRepositoryImpl @Inject constructor(
 
     private val articleMutex = kotlinx.coroutines.sync.Mutex()
 
-    override suspend fun loadFullArticle(id: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun loadFullArticle(id: String): Result<Unit> = loadArticle(id, force = false)
+    override suspend fun refreshFullArticle(id: String): Result<Unit> = loadArticle(id, force = true)
+    private suspend fun loadArticle(id: String, force: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
             restoreFavorites()
             articleMutex.withLock {
                 val current = dao.getById(id) ?: throw java.io.IOException("Brak zapisanego ogłoszenia")
-                if (!current.fullHtml.isNullOrBlank()) return@withLock
+                if (!force && !current.fullHtml.isNullOrBlank()) return@withLock
                 val html = source.fetchArticleHtml(current.url)
                 if (html.isNullOrBlank()) throw pl.zse.bydgoszcz.elektron.domain.model.ArticleContentException()
                 dao.updateArticle(id, html)
@@ -185,7 +187,7 @@ class AnnouncementsRepositoryImpl @Inject constructor(
         persistFavorites()
     }
 
-    // Następna strona archiwum do pobrania (w pamięci procesu; po restarcie szacowana z bazy).
+    // Następna strona archiwum do pobrania (w pamięci procesu; po restarcie zaczynamy od pierwszej).
     private var nextArchivePage: Int? = null
     private val archiveMutex = kotlinx.coroutines.sync.Mutex()
     override val archiveGeneration = kotlinx.coroutines.flow.MutableStateFlow(0L)
@@ -199,9 +201,9 @@ class AnnouncementsRepositoryImpl @Inject constructor(
     override suspend fun loadOlder(): Result<AnnouncementsRepository.OlderResult> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
             archiveMutex.withLock {
-                // Pierwsze strony archiwum pokrywają się z RSS. Startujemy od strony wynikającej
-                // z liczby zapisanych ogłoszeń (5 wpisów na stronę), z zapasem 2 stron.
-                var page = nextArchivePage ?: maxOf(1, dao.count() / ARCHIVE_PAGE_SIZE - 2)
+                // Liczba wpisów w bazie nie oznacza liczby kompletnych stron (np. po resecie
+                // zostają rozproszone ulubione). Przechodzimy od początku, pomijając znane URL-e.
+                var page = nextArchivePage ?: 1
                 var added = 0
                 var pagesChecked = 0
                 while (added == 0 && pagesChecked < MAX_PAGES_PER_CALL) {

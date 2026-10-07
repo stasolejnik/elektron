@@ -16,6 +16,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
@@ -67,6 +69,8 @@ class TimetableViewModelTest {
     /** Plan w pamięci; hasLessons = true, więc ViewModel niczego nie pobiera. */
     private class FakeTimetable : TimetableRepository {
         val lessons = MutableStateFlow<List<Lesson>>(emptyList())
+        var hasLessonsError = false
+        var checks = 0
         override suspend fun syncSidebar(): Result<Unit> = Result.success(Unit)
         override suspend fun syncTimetable(classId: String, anchorDate: LocalDate): Result<Unit> = Result.success(Unit)
         override fun observeClasses(): Flow<List<SchoolClass>> = flowOf(emptyList())
@@ -78,7 +82,11 @@ class TimetableViewModelTest {
         override suspend fun getLessonsOnce(classId: String, from: LocalDate, to: LocalDate): List<Lesson> =
             lessons.value.filter { it.date in from..to }
         override suspend fun enrichWithTeacherNames(lessons: List<Lesson>): List<Lesson> = lessons
-        override suspend fun hasLessons(classId: String, from: LocalDate, to: LocalDate): Boolean = true
+        override suspend fun hasLessons(classId: String, from: LocalDate, to: LocalDate): Boolean {
+            checks++
+            if (hasLessonsError) throw IOException("Baza niedostępna")
+            return true
+        }
     }
 
     private object Offline : TimetableSource, SubstitutionsSource, AnnouncementsSource, NotificationSink {
@@ -214,4 +222,32 @@ class TimetableViewModelTest {
         assertNotSame(first, vm.week(monday)) // najdawniej oglądany wypadł z bufora
         assertSame(vm.week(monday.plusWeeks(12)), vm.week(monday.plusWeeks(12)))
     }
+    @Test fun failedDatabaseCheckDoesNotKillObservationOfLaterWeeks() = runTest(dispatcher) {
+        repo.hasLessonsError = true
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertNotNull(vm.refreshMessage.value)
+        val failedChecks = repo.checks
+        repo.hasLessonsError = false
+        vm.consumeRefreshMessage()
+        vm.onDaySettled(day.plusWeeks(1))
+        advanceUntilIdle()
+        assertTrue(repo.checks > failedChecks)
+        assertNull(vm.refreshMessage.value)
+        assertNull(vm.syncingWeek.value)
+    }
+
+    @Test fun failedSavingOfWeekModeReportsErrorWithoutCrashingTheScreen() = runTest(dispatcher) {
+        val broken = object : pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository by settings {
+            override suspend fun setTimetableLook(value: pl.zse.bydgoszcz.elektron.domain.model.TimetableLook) { throw IOException("Brak miejsca") }
+        }
+        val coordinator = TestCoordinator(context, db, settings, Offline, Offline, Offline, Offline).coordinator
+        val vm = TimetableViewModel(broken, repo, coordinator)
+        advanceUntilIdle()
+        vm.setMode(TimetableViewModel.ViewMode.WEEK)
+        advanceUntilIdle()
+        assertEquals(TimetableViewModel.ViewMode.WEEK, vm.viewMode.value)
+        assertTrue(vm.refreshMessage.value!!.contains("Nie udało się zapisać"))
+    }
+
 }

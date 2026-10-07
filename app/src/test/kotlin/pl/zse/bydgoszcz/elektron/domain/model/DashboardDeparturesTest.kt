@@ -17,7 +17,9 @@ class DashboardDeparturesTest {
         assertFalse(DashboardDepartures.isTime(lessons, at("08:54:59")))
         assertTrue(DashboardDepartures.isTime(lessons, at("08:55")))
         assertTrue(DashboardDepartures.isTime(lessons, at("09:40")))
-        assertTrue(DashboardDepartures.isTime(lessons, at("15:00")))
+        assertTrue(DashboardDepartures.isTime(lessons, at("10:39:59")))
+        assertFalse(DashboardDepartures.isTime(lessons, at("10:40")))
+        assertFalse(DashboardDepartures.isTime(lessons, at("15:00")))
     }
     @Test fun cancelledLastLessonDoesNotPostponeDeparture() {
         val first = lesson(1, "08:00", "08:45")

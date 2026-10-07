@@ -5,7 +5,7 @@ import org.jsoup.nodes.Document
 object NewsArticleParser {
     fun parse(doc: Document): String? {
         // Szkoła używa .main-content, nie article ani .content.
-        val container = doc.selectFirst("article, .main-content, .content, main") ?: return null
+        val container = doc.selectFirst(".main-content") ?: doc.selectFirst("article") ?: doc.selectFirst("main") ?: doc.selectFirst(".content") ?: return null
         if (container.tagName() != "article" &&
             (container.selectFirst("h1, h2, h3") == null || NewsArchiveParser.parseArticleDate(doc) == null)) return null
         val article = container.clone()

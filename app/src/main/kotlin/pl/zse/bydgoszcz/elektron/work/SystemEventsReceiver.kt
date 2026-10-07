@@ -37,14 +37,18 @@ class SystemEventsReceiver : BroadcastReceiver() {
             try {
                 // goAsync daje ok. 10 s.
                 withTimeoutOrNull(8_000) {
-                    ep.noteScheduler().reschedule(force = true)
-                    ep.scheduler().reschedule()
+                    pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { ep.noteScheduler().reschedule(force = true) }
+                        .onFailure { android.util.Log.w("SystemEvents", "Błąd przypomnień notatek", it) }
+                    pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { ep.scheduler().reschedule() }
+                        .onFailure { android.util.Log.w("SystemEvents", "Błąd przypomnień lekcji", it) }
                     // updateNow (czekamy), nie requestUpdate: tamto tylko startuje korutynę
                     // i od razu wraca, więc po finish() proces mógł zostać zamknięty, zanim
                     // widżety (np. z nowymi akcjami wierszy po aktualizacji) się przerysowały.
                     ep.widgetUpdater().updateNow()
                 }
-            } finally {
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { android.util.Log.w("SystemEvents", "Nie udało się odświeżyć po zdarzeniu systemowym", e) }
+            finally {
                 pending.finish()
             }
         }

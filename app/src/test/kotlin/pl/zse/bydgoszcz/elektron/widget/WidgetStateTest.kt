@@ -190,4 +190,15 @@ class WidgetStateTest {
         assertNull(WidgetTargets.lesson(empty, 0))
         assertNull(WidgetTargets.focus(WidgetState.NoClass))
     }
+    @Test fun failedLiveReadKeepsLastPlanAndMarksItAsSaved() {
+        val old = at(friday, "11:00") as WidgetState.Ready
+        val failed = retainWidgetData(old, WidgetState.Failed) as WidgetState.Ready
+        assertEquals(old.lessons, failed.lessons)
+        assertTrue(failed.readError)
+        assertEquals(old, retainWidgetData(failed, old))
+        assertEquals(WidgetState.Failed, retainWidgetData(WidgetState.NoClass, WidgetState.Failed))
+        val subs = SubsWidgetState.Ready("1D", emptyList())
+        assertTrue((retainSubsWidgetData(subs, SubsWidgetState.Failed) as SubsWidgetState.Ready).readError)
+    }
+
 }

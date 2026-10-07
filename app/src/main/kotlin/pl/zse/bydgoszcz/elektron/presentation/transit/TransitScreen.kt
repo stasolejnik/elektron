@@ -24,7 +24,6 @@ import pl.zse.bydgoszcz.elektron.presentation.common.*
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.ceil
 
 private val transitTime = DateTimeFormatter.ofPattern("HH:mm")
 private val transitZone = ZoneId.of("Europe/Warsaw")
@@ -41,7 +40,7 @@ internal fun formatTransitTime(timeMs: Long, referenceMs: Long = System.currentT
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransitScreen(viewModel: TransitViewModel) {
+fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     val state by viewModel.settings.collectAsStateWithLifecycle()
     val result by viewModel.journeys.collectAsStateWithLifecycle()
     val loading by viewModel.journeyLoading.collectAsStateWithLifecycle()
@@ -52,26 +51,35 @@ fun TransitScreen(viewModel: TransitViewModel) {
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val settingsError by viewModel.settingsError.collectAsStateWithLifecycle()
     val visible = LocalScreenVisible.current
+    val requestedCount by rememberUpdatedState(visibleCount)
     val owner = LocalLifecycleOwner.current
     DisposableEffect(visible, state.preferences.destination?.key, state.preferences.preferredOrigin?.key, state.preferences.allowTransfers, owner) {
         val active = visible
         val consumer = Any()
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START && active) viewModel.startJourneySession(consumer)
+            if (event == Lifecycle.Event.ON_START && active) viewModel.startJourneySession(consumer, minimumCount = requestedCount)
             if (event == Lifecycle.Event.ON_STOP) viewModel.stopJourneySession(consumer)
         }
         owner.lifecycle.addObserver(observer)
-        if (active && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) viewModel.startJourneySession(consumer)
+        if (active && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) viewModel.startJourneySession(consumer, minimumCount = requestedCount)
         onDispose { owner.lifecycle.removeObserver(observer); viewModel.stopJourneySession(consumer) }
     }
-    val tick by rememberNow()
+    val tick by rememberNow(60_000L)
+    LaunchedEffect(visible, tick, state.preferences.destination?.key, state.preferences.preferredOrigin?.key, state.preferences.allowTransfers) {
+        if (visible && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) viewModel.refreshJourneys(requestedCount)
+    }
     val nowMs = remember(tick) { System.currentTimeMillis() }
     val matching = result?.takeIf { it.destinationKey == state.preferences.destination?.key && it.originKey == state.preferences.preferredOrigin?.key && it.allowTransfers == state.preferences.allowTransfers }
     val journeys = remember(matching, nowMs, state.preferences.preferredOrigin, state.preferences.allowTransfers) {
-        TransitJourneys.rank(matching?.journeys.orEmpty(), nowMs, state.preferences.preferredOrigin, state.preferences.allowTransfers)
+        TransitJourneys.upcoming(matching?.journeys.orEmpty(), nowMs, state.preferences.preferredOrigin, state.preferences.allowTransfers)
     }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(scroll.nestedScrollConnection), topBar = { LargeTitleBar("Odjazdy", scroll) },
+    Scaffold(modifier = Modifier.nestedScroll(scroll.nestedScrollConnection), topBar = {
+        if (onClose == null) LargeTitleBar("Odjazdy", scroll)
+        else TopAppBar(title = { Text("Odjazdy") }, navigationIcon = {
+            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, "Zamknij Odjazdy") }
+        })
+    },
         containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { ElektronCard { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -98,22 +106,25 @@ fun TransitScreen(viewModel: TransitViewModel) {
             if (state.failed) item { Text("Nie udało się odczytać ustawień Odjazdów.", color = MaterialTheme.colorScheme.error) }
             settingsError?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
             if (state.preferences.destination == null && !state.failed) item { Text("Wybierz przystanek docelowy, aby sprawdzić najbliższe połączenia ze szkoły.") }
-            item { Button(onClick = { visibleCount = 3; viewModel.loadJourneys(force = true) }, enabled = !loading && !moreLoading && state.ready && !state.failed && state.preferences.destination != null) { Text("Odśwież") } }
+            item { Button(onClick = { visibleCount = 3; viewModel.loadJourneys(force = true, minimumCount = 3) }, enabled = !loading && !moreLoading && state.ready && !state.failed && state.preferences.destination != null) { Text("Odśwież") } }
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Szukam połączeń…", Modifier.padding(top = 8.dp)) }
             if (error != null) item { Text(error!! + if (matching != null) " Wyświetlam zapisane wyniki; rozkład mógł się zmienić." else "", color = MaterialTheme.colorScheme.error) }
+            if (matching?.partialFailure == true) item {
+                Text("Nie udało się sprawdzić części stanowisk. Lista może być niepełna; odśwież wyniki, aby ponowić.", color = MaterialTheme.colorScheme.error)
+            }
             matching?.let { data -> item {
                 Text("Ostatnio sprawdzono: ${formatTransitTime(data.fetchedAt, nowMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
             if (!loading && error == null && matching != null && journeys.isEmpty()) item {
-                Text("Nie znaleziono osiągalnego połączenia do wybranego przystanku w sprawdzonym przedziale. Odśwież wyniki lub wybierz inny cel.")
+                Text("Nie znaleziono połączenia do wybranego przystanku w sprawdzonym przedziale. Odśwież wyniki lub wybierz inny cel.")
             }
             itemsIndexed(journeys.take(visibleCount), key = { _, trip -> trip.key }) { index, trip ->
                 JourneyCard(trip, nowMs, if (index == 0) "Najbliższy przyjazd" else "Kolejny przyjazd")
             }
             if (journeys.size > visibleCount || matching?.nextWhenMs != null) item {
                 TextButton(onClick = {
-                    visibleCount += 3
-                    if (journeys.size < visibleCount && matching?.nextWhenMs != null) viewModel.loadJourneys(more = true)
+                    visibleCount = minOf(visibleCount, journeys.size) + 3
+                    if (journeys.size < visibleCount && matching?.nextWhenMs != null) viewModel.loadJourneys(more = true, minimumCount = visibleCount)
                 }, enabled = !loading && !moreLoading, modifier = Modifier.fillMaxWidth()) { Text(if (moreLoading) "Wczytywanie…" else "Pokaż więcej") }
             }
             item {
@@ -131,13 +142,12 @@ fun TransitScreen(viewModel: TransitViewModel) {
 @Composable
 internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onClick: (() -> Unit)? = null) {
     val first = trip.rides.first()
-    val minutes = ceil((trip.departureMs - nowMs) / 60_000.0).toInt().coerceAtLeast(0)
     ElektronCard(onClick = onClick) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        if (label.isNotBlank()) Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text(first.fromName, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-        Text(if (trip.walkAvailable) "Dojście ok. ${trip.walkMinutes} minut" else if (trip.walkPending) "Sprawdzam dojście…" else "Dojście niedostępne", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(if (trip.walkAvailable) "Dojście ok. ${TransitTimes.duration(trip.walkMinutes.toLong())}" else if (trip.walkPending) "Sprawdzam dojście…" else "Dojście niedostępne", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
         RideDirection(first.line, first.direction)
-        Text("${formatTransitTime(first.departureMs, nowMs)} · za $minutes min", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+        Text("${formatTransitTime(first.departureMs, nowMs)} · ${TransitTimes.until(trip.departureMs, nowMs)}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
         if (trip.transfers > 0) {
             val second = trip.rides[1]
             Text("Przesiadka: ${first.toName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)

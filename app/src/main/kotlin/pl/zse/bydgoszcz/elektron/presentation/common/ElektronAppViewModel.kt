@@ -82,9 +82,9 @@ class ElektronAppViewModel @Inject constructor(
                 // bez zapisanego planu klasy nie przeliczamy (nie kasujemy alarmu).
                 val cid = values[0] as String?
                 val today = LocalDate.now()
-                if (cid == null || timetableRepo.hasLessons(cid, today, today.plusDays(7))) {
-                    reminders.requestReschedule()
-                }
+                runCatchingCancellable {
+                    if (cid == null || timetableRepo.hasLessons(cid, today, today.plusDays(7))) reminders.requestReschedule()
+                }.onFailure { android.util.Log.w("LessonReminders", "Nie udało się sprawdzić planu; kolejna zmiana ponowi próbę", it) }
             }
             .launchIn(viewModelScope)
         viewModelScope.launch {
@@ -141,7 +141,7 @@ class ElektronAppViewModel @Inject constructor(
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun markChangelogSeen() {
-        viewModelScope.launch { settings.setLastSeenVersionCode(currentVersionCode) }
+        viewModelScope.launch { runCatchingCancellable { settings.setLastSeenVersionCode(currentVersionCode) } }
     }
 
     /**
@@ -161,7 +161,7 @@ class ElektronAppViewModel @Inject constructor(
             if (current == 0) {
                 val isExistingUser = settings.selectedClassId.first() != null
                 val target = if (isExistingUser) (currentVersionCode - 1).coerceAtLeast(0) else currentVersionCode
-                settings.setLastSeenVersionCode(target)
+                runCatchingCancellable { settings.setLastSeenVersionCode(target) }
             }
         }
     }

@@ -57,15 +57,11 @@ class SettingsRepositoryImpl internal constructor(
 
     /**
      * Zapis ustawień odporny na błąd pliku (np. brak miejsca na dysku): dawniej IOException
-     * z DataStore wywracał aplikację przy przełączeniu dowolnej opcji. Zapis wtedy przepada
-     * (ustawienie zostaje po staremu) - logujemy i działamy dalej.
+     * z DataStore jest przekazywany wywołującemu. UI zachowuje poprzedni wybór i pokazuje
+     * komunikat; nie wolno przedstawiać nieudanego zapisu jako sukcesu.
      */
     private suspend fun safeEdit(transform: suspend (MutablePreferences) -> Unit) {
-        try {
-            store.edit(transform)
-        } catch (e: IOException) {
-            Log.w("SettingsRepository", "Nie udało się zapisać ustawień", e)
-        }
+        store.edit(transform)
     }
 
     private object Keys {

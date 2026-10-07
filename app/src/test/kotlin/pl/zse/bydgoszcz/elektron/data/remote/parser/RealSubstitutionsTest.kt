@@ -77,4 +77,13 @@ class RealSubstitutionsTest {
         assertEquals(31, result.items.size)
         assertEquals(setOf("01.10.2026"), result.incompleteDates)
     }
+    @Test fun wrongColumnCountAndMalformedLessonNumberMarkDayIncomplete() {
+        val header = "<table><tr><td>Zastępstwa w dniu 01.10.2026</td></tr><tr><td>Nauczyciel</td></tr>"
+        for (row in listOf("<tr><td>2</td></tr>", "<tr><td>2</td><td>1D - 105</td><td>Zastępca</td></tr>",
+            "<tr><td>2a</td><td>1D - 105</td><td>Zastępca</td><td></td></tr>")) {
+            val result = ZastepstwaParser.parseDetailed(Jsoup.parse(header + row + "</table>"))
+            assertEquals(setOf("01.10.2026"), result.incompleteDates)
+        }
+    }
+
 }

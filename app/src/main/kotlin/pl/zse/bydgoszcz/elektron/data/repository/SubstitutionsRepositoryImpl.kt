@@ -65,6 +65,7 @@ class SubstitutionsRepositoryImpl @Inject constructor(
                 }
             }
             dao.deleteOlderThan(LocalDate.now().minusDays(60).toEpochDay())
+            if (page.incompleteDates.isNotEmpty()) throw pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException()
         }
     }
 

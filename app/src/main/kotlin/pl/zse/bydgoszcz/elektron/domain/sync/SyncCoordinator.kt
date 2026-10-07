@@ -85,6 +85,8 @@ class SyncCoordinator @Inject constructor(
     private val lock = Any()
     private val flights = mutableListOf<Flight>()
     private val running = MutableStateFlow(0)
+    val operationError = MutableStateFlow<String?>(null)
+    fun consumeOperationError() { operationError.value = null }
 
     /** Praca: [request] (null - zmiana klasy), liczba czekających wołających. */
     private class Flight(val request: SyncRequest?, val pinned: Boolean, val deferred: Deferred<SyncOutcome>) {
@@ -96,6 +98,12 @@ class SyncCoordinator @Inject constructor(
      * nie gasi cudzej). Nowy proces zawsze zaczyna od false - bez zerowania przy starcie.
      */
     val isSyncing: Flow<Boolean> = running.map { it > 0 }.distinctUntilChanged()
+    fun observeSourceError(source: String): Flow<String?> = db.syncStateDao().observe("source_$source")
+        .map { it?.takeIf { state -> state.status == "error" }?.message }
+    fun observeSourceLastSuccess(source: String): Flow<Instant?> = combine(
+        db.syncStateDao().observe("source_${source}_success"), db.syncStateDao().observe("source_$source")
+    ) { success, latest -> (success ?: latest?.takeIf { it.status == "ok" })?.lastSyncEpochSeconds?.let(Instant::ofEpochSecond) }
+
 
     /**
      * Pierwsza synchronizacja wybranej klasy jeszcze trwa / jeszcze się nie odbyła: plan nie jest
@@ -161,7 +169,18 @@ class SyncCoordinator @Inject constructor(
         val deferred = scope.async(start = CoroutineStart.LAZY) {
             workMutex.withLock {
                 running.update { it + 1 }
-                try { block() } finally { running.update { it - 1 } }
+                try {
+                    block()
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    Log.w(TAG, "Nie udało się zakończyć synchronizacji", e)
+                    val message = pl.zse.bydgoszcz.elektron.domain.model.SyncErrors.userMessage(e)
+                    if (pinned) operationError.value = "Nie udało się zapisać zmiany lub odczytać danych. Spróbuj ponownie."
+                    pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable {
+                        notificationsRepo.setLastSyncError(message)
+                    }
+                    SyncOutcome(failures = (request?.sources ?: SyncRequest.ALL_SOURCES).associateWith { e })
+                } finally { running.update { it - 1 } }
             }
         }
         val flight = Flight(request, pinned, deferred)
@@ -177,17 +196,17 @@ class SyncCoordinator @Inject constructor(
     }
 
     private suspend fun classChange(classId: String, reset: Boolean): SyncOutcome {
+        settings.setSelectedClassId(classId)
         if (reset) announcementsRepo.resetArchive { db.withTransaction {
             val sql = db.openHelper.writableDatabase
             listOf("lesson_groups", "lessons", "substitutions", "school_classes", "teachers", "rooms",
                 "notifications", "sync_state").forEach { sql.execSQL("DELETE FROM `$it`") }
             sql.execSQL("DELETE FROM announcements WHERE isFavorite = 0")
         } }
-        // Najpierw "loaded" wyczyszczone, potem klasa: od tej chwili initialSyncPending = true
-        // (także po restarcie procesu), aż plan nowej klasy się pobierze.
+        // Zapis wyboru musi się udać przed czyszczeniem metadanych starej klasy.
+        // Następnie synchronizacja nowej klasy ustala jej stan pobrania.
         notificationsRepo.clearLoaded()
         notificationsRepo.setLastSyncError(null)
-        settings.setSelectedClassId(classId)
         // Pierwsza synchronizacja po zmianie klasy nie wysyła powiadomień - tylko zapisuje stan.
         return doSync(SyncRequest.full(), notify = false)
     }
@@ -225,8 +244,13 @@ class SyncCoordinator @Inject constructor(
             for (source in outcome.succeeded) {
                 db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity(
                     sourceKey(source), now, "ok", null))
+                db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity(
+                    "${sourceKey(source)}_success", now, "ok", null))
             }
             for (source in outcome.failures.keys) {
+                val previous = db.syncStateDao().get(sourceKey(source))
+                if (previous?.status == "ok" && db.syncStateDao().get("${sourceKey(source)}_success") == null)
+                    db.syncStateDao().upsert(previous.copy(key = "${sourceKey(source)}_success"))
                 db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity(
                     sourceKey(source), now, "error", SyncOutcome.errorMessage(mapOf(source to outcome.failures.getValue(source))) ?: pl.zse.bydgoszcz.elektron.domain.model.SyncErrors.userMessage(outcome.failures.getValue(source))))
             }
@@ -251,8 +275,10 @@ class SyncCoordinator @Inject constructor(
         } finally {
             withContext(NonCancellable) {
                 // Przypomnienia: czekamy na ustawienie alarmu (proces workera może zaraz zniknąć).
-                reminders.reschedule()
-                widgetUpdater.updateNow()
+                pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { reminders.reschedule() }
+                    .onFailure { Log.w(TAG, "Nie udało się przeliczyć przypomnień", it) }
+                pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { widgetUpdater.updateNow() }
+                    .onFailure { Log.w(TAG, "Nie udało się odświeżyć widżetów", it) }
             }
         }
     }

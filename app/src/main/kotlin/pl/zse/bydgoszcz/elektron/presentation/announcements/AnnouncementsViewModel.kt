@@ -89,8 +89,8 @@ class AnnouncementsViewModel @Inject constructor(
             } finally { clearingFavorites.value = false }
         }
     }
-    fun closeArticle() { articleRequest++; articleJob?.cancel(); selectedId.value = null }
-    fun openArticle(id: String) {
+    fun closeArticle() { articleRequest++; articleJob?.cancel(); selectedId.value = null; articleLoading.value = false; articleError.value = null }
+    fun openArticle(id: String, force: Boolean = false) {
         val request = ++articleRequest
         articleJob?.cancel()
         selectedId.value = id
@@ -98,7 +98,7 @@ class AnnouncementsViewModel @Inject constructor(
         articleLoading.value = true
         articleJob = viewModelScope.launch {
             try {
-                repo.loadFullArticle(id).onFailure { if (request == articleRequest) articleError.value = SyncErrors.userMessage(it) }
+                runCatchingCancellable { if (force) repo.refreshFullArticle(id) else repo.loadFullArticle(id) }.getOrElse { Result.failure(it) }.onFailure { if (request == articleRequest) articleError.value = SyncErrors.userMessage(it) }
             } finally { if (request == articleRequest) articleLoading.value = false }
         }
     }
@@ -206,7 +206,9 @@ class AnnouncementsViewModel @Inject constructor(
                         if (!favoritesOnly.value && query.value == requestedQuery) visibleCount.value = shown + maxOf(r.added, PAGE_SIZE)
                     }
                     .onFailure { if (repo.archiveGeneration.first() == requestedGeneration) loadMoreError.value = true }
-            } finally {
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { loadMoreError.value = true }
+            finally {
                 loadingMore.value = false
             }
         }
@@ -220,8 +222,13 @@ class AnnouncementsViewModel @Inject constructor(
                 // Przez koordynator (markLoaded, powiadomienia, widżety - tam). Komunikatu o planie
                 // i zastępstwach odświeżenie samych ogłoszeń nie rusza.
                 repo.resetArchive()
-                coordinator.sync(SyncRequest.of(SyncOutcome.ANNOUNCEMENTS))
-            } finally {
+                val outcome = coordinator.sync(SyncRequest.of(SyncOutcome.ANNOUNCEMENTS))
+                outcome.failures[SyncOutcome.ANNOUNCEMENTS]?.let {
+                    message.value = "Nie udało się odświeżyć ogłoszeń. ${SyncErrors.userMessage(it)}"
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Nie udało się odświeżyć ogłoszeń. ${SyncErrors.userMessage(e)}" }
+            finally {
                 // Dawniej bez try/finally — wyjątek zostawiał wieczny spinner odświeżania.
                 refreshing.value = false
             }

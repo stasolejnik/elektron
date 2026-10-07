@@ -9,12 +9,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.model.AnnouncementSource
-import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
-import pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository
-import pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -36,21 +33,17 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class ElektronFirebaseMessagingService : FirebaseMessagingService() {
 
+    @Inject lateinit var coordinator: pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
+    @Inject lateinit var syncScheduler: SyncScheduler
+    @Inject lateinit var timetableRepo: pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
     @Inject lateinit var settings: SettingsRepository
-    @Inject lateinit var substitutionsRepo: SubstitutionsRepository
     @Inject lateinit var announcementsRepo: AnnouncementsRepository
     @Inject lateinit var notificationsRepo: NotificationsRepository
-    @Inject lateinit var timetableRepo: pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
-    @Inject lateinit var reminders: LessonReminderScheduler
     @Inject lateinit var sink: NotificationSink
-    @Inject lateinit var widgetUpdater: WidgetUpdater
-    @Inject lateinit var substitutionNotifier: SubstitutionNotifier
 
-    // Google zaleca runBlocking (nie goAsync — to metoda BroadcastReceivera, nie tej klasy)
-    // dla krótkiej pracy w onMessageReceived: to wywołanie leci na wątku w tle biblioteki
-    // FCM, nie na głównym, więc blokowanie go jest bezpieczne. Nasza praca (kilka operacji
-    // na Room + ewentualne powiadomienie) mieści się z zapasem w oknie ~20s, jakie ma
-    // onMessageReceived — dłuższe zadania Google każe zlecać do WorkManagera.
+    // Odbiornik działa na wątku biblioteki FCM. Sprawdzenie zastępstw ma limit 8 s;
+    // przy braku połączenia lub przekroczeniu limitu WorkManager kontynuuje później.
+    // Payload zastępstwa nigdy nie nadpisuje nowszego odczytu strony szkoły.
     override fun onMessageReceived(message: RemoteMessage) = runBlocking(Dispatchers.IO) {
         val data = message.data
         val type = data["type"] ?: return@runBlocking
@@ -61,40 +54,27 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
                 else -> Log.w(TAG, "Nieznany typ push: $type")
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.w(TAG, "Błąd przetwarzania push", e)
         }
     }
 
     private suspend fun handleSubstitution(data: Map<String, String>) {
-        val id = data["id"] ?: return
+        if (data["id"].isNullOrBlank() || data["classShortName"].isNullOrBlank()) return
         val date = runCatching { LocalDate.parse(data["date"]) }.getOrNull() ?: return
-        val lessonNumber = data["lessonNumber"]?.toIntOrNull() ?: return
-        val classShortName = data["classShortName"] ?: return
-        val sub = Substitution(
-            id = id,
-            date = date,
-            lessonNumber = lessonNumber,
-            classShortName = classShortName,
-            groupNumber = data["groupNumber"]?.toIntOrNull(),
-            roomOrInfo = data["roomOrInfo"] ?: "",
-            substituteTeacher = data["substituteTeacher"],
-            notes = data["notes"],
-            originalTeacher = data["originalTeacher"] ?: "",
-            originalSubject = data["originalSubject"]
-        )
-        val previous = substitutionsRepo.getForClassAndDay(classShortName, date).firstOrNull { it.id == id }
-        if (previous != sub) {
-            substitutionsRepo.upsertOne(sub)
-            val cid = settings.selectedClassId.first()
-            val short = timetableRepo.observeClasses().first().firstOrNull { it.id == cid }?.shortName
-            if (short != null && pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance.matchesClass(sub, short)) {
-                reminders.reschedule()
-                widgetUpdater.requestDurableUpdate()
-            }
+        if ((data["lessonNumber"]?.toIntOrNull() ?: return) !in 0..12) return
+        if (date < LocalDate.now().minusDays(1)) return
+        val selected = settings.selectedClassId.first() ?: return
+        val short = timetableRepo.observeClasses().first().firstOrNull { it.id == selected }?.shortName ?: return
+        if (!data.getValue("classShortName").equals(short, ignoreCase = true)) return
+        if (data.getValue("id") in notificationsRepo.getSeenSubstitutionIds()) return
+        // FCM może dostarczyć stary wpis już usunięty ze strony. Payload jest sygnałem do
+        // sprawdzenia, a nie źródłem prawdy; zapis, powiadomienia i alarmy wykonuje koordynator.
+        val outcome = kotlinx.coroutines.withTimeoutOrNull(8_000) {
+            coordinator.sync(pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest.of(
+                pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS))
         }
-
-        // Klasa, grupy, minione lekcje, "widziane" - ta sama logika co po synchronizacji.
-        substitutionNotifier.notifyPushed(sub)
+        if (outcome == null || outcome.failures.isNotEmpty()) syncScheduler.syncSubstitutionsNow()
     }
 
     private suspend fun handleAnnouncement(data: Map<String, String>) {

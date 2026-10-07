@@ -35,15 +35,16 @@ class LessonNoteDraftTest {
         val day = LocalDate.now().plusDays(2)
         val lesson = Lesson("l", "o3", "1D", day, pl.zse.bydgoszcz.elektron.domain.model.DayOfWeek.fromIso(day.dayOfWeek.value)!!, 1,
             LocalTime.of(9, 0), LocalTime.of(9, 45), emptyList(), null, null)
+        val currentLessons = MutableStateFlow(listOf(lesson))
         val timetable = object : TimetableRepository {
             override suspend fun syncSidebar() = Result.success(Unit)
             override suspend fun syncTimetable(classId: String, anchorDate: LocalDate) = Result.success(Unit)
             override fun observeClasses() = flowOf(emptyList<SchoolClass>())
             override fun observeTeachers() = flowOf(emptyList<Teacher>())
             override fun observeRooms() = flowOf(emptyList<SchoolRoom>())
-            override fun observeLessons(classId: String, from: LocalDate, to: LocalDate) = flowOf(listOf(lesson))
-            override fun observeAllLessons(from: LocalDate, to: LocalDate) = flowOf(listOf(lesson))
-            override suspend fun getLessonsOnce(classId: String, from: LocalDate, to: LocalDate) = listOf(lesson)
+            override fun observeLessons(classId: String, from: LocalDate, to: LocalDate) = currentLessons
+            override fun observeAllLessons(from: LocalDate, to: LocalDate) = currentLessons
+            override suspend fun getLessonsOnce(classId: String, from: LocalDate, to: LocalDate) = currentLessons.value
             override suspend fun enrichWithTeacherNames(lessons: List<Lesson>) = lessons
             override suspend fun hasLessons(classId: String, from: LocalDate, to: LocalDate) = true
         }
@@ -52,17 +53,26 @@ class LessonNoteDraftTest {
         val handle = SavedStateHandle()
         val owner = ViewModelStore()
         try {
-            val first = LessonNotesViewModel(notes, scheduler, WidgetUpdater(app), handle, timetable)
+            val first = LessonNotesViewModel(notes, scheduler, WidgetUpdater(app), handle, timetable, settings)
             owner.put("first", first)
             first.state.first { it.ready }
             first.openEditor(lesson); first.editText("Niezapisany szkic\nDruga linia")
             val restoredHandle = SavedStateHandle(handle.keys().associateWith { handle.get<Any>(it) })
-            val restored = LessonNotesViewModel(notes, scheduler, WidgetUpdater(app), restoredHandle, timetable)
+            val restored = LessonNotesViewModel(notes, scheduler, WidgetUpdater(app), restoredHandle, timetable, settings)
             owner.put("restored", restored)
             assertEquals(lesson, restored.editorLesson.first { it != null })
             assertEquals("Niezapisany szkic\nDruga linia", restored.editorText.value)
             restored.openEditor(lesson)
             assertEquals("Niezapisany szkic\nDruga linia", restored.editorText.value)
+            currentLessons.value = emptyList()
+            restored.error.first { it != null }
+            assertFalse(restored.editorAvailable.value)
+            assertEquals("Niezapisany szkic\nDruga linia", restored.editorText.value)
+            val missing = LessonNotesViewModel(notes, scheduler, WidgetUpdater(app),
+                SavedStateHandle(restoredHandle.keys().associateWith { restoredHandle.get<Any>(it) }), timetable, settings)
+            owner.put("missing", missing)
+            missing.orphanedDraft.first { it }
+            assertEquals("Niezapisany szkic\nDruga linia", missing.editorText.value)
             restored.closeEditor()
             assertTrue(restoredHandle.keys().isEmpty())
         } finally { owner.clear(); scope.cancel(); scope.coroutineContext[Job]!!.join(); Dispatchers.resetMain(); file.delete() }

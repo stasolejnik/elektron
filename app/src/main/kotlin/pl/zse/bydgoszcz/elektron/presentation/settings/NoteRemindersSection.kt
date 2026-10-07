@@ -26,7 +26,7 @@ internal fun NoteRemindersSection(enabled: Boolean, ready: Boolean, timing: Note
         if (!ready) Text("Nie udało się jeszcze odczytać notatek.", style = MaterialTheme.typography.bodySmall)
         ActionRow("Moje notatki", trailingChevron = true) { if (ready) onOpenNotes() }
         RowDivider()
-        SwitchRow("Przypomnienia o notatkach", enabled, onChange)
+        SwitchRow("Przypomnienia o notatkach", enabled, onChange = onChange)
         if (enabled) {
             RowDivider()
             ValueRow("Kiedy", if (timing.previousDay) "Dzień wcześniej" else "Przed lekcją") { choosingMode = true }

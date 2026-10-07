@@ -33,7 +33,17 @@ object LessonReminders {
      * przesuwa się na początek przerwy (np. 10 min przed, a przerwa ma 5 min).
      */
     fun next(lessons: List<Lesson>, now: LocalDateTime, settings: ReminderSettings): LessonReminder? {
-        if (settings.mode == ReminderMode.OFF) return null
+        return candidates(lessons, settings).filter { it.at > now && it.lessonStart > now }.minByOrNull { it.at }
+    }
+
+    /** Ponowna weryfikacja alarmu: bieżący plan i ustawienia mają pierwszeństwo przed zapisanym alarmem. */
+    fun due(lessons: List<Lesson>, number: Int, start: LocalDateTime, now: LocalDateTime, settings: ReminderSettings): Lesson? =
+        candidates(lessons, settings).firstOrNull {
+            it.lesson.number == number && it.lessonStart == start && it.at <= now && now < start.plusMinutes(5)
+        }?.lesson
+
+    private fun candidates(lessons: List<Lesson>, settings: ReminderSettings): List<LessonReminder> {
+        if (settings.mode == ReminderMode.OFF) return emptyList()
         val minutes = settings.minutesBefore.toLong().coerceIn(1, 120)
         return lessons.filter(SubstitutionDisplay::takesPlace).groupBy { it.date }.flatMap { (date, dayLessons) ->
             val sorted = dayLessons.sortedBy { it.timeFrom }
@@ -46,7 +56,7 @@ object LessonReminders {
                 }
                 LessonReminder(l, at)
             }
-        }.filter { it.at > now && it.lessonStart > now }.minByOrNull { it.at }
+        }
     }
 
     /**

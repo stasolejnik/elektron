@@ -53,12 +53,15 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   instalację zawsze zatwierdzasz sam. GitHub widzi przy tym adres IP i wersję aplikacji; nie są
   wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
+- **Zdjęcia w ogłoszeniach:** po otwarciu zakładki „Zdjęcia” w podglądzie ogłoszenia pobierane są obrazy z serwerów szkoły. Obrazy korzystają z pamięci podręcznej; nie są automatycznie pobierane podczas czytania tekstu. Pełny tekst jest pobierany ze strony ogłoszenia, a „Odśwież treść” ponawia jego pobranie.
+
 - **BUSearch (odjazdy ze szkoły):** po otwarciu wyboru przystanku aplikacja
   pobiera publiczny katalog z api.busearch.pl. Katalog jest zapisywany w pamięci podręcznej;
   wyszukiwanie nazw i wybór celu odbywają się lokalnie. Przy samym wyborze celu nie są
   przesyłane wpisywane frazy, wybrany przystanek ani lokalizacja telefonu. Serwer widzi adres IP i wersję aplikacji.
-  Po otwarciu zakładki Odjazdy albo ręcznym odświeżeniu wysyła do planera BUSearch stały
-  punkt szkoły albo identyfikatory stanowisk wybranego przystanku początkowego,
+  Po otwarciu zakładki Odjazdy, ręcznym odświeżeniu lub oglądaniu kafelka odjazdu na
+  stronie głównej wysyła do planera BUSearch identyfikatory stanowisk przystanków
+  w promieniu 1 km od szkoły albo stanowisk wybranego przystanku początkowego,
   współrzędne przystanku docelowego i czas rozpoczęcia podróży.
   Dzięki temu pobiera połączenia i godziny odjazdów. Cel podróży jest więc przekazywany
   dostawcy tylko przy wyszukiwaniu połączeń. Preferowany przystanek początkowy jest wtedy

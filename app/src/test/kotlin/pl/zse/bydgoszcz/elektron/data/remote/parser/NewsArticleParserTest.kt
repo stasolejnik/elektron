@@ -42,4 +42,14 @@ class NewsArticleParserTest {
         assertTrue(html.contains("<h1>Sekcja</h1>"))
     }
 
+    @Test fun sidebarPreviewDoesNotReplaceTheCompleteSchoolArticle() {
+        val doc = Jsoup.parse("""<aside><article><p>Krótki podgląd.</p></article></aside>
+            <div class="main-content"><h1>Pełne ogłoszenie</h1><div class="page-subtitle">Opublikowano: 2026-09-11 09:54</div>
+            <p>Pełny pierwszy akapit.</p><p>Pełny drugi akapit.</p><a href="/zalacznik.pdf">Załącznik</a></div>""")
+        val html = NewsArticleParser.parse(doc)!!
+        assertTrue(html.contains("Pełny drugi akapit."))
+        assertTrue(html.contains("Załącznik"))
+        assertFalse(html.contains("Krótki podgląd."))
+    }
+
 }

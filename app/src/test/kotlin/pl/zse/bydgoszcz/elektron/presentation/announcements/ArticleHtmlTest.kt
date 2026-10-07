@@ -45,4 +45,16 @@ class ArticleHtmlTest {
         assertTrue(doc.selectFirst("style")!!.data().contains("color:#EEEEEE"))
         assertTrue(doc.selectFirst("style")!!.data().contains("line-height:1.45"))
     }
+    @Test fun galleryUsesOnlyDistinctSchoolImagesAndNormalizesHttps() {
+        val images = ArticleHtml.imageLinks("""<img src="//zse.edu.bydgoszcz.pl/poster.jpg"><img src="http://zse.edu.bydgoszcz.pl/poster.jpg">
+            <img src="/photo.png"><img src="https://tracker.example/pixel.gif"><img src="file:///private.jpg">""", "https://zse.bydgoszcz.pl/news.html")
+        assertEquals(listOf("https://zse.edu.bydgoszcz.pl/poster.jpg", "https://zse.bydgoszcz.pl/photo.png"), images)
+    }
+
+    @Test fun galleryUsesFullSizeSchoolPosterInsteadOfThumbnail() {
+        val images = ArticleHtml.imageLinks("""<a href="//zse.edu.bydgoszcz.pl/poster-d.jpg"><img src="//zse.edu.bydgoszcz.pl/poster-m.jpg"></a>
+            <a href="https://tracker.example/full.jpg"><img src="/safe.png"></a>""", "https://zse.bydgoszcz.pl/news.html")
+        assertEquals(listOf("https://zse.edu.bydgoszcz.pl/poster-d.jpg", "https://zse.bydgoszcz.pl/safe.png"), images)
+    }
+
 }

@@ -48,8 +48,8 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 - **Wygląd:** własne nazwy i kolory przedmiotów, jasny lub ciemny motyw, kolor akcentu
   i kolory z tapety na Androidzie 12 lub nowszym.
 
-Zakładka **Odjazdy** jest domyślnie dostępna między Zastępstwami a Ogłoszeniami.
-Wybierz w niej przystanek docelowy, aby zobaczyć trzy najbliższe czasowo przyjazdy do celu.
+Odjazdy są domyślnie wyłączone. Włącz je w **Ustawieniach → Pasek nawigacji**,
+a zakładka pojawi się między Zastępstwami a Ogłoszeniami. Wybierz w niej przystanek docelowy, aby zobaczyć trzy najbliższe czasowo przyjazdy do celu.
 W tej samej zakładce zmienisz przystanek początkowy i włączysz przesiadki.
 Ikony dolnego paska wybierzesz w **Ustawieniach → Pasek nawigacji**.
 Na stronie głównej, podczas ostatniej lekcji i po zajęciach, możesz zobaczyć najbliższy

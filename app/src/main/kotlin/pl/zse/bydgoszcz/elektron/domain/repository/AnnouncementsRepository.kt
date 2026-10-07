@@ -15,6 +15,7 @@ interface AnnouncementsRepository {
     fun observeLatest(limit: Int): Flow<List<Announcement>>
     suspend fun count(): Int
     suspend fun loadFullArticle(id: String): Result<Unit>
+    suspend fun refreshFullArticle(id: String): Result<Unit> = loadFullArticle(id)
     suspend fun getAll(): List<Announcement>
     /** Zapis pojedynczego wpisu (np. z pusha FCM). */
     suspend fun upsertOne(ann: Announcement)

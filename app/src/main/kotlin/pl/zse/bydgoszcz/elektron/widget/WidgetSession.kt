@@ -36,7 +36,7 @@ suspend fun <T> loadSnapshot(load: suspend () -> T): WidgetSnapshot<T> {
 }
 
 @Composable
-fun <T> rememberLiveWidgetData(initial: WidgetSnapshot<T>, load: suspend () -> T): T {
+fun <T> rememberLiveWidgetData(initial: WidgetSnapshot<T>, load: suspend () -> T, reconcile: (T, T) -> T = { _, fresh -> fresh }): T {
     val version by WidgetDataVersion.value.collectAsState()
     var data by remember { mutableStateOf(initial.data) }
     var loadedVersion by remember { mutableLongStateOf(initial.version) }
@@ -46,7 +46,7 @@ fun <T> rememberLiveWidgetData(initial: WidgetSnapshot<T>, load: suspend () -> T
             // Błąd odczytu (np. baza chwilowo niedostępna) - zostają ostatnie dane. Dawniej
             // wyjątek wywracał sesję widżetu i Glance pokazywał "Nie można wczytać widżetu".
             runCatchingCancellable { load() }
-                .onSuccess { data = it }
+                .onSuccess { data = reconcile(data, it) }
                 .onFailure { Log.w("WidgetSession", "Nie udało się odświeżyć danych widżetu", it) }
             loadedVersion = v
         }

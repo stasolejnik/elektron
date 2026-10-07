@@ -55,7 +55,9 @@ class LessonReminderScheduler @Inject constructor(
     }
 
     suspend fun reschedule(now: LocalDateTime = LocalDateTime.now()) = mutex.withLock {
-        noteReminders?.reschedule(now)
+        runCatchingCancellable { noteReminders?.reschedule(now) }.onFailure {
+            Log.w(TAG, "Nie udało się przeliczyć przypomnień notatek", it)
+        }
         runCatchingCancellable { rescheduleLocked(now) }.onFailure {
             _status.value = Status(error = true, ready = true)
             Log.w(TAG, "Nie udało się ustawić przypomnienia", it)
@@ -85,6 +87,8 @@ class LessonReminderScheduler @Inject constructor(
         val (what, body) = LessonReminders.describe(reminder.lesson, settings.subjectStyles.first())
         val zone = ZoneId.systemDefault()
         val intent = baseIntent()
+            .putExtra(EXTRA_CLASS, reminder.lesson.classId)
+            .putExtra(EXTRA_NUMBER, reminder.lesson.number)
             .putExtra(EXTRA_ID, reminder.lesson.id.hashCode())
             .putExtra(EXTRA_WHAT, what)
             .putExtra(EXTRA_BODY, body)
@@ -106,11 +110,27 @@ class LessonReminderScheduler @Inject constructor(
         _status.value = Status(reminder.at, what, exact, ready = true)
     }
 
+    data class Delivery(val id: Int, val title: String, val body: String, val end: LocalDateTime)
+
+    suspend fun delivery(classId: String?, number: Int, start: LocalDateTime, now: LocalDateTime): Delivery? {
+        if (classId == null || settings.selectedClassId.first() != classId) return null
+        val lessons = LessonGroups.filter(
+            timetableRepo.getLessonsOnce(classId, start.toLocalDate(), start.toLocalDate()),
+            settings.groupSelections(classId).first()
+        )
+        val lesson = LessonReminders.due(lessons, number, start, now, settings.reminderSettings.first()) ?: return null
+        val (what, body) = LessonReminders.describe(lesson, settings.subjectStyles.first())
+        return Delivery(lesson.id.hashCode(), LessonReminders.title(what, start, now), body,
+            LocalDateTime.of(lesson.date, lesson.timeTo))
+    }
+
     private fun baseIntent() = Intent(context, LessonReminderReceiver::class.java)
 
     companion object {
         private const val TAG = "LessonReminders"
         private const val REQUEST_CODE = 4101
+        const val EXTRA_CLASS = "reminder_class"
+        const val EXTRA_NUMBER = "reminder_number"
         const val EXTRA_ID = "reminder_id"
         const val EXTRA_WHAT = "reminder_what"
         const val EXTRA_BODY = "reminder_body"
