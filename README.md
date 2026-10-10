@@ -40,9 +40,6 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   <img src="docs/screenshots/widzety.png" alt="Widżety" title="Widżety" width="200">
   <img src="docs/screenshots/powiadomienia.png" alt="Powiadomienia" title="Powiadomienia" width="200">
 </p>
-
-<p align="center"><sub>Strona główna · Plan lekcji · Zastępstwa · Odjazdy<br>Ogłoszenia · Ustawienia · Widżety · Powiadomienia</sub></p>
-
 ## Funkcje
 
 - **Plan lekcji:** widok dnia i tygodnia z zastępstwami, szczegóły sali i nauczyciela,
