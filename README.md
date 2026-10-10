@@ -28,20 +28,20 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 
 ## Zrzuty ekranu
 
-<table align="center">
-  <tr>
-    <td align="center" width="25%"><img src="docs/screenshots/strona-glowna.png" alt="Strona główna" width="190"><br><sub>Strona główna</sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/plan.png" alt="Plan lekcji" width="190"><br><sub>Plan lekcji</sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/zastepstwa.png" alt="Zastępstwa" width="190"><br><sub>Zastępstwa</sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/odjazdy.png" alt="Odjazdy" width="190"><br><sub>Odjazdy</sub></td>
-  </tr>
-  <tr>
-    <td align="center" width="25%"><img src="docs/screenshots/ogloszenia.png" alt="Ogłoszenia" width="190"><br><sub>Ogłoszenia</sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/ustawienia.png" alt="Ustawienia" width="190"><br><sub>Ustawienia</sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/widzety.png" alt="Widżety" width="190"><br><sub>Widżety</sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/powiadomienia.png" alt="Powiadomienia" width="190"><br><sub>Powiadomienia</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/strona-glowna.png" alt="Strona główna" title="Strona główna" width="200">
+  <img src="docs/screenshots/plan.png" alt="Plan lekcji" title="Plan lekcji" width="200">
+  <img src="docs/screenshots/zastepstwa.png" alt="Zastępstwa" title="Zastępstwa" width="200">
+  <img src="docs/screenshots/odjazdy.png" alt="Odjazdy" title="Odjazdy" width="200">
+</p>
+<p align="center">
+  <img src="docs/screenshots/ogloszenia.png" alt="Ogłoszenia" title="Ogłoszenia" width="200">
+  <img src="docs/screenshots/ustawienia.png" alt="Ustawienia" title="Ustawienia" width="200">
+  <img src="docs/screenshots/widzety.png" alt="Widżety" title="Widżety" width="200">
+  <img src="docs/screenshots/powiadomienia.png" alt="Powiadomienia" title="Powiadomienia" width="200">
+</p>
+
+<p align="center"><sub>Strona główna · Plan lekcji · Zastępstwa · Odjazdy<br>Ogłoszenia · Ustawienia · Widżety · Powiadomienia</sub></p>
 
 ## Funkcje
 
