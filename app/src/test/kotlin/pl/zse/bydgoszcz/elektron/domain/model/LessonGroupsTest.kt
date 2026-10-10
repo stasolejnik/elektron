@@ -90,6 +90,34 @@ class LessonGroupsTest {
     }
 
     @Test
+    fun wholeClassSubstitutionForHiddenLessonIsNotRelevant() {
+        // "Nie chodzę" na religię: plan chowa lekcję, więc zastępstwo zapisane dla całej klasy
+        // (bez numeru grupy) też nie dotyczy ucznia.
+        val raw = listOf(lesson(3, "rel-1/1"), lesson(4, "ang-1/2", "niem-2/2"), lesson(5))
+        val sel = mapOf("rel" to LessonGroups.NONE, "niem" to LessonGroups.NONE)
+        assertTrue(LessonGroups.filter(raw, sel).none { it.number == 3 })
+        assertFalse(LessonGroups.substitutionRelevant(substitution(3, null), raw, sel))
+        // Lekcja z widoczną grupą i lekcja bez grup - zastępstwo dla całej klasy zostaje.
+        assertTrue(LessonGroups.substitutionRelevant(substitution(4, null), raw, sel))
+        assertTrue(LessonGroups.substitutionRelevant(substitution(5, null), raw, sel))
+        // Godzina spoza planu - nie chowamy na ślepo.
+        assertTrue(LessonGroups.substitutionRelevant(substitution(7, null), raw, sel))
+    }
+
+    @Test
+    fun substitutionGetsSubjectOfTheAffectedGroup() {
+        val raw = listOf(lesson(2, "ang-1/2", "niem-2/2"), lesson(3, "mat"))
+        val sel = mapOf("niem" to LessonGroups.NONE)
+        assertEquals("ang-1/2", LessonGroups.withSubject(substitution(2, null), raw, sel).originalSubject)
+        assertEquals("niem-2/2", LessonGroups.withSubject(substitution(2, 2), raw, sel).originalSubject)
+        assertEquals("mat", LessonGroups.withSubject(substitution(3, null), raw, emptyMap()).originalSubject)
+        // Bez lekcji w planie i z przedmiotem już podanym - bez zmian.
+        assertNull(LessonGroups.withSubject(substitution(7, null), raw, sel).originalSubject)
+        val given = substitution(3, null).copy(originalSubject = "fiz")
+        assertEquals("fiz", LessonGroups.withSubject(given, raw, sel).originalSubject)
+    }
+
+    @Test
     fun substitutionOverlayRemovedForOtherGroup() {
         val raw = listOf(lesson(2, "zaj.prakt-1/3", "zaj.prakt-2/3", sub = substitution(2, 1)))
         val out = LessonGroups.filter(raw, mapOf("zaj.prakt" to "2/3"))
@@ -105,5 +133,22 @@ class LessonGroupsTest {
         // Bez numeru grupy: pierwsza z podanych (po filtrze - grupa użytkownika).
         val mine = LessonGroups.filter(listOf(lesson(2, "ang-1/2", "niem-2/2")), mapOf("ang" to LessonGroups.NONE)).single().groups
         assertEquals("niem-2/2", LessonGroups.subjectFor(substitution(2, null), mine))
+    }
+
+    @Test
+    fun choiceMissingFromTheNewPlanIsStaleButNotGoingAndAbsentSubjectsAreKept() {
+        // Nowy semestr: zaj.prakt dzielone na 2 zamiast 3 - wybór "2/3" ukrywał wszystkie lekcje.
+        val plan = listOf(lesson(1, "zaj.prakt-1/2", "zaj.prakt-2/2"), lesson(2, "ang-1/2", "ang-2/2"), lesson(3, "relig"))
+        val selections = mapOf("zaj.prakt" to "2/3", "ang" to "1/2", "relig" to LessonGroups.NONE, "niem" to "1/2")
+        assertEquals(setOf("zaj.prakt"), LessonGroups.staleSelections(plan, selections))
+        assertEquals(listOf(1, 2), LessonGroups.filter(plan, selections - "zaj.prakt").filter { it.groups.isNotEmpty() && it.number != 3 }.map { it.number })
+        assertEquals(emptySet<String>(), LessonGroups.staleSelections(plan, emptyMap()))
+    }
+
+    @Test fun religionIsRecognisedForQuickChoice() {
+        assertTrue(LessonGroups.isReligion("religia"))
+        assertTrue(LessonGroups.isReligion("Relig."))
+        assertFalse(LessonGroups.isReligion("wf"))
+        assertFalse(LessonGroups.isReligion("j.angielski"))
     }
 }

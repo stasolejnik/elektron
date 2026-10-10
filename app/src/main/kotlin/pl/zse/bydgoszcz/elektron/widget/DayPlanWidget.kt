@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import java.time.LocalTime
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.glance.unit.ColorProvider
@@ -56,8 +58,8 @@ class DayPlanWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val load: suspend () -> Pair<WidgetState, WidgetPalette> = {
             val state = WidgetDataLoader.load(context)
-            if (state is WidgetState.Ready) {
-                WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.refreshAt)
+            widgetTickAt(state, AppClock.now())?.let {
+                WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(it)
             }
             state to WidgetDataLoader.palette(context)
         }
@@ -115,8 +117,20 @@ class DayPlanWidget : GlanceAppWidget() {
                 Log.i(TAG, "Rysuję ${visible.size} z ${state.lessons.size} lekcji: " +
                     visible.indices.joinToString { i -> WidgetTargets.lesson(state, offset + i)?.let { "${it.date}/${it.lessonNumber}" } ?: "-" })
             }
+            // Identyfikator wiersza zależy od treści, dnia i kolorów, nie tylko od numeru lekcji:
+            // launcher trzyma gotowe wiersze listy pod ich identyfikatorem, więc po zmianie
+            // przezroczystości, motywu, dnia (np. symulacja czasu) albo trwającej lekcji wiersze
+            // o tych samych numerach zostawały w starej postaci. Tryb ciemny systemu też: w motywie
+            // Auto kolory wybiera launcher, a gotowe wiersze listy zostawały jasne.
+            val palette = LocalWidgetPalette.current
+            val night = LocalContext.current.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+            val now = AppClock.time().truncatedTo(java.time.temporal.ChronoUnit.MINUTES)   // także "zostało X min"
             LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
-                items(visible, itemId = { it.number.toLong() }) { lesson ->
+                items(visible, itemId = { lesson ->
+                    dayPlanRowId(lesson.number, java.util.Objects.hash(state.date, lesson, palette,
+                        lesson.number == state.focus.number, state.isToday && lesson.timeTo <= now,
+                        state.isToday && state.focusIsNow, now, night))
+                }) { lesson ->
                     LessonRow(
                         lesson = lesson,
                         target = WidgetTargets.lesson(state, offset + visible.indexOf(lesson)),
@@ -124,8 +138,8 @@ class DayPlanWidget : GlanceAppWidget() {
                         highlighted = lesson.number == state.focus.number,
                         // Trwająca lekcja: "zostało X min" (jak w widżecie Następna lekcja i w planie).
                         remaining = if (state.isToday && state.focusIsNow && lesson.number == state.focus.number)
-                            "zostało ${LessonClock.minutesCeil(LocalTime.now(), lesson.timeTo)} min" else null,
-                        past = state.isToday && lesson.timeTo <= LocalTime.now(),
+                            "zostało ${LessonClock.minutesCeil(AppClock.time(), lesson.timeTo)} min" else null,
+                        past = state.isToday && lesson.timeTo <= AppClock.time(),
                         visibleLessonCount = visible.size
                     )
                 }

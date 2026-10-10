@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate
 import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
+import pl.zse.bydgoszcz.elektron.domain.model.UpdateChannel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -59,8 +60,12 @@ class SettingsViewModel @Inject constructor(
     val reminderStatus = reminders.status
     fun refreshReminderStatus() { reminders.requestReschedule() }
 
-    /** Tryb dewelopera - na czas działania aplikacji, nie zapisywany. Panel z symulacjami w Ustawieniach. */
-    private val _devMode = MutableStateFlow(false)
+    /**
+     * Tryb dewelopera - na czas działania aplikacji, nie zapisywany. Panel z symulacjami w Ustawieniach.
+     * Trwająca symulacja czasu (zapisana, przetrwa restart) od razu włącza panel - inaczej zmieniony
+     * czas nie byłby nigdzie widoczny, a "Wróć do czasu telefonu" schowane.
+     */
+    private val _devMode = MutableStateFlow(pl.zse.bydgoszcz.elektron.domain.util.AppClock.simulated)
     val devMode: StateFlow<Boolean> = _devMode
 
     /** Komunikat po akcji trybu dewelopera (pokazywany raz). */
@@ -69,14 +74,58 @@ class SettingsViewModel @Inject constructor(
 
     fun setDevMode(enabled: Boolean) {
         _devMode.value = enabled
+        // Wyłączenie trybu dewelopera kończy też symulację czasu.
+        if (!enabled && pl.zse.bydgoszcz.elektron.domain.util.AppClock.simulated) resetSimulatedTime()
+    }
+
+    /** Symulowany czas (tryb dewelopera): plan, zastępstwa, strona główna, Odjazdy i widżety. */
+    val simulatedOffset = pl.zse.bydgoszcz.elektron.domain.util.AppClock.offsetMs
+
+    fun simulateTime(at: java.time.LocalDateTime) {
+        pl.zse.bydgoszcz.elektron.domain.util.AppClock.simulate(at)
+        _devMessage.value = "Symulowany czas: ${at.format(java.time.format.DateTimeFormatter.ofPattern("d.MM.yyyy, HH:mm"))}"
+    }
+
+    /** Okno symulacji w trybie dewelopera (null - zamknięte). */
+    sealed interface DevDialog {
+        /** Wybór wzoru zastępstwa: własne, zwolnienie albo zapisane (także minione). */
+        data class Substitution(val past: List<Pair<DeveloperTools.SubstitutionDraft, String>>) : DevDialog
+        data object CustomSubstitution : DevDialog
+        /** Wybór wzoru ogłoszenia: własne albo zapisane (id, tytuł). */
+        data class Announcement(val past: List<Pair<String, String>>) : DevDialog
+        data object CustomAnnouncement : DevDialog
+    }
+    val devDialog = MutableStateFlow<DevDialog?>(null)
+
+    fun devOpenSubstitution() = viewModelScope.launch {
+        devDialog.value = DevDialog.Substitution(runCatchingCancellable { developerTools.pastSubstitutions() }.getOrDefault(emptyList()))
+    }
+    fun devOpenAnnouncement() = viewModelScope.launch {
+        devDialog.value = DevDialog.Announcement(runCatchingCancellable { developerTools.pastAnnouncements().map { it.id to it.title } }.getOrDefault(emptyList()))
+    }
+    fun devSimulateSubstitution(draft: DeveloperTools.SubstitutionDraft) {
+        devDialog.value = null
+        devAction { developerTools.simulateSubstitution(draft) }
+    }
+    fun devSimulateAnnouncement(title: String, text: String, templateId: String? = null) {
+        devDialog.value = null
+        devAction { developerTools.simulateAnnouncement(title, text, templateId) }
+    }
+
+    fun devRefreshWidgets() {
+        widgetUpdater.requestUpdate()
+        _devMessage.value = "Widżety odświeżone."
+    }
+
+    fun resetSimulatedTime() {
+        pl.zse.bydgoszcz.elektron.domain.util.AppClock.reset()
+        _devMessage.value = "Przywrócono czas telefonu."
     }
 
     fun consumeDevMessage() {
         _devMessage.value = null
     }
 
-    fun devSimulateSubstitution(freed: Boolean) = devAction { developerTools.simulateSubstitution(freed) }
-    fun devSimulateAnnouncement() = devAction { developerTools.simulateAnnouncement() }
     fun devClearSimulations() = devAction { developerTools.clearSimulations() }
     fun devCrash() = developerTools.crash()
 
@@ -130,6 +179,7 @@ class SettingsViewModel @Inject constructor(
         val quiet: QuietHours = QuietHours(),
         val widgetLook: WidgetLook = WidgetLook(),
         val accent: AccentSetting = AccentSetting(),
+        val updateChannel: UpdateChannel = UpdateChannel.STABLE,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -144,7 +194,8 @@ class SettingsViewModel @Inject constructor(
         settings.reminderSettings,
         settings.quietHours,
         settings.widgetLook,
-        settings.accent
+        settings.accent,
+        settings.updateChannel
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -163,7 +214,8 @@ class SettingsViewModel @Inject constructor(
             reminder = values[11] as ReminderSettings,
             quiet = values[12] as QuietHours,
             widgetLook = values[13] as WidgetLook,
-            accent = values[14] as AccentSetting
+            accent = values[14] as AccentSetting,
+            updateChannel = values[15] as UpdateChannel
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -201,6 +253,14 @@ class SettingsViewModel @Inject constructor(
                 onFailure = { UpdateStatus.Failed }
             )
         }
+    }
+
+    /** Zmiana kanału od razu sprawdza GitHuba - wynik (np. nowa beta) widać w tej samej sekcji. */
+    fun setUpdateChannel(channel: UpdateChannel) = writeSetting {
+        if (channel == state.value.updateChannel) return@writeSetting
+        settings.setUpdateChannel(channel)
+        _updateStatus.value = UpdateStatus.Idle
+        checkForUpdates()
     }
 
     fun setDynamicColor(enabled: Boolean) = writeSetting {

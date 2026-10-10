@@ -68,6 +68,9 @@ object LessonGroups {
     fun orderForCustomizing(subjects: List<DividedSubject>): List<DividedSubject> =
         subjects.sortedWith(compareBy({ customizePriority(it.base) }, { it.base.lowercase() }))
 
+    /** Religia (także "religia", "relig.") - w szybkim wyborze jako "chodzę / nie chodzę". */
+    fun isReligion(base: String): Boolean = customizePriority(base) == 0
+
     private fun customizePriority(base: String): Int {
         val b = base.lowercase().replace(" ", "")
         return when {
@@ -144,6 +147,19 @@ object LessonGroups {
         }
     }
 
+    /**
+     * Wybory, których etykiety nie ma już w planie (szkoła zmieniła podział, np. "2/3" -> "-2/2"):
+     * przedmiot nadal jest dzielony, ale żadna jego grupa nie pasuje do wyboru, więc wszystkie
+     * jego lekcje znikały z planu, widżetów i przypomnień bez śladu. [lessons] - cały zapisany
+     * plan klasy (nie jeden dzień: danego dnia twojej grupy może po prostu nie być).
+     * "Nie chodzę" ([NONE]) i przedmioty nieobecne w planie zostają.
+     */
+    fun staleSelections(lessons: List<Lesson>, selections: Map<String, String>): Set<String> {
+        if (selections.isEmpty()) return emptySet()
+        val labels = detect(lessons).associate { it.base.lowercase() to it.labels.toSet() }
+        return selections.filter { (base, choice) -> choice != NONE && labels[base.lowercase()]?.let { choice !in it } == true }.keys
+    }
+
     private fun groupVisible(g: LessonGroup, selections: Map<String, String>): Boolean {
         val p = parse(g.subject) ?: return true
         val label = p.label ?: return true          // lekcja bez podziału — zawsze
@@ -197,6 +213,20 @@ object LessonGroups {
         return groups.firstOrNull()?.subject
     }
 
+    /**
+     * Zastępstwo z przedmiotem lekcji z planu ([rawLessons] - niefiltrowane), do wiersza
+     * "Za: przedmiot · nauczyciel" w zakładce Zastępstwa i na stronie głównej (jak w planie).
+     * Z numerem grupy - przedmiot tej grupy (także innej niż użytkownika); bez numeru - najpierw
+     * grupy użytkownika, a gdy żadna nie jest widoczna - wszystkie.
+     */
+    fun withSubject(sub: Substitution, rawLessons: List<Lesson>, selections: Map<String, String>): Substitution {
+        if (!sub.originalSubject.isNullOrBlank()) return sub
+        val lesson = rawLessons.firstOrNull { it.date == sub.date && it.number == sub.lessonNumber } ?: return sub
+        val groups = if (sub.groupNumber != null) lesson.groups
+            else lesson.groups.filter { groupVisible(it, selections) }.ifEmpty { lesson.groups }
+        return subjectFor(sub, groups)?.let { sub.copy(originalSubject = it) } ?: sub
+    }
+
     private fun substitutionMatchesGroups(sub: Substitution, visible: List<LessonGroup>): Boolean {
         val n = sub.groupNumber ?: return true
         // Jeśli którakolwiek widoczna grupa jest dla całej klasy — zastępstwo nas dotyczy.
@@ -214,10 +244,13 @@ object LessonGroups {
         rawLessons: List<Lesson>,
         selections: Map<String, String>
     ): Boolean {
-        if (sub.groupNumber == null || selections.isEmpty()) return true
+        if (selections.isEmpty()) return true
         val lesson = rawLessons.firstOrNull { it.date == sub.date && it.number == sub.lessonNumber }
             ?: return true
         val visible = lesson.groups.filter { groupVisible(it, selections) }
+        // Zastępstwo bez numeru grupy (cała klasa) za lekcję, którą plan ukrywa ("Nie chodzę"),
+        // nie dotyczy ucznia - dawniej trafiało na stronę główną, do widżetu i powiadomień.
+        if (sub.groupNumber == null) return lesson.groups.isEmpty() || visible.isNotEmpty()
         if (visible.isEmpty()) return false
         return substitutionMatchesGroups(sub, visible)
     }

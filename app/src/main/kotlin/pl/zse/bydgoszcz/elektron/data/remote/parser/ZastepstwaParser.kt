@@ -28,6 +28,13 @@ object ZastepstwaParser {
     private const val TAG = "ZastepstwaParser"
     private val DATE_RE = Regex("Zastępstwa w dniu\\s+(\\d{2}\\.\\d{2}\\.\\d{4})")
     private val DESC_RE = Regex("^(\\d+)\\s*([A-Z])(?:\\((\\d+)\\))?\\s*-\\s*(.+)$")
+    /**
+     * Wpis bez klasy, np. "Wychowanie fizyczne - Zajęcia Świetlicowe": zajęcia łączone kilku klas,
+     * dla których Optivum podaje przedmiot zamiast klasy (9.10.2026). Nie da się go przypisać żadnej
+     * klasie, ale to znany zapis - dawniej cały dzień był "niekompletny" i strona główna pokazywała
+     * stały błąd, którego "Spróbuj ponownie" nie usuwało. Zaczyna się od litery, nie od numeru klasy.
+     */
+    private val CLASSLESS_RE = Regex("^(\\p{L}[^-]*?)\\s+-\\s+(\\S.*)$")
     private val COLUMN_HEADERS = setOf("lekcja", "opis", "zastępca", "uwagi")
 
     /**
@@ -39,6 +46,14 @@ object ZastepstwaParser {
             val cells = row.select("> td, > th")
             if (cells.size != 1) null else DATE_RE.find(cells[0].text())?.groupValues?.get(1)
         }.toSet()
+
+    /**
+     * Stopka eksportu Optivum ("Przygotowano za pomocą programu firmy VULCAN") jest za tabelą.
+     * Bez niej odpowiedź mogła zostać ucięta (zerwane połączenie, HTTP 200) - brakujące wiersze
+     * wyglądałyby jak odwołane zastępstwa i dzień zostałby zastąpiony skróconą listą.
+     */
+    fun hasFooter(doc: Document): Boolean =
+        doc.select("a[href*=vulcan]").isNotEmpty() || doc.text().contains("Przygotowano za pomoc", ignoreCase = true)
 
     fun hasRecognizedLayout(doc: Document): Boolean {
         if (pageDates(doc).isNotEmpty()) return true
@@ -56,7 +71,9 @@ object ZastepstwaParser {
      * nie każdy wiersz z numerem lekcji udało się odczytać (np. nietypowy zapis klasy, którego
      * nie obejmuje DESC_RE). Takich dni repozytorium nie zastępuje w całości.
      */
-    data class Result(val items: List<SubstitutionDto>, val incompleteDates: Set<String>)
+    data class Result(val items: List<SubstitutionDto>, val incompleteDates: Set<String>,
+        /** Wpisy bez klasy (zajęcia łączone) - klasę ustala repozytorium z planu po nauczycielu. */
+        val classless: List<SubstitutionDto> = emptyList())
 
     fun parseDetailed(doc: Document): Result {
         val tables = doc.select("table")
@@ -67,6 +84,7 @@ object ZastepstwaParser {
         val out = mutableListOf<SubstitutionDto>()
         // Wiersze z numerem lekcji per dzień vs odczytane wpisy - różnica = dzień niekompletny.
         val lessonRows = mutableMapOf<String, Int>()
+        val classless = mutableListOf<SubstitutionDto>()
         var currentDate: String? = null
         var currentTeacher: String? = null
         var candidateTeacher: String? = null   // ostatni jednokomórkowy wiersz (nie data)
@@ -128,6 +146,14 @@ object ZastepstwaParser {
                 continue
             }
             val m = DESC_RE.find(texts[1])
+            val joined = if (m == null) CLASSLESS_RE.find(texts[1]) else null
+            if (joined != null) {
+                Log.i(TAG, "Wpis bez klasy (zajęcia łączone): '${texts[1]}' (nauczyciel=$teacher, lekcja $lessonNo)")
+                // Bez klasy (""), przedmiot ze strony w subject - repozytorium dopasuje lekcję z planu.
+                classless += SubstitutionDto(date, teacher, lessonNo, "", null, joined.groupValues[2].trim(),
+                    texts[2].takeIf { it.isNotBlank() }, texts[3].takeIf { it.isNotBlank() }, subject = joined.groupValues[1].trim())
+                continue
+            }
             if (m == null) {
                 Log.w(TAG, "Nie udało się sparsować opisu: '${texts[1]}' (nauczyciel=$teacher)")
                 warnings++
@@ -152,11 +178,12 @@ object ZastepstwaParser {
             )
         }
         val parsedPerDate = out.groupingBy { it.dateRaw }.eachCount()
-        val incomplete = lessonRows.filter { (date, rows) -> (parsedPerDate[date] ?: 0) < rows }.keys + malformedDays
+        val classlessPerDate = classless.groupingBy { it.dateRaw }.eachCount()
+        val incomplete = lessonRows.filter { (date, rows) -> (parsedPerDate[date] ?: 0) + (classlessPerDate[date] ?: 0) < rows }.keys + malformedDays
         if (incomplete.isNotEmpty()) {
             Log.w(TAG, "Niekompletnie odczytane dni: $incomplete (wiersze z lekcją: $lessonRows, odczytane: $parsedPerDate)")
         }
         Log.i(TAG, "Sparsowano ${out.size} zastępstw (ostrzeżeń=$warnings)")
-        return Result(out, incomplete)
+        return Result(out, incomplete, classless)
     }
 }

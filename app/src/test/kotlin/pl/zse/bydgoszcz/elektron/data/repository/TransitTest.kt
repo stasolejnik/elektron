@@ -21,7 +21,7 @@ class TransitTest {
     @Test fun catalogGroupsPlatformsAndRejectsInvalidCoordinates() {
         val stops = TransitStopParser.parse("""[
             {"id":9,"nazwa":"Rondo Jagiellonów","lat":53.12,"lon":18.00},
-            {"id":10,"nazwa":"Rondo Jagiellonów","lat":53.13,"lon":18.01},
+            {"id":10,"nazwa":"Rondo Jagiellonów","lat":53.121,"lon":18.001},
             {"id":9,"nazwa":"Duplikat","lat":53.12,"lon":18.00},
             {"id":11,"nazwa":"UKW","lat":53.14,"lon":18.02},
             {"id":12,"nazwa":"Błąd","lat":153,"lon":18.00}
@@ -29,7 +29,8 @@ class TransitTest {
         assertEquals(2, stops.size)
         val complex = stops.first { it.name == "Rondo Jagiellonów" }
         assertEquals(listOf("9", "10"), complex.stopIds)
-        assertEquals(53.125, complex.latitude, 0.00001)
+        // Stanowiska zespołu leżą blisko siebie (te same nazwy daleko od siebie to osobne przystanki - TransitStopsRefreshTest).
+        assertEquals(53.1205, complex.latitude, 0.00001)
         assertEquals("10,9", complex.key)
     }
     @Test fun emptyOrMalformedCatalogIsAnError() {

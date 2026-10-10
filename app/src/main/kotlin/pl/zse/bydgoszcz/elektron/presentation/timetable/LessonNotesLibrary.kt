@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import pl.zse.bydgoszcz.elektron.MainActivity
+import pl.zse.bydgoszcz.elektron.ElektronActivity
 import pl.zse.bydgoszcz.elektron.domain.model.*
 import java.time.format.DateTimeFormatter
 
@@ -42,7 +42,7 @@ internal fun LessonNotesLibrary(notes: List<LessonNote>, viewModel: LessonNotesV
                         Row {
                             TextButton(onClick = {
                                 onDismiss()
-                                context.startActivity(Intent(context, MainActivity::class.java).apply {
+                                context.startActivity(Intent(context, ElektronActivity::class.java).apply {
                                     flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                                     putExtra(LessonLinks.EXTRA_LESSON, LessonLinks.deepLink(LessonTarget(note.date, note.number)))
                                 })

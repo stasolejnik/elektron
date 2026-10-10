@@ -53,12 +53,22 @@ class TimetableRepositoryImpl @Inject constructor(
                 val classes = classDao.getAll().associateBy { it.id }
                 val teachers = teacherDao.getAll().associateBy { it.code }
                 val rooms = roomDao.getAll().associateBy { it.id }
-                classDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.CLASS }
-                    .map(SidebarMapper::toClassEntity).filter { classes[it.id] != it })
-                teacherDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.TEACHER }
-                    .map(SidebarMapper::toTeacherEntity).filter { teachers[it.code] != it })
-                roomDao.upsertAll(items.filter { it.kind == ClassListItemDto.Kind.ROOM }
-                    .map(SidebarMapper::toRoomEntity).filter { rooms[it.id] != it })
+                val freshClasses = items.filter { it.kind == ClassListItemDto.Kind.CLASS }.map(SidebarMapper::toClassEntity)
+                val freshTeachers = items.filter { it.kind == ClassListItemDto.Kind.TEACHER }.map(SidebarMapper::toTeacherEntity)
+                val freshRooms = items.filter { it.kind == ClassListItemDto.Kind.ROOM }.map(SidebarMapper::toRoomEntity)
+                classDao.upsertAll(freshClasses.filter { classes[it.id] != it })
+                teacherDao.upsertAll(freshTeachers.filter { teachers[it.code] != it })
+                roomDao.upsertAll(freshRooms.filter { rooms[it.id] != it })
+                // Usunięte ze strony (nowy rok szkolny: absolwenci, odchodzący nauczyciele) znikają
+                // z wyboru - dawniej zostawały na zawsze, a wybór takiej klasy kończył się HTTP 404.
+                // Pusta grupa na liście to raczej zmiana strony niż brak klas - wtedy nic nie usuwamy.
+                // Klasa z zapisanym planem (wybrana) zostaje, dopóki użytkownik nie wybierze innej.
+                if (freshClasses.isNotEmpty() && classes.keys.any { id -> freshClasses.none { it.id == id } })
+                    classDao.deleteExcept(freshClasses.map { it.id } + lessonDao.classIds())
+                if (freshTeachers.isNotEmpty() && teachers.keys.any { code -> freshTeachers.none { it.code == code } })
+                    teacherDao.deleteExcept(freshTeachers.map { it.code })
+                if (freshRooms.isNotEmpty() && rooms.keys.any { id -> freshRooms.none { it.id == id } })
+                    roomDao.deleteExcept(freshRooms.map { it.id })
             }
         }
     }
@@ -99,13 +109,11 @@ class TimetableRepositoryImpl @Inject constructor(
                 }
                 val toDay = monday.plusWeeks(WEEKS_AHEAD.toLong()).minusDays(1).toEpochDay()
                 // Nowy plan opublikowany z wyprzedzeniem ("Obowiązuje od: 06.10" w piątek):
-                // dni przed tą datą zachowują dotychczasowy plan. Dawniej nowy plan trafiał od
-                // razu do bieżącego tygodnia. Gdy dotychczasowego planu nie ma (pierwsze
-                // uruchomienie) - nowy plan jest lepszy niż pusty ekran.
+                // dni przed tą datą zachowują dotychczasowy plan, a bez niego (pierwsze uruchomienie,
+                // wyczyszczone dane) zostają bez planu. Dawniej wtedy wypełniał je nowy plan - uczeń
+                // widział przyszłe sale i godziny jako obowiązujące już w tym tygodniu.
                 val validFrom = dto.validFrom?.let { runCatching { LocalDate.parse(it, PL_DATE) }.getOrNull() }
-                val writeFrom = if (validFrom != null && validFrom > monday &&
-                    lessonDao.countForRange(classId, monday.toEpochDay(), validFrom.minusDays(1).toEpochDay()) > 0
-                ) validFrom else monday
+                val writeFrom = if (validFrom != null && validFrom > monday) validFrom else monday
                 val fromDay = writeFrom.toEpochDay()
                 val keptLessons = lessons.filter { it.dateEpochDay >= fromDay }
                 val keptIds = keptLessons.mapTo(HashSet()) { it.id }

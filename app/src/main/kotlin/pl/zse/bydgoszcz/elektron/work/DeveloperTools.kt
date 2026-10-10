@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.work
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.flow.first
@@ -36,15 +38,23 @@ class DeveloperTools @Inject constructor(
     private val notificationsRepo: NotificationsRepository
 ) {
 
+    /** Treść symulowanego zastępstwa: własna albo skopiowana z zapisanego (także minionego) wpisu. */
+    data class SubstitutionDraft(val substituteTeacher: String?, val roomOrInfo: String?, val notes: String?) {
+        companion object {
+            /** Zwolnienie z lekcji (bez zastępcy). */
+            val FREED = SubstitutionDraft(null, "Uczniowie zwolnieni do domu", null)
+        }
+    }
+
     /**
-     * Zastępstwo (albo zwolnienie, [freed]) na najbliższej lekcji użytkownika: trafia do planu,
-     * zakładki Zastępstwa, strony głównej i widżetów oraz wysyła powiadomienie.
+     * Zastępstwo na najbliższej lekcji użytkownika (według zegara aplikacji, także symulowanego):
+     * trafia do planu, zakładki Zastępstwa, strony głównej i widżetów oraz wysyła powiadomienie.
      */
-    suspend fun simulateSubstitution(freed: Boolean): String {
+    suspend fun simulateSubstitution(draft: SubstitutionDraft): String {
         val classId = settings.selectedClassId.first() ?: return "Najpierw wybierz klasę."
         val short = timetableRepo.observeClasses().first().firstOrNull { it.id == classId }?.shortName
             ?: return "Brak listy klas - odśwież dane."
-        val now = LocalDateTime.now()
+        val now = AppClock.now()
         val today = now.toLocalDate()
         val lessons = LessonGroups.filter(
             timetableRepo.getLessonsOnce(classId, today, today.plusDays(7)),
@@ -60,9 +70,9 @@ class DeveloperTools @Inject constructor(
             lessonNumber = target.number,
             classShortName = short,
             groupNumber = null,
-            roomOrInfo = if (freed) "Uczniowie zwolnieni do domu" else (group?.room ?: "108"),
-            substituteTeacher = if (freed) null else "J. Testowy",
-            notes = "Symulacja - tryb dewelopera",
+            roomOrInfo = draft.roomOrInfo?.takeIf { it.isNotBlank() } ?: group?.room ?: "108",
+            substituteTeacher = draft.substituteTeacher?.takeIf { it.isNotBlank() },
+            notes = draft.notes?.takeIf { it.isNotBlank() },
             originalTeacher = group?.teacherFullName ?: group?.teacherCode ?: "Tryb dewelopera",
             originalSubject = group?.subject
         )
@@ -75,20 +85,37 @@ class DeveloperTools @Inject constructor(
         }
         widgetUpdater.requestUpdate()
         val day = target.date.format(DateTimeFormatter.ofPattern("dd.MM"))
-        return if (freed) "Symulowane zwolnienie: $day, ${target.number}. lekcja."
-            else "Symulowane zastępstwo: $day, ${target.number}. lekcja."
+        return "Symulowane zastępstwo: $day, ${target.number}. lekcja."
     }
 
-    /** Ogłoszenie testowe na górze listy ogłoszeń + powiadomienie. */
-    suspend fun simulateAnnouncement(): String {
+    /** Zastępstwa wybranej klasy z ostatnich 60 dni (także minione) - wzory do symulacji. */
+    suspend fun pastSubstitutions(): List<Pair<SubstitutionDraft, String>> {
+        val classId = settings.selectedClassId.first() ?: return emptyList()
+        val short = timetableRepo.observeClasses().first().firstOrNull { it.id == classId }?.shortName ?: return emptyList()
+        return substitutionsRepo.getAllFrom(AppClock.today().minusDays(60))
+            .filter { it.classShortName.equals(short, ignoreCase = true) && !it.id.startsWith("dev|") }
+            .sortedWith(compareByDescending<Substitution> { it.date }.thenBy { it.lessonNumber })
+            .take(40)
+            .map { sub ->
+                SubstitutionDraft(sub.substituteTeacher, sub.roomOrInfo, sub.notes) to
+                    "${sub.date.format(DateTimeFormatter.ofPattern("dd.MM"))}, ${sub.lessonNumber}. lekcja · ${sub.substituteTeacher ?: sub.roomOrInfo ?: sub.originalTeacher}"
+            }
+    }
+
+    /** Ogłoszenie testowe na górze listy ogłoszeń + powiadomienie; [templateId] - kopia zapisanego ogłoszenia. */
+    suspend fun simulateAnnouncement(title: String, text: String, templateId: String? = null): String {
+        // Pełna treść tylko z pojedynczego odczytu (listy jej nie zawierają).
+        val template = templateId?.let { announcementsRepo.observeById(it).first() }
         val ann = Announcement(
             id = "dev_ann_${System.currentTimeMillis()}",
-            title = "Symulowane ogłoszenie (tryb dewelopera)",
-            url = "https://zse.bydgoszcz.pl/",
-            publishedAt = Instant.now(),
-            excerpt = "To ogłoszenie testowe z trybu dewelopera eLektronu. Zniknie przy najbliższej synchronizacji.",
-            coverImageUrl = null,
-            fullHtml = "<p>To ogłoszenie testowe z trybu dewelopera eLektronu.</p>",
+            title = template?.title ?: title.ifBlank { "Symulowane ogłoszenie" },
+            url = template?.url ?: "https://zse.bydgoszcz.pl/",
+            publishedAt = AppClock.now().atZone(java.time.ZoneId.systemDefault()).toInstant(),
+            excerpt = template?.excerpt ?: text.ifBlank { null },
+            coverImageUrl = template?.coverImageUrl,
+            // Ze znacznikiem bieżącej wersji - inaczej otwarcie pobierałoby "nowszą" treść ze strony szkoły.
+            fullHtml = (template?.fullHtml ?: text.takeIf { it.isNotBlank() }?.let { "<p>" + org.jsoup.nodes.Entities.escape(it) + "</p>" })
+                ?.let(pl.zse.bydgoszcz.elektron.data.mapper.ArticleContent::mark),
             source = AnnouncementSource.RSS_NEWS
         )
         announcementsRepo.upsertOne(ann)
@@ -98,6 +125,10 @@ class DeveloperTools @Inject constructor(
         }
         return "Dodano symulowane ogłoszenie."
     }
+
+    /** Zapisane ogłoszenia (najnowsze) - wzory do symulacji. */
+    suspend fun pastAnnouncements(): List<Announcement> =
+        announcementsRepo.getAll().filterNot { it.id.startsWith("dev_ann_") }.sortedByDescending { it.publishedAt }.take(30)
 
     suspend fun clearSimulations(): String {
         val subs = substitutionsRepo.deleteSimulated()
@@ -113,7 +144,7 @@ class DeveloperTools @Inject constructor(
      */
     fun crash() {
         Handler(Looper.getMainLooper()).postDelayed({
-            throw IllegalStateException("Symulowana awaria aplikacji (tryb dewelopera) - ${LocalDate.now()}")
+            throw IllegalStateException("Symulowana awaria aplikacji (tryb dewelopera) - ${AppClock.today()}")
         }, 300)
     }
 }

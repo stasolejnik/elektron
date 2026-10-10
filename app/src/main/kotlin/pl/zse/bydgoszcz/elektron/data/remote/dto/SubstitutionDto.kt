@@ -8,5 +8,7 @@ data class SubstitutionDto(
     val groupNumber: Int?,
     val roomOrInfo: String,
     val substituteTeacher: String?,
-    val notes: String?
+    val notes: String?,
+    /** Tylko wpisy bez klasy (zajęcia łączone): przedmiot podany przez szkołę zamiast klasy. */
+    val subject: String? = null
 )

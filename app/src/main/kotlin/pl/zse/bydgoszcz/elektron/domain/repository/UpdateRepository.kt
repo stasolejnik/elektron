@@ -13,7 +13,9 @@ data class AppUpdate(
     val pageUrl: String,
     val apkUrl: String? = null,
     val sha256: String? = null,
-    val sizeBytes: Long = 0
+    val sizeBytes: Long = 0,
+    /** Wydanie oznaczone na GitHubie jako Pre-release (także bez dopisku w numerze). */
+    val prerelease: Boolean = false
 )
 
 interface UpdateRepository {

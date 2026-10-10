@@ -51,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import pl.zse.bydgoszcz.elektron.presentation.navigation.ElektronRoutes
 
 data class BottomDestination(
@@ -105,8 +106,10 @@ fun ElektronBottomBar(
     val latestCommit by rememberUpdatedState(commit)
     val density = LocalDensity.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val labelHeight = (32 * density.fontScale).dp
-    val barHeight = (68 + 32 * density.fontScale).dp
+    // Podpis zawsze w jednej linii (patrz labelStyle) - miejsce na jedną linię, nie dwie: pasek
+    // 84 dp zamiast 100 dp przy zwykłej czcionce (132 -> 100 dp przy 2,0), więcej miejsca na plan.
+    val labelHeight = (16 * density.fontScale).dp
+    val barHeight = (68 + 16 * density.fontScale).dp
     Column {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
@@ -115,6 +118,22 @@ fun ElektronBottomBar(
                 val slotWidth = maxWidth / destinations.size
                 val halfSlot = widthPx / destinations.size / 2
                 val byRoute = destinations.associateBy { it.route }
+                // Jedna wielkość podpisów dla całego paska: najdłuższy ("Zastępstwa") mieści się w jednej
+                // linii. Przy 6 zakładkach dawniej łamał się w środku słowa ("Zastępstw / a").
+                // Najwyżej do 75% - dalej wielokropek, bez łamania słowa.
+                val baseLabelStyle = MaterialTheme.typography.labelSmall
+                val labelMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+                val captions = destinations.map { if (it.route == ElektronRoutes.DASHBOARD) "Start" else it.label }
+                val labelWidthPx = with(density) { (slotWidth - 8.dp).toPx() }
+                val labelStyle = remember(captions, labelWidthPx, baseLabelStyle, density) {
+                    val widest = captions.maxOfOrNull {
+                        labelMeasurer.measure(it, baseLabelStyle, maxLines = 1, softWrap = false).size.width
+                    } ?: 0
+                    val scale = if (widest <= 0 || widest <= labelWidthPx) 1f else (labelWidthPx / widest).coerceAtLeast(0.75f)
+                    fun androidx.compose.ui.unit.TextUnit.scaled() = if (isSpecified) this * scale else this
+                    if (scale == 1f) baseLabelStyle
+                    else baseLabelStyle.copy(fontSize = baseLabelStyle.fontSize.scaled(), letterSpacing = baseLabelStyle.letterSpacing.scaled())
+                }
                 val displayOrder = preview.takeIf { it.toSet() == routes.toSet() } ?: routes
                 Box(Modifier.fillMaxSize().pointerInput(destinations.map { it.route }.toSet(), widthPx, rtl) {
                     detectDragGesturesAfterLongPress(
@@ -192,8 +211,8 @@ fun ElektronBottomBar(
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Box(Modifier.fillMaxWidth().height(labelHeight).padding(horizontal = 4.dp), contentAlignment = Alignment.TopCenter) {
-                                    Text(caption, color = color, style = MaterialTheme.typography.labelSmall,
-                                        textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(caption, color = color, style = labelStyle,
+                                        textAlign = TextAlign.Center, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }

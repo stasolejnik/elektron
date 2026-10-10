@@ -35,6 +35,17 @@ class RealPlansTest {
     }
 
     @Test
+    fun truncatedResponseIsNotAcceptedAsAFullPlan() {
+        val html = javaClass.getResourceAsStream("/plany/o4.html")!!.use { String(it.readBytes(), Charsets.UTF_8) }
+        // Zerwane połączenie po kilku wierszach tabeli: Jsoup domyka tabelę, wiersze wyglądają poprawnie.
+        val rows = Regex("<tr").findAll(html).map { it.range.first }.toList()
+        val cut = html.substring(0, rows[rows.size / 2])
+        val p = OptivumTimetableParser.parse(Jsoup.parse(cut, "https://plan.zse.bydgoszcz.pl/plany/"), "o4")
+        assertTrue(p.lessons.isNotEmpty())
+        assertTrue("ucięty plan nie może zastąpić zapisanego", !p.layoutOk)
+    }
+
+    @Test
     fun class5B() {
         val uni = plan("o26").lessons.flatMap { it.groups }.filter { it.subject == "zaj uni" }
         assertEquals(2, uni.size)

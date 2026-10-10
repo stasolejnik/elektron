@@ -79,6 +79,10 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Tekst pola od razu, nie z przefiltrowanej listy (liczonej w tle) - inaczej przy szybkim
+    // pisaniu pole wracało do starszej wartości i gubiło znaki. remember, nie rememberSaveable:
+    // zapytanie w ViewModelu nie przeżywa śmierci procesu, więc pole też nie (obrót - ViewModel trwa).
+    var searchText by remember { mutableStateOf(viewModel.queryText) }
     val article by viewModel.article.collectAsStateWithLifecycle()
     val articleLoading by viewModel.articleLoading.collectAsStateWithLifecycle()
     val articleError by viewModel.articleError.collectAsStateWithLifecycle()
@@ -127,7 +131,7 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
             ) {
                 item(key = "search") {
                     Column {
-                        SearchField(state.query, viewModel::setQuery)
+                        SearchField(searchText) { searchText = it; viewModel.setQuery(it) }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(selected = !state.favoritesOnly, onClick = { viewModel.setFavoritesOnly(false) }, label = { Text("Wszystkie") })
                             FilterChip(selected = state.favoritesOnly, onClick = { viewModel.setFavoritesOnly(true) }, label = { Text("Ulubione (${state.favoriteCount})") })
@@ -213,7 +217,7 @@ private fun AnnouncementCard(
     onClick: () -> Unit
 ) {
     ElektronCard(modifier = modifier, onClick = onClick) {
-        a.coverImageUrl?.let { url ->
+        pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls.schoolImage(a.coverImageUrl)?.let { url ->
             // Łagodne pojawienie się obrazka + tło zamiast pustego miejsca podczas wczytywania.
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current).data(url).crossfade(250).build(),

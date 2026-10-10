@@ -100,7 +100,8 @@ class OptivumTimetableParserTest {
 
     @Test
     fun tableWithoutLessonRowsIsReported() {
-        val doc = Jsoup.parse("<html><body><table class=\"tabela\"><tr><th>Nr</th></tr></table></body></html>")
+        // Ze stopką - odrzucenie wynika z braku wierszy, nie z braku stopki.
+        val doc = Jsoup.parse("<html><body><table class=\"tabela\"><tr><th>Nr</th></tr></table><div>wygenerowano 19.09.2026</div></body></html>")
         assertTrue(!OptivumTimetableParser.parse(doc, "o1").layoutOk)
     }
 
@@ -169,10 +170,13 @@ class OptivumTimetableParserTest {
         val good = "<tr><td class='nr'>1</td><td class='g'>8:00-8:45</td>" +
             (1..5).joinToString("") { "<td class='l'><span class='p'>mat</span></td>" } + "</tr>"
         val broken = good.replace("8:00-8:45", "brak godziny")
-        val dto = OptivumTimetableParser.parse(Jsoup.parse("<table class='tabela'>$good$broken</table>"), "o3")
+        // Ze stopką: odrzucenie wynika z wierszy (kontrola - sama dobra tabela przechodzi).
+        val footer = "<div>wygenerowano 19.09.2026</div>"
+        assertTrue(OptivumTimetableParser.parse(Jsoup.parse("<table class='tabela'>$good</table>$footer"), "o3").layoutOk)
+        val dto = OptivumTimetableParser.parse(Jsoup.parse("<table class='tabela'>$good$broken</table>$footer"), "o3")
         assertTrue(dto.lessons.isNotEmpty())
         assertTrue(!dto.layoutOk)
-        assertTrue(!OptivumTimetableParser.parse(Jsoup.parse("<table class='tabela'>$good${good.replace("class='nr'>1", "class='nr'>x")}</table>"), "o3").layoutOk)
+        assertTrue(!OptivumTimetableParser.parse(Jsoup.parse("<table class='tabela'>$good${good.replace("class='nr'>1", "class='nr'>x")}</table>$footer"), "o3").layoutOk)
     }
 
 }

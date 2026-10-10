@@ -77,6 +77,27 @@ class RealSubstitutionsTest {
         assertEquals(31, result.items.size)
         assertEquals(setOf("01.10.2026"), result.incompleteDates)
     }
+    @Test
+    fun joinedLessonWithoutClassIsRecognizedAndDoesNotMarkTheDayIncomplete() {
+        // 9.10.2026: "Wychowanie fizyczne - Zajęcia Świetlicowe" (zajęcia łączone, bez klasy) - dawniej
+        // dzień "niekompletny" i stały błąd na stronie głównej.
+        val html = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html")!!.use { it.readBytes().toString(Charsets.UTF_8) }
+        val joined = html.replace("1 D(2) - Zajęcia Świetlicowe", "Wychowanie fizyczne - Zajęcia Świetlicowe")
+        assertTrue(joined != html)
+        val result = ZastepstwaParser.parseDetailed(Jsoup.parse(joined, "https://zastepstwa.zse.bydgoszcz.pl/"))
+        assertEquals(31, result.items.size)                       // wpis bez klasy osobno - id zgodne z watch.py
+        assertTrue(result.incompleteDates.isEmpty())
+        val joinedEntry = result.classless.single()
+        assertEquals("", joinedEntry.classShortName)
+        assertEquals("Wychowanie fizyczne", joinedEntry.subject)
+        assertEquals("Zajęcia Świetlicowe", joinedEntry.roomOrInfo)
+        assertEquals("01.10.2026", joinedEntry.dateRaw)
+        // Zapis zaczynający się od cyfry (nieznana postać klasy) nadal oznacza dzień niekompletny.
+        val digits = ZastepstwaParser.parseDetailed(Jsoup.parse(html.replace("1 D(2) - Zajęcia Świetlicowe", "1D,2A - wf"),
+            "https://zastepstwa.zse.bydgoszcz.pl/"))
+        assertEquals(setOf("01.10.2026"), digits.incompleteDates)
+    }
+
     @Test fun wrongColumnCountAndMalformedLessonNumberMarkDayIncomplete() {
         val header = "<table><tr><td>Zastępstwa w dniu 01.10.2026</td></tr><tr><td>Nauczyciel</td></tr>"
         for (row in listOf("<tr><td>2</td></tr>", "<tr><td>2</td><td>1D - 105</td><td>Zastępca</td></tr>",
@@ -86,4 +107,15 @@ class RealSubstitutionsTest {
         }
     }
 
+
+    @Test
+    fun truncatedResponseIsRecognisedByMissingFooter() {
+        val html = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html")!!.use { String(it.readBytes(), Charsets.UTF_8) }
+        val whole = Jsoup.parse(html, "https://zastepstwa.zse.bydgoszcz.pl/")
+        assertTrue(ZastepstwaParser.hasFooter(whole))
+        // Odpowiedź urwana w połowie tabeli: dzień jest rozpoznany, ale bez stopki - nie może zastąpić zapisanych wpisów.
+        val cut = Jsoup.parse(html.substring(0, html.length / 2), "https://zastepstwa.zse.bydgoszcz.pl/")
+        assertTrue(ZastepstwaParser.pageDates(cut).isNotEmpty())
+        org.junit.Assert.assertFalse(ZastepstwaParser.hasFooter(cut))
+    }
 }

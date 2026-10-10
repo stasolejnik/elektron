@@ -10,7 +10,7 @@ import java.io.StringWriter
 /**
  * Lokalne raporty awarii - bez Firebase Crashlytics, więc działa też w wersji F-Droid.
  * Przy awarii ślad stosu i ostatnie logi aplikacji trafiają do pliku w pamięci aplikacji. Przy
- * następnym uruchomieniu MainActivity pokazuje raport (kopiowanie, e-mail, GitHub).
+ * następnym uruchomieniu ElektronActivity pokazuje raport (kopiowanie, e-mail, GitHub).
  * Bez zgody użytkownika nic nie wychodzi.
  */
 object CrashReporter {

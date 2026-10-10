@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.substitutions
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
 import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
@@ -117,13 +119,14 @@ class SubstitutionsViewModel @Inject constructor(
         visibleMinuteTicker(visible)
     ) { (_, short), subs, lessons, groups, _ ->
         if (short == null) return@combine Content(emptyList(), false)
-        val now = LocalDateTime.now()
+        val now = AppClock.now()
         val today = now.toLocalDate()
         // Zastępstwo znika z zakładki po końcu SWOJEJ lekcji (dzwonki z planu klasy, także lekcje
         // innych grup) - w planie lekcji zostaje. Dawniej dopiero po wszystkich lekcjach dnia.
         val ends = SubstitutionRelevance.lessonEnds(lessons)
         val (relevant, otherGroups) = subs.filter { SubstitutionRelevance.matchesClass(it, short) }
             .filter { sub -> sub.date >= today }
+            .map { LessonGroups.withSubject(it, lessons, groups) }   // "Za: przedmiot · nauczyciel"
             .partition { LessonGroups.substitutionRelevant(it, lessons, groups) }
         val (over, shown) = relevant.partition { SubstitutionRelevance.isOver(it, now, ends) }
         Content(

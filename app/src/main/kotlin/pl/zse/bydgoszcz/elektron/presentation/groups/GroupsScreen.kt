@@ -183,7 +183,11 @@ private fun SubjectList(
     onDivision: (String, String?) -> Unit
 ) {
     val divisions = remember(state.subjects) { LessonGroups.divisions(state.subjects) }
-    val customizable = remember(state.subjects) { LessonGroups.orderForCustomizing(state.subjects) }
+    // Religia jest w szybkim wyborze - poniżej tylko wtedy, gdy ma kilka grup do wyboru.
+    val religion = remember(state.subjects) { state.subjects.filter { LessonGroups.isReligion(it.base) } }
+    val customizable = remember(state.subjects) {
+        LessonGroups.orderForCustomizing(state.subjects).filterNot { LessonGroups.isReligion(it.base) && it.isToggle }
+    }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -199,7 +203,7 @@ private fun SubjectList(
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
-        if (divisions.isNotEmpty()) {
+        if (divisions.isNotEmpty() || religion.isNotEmpty()) {
             item(key = "quick_title") { SectionLabel("Szybki wybór") }
             items(divisions, key = { "div_${it.key}" }) { division ->
                 DivisionCard(
@@ -207,6 +211,11 @@ private fun SubjectList(
                     selected = LessonGroups.selectedDivisionOption(division, state.subjects, state.selections),
                     onSelect = { option -> onDivision(division.key, option) }
                 )
+            }
+            // Religia pod podziałami (w tym grupami WF).
+            if (religion.isNotEmpty()) item(key = "religion") {
+                val attending = religion.map { state.selections[it.base] != LessonGroups.NONE }.distinct().singleOrNull()
+                ReligionCard(attending) { attend -> religion.forEach { onChoice(it.base, if (attend) null else LessonGroups.NONE) } }
             }
             item(key = "each_title") { SectionLabel("Dostosuj osobno") }
         }
@@ -223,13 +232,15 @@ private fun SubjectCard(
     selection: String?,
     onChoice: (String?) -> Unit
 ) {
+    // Własne nazwy przedmiotów (Ustawienia -> Przedmioty) także tutaj; zapis grup po kluczu ze strony szkoły.
+    val personal = pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization.current
     ElektronCard {
         Column(Modifier.padding(16.dp)) {
             if (subject.isToggle) {
                 // Jedna grupa (np. religia 1/1) — tylko "chodzę / nie chodzę".
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(subject.base, style = MaterialTheme.typography.titleMedium)
+                        Text(personal.subjectName(subject.base) ?: subject.base, style = MaterialTheme.typography.titleMedium)
                         Text("Pokazuj te zajęcia w planie", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -247,7 +258,7 @@ private fun SubjectCard(
                     )
                 }
             } else {
-                Text(subject.base, style = MaterialTheme.typography.titleMedium)
+                Text(personal.subjectName(subject.base) ?: subject.base, style = MaterialTheme.typography.titleMedium)
                 Text(
                     when (selection) {
                         null -> "Widoczne wszystkie grupy"
@@ -328,11 +339,29 @@ private fun SectionLabel(text: String) {
 /** Jeden typ podziału (np. "Podział na 2 grupy": Wszystkie · 1/2 · 2/2) dla wszystkich jego przedmiotów. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun ReligionCard(attending: Boolean?, onSelect: (Boolean) -> Unit) {
+    ElektronCard {
+        Column(Modifier.padding(16.dp)) {
+            Text("Religia", style = MaterialTheme.typography.titleMedium)
+            Text("Lekcje religii w planie", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChoiceChip("Chodzę", attending == true) { onSelect(true) }
+                ChoiceChip("Nie chodzę", attending == false) { onSelect(false) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun DivisionCard(division: LessonGroups.Division, selected: String?, onSelect: (String?) -> Unit) {
+    val personal = pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization.current
     ElektronCard {
         Column(Modifier.padding(16.dp)) {
             Text(division.title, style = MaterialTheme.typography.titleMedium)
-            Text(division.subjects.joinToString(", "), style = MaterialTheme.typography.bodySmall,
+            Text(division.subjects.joinToString(", ") { personal.subjectName(it) ?: it }, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(10.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

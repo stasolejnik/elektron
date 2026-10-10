@@ -26,19 +26,53 @@
         tools:targetApi="34">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".ElektronActivity"
             android:launchMode="singleTop"
             android:exported="true"
             android:theme="@style/Theme.Elektron"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Ikony aplikacji do wyboru w Ustawieniach (AppIcons): dokładnie jeden wpis launchera jest
+             włączony. Domyślny nosi dawną nazwę .MainActivity - ikona dodana na ekran główny przed
+             aktualizacją zostaje. Skróty (AppShortcuts) są dynamiczne, przypięte do włączonego wpisu. -->
+        <activity-alias
+            android:name=".MainActivity"
+            android:targetActivity=".ElektronActivity"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:enabled="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconLight"
+            android:targetActivity=".ElektronActivity"
+            android:icon="@mipmap/ic_launcher_light"
+            android:roundIcon="@mipmap/ic_launcher_light"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <!-- Wycofana ikona "bez tła" z wersji testowych: tylko po to, by aplikacja z nią wybraną nie
+             straciła ikony przy aktualizacji (AppIcons.migrate przełącza na domyślną). -->
+        <activity-alias
+            android:name=".IconClear"
+            android:targetActivity=".ElektronActivity"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <receiver
             android:name=".widget.NextLessonWidgetReceiver"
@@ -92,6 +126,10 @@
         <!-- Alarm przypomnienia przed lekcją (tylko z własnego PendingIntent). -->
         <receiver
             android:name=".work.LessonReminderReceiver"
+            android:exported="false" />
+        <!-- Alarm przypomnienia o notatce (tylko z własnego PendingIntent). -->
+        <receiver
+            android:name=".work.NoteReminderReceiver"
             android:exported="false" />
 
         <!-- Kafelek w szybkich ustawieniach: najbliższa lekcja. -->

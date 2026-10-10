@@ -53,6 +53,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
+import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,8 +85,10 @@ fun SubstitutionsScreen(
     val showOtherGroups by viewModel.showOtherGroups.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val context = LocalContext.current
+    val personal = LocalPersonalization.current
     fun share(items: List<Substitution>) {
-        val text = SubstitutionsShare.text(items)
+        // Przedmiot w udostępnianym tekście z własną nazwą, bez sufiksu grupy ("ang-1/2" -> "ang").
+        val text = SubstitutionsShare.text(items.map { it.copy(originalSubject = personal.subjectName(it.originalSubject)) })
         if (text.isBlank()) return
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text)
@@ -117,7 +120,11 @@ fun SubstitutionsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 lastError?.let { error -> item(key = "sync_error") {
-                    Text(error + if (wasLoaded) " Wyświetlam zapisane dane." else "", color = MaterialTheme.colorScheme.error,
+                    // Niepełne dane szkoły - ostrzeżenie (lista jest aktualna, brakuje nietypowych wpisów).
+                    val warning = pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException.isWarning(error)
+                    Text(error + if (wasLoaded && !warning) " Wyświetlam zapisane dane." else "",
+                        color = if (warning) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                        style = if (warning) MaterialTheme.typography.bodyMedium else androidx.compose.material3.LocalTextStyle.current,
                         modifier = Modifier.padding(top = 12.dp))
                 } }
                 lastSuccess?.let { at -> item(key = "freshness") {
@@ -133,7 +140,10 @@ fun SubstitutionsScreen(
                     }
                 } else if (groups.isEmpty()) {
                     item(key = "empty") {
-                        Box(Modifier.fillParentMaxSize(if (otherGroups.isEmpty()) 1f else 0.7f), contentAlignment = Alignment.Center) {
+                        // Przy zastępstwach innych grup bez wysokiego pustego pola - przycisk "Pokaż" był
+                        // dawniej daleko w dole ekranu, za dużą pustą przerwą.
+                        Box(if (otherGroups.isEmpty()) Modifier.fillParentMaxWidth().fillParentMaxHeight(0.75f)
+                            else Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Outlined.EventAvailable, contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -226,7 +236,9 @@ private fun SubstitutionRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 val forLine = buildString {
-                    append("Za: ${s.originalTeacher}")
+                    append("Za: ")
+                    LocalPersonalization.current.subjectName(s.originalSubject)?.let { append("$it · ") }
+                    append(s.originalTeacher)
                     s.groupNumber?.let { append(" · grupa $it") }
                 }
                 Text(forLine, style = MaterialTheme.typography.bodySmall,

@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +31,7 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, eligible: Boolean, 
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         pl.zse.bydgoszcz.elektron.presentation.transit.TransitScreen(viewModel, onClose = { showDetails = false })
     }
-    SectionTitle("Najbliższy odjazd", Icons.Filled.DirectionsTransit)
+    SectionTitle("Najbliższy odjazd", Icons.Filled.DirectionsTransit, Modifier.padding(bottom = 10.dp))
     val prefs = settings.preferences
     if (prefs.destination == null) {
         ElektronCard(onClick = openDetails) {
@@ -50,7 +52,7 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, eligible: Boolean, 
         onDispose { owner.lifecycle.removeObserver(observer); viewModel.stopJourneySession(consumer) }
     }
     val tick by rememberNow(60_000L)
-    val now = remember(tick) { System.currentTimeMillis() }
+    val now = remember(tick) { AppClock.millis() }
     // Foreground only; the shared minute cache avoids a second request from Departures.
     LaunchedEffect(visible, tick, prefs.destination.key, prefs.preferredOrigin?.key, prefs.allowTransfers) {
         if (visible && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) viewModel.refreshJourneys()

@@ -164,6 +164,19 @@ class TimetableViewModelTest {
     }
 
     @Test
+    fun dashboardCardOpensTheDayOfTheShownLessonWithoutDetails() = runTest(dispatcher) {
+        repo.lessons.value = listOf(lesson(3, "pol"))
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.openDay(day)
+        vm.applyOpeningDay()
+        advanceUntilIdle()
+        assertEquals(day, vm.currentAnchor)
+        assertEquals(day, vm.openingJump.value?.day)
+        assertNull(vm.lessonDetails.value)
+    }
+
+    @Test
     fun waitsForPlanThatIsStillLoading() = runTest(dispatcher) {
         val vm = viewModel()
         advanceUntilIdle()

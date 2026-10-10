@@ -14,6 +14,9 @@ import pl.zse.bydgoszcz.elektron.BuildConfig
 import pl.zse.bydgoszcz.elektron.data.local.SyncStateDao
 import pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity
 import pl.zse.bydgoszcz.elektron.domain.model.AppVersion
+import pl.zse.bydgoszcz.elektron.domain.model.UpdateChannel
+import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.first
 import pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate
 import pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository
 import java.io.IOException
@@ -31,7 +34,8 @@ import javax.inject.Singleton
 @Singleton
 class UpdateRepositoryImpl @Inject constructor(
     private val client: OkHttpClient,
-    private val syncStateDao: SyncStateDao
+    private val syncStateDao: SyncStateDao,
+    private val settings: SettingsRepository
 ) : UpdateRepository {
 
     private val checkMutex = Mutex()
@@ -39,9 +43,12 @@ class UpdateRepositoryImpl @Inject constructor(
 
     override val availableUpdate: Flow<AppUpdate?> = combine(
         syncStateDao.observe(KEY_LATEST),
-        syncStateDao.observe(KEY_DISMISSED)
-    ) { latest, dismissed ->
-        val update = decode(latest?.message) ?: return@combine null
+        syncStateDao.observe(KEY_DISMISSED),
+        settings.updateChannel
+    ) { latest, dismissed, channel ->
+        // Zapisana wersja z kanału beta nie pokazuje się po powrocie na kanał stabilny.
+        val update = decode(latest?.message)?.takeIf { channel.accepts(it.versionName, it.prerelease) }
+            ?: return@combine null
         // "Później" odkłada baner tej wersji na DISMISS_SECONDS (dawniej na zawsze - kto raz
         // kliknął "Później", nie dowiadywał się już o tej wersji).
         val postponed = dismissed != null && dismissed.message == update.versionName &&
@@ -60,10 +67,12 @@ class UpdateRepositoryImpl @Inject constructor(
             if (!BuildConfig.UPDATE_CHECK) return@withLock Result.success(null)
             runCatchingCancellable {
                 val now = Instant.now().epochSecond
+                val channel = settings.updateChannel.first()
                 if (!force) {
                     val last = syncStateDao.get(KEY_CHECKED)?.lastSyncEpochSeconds ?: 0L
                     if (now - last in 0 until CHECK_INTERVAL_SECONDS) {
                         return@runCatchingCancellable decode(syncStateDao.get(KEY_LATEST)?.message)
+                            ?.takeIf { channel.accepts(it.versionName, it.prerelease) }
                             ?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
                     }
                 }
@@ -81,13 +90,10 @@ class UpdateRepositoryImpl @Inject constructor(
                     if (!resp.isSuccessful) throw IOException("GitHub: HTTP ${resp.code}")
                     GitHubReleases.parse(resp.body?.string() ?: throw IOException("GitHub: pusta odpowiedź"))
                 }
-                val newest = releases.filterNot { it.draft }
-                    .maxWithOrNull { a, b -> AppVersion.compare(a.tag, b.tag) }
-                    ?.let {
-                        AppUpdate(it.tag.removePrefix("v").removePrefix("V"), it.pageUrl, it.apkUrl, it.apkSha256, it.apkSize)
-                    }
+                val newest = newestFor(channel, releases)
                 syncStateDao.upsert(SyncStateEntity(KEY_CHECKED, now, "ok", null))
-                if (newest != null) syncStateDao.upsert(SyncStateEntity(KEY_LATEST, now, "ok", encode(newest)))
+                // Także "brak" - inaczej po zmianie kanału zostawała zapisana wersja z poprzedniego.
+                syncStateDao.upsert(SyncStateEntity(KEY_LATEST, now, "ok", newest?.let(::encode)))
                 newest?.takeIf { AppVersion.isNewer(it.versionName, currentVersion) }
             }
         }
@@ -97,23 +103,33 @@ class UpdateRepositoryImpl @Inject constructor(
         syncStateDao.upsert(SyncStateEntity(KEY_DISMISSED, Instant.now().epochSecond, "ok", versionName))
     }
 
-    // Linie: wersja, strona, [APK, SHA-256, rozmiar] - starszy zapis (2 linie) nadal czytelny.
-    private fun encode(u: AppUpdate) =
-        listOf(u.versionName, u.pageUrl, u.apkUrl.orEmpty(), u.sha256.orEmpty(), u.sizeBytes.toString()).joinToString("\n")
+    internal companion object {
+        // Linie: wersja, strona, [APK, SHA-256, rozmiar, Pre-release] - starsze zapisy (2-5 linii) nadal czytelne.
+        fun encode(u: AppUpdate) =
+            listOf(u.versionName, u.pageUrl, u.apkUrl.orEmpty(), u.sha256.orEmpty(), u.sizeBytes.toString(), if (u.prerelease) "1" else "0")
+                .joinToString("\n")
 
-    private fun decode(raw: String?): AppUpdate? {
-        val parts = raw?.split('\n') ?: return null
-        if (parts.size < 2 || parts[0].isBlank()) return null
-        return AppUpdate(
-            versionName = parts[0],
-            pageUrl = parts[1],
-            apkUrl = parts.getOrNull(2)?.takeIf { it.isNotBlank() },
-            sha256 = parts.getOrNull(3)?.takeIf { it.isNotBlank() },
-            sizeBytes = parts.getOrNull(4)?.toLongOrNull() ?: 0L
-        )
-    }
+        fun decode(raw: String?): AppUpdate? {
+            val parts = raw?.split('\n') ?: return null
+            if (parts.size < 2 || parts[0].isBlank()) return null
+            return AppUpdate(
+                versionName = parts[0],
+                pageUrl = parts[1],
+                apkUrl = parts.getOrNull(2)?.takeIf { it.isNotBlank() },
+                sha256 = parts.getOrNull(3)?.takeIf { it.isNotBlank() },
+                sizeBytes = parts.getOrNull(4)?.toLongOrNull() ?: 0L,
+                // Zapis sprzed kanałów (bez tej linii) - ostrożnie jak Pre-release: kanał Stabilne go
+                // nie pokaże, aż do kolejnego sprawdzenia GitHuba.
+                prerelease = parts.getOrNull(5)?.let { it == "1" } ?: true
+            )
+        }
 
-    private companion object {
+        /** Najnowsze wydanie z kanału (bez szkiców); null, gdy w kanale nie ma żadnego. */
+        fun newestFor(channel: UpdateChannel, releases: List<GitHubRelease>): AppUpdate? =
+            releases.filter { !it.draft && channel.accepts(it.tag, it.prerelease) }
+                .maxWithOrNull { a, b -> AppVersion.compare(a.tag, b.tag) }
+                ?.let { AppUpdate(it.tag.removePrefix("v").removePrefix("V"), it.pageUrl, it.apkUrl, it.apkSha256, it.apkSize, it.prerelease) }
+
         const val RELEASES_API = "https://api.github.com/repos/stasolejnik/elektron/releases?per_page=10"
         const val CHECK_INTERVAL_SECONDS = 12 * 60 * 60L
         const val KEY_ATTEMPTED = "update_attempted"

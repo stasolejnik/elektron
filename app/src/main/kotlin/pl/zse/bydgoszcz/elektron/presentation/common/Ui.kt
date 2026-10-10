@@ -94,7 +94,9 @@ fun ElektronCard(
 @Composable
 fun SectionTitle(title: String, icon: ImageVector? = null, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().padding(start = 4.dp, top = 20.dp, bottom = 8.dp)
+        // Odstęp od karty pod spodem daje lista (spacedBy) - dawniej dodatkowe 8 dp robiło przerwę
+        // między nagłówkiem a jego kartą większą niż między kartami.
+        modifier.fillMaxWidth().padding(start = 4.dp, top = 16.dp)
             .semantics(mergeDescendants = true) { heading() },
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -108,33 +110,38 @@ fun SectionTitle(title: String, icon: ImageVector? = null, modifier: Modifier = 
 }
 
 /**
- * Grupowana sekcja w stylu Ustawień iOS: mały nagłówek NAD kartą, zawartość w karcie,
- * opcjonalna stopka pod kartą.
+ * Grupowana sekcja w stylu Ustawień iOS: nagłówek (z ikoną w kolorze akcentu) NAD kartą,
+ * zawartość w karcie, opcjonalna stopka pod kartą.
  */
 @Composable
 fun GroupedSection(
     title: String?,
     footer: String? = null,
+    icon: ImageVector? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxWidth()) {
         if (title != null) {
-            Text(
-                title.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp)
-            )
+            Row(
+                Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).semantics(mergeDescendants = true) { heading() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (icon != null) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         ElektronCard {
-            Column(Modifier.padding(vertical = 4.dp), content = content)
+            Column(Modifier.padding(vertical = 2.dp), content = content)
         }
         if (footer != null) {
             Text(
                 footer,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp)
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
             )
         }
     }

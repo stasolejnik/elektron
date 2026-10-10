@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.SpaceDashboard
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -22,10 +23,12 @@ fun TransitVisibilitySection(viewModel: TransitViewModel) {
     val state by viewModel.settings.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val error by viewModel.settingsError.collectAsStateWithLifecycle()
-    GroupedSection("Pasek nawigacji", footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność. Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów. Zakładkę Odjazdy włącza się osobno.") {
-        bottomDestinationsForTransit(true).filter { it.route != "settings" }.forEachIndexed { index, destination ->
-            if (index > 0) HorizontalDivider()
-            val checked = if (destination.route == "transit") state.preferences.visible else destination.route !in state.preferences.hiddenTabs
+    // Zakładka Odjazdy ma własny przełącznik w sekcji Odjazdy.
+    GroupedSection("Pasek nawigacji", icon = androidx.compose.material.icons.Icons.Outlined.SpaceDashboard,
+        footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność. Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów.") {
+        bottomDestinationsForTransit(true).filter { it.route != "settings" && it.route != "transit" }.forEachIndexed { index, destination ->
+            if (index > 0) pl.zse.bydgoszcz.elektron.presentation.settings.RowDivider()
+            val checked = destination.route !in state.preferences.hiddenTabs
             pl.zse.bydgoszcz.elektron.presentation.settings.SwitchRow(destination.label, checked,
                 enabled = state.ready && !state.failed && !saving) { viewModel.setTabVisible(destination.route, it) }
         }
@@ -107,7 +110,9 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                 writeError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
                 if (!loading && mapStops.isEmpty() && recent.isEmpty() && error == null) Text("Nie znaleziono przystanku. Spróbuj krótszej nazwy.", Modifier.padding(vertical = 16.dp))
                 if (mapMode) {
-                    Text("Dotknij znacznika, aby wybrać przystanek. Mapa działa bez GPS.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
+                    Text(if (origin) "Przystanek początkowy: tylko przystanki do 1 km od szkoły (stąd planer szuka odjazdów). Dotknij znacznika, aby go wybrać."
+                        else "Dotknij znacznika, aby wybrać przystanek. Przesuń mapę, aby zobaczyć dalsze. Mapa działa bez GPS.",
+                        style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
                     Box(Modifier.weight(1f)) {
                         TransitMap(mapStops, if (origin) settings.preferences.preferredOrigin else settings.preferences.destination, saving, choose)
                     }

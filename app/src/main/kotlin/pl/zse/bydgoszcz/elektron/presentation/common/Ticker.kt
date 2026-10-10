@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 /**
  * Emituje co [periodMs] — do przeliczania stanu zależnego od aktualnej godziny
@@ -14,10 +17,16 @@ import kotlinx.coroutines.flow.flow
  * tylko przy zmianie danych w bazie i przy otwartym ekranie stał w miejscu.
  * Używany w combine() z SharingStarted.WhileSubscribed — nie tyka, gdy ekran niewidoczny.
  */
-fun minuteTicker(periodMs: Long = 30_000L): Flow<Unit> = flow {
-    while (true) {
-        emit(Unit)
-        delay(periodMs)
+// Równo z pełną minutą (dawniej co 30 s od dowolnej chwili): stan zmienia się co minutę, więc
+// dwa razy mniej przeliczeń przy otwartym ekranie, a "Za X min" nie spóźnia się do 30 s.
+// Zmiana symulowanego czasu (tryb dewelopera) przelicza stan od razu.
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+fun minuteTicker(periodMs: Long = 60_000L): Flow<Unit> = AppClock.offsetMs.flatMapLatest {
+    flow {
+        while (true) {
+            emit(Unit)
+            delay(periodMs - AppClock.millis() % periodMs)
+        }
     }
 }
 
@@ -27,26 +36,27 @@ fun minuteTicker(periodMs: Long = 30_000L): Flow<Unit> = flow {
  * utworzeniu ("od dziś do +21 dni") po kilku dniach w pamięci byłyby nieaktualne.
  */
 fun currentDateFlow(): Flow<java.time.LocalDate> =
-    minuteTicker(60_000L).map { java.time.LocalDate.now() }.distinctUntilChanged()
+    minuteTicker(60_000L).map { AppClock.today() }.distinctUntilChanged()
 
 /**
  * Aktualna data i godzina dla UI ("zostało X min", "Za X min"), odświeżane równo z pełną
- * [periodMs] - i OD RAZU przy każdym powrocie na ekran (STARTED). Dawniej zegar tykał tylko co
+ * [periodMs] (pełna minuta) - i OD RAZU przy każdym powrocie na ekran (STARTED). Dawniej zegar tykał tylko co
  * 30 s: po powrocie do aplikacji, która została w tle na planie, widniał stary czas.
  * W tle nie tyka (oszczędność baterii).
  */
 @androidx.compose.runtime.Composable
-fun rememberNow(periodMs: Long = 30_000L): androidx.compose.runtime.State<java.time.LocalDateTime> {
+fun rememberNow(periodMs: Long = 60_000L): androidx.compose.runtime.State<java.time.LocalDateTime> {
     val visible = LocalScreenVisible.current
     val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    val now = androidx.compose.runtime.remember(owner, periodMs, visible) {
-        androidx.compose.runtime.mutableStateOf(java.time.LocalDateTime.now())
+    val offset by AppClock.offsetMs.collectAsState()
+    val now = androidx.compose.runtime.remember(owner, periodMs, visible, offset) {
+        androidx.compose.runtime.mutableStateOf(AppClock.now())
     }
-    androidx.compose.runtime.LaunchedEffect(owner, periodMs, visible) {
+    androidx.compose.runtime.LaunchedEffect(owner, periodMs, visible, offset) {
         owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             if (visible) while (true) {
-                now.value = java.time.LocalDateTime.now()
-                delay(periodMs - System.currentTimeMillis() % periodMs)
+                now.value = AppClock.now()
+                delay(periodMs - AppClock.millis() % periodMs)
             }
         }
     }

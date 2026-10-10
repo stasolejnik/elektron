@@ -33,7 +33,7 @@ class SyncWorker @AssistedInject constructor(
             val outcome = coordinator.sync(request)
             // Przerwane przez zmianę klasy / reset: dane pobiera właśnie synchronizacja nowej klasy.
             if (outcome.interrupted) return Result.success()
-            if (outcome.succeeded.isEmpty()) {
+            if (outcome.shouldRetry) {
                 // Bug audytu #9: bez limitu Result.retry() ponawiał się w nieskończoność
                 // przy dłuższej awarii strony szkoły. Po MAX_RETRY_ATTEMPTS oddajemy
                 // kontrolę cyklicznemu harmonogramowi (za 15 min) zamiast dobijać się dalej.

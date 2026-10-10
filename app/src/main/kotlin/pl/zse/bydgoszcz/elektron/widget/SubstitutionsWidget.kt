@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -53,7 +55,7 @@ class SubstitutionsWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val load: suspend () -> Pair<SubsWidgetState, WidgetPalette> = {
             val state = WidgetDataLoader.loadSubstitutions(context)
-            if (state is SubsWidgetState.Ready) state.refreshAt?.let {
+            subsWidgetTickAt(state, AppClock.now())?.let {
                 WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(it)
             }
             state to WidgetDataLoader.palette(context)
@@ -88,6 +90,11 @@ class SubstitutionsWidget : GlanceAppWidget() {
                     Text(it, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
                 }
             }
+            // Stare dane: kiedy ostatnio udało się sprawdzić (bez tego "Brak zastępstw" wyglądało na aktualne).
+            state.checked?.let {
+                Text(it, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1,
+                    modifier = GlanceModifier.padding(top = 2.dp))
+            }
             Spacer(GlanceModifier.height(8.dp))
             if (state.items.isEmpty()) {
                 Box(GlanceModifier.fillMaxWidth().defaultWeight(), contentAlignment = Alignment.Center) {
@@ -98,8 +105,10 @@ class SubstitutionsWidget : GlanceAppWidget() {
                 // Zwykła kolumna zamiast LazyColumn: na Androidzie 17 (Glance 1.1.0) kliknięcia
                 // wierszy listy nie docierały do aplikacji - trafiały w tło widżetu (strona
                 // główna). Zwykłe elementy mają własne PendingIntenty.
-                val height = LocalSize.current.height.value
-                val rows = WidgetNoteLayout.substitutions(height, state.items, LocalContext.current.resources.configuration.fontScale)
+                val fontScale = LocalContext.current.resources.configuration.fontScale
+                val height = LocalSize.current.height.value -
+                    (if (state.checked != null) 16f * fontScale.coerceAtLeast(1f) else 0f)
+                val rows = WidgetNoteLayout.substitutions(height, state.items, fontScale)
                 val shown = state.items.take(rows.shown)
                 LaunchedEffect(state.items, rows) {
                     Log.i(TAG, "Rysuję ${shown.size} z ${state.items.size} wierszy (+${rows.more} więcej, " +

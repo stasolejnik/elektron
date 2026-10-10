@@ -138,10 +138,12 @@ class TimetableRepositoryImplTest {
     }
 
     @Test
-    fun futurePlanFillsEmptyDatabase() = runTest {
-        // Pierwsze uruchomienie: brak starego planu - lepszy nowy plan niż pusty ekran.
+    fun futurePlanIsNotShownBeforeItsDateEvenWithEmptyDatabase() = runTest {
+        // Pierwsze uruchomienie: brak starego planu - dni przed "Obowiązuje od" zostają bez planu
+        // (nie z przyszłymi salami i godzinami), od tej daty - nowy plan.
         repoWithPlan("nowy", monday.plusDays(4)).syncTimetable("o3", monday)
-        assertEquals("nowy", subjectOn(monday))
+        assertTrue(repo.getLessonsOnce("o3", monday, monday).isEmpty())
+        assertEquals("nowy", subjectOn(monday.plusDays(4)))
     }
 
     @Test
@@ -179,6 +181,28 @@ class TimetableRepositoryImplTest {
         for (operation in listOf("INSERT", "UPDATE", "DELETE")) {
             sql.execSQL("CREATE TRIGGER audit_${table}_$operation AFTER $operation ON $table BEGIN INSERT INTO audit_writes VALUES (1); END")
         }
+    }
+
+    @Test fun classesAndTeachersRemovedFromTheSchoolListDisappearExceptTheStoredClass() = runTest {
+        fun cls(id: String, short: String) = ClassListItemDto(id, ClassListItemDto.Kind.CLASS, "$short $short", short, "https://plan.zse.bydgoszcz.pl/plany/$id.html")
+        fun teacher(code: String) = ClassListItemDto("n$code", ClassListItemDto.Kind.TEACHER, "Nauczyciel ($code)", code, "https://plan.zse.bydgoszcz.pl/plany/n$code.html")
+        var sidebar = listOf(cls("o3", "1D"), cls("o4", "2A"), cls("o45", "4Z"), teacher("Ch"), teacher("Ab"))
+        val source = object : TimetableSource by FakeSource() {
+            override suspend fun fetchSidebar() = sidebar
+        }
+        val repo = TimetableRepositoryImpl(source, db.schoolClassDao(), db.teacherDao(), db.roomDao(),
+            db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+        assertTrue(repo.syncSidebar().isSuccess)
+        assertTrue(repo.syncTimetable("o4", monday).isSuccess)   // wybrana klasa z zapisanym planem
+        // Nowy rok szkolny: bez 4Z, 2A (wybrana) chwilowo poza listą, jeden nauczyciel odszedł.
+        sidebar = listOf(cls("o3", "1D"), cls("o50", "1A"), teacher("Ch"))
+        assertTrue(repo.syncSidebar().isSuccess)
+        assertEquals(listOf("o3", "o4", "o50"), db.schoolClassDao().getAll().map { it.id })
+        assertEquals(listOf("Ch"), db.teacherDao().getAll().map { it.code })
+        // Lista bez nauczycieli (zmiana strony) nikogo nie usuwa.
+        sidebar = listOf(cls("o3", "1D"))
+        assertTrue(repo.syncSidebar().isSuccess)
+        assertEquals(listOf("Ch"), db.teacherDao().getAll().map { it.code })
     }
 
     @Test fun identicalSyncDoesNotRewriteTables() = runTest {

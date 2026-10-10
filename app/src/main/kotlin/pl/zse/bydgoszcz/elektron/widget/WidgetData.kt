@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import android.util.Log
 import pl.zse.bydgoszcz.elektron.data.repository.LessonNotesRepository
 import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
@@ -44,6 +46,7 @@ interface WidgetEntryPoint {
     fun substitutions(): SubstitutionsRepository
     fun widgetUpdater(): WidgetUpdater
     fun lessonNotes(): LessonNotesRepository
+    fun syncCoordinator(): pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 }
 
 /** Lekcja przygotowana do wyświetlenia w widżecie. */
@@ -79,7 +82,9 @@ data class WidgetSubstitution(
 sealed interface SubsWidgetState {
     data object NoClass : SubsWidgetState
     data object Failed : SubsWidgetState
-    data class Ready(val className: String?, val items: List<WidgetSubstitution>, val refreshAt: LocalDateTime? = null, val readError: Boolean = false) : SubsWidgetState
+    data class Ready(val className: String?, val items: List<WidgetSubstitution>, val refreshAt: LocalDateTime? = null, val readError: Boolean = false,
+        /** "Sprawdzono: wczoraj 21:40", gdy dane zastępstw nie są świeże (null - aktualne). */
+        val checked: String? = null) : SubsWidgetState
 }
 
 sealed interface WidgetState {
@@ -148,7 +153,12 @@ object WidgetDataLoader {
         val dynamic = runCatchingCancellable { ep.settings().dynamicColor.first() }.getOrDefault(false)
         val opacity = runCatchingCancellable { ep.settings().widgetLook.first().opacity }.getOrDefault(100)
         val accent = runCatchingCancellable { ep.settings().accent.first() }.getOrDefault(AccentSetting())
-        return WidgetPalettes.create(context, mode, dynamic, opacity, accent)
+        // Odczyt kolorów tapety to wywołanie usługi systemowej - poza wątkiem głównym i z limitem czasu.
+        val wallpaper = if (mode == ThemeMode.SYSTEM && opacity < WidgetWallpaper.OPACITY)
+            kotlinx.coroutines.withTimeoutOrNull(1_000) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { WidgetWallpaper.supportsDarkText(context) }
+            } else null
+        return WidgetPalettes.create(context, WidgetWallpaper.effectiveMode(mode, opacity, wallpaper), dynamic, opacity, accent)
     }
 
     suspend fun load(context: Context): WidgetState = runCatchingCancellable { loadChecked(context) }
@@ -159,7 +169,7 @@ object WidgetDataLoader {
         val ep = entryPoint(context)
         val classId = ep.settings().selectedClassId.first() ?: return WidgetState.NoClass
         val groups = ep.settings().groupSelections(classId).first()
-        val nowDt = LocalDateTime.now()
+        val nowDt = AppClock.now()
         val today = nowDt.toLocalDate()
         val lessons = LessonGroups.filter(ep.timetable().getLessonsOnce(classId, today, today.plusDays(7)), groups)
         val styles = runCatchingCancellable { ep.settings().subjectStyles.first() }.getOrDefault(emptyMap())
@@ -204,8 +214,22 @@ object WidgetDataLoader {
             else -> day.atTime(focusLesson.timeFrom)              // początek najbliższej
         }
 
-        val refreshAt = if (Duration.between(nowDt, nextChangeAt) <= Duration.ofMinutes(60))
-            minOf(nextChangeAt, nowDt.plusMinutes(5)) else nextChangeAt
+        // Co 5 min tylko wtedy, gdy widżet pokazuje coś zmieniającego się z minuty na minutę:
+        // trwająca lekcja / przerwa (pasek, "Zostało X min") i ostatnie 30 min przed lekcją ("Za X min").
+        // Dawniej co 5 min przez całą godzinę przed każdą zmianą - także przed północą
+        // i 30 min przed odliczaniem, budząc telefon bez zmiany na ekranie.
+        // Przerwa tylko przy krótkiej luce (LessonClock) - okienko to nie przerwa.
+        val breakFrom = if (isToday && !focusIsNow && focusIndex > 0)
+            dayLessons[focusIndex - 1].timeTo.takeIf {
+                it <= now && Duration.between(it, focusLesson.timeFrom).toMinutes() <= LessonClock.BREAK_MAX_MINUTES
+            } else null
+        val countdownFrom = day.atTime(focusLesson.timeFrom).minusMinutes(LessonClock.COUNTDOWN_MINUTES)
+        val refreshAt = when {
+            focusIsNow || breakFrom != null -> minOf(nextChangeAt, nowDt.plusMinutes(5))
+            isToday && nowDt >= countdownFrom -> minOf(nextChangeAt, nowDt.plusMinutes(5))
+            isToday -> minOf(nextChangeAt, countdownFrom)
+            else -> nextChangeAt
+        }
 
         return WidgetState.Ready(
             className = className,
@@ -215,11 +239,7 @@ object WidgetDataLoader {
             focusIndex = focusIndex,
             focusIsNow = focusIsNow,
             isToday = isToday,
-            // Przerwa tylko przy krótkiej luce (LessonClock) - okienko to nie przerwa.
-            breakFrom = if (isToday && !focusIsNow && focusIndex > 0)
-                dayLessons[focusIndex - 1].timeTo.takeIf {
-                    it <= now && Duration.between(it, focusLesson.timeFrom).toMinutes() <= LessonClock.BREAK_MAX_MINUTES
-                } else null,
+            breakFrom = breakFrom,
             nextChangeAt = nextChangeAt,
             refreshAt = refreshAt
         )
@@ -239,11 +259,12 @@ object WidgetDataLoader {
         val short = ep.timetable().observeClasses().first().firstOrNull { it.id == classId }?.shortName
             ?: return SubsWidgetState.NoClass
         val groups = ep.settings().groupSelections(classId).first()
-        val today = LocalDate.now()
-        val now = LocalTime.now()
+        // Jeden odczyt zegara: data i godzina osobno o północy dawały chwilę z wczoraj.
+        val nowDt = AppClock.now()
+        val today = nowDt.toLocalDate()
+        val now = nowDt.toLocalTime()
         val lessons = ep.timetable().getLessonsOnce(classId, today, today.plusDays(14))
         val ends = SubstitutionRelevance.lessonEnds(lessons)
-        val nowDt = LocalDateTime.of(today, now)
         val notesByKey = runCatchingCancellable { ep.lessonNotes().notes.first() }.getOrDefault(emptyList()).associateBy { it.key }
         val shownLessons = LessonGroups.filter(lessons, groups).associateBy { LessonNote.key(it) }
         val subs = ep.substitutions().getAllFrom(today)
@@ -265,8 +286,12 @@ object WidgetDataLoader {
             }.toList()
         // Diagnostyka (raport "Zgłoś problem"): czy widżet miał wiersze i jakie cele.
         Log.i("SubstitutionsWidget", "Stan: ${subs.size} zastępstw: ${subs.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}")
-        val refreshAt = nextSubstitutionChange(nowDt, subs.map { it.target }, ends)
-        return SubsWidgetState.Ready(ClassNames.clean(short), subs, refreshAt)
+        val lastSuccess = runCatchingCancellable {
+            ep.syncCoordinator().observeSourceLastSuccess(pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS).first()
+        }.getOrNull()?.let { LocalDateTime.ofInstant(it, java.time.ZoneId.systemDefault()) }
+        val freshness = SubstitutionsFreshness.of(lastSuccess, nowDt)
+        val refreshAt = listOfNotNull(nextSubstitutionChange(nowDt, subs.map { it.target }, ends), freshness.staleAt).min()
+        return SubsWidgetState.Ready(ClassNames.clean(short), subs, refreshAt, checked = freshness.label)
     }
 
     private fun dayLabel(day: LocalDate, today: LocalDate): String = when (day) {
@@ -323,8 +348,54 @@ internal fun nextSubstitutionChange(now: LocalDateTime, targets: List<LessonTarg
     } + now.toLocalDate().plusDays(1).atStartOfDay()).minOrNull()!!
 
 /** Zachowaj ostatni odczyt w otwartej sesji, ale nie przedstawiaj go jako świeżych danych. */
+/** Identyfikator wiersza listy Plan dnia: numer lekcji (8 bitów) i skrót treści - zawsze nieujemny. */
+internal fun dayPlanRowId(number: Int, contentHash: Int): Long =
+    ((contentHash.toLong() and 0xFFFFFFFFL) shl 8) or (number.toLong() and 0xFFL)
+
 internal fun retainWidgetData(previous: WidgetState, fresh: WidgetState): WidgetState =
     if (fresh == WidgetState.Failed && previous is WidgetState.Ready) previous.copy(readError = true) else fresh
 
 internal fun retainSubsWidgetData(previous: SubsWidgetState, fresh: SubsWidgetState): SubsWidgetState =
     if (fresh == SubsWidgetState.Failed && previous is SubsWidgetState.Ready) previous.copy(readError = true) else fresh
+
+/** Ponowienie odczytu po błędzie - bez tego widżet czekał na 30-minutowe zabezpieczenie systemu albo synchronizację. */
+internal const val WIDGET_RETRY_MINUTES = 15L
+
+/** Następne przeładowanie widżetu planu; brak lekcji - tuż po północy (wejście kolejnego dnia w zakres). */
+internal fun widgetTickAt(state: WidgetState, now: LocalDateTime): LocalDateTime? = when (state) {
+    is WidgetState.Ready -> state.refreshAt
+    is WidgetState.NoLessons -> now.toLocalDate().plusDays(1).atTime(0, 1)
+    WidgetState.Failed -> now.plusMinutes(WIDGET_RETRY_MINUTES)
+    WidgetState.NoClass -> null
+}
+
+internal fun subsWidgetTickAt(state: SubsWidgetState, now: LocalDateTime): LocalDateTime? = when (state) {
+    is SubsWidgetState.Ready -> state.refreshAt
+    SubsWidgetState.Failed -> now.plusMinutes(WIDGET_RETRY_MINUTES)
+    SubsWidgetState.NoClass -> null
+}
+
+/**
+ * Aktualność danych widżetu Zastępstwa. Uśpiona aplikacja (oszczędzanie baterii) albo brak sieci
+ * zostawiały "Brak zastępstw" z danych sprzed wielu godzin bez żadnej informacji.
+ * Etykieta, gdy ostatnie udane sprawdzenie nie jest z dziś albo ma ponad [STALE_HOURS] h.
+ */
+internal object SubstitutionsFreshness {
+    const val STALE_HOURS = 3L
+    data class Result(val label: String?, val staleAt: LocalDateTime?)
+    private val TIME = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+    private val DATE = java.time.format.DateTimeFormatter.ofPattern("dd.MM")
+
+    fun of(lastSuccess: LocalDateTime?, now: LocalDateTime): Result {
+        if (lastSuccess == null) return Result("Zastępstw jeszcze nie sprawdzono", null)
+        val staleAt = lastSuccess.plusHours(STALE_HOURS)
+        val today = now.toLocalDate()
+        if (lastSuccess.toLocalDate() == today && now < staleAt) return Result(null, staleAt)
+        val day = when (lastSuccess.toLocalDate()) {
+            today -> "dziś"
+            today.minusDays(1) -> "wczoraj"
+            else -> lastSuccess.format(DATE)
+        }
+        return Result("Sprawdzono: $day ${lastSuccess.format(TIME)}", null)
+    }
+}

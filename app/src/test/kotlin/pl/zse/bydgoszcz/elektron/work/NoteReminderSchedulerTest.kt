@@ -60,11 +60,16 @@ class NoteReminderSchedulerTest {
             scheduler.reschedule(LocalDateTime.now())
             val wm = WorkManager.getInstance(app)
             val pending = wm.getWorkInfosForUniqueWork(NoteReminderScheduler.WORK_NAME).get().single { !it.state.isFinished }
+            // Alarm (punktualny także w trybie Doze) obok zlecenia WorkManagera.
+            val noteAlarms = { shadowOf(app.getSystemService(android.app.AlarmManager::class.java)).scheduledAlarms
+                .filter { alarm -> alarm.operation?.let { shadowOf(it).savedIntent.component?.className } == NoteReminderReceiver::class.java.name } }
+            assertEquals(1, noteAlarms().size)
             scheduler.reschedule(LocalDateTime.now())
             assertEquals(pending.id, wm.getWorkInfosForUniqueWork(NoteReminderScheduler.WORK_NAME).get().single { !it.state.isFinished }.id)
             repo.setReminders(false)
             scheduler.reschedule(LocalDateTime.now())
             assertTrue(wm.getWorkInfosForUniqueWork(NoteReminderScheduler.WORK_NAME).get().all { it.state.isFinished })
+            assertTrue("wyłączone przypomnienia - bez alarmu", noteAlarms().isEmpty())
             repo.setReminders(true)
             scheduler.reschedule(LocalDateTime.now())
             val saved = repo.notes.first().first()
@@ -113,12 +118,19 @@ class NoteReminderSchedulerTest {
             repo.setReminders(true)
             val saved = repo.notes.first().single()
             val now = day.minusDays(1).atTime(18, 0)
+            // Ten sam klucz co przy dostarczeniu (zależy od planowanego terminu), zlecenie czeka 2 h.
+            scheduler.reschedule(now.minusHours(2))
             try { scheduler.deliver(saved.key, saved.revision, now); fail("Delivery failure must be reported") }
             catch (_: java.io.IOException) { }
             assertFalse(repo.notes.first().single().reminded)
             assertEquals(0, app.getSystemService(NotificationManager::class.java).activeNotifications.size)
             revokeDuringDelivery = false
             shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+            // Ostatnia próba workera przepadła - zwykłe przeliczenie musi znów zaplanować przypomnienie.
+            val wm = WorkManager.getInstance(app)
+            wm.cancelUniqueWork(NoteReminderScheduler.WORK_NAME).result.get()
+            scheduler.reschedule(now.minusHours(2))
+            assertTrue(wm.getWorkInfosForUniqueWork(NoteReminderScheduler.WORK_NAME).get().any { !it.state.isFinished })
             scheduler.deliver(saved.key, saved.revision, now)
             assertTrue(repo.notes.first().single().reminded)
             assertEquals(1, app.getSystemService(NotificationManager::class.java).activeNotifications.size)

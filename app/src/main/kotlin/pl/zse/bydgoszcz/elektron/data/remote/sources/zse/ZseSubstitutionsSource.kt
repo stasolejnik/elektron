@@ -36,8 +36,12 @@ class ZseSubstitutionsSource @Inject constructor(
             if (!ZastepstwaParser.hasRecognizedLayout(doc)) {
                 throw pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException("zastępstwa")
             }
+            // Strona z dniami zastępuje zapisane dni - tylko cała (ze stopką). Ucięta: błąd, dane zostają.
+            if (ZastepstwaParser.pageDates(doc).isNotEmpty() && !ZastepstwaParser.hasFooter(doc)) {
+                throw java.io.IOException("Zastępstwa: niepełna odpowiedź serwera")
+            }
             val parsed = ZastepstwaParser.parseDetailed(doc)
-            SubstitutionsPage(ZastepstwaParser.pageDates(doc), parsed.items, parsed.incompleteDates)
+            SubstitutionsPage(ZastepstwaParser.pageDates(doc), parsed.items, parsed.incompleteDates, parsed.classless)
         }
     }
 

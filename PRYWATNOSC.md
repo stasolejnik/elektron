@@ -48,12 +48,13 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   Twoich ustawień.
 - **GitHub (sprawdzanie aktualizacji)** - tylko w wersji z GitHuba: najwyżej co kilka
   godzin aplikacja pobiera z api.github.com publiczną listę wydań eLektrona, żeby sprawdzić,
-  czy jest nowsza wersja. Po naciśnięciu **Aktualizuj** pobiera z GitHuba plik APK nowej
+  czy jest nowsza wersja (domyślnie tylko wydania stabilne; kanał „Beta” w Ustawieniach obejmuje
+  też wersje testowe). Po naciśnięciu **Aktualizuj** pobiera z GitHuba plik APK nowej
   wersji (zapisywany tymczasowo w pamięci podręcznej aplikacji) i otwiera instalator systemu -
   instalację zawsze zatwierdzasz sam. GitHub widzi przy tym adres IP i wersję aplikacji; nie są
   wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
-- **Zdjęcia w ogłoszeniach:** po otwarciu zakładki „Zdjęcia” w podglądzie ogłoszenia pobierane są obrazy z serwerów szkoły. Obrazy korzystają z pamięci podręcznej; nie są automatycznie pobierane podczas czytania tekstu. Pełny tekst jest pobierany ze strony ogłoszenia, a „Odśwież treść” ponawia jego pobranie.
+- **Zdjęcia w ogłoszeniach:** po otwarciu ogłoszenia pobierane są zdjęcia umieszczone w jego treści, wyłącznie z serwerów szkoły (obrazy z innych stron nie są pobierane - zostaje opis i link). Zdjęcia korzystają z pamięci podręcznej. Pełny tekst jest pobierany ze strony ogłoszenia przy pierwszym otwarciu (i ponownie, gdy zapisała go starsza wersja aplikacji).
 
 - **BUSearch (odjazdy ze szkoły):** po otwarciu wyboru przystanku aplikacja
   pobiera publiczny katalog z api.busearch.pl. Katalog jest zapisywany w pamięci podręcznej;
@@ -67,7 +68,10 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   dostawcy tylko przy wyszukiwaniu połączeń. Preferowany przystanek początkowy jest wtedy
   również przekazywany planerowi. Historia pięciu ostatnich celów i pięciu ostatnich
   przystanków początkowych jest zapisywana wyłącznie lokalnie wraz z ustawieniami; może
-  wejść do systemowej kopii zapasowej Androida. Funkcja nie korzysta z GPS ani cyklicznych
+  wejść do systemowej kopii zapasowej Androida. Ostatni wynik wyszukiwania połączeń (linie,
+  godziny i przystanki) jest zapisywany w pamięci podręcznej aplikacji, poza kopią zapasową,
+  żeby po ponownym otwarciu był widoczny od razu; nowe sprawdzenie odbywa się najwyżej co
+  10 minut, gdy karta lub zakładka jest na ekranie. Funkcja nie korzysta z GPS ani cyklicznych
   połączeń w tle.
 - **Trasy piesze (FOSSGIS / OpenStreetMap):** przy sprawdzaniu odjazdów aplikacja może
   wysłać do routing.openstreetmap.de stały punkt szkoły i współrzędne przystanków początkowych,

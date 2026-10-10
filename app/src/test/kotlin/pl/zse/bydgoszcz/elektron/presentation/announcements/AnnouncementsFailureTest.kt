@@ -49,6 +49,7 @@ class AnnouncementsFailureTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val db = inMemoryDb()
         val owner = ViewModelStore()
+        var created: AnnouncementsViewModel? = null
         try {
             val context = ApplicationProvider.getApplicationContext<Context>()
             val fixture = TestCoordinator(context, db, FakeSettings(classId = null), Offline, Offline, Offline, Offline)
@@ -65,7 +66,7 @@ class AnnouncementsFailureTest {
                     throw IOException("Błąd odczytu")
                 }
             }
-            val vm = AnnouncementsViewModel(repo, fixture.coordinator)
+            val vm = AnnouncementsViewModel(repo, fixture.coordinator).also { created = it }
             owner.put("announcements", vm)
             val collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
             vm.state.first { it.ready }
@@ -102,6 +103,6 @@ class AnnouncementsFailureTest {
                 }
             }
             collector.cancel()
-        } finally { owner.clear(); db.close(); Dispatchers.resetMain() }
+        } finally { owner.clearAndAwait(*listOfNotNull(created).toTypedArray()); db.close(); Dispatchers.resetMain() }
     }
 }

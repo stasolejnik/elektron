@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,8 +23,8 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
     val text by viewModel.editorText.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    var confirmDelete by remember { mutableStateOf(false) }
-    var confirmDiscard by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var confirmDiscard by rememberSaveable { mutableStateOf(false) }
     val dirty = text != note?.text.orEmpty()
     val dismiss = { if (!saving) { if (dirty) confirmDiscard = true else onDismiss() } }
     val available by viewModel.editorAvailable.collectAsStateWithLifecycle()
@@ -46,7 +48,7 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
                 val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
                 TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(text)) }) { Text("Kopiuj szkic") }
             }
-            if (!LessonNote.canEdit(lesson, java.time.LocalDateTime.now())) Text("Lekcja już się rozpoczęła. Zapis zmieni tekst notatki, ale nie wyśle przypomnienia o tej lekcji.", style = MaterialTheme.typography.bodySmall)
+            if (!LessonNote.canEdit(lesson, AppClock.now())) Text("Lekcja już się rozpoczęła. Zapis zmieni tekst notatki, ale nie wyśle przypomnienia o tej lekcji.", style = MaterialTheme.typography.bodySmall)
             Text("Przypomnienia możesz włączyć w Ustawieniach → Notatki do lekcji.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

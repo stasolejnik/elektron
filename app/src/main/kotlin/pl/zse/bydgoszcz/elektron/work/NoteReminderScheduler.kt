@@ -17,7 +17,10 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Jeden lokalny termin; WorkManager zachowuje go po restarcie, bez cyklicznego odpytywania. */
+/**
+ * Jeden lokalny termin: alarm (punktualnie także w trybie Doze) i zlecenie WorkManagera jako zapas,
+ * bez cyklicznego odpytywania. Po restarcie telefonu oba ustawia ponownie SystemEventsReceiver.
+ */
 @Singleton
 class NoteReminderScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -37,7 +40,7 @@ class NoteReminderScheduler @Inject constructor(
             val reminder = next(now)
             val wm = WorkManager.getInstance(context)
             if (reminder == null) {
-                if (!cleared) awaitOperation(wm.cancelUniqueWork(WORK_NAME))
+                if (!cleared) { cancelAlarm(); awaitOperation(wm.cancelUniqueWork(WORK_NAME)) }
                 scheduled = null; cleared = true
             } else {
                 val planned = reminder.plannedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -45,6 +48,10 @@ class NoteReminderScheduler @Inject constructor(
                 if (!force && key == scheduled) return@runCatchingCancellable
                 val delay = Duration.between(now.atZone(ZoneId.systemDefault()).toInstant(),
                     reminder.at.atZone(ZoneId.systemDefault()).toInstant()).toMillis().coerceAtLeast(0)
+                // Alarm: WorkManager w trybie Doze potrafi przesunąć pracę o długi czas ("15 min przed
+                // lekcją" po dzwonku). Zlecenie WorkManagera zostaje jako zapas (np. gdy alarm przepadnie);
+                // drugie powiadomienie nie powstanie - deliver() zajmuje notatkę (claimReminder).
+                setAlarm(reminder.note.key, reminder.note.revision, reminder.at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
                 awaitOperation(wm.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE,
                     OneTimeWorkRequestBuilder<NoteReminderWorker>().setInitialDelay(delay, TimeUnit.MILLISECONDS)
                         .setInputData(workDataOf("key" to reminder.note.key, "revision" to reminder.note.revision)).build()))
@@ -52,6 +59,31 @@ class NoteReminderScheduler @Inject constructor(
             }
         }.onFailure { Log.w("NoteReminders", "Nie udało się ustawić przypomnienia notatki", it) }
     }
+    private fun alarmIntent(key: String? = null, revision: Long = -1): android.app.PendingIntent? {
+        val intent = android.content.Intent(context, NoteReminderReceiver::class.java)
+        if (key == null) return android.app.PendingIntent.getBroadcast(context, ALARM_REQUEST_CODE, intent,
+            android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE)
+        intent.putExtra(NoteReminderReceiver.EXTRA_KEY, key).putExtra(NoteReminderReceiver.EXTRA_REVISION, revision)
+        return android.app.PendingIntent.getBroadcast(context, ALARM_REQUEST_CODE, intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    /** Dokładny alarm, gdy system pozwala; inaczej niedokładny, ale działający w trybie Doze. */
+    private fun setAlarm(key: String, revision: Long, atMs: Long) = runCatching {
+        val am = context.getSystemService(android.app.AlarmManager::class.java) ?: return@runCatching
+        val pi = alarmIntent(key, revision) ?: return@runCatching
+        try {
+            if (LessonReminderScheduler.canUseExactAlarms(context)) am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, atMs, pi)
+            else am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, atMs, pi)
+        } catch (_: SecurityException) {
+            am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, atMs, pi)
+        }
+    }.onFailure { Log.w("NoteReminders", "Nie udało się ustawić alarmu przypomnienia notatki", it) }
+
+    private fun cancelAlarm() = runCatching {
+        alarmIntent()?.let { context.getSystemService(android.app.AlarmManager::class.java)?.cancel(it); it.cancel() }
+    }
+
     private suspend fun awaitOperation(operation: Operation) = suspendCancellableCoroutine<Unit> { continuation ->
         val future = operation.result
         future.addListener({
@@ -72,6 +104,17 @@ class NoteReminderScheduler @Inject constructor(
         return NoteReminders.next(all, lessons, now, notes.reminderTiming.first())
     }
     suspend fun deliver(key: String, revision: Long, now: LocalDateTime = LocalDateTime.now()) = mutex.withLock {
+        try { deliverLocked(key, revision, now) } catch (e: Throwable) {
+            // Ponowi WorkManager. Bez tego klucz zostawał "zaplanowany": po ostatniej próbie
+            // kolejne przeliczenia (synchronizacja, edycja notatek) nie ustawiały już niczego.
+            scheduled = null
+            throw e
+        }
+        // Nie zatrzymujemy się po pierwszej notatce: planujemy następny termin.
+        scheduled = null
+        rescheduleLocked(now)
+    }
+    private suspend fun deliverLocked(key: String, revision: Long, now: LocalDateTime) {
         // Nie korzystamy z tekstu zapisanego w zleceniu: edycja, usunięcie, zmiana klasy
         // i odwołanie lekcji muszą obowiązywać także tuż przed wysłaniem powiadomienia.
         if (notes.remindersEnabled.first() && notifications.canPostNotes()) {
@@ -100,9 +143,9 @@ class NoteReminderScheduler @Inject constructor(
                 }
             }
         }
-        // Nie zatrzymujemy się po pierwszej notatce: planujemy następny termin.
-        scheduled = null
-        rescheduleLocked(now)
     }
-    companion object { const val WORK_NAME = "lesson_note_reminder" }
+    companion object {
+        const val WORK_NAME = "lesson_note_reminder"
+        private const val ALARM_REQUEST_CODE = 4102
+    }
 }

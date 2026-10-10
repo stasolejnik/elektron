@@ -12,7 +12,7 @@ import android.util.Log
  * - [isWebUrl]: tylko http/https — nigdy "javascript:", "intent:", "file:" itp. (linki
  *   pochodzą z RSS, archiwum strony i pushy; nie ufamy im na ślepo).
  * - [isSchoolUrl]: dodatkowo tylko domeny szkoły. Tak sprawdzamy linki przychodzące z intentu
- *   do MainActivity — ta jest eksportowana (launcher), więc dowolna inna aplikacja mogła ją
+ *   do ElektronActivity — ta jest eksportowana (launcher), więc dowolna inna aplikacja mogła ją
  *   uruchomić z własnym linkiem i eLektron otwierał go w przeglądarce (np. stronę udającą szkołę).
  */
 object SafeUrls {
@@ -33,6 +33,9 @@ object SafeUrls {
         val host = webUri(url)?.host?.lowercase() ?: return false
         return SCHOOL_HOSTS.any { host == it || host.endsWith(".$it") }
     }
+
+    /** Obrazek tylko z serwerów szkoły (miniatury z bazy, archiwum i pushy), inaczej null. */
+    fun schoolImage(url: String?): String? = url?.takeIf(::isSchoolUrl)
 
     /** Otwiera link w przeglądarce, jeśli to bezpieczny adres http(s). Zwraca, czy się udało. */
     fun open(context: Context, url: String?): Boolean {

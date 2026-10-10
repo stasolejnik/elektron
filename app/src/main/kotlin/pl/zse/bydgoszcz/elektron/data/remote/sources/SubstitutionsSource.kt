@@ -26,5 +26,7 @@ interface SubstitutionsSource {
 data class SubstitutionsPage(
     val dates: Set<String>,
     val items: List<SubstitutionDto>,
-    val incompleteDates: Set<String> = emptySet()
+    val incompleteDates: Set<String> = emptySet(),
+    /** Wpisy bez klasy (zajęcia łączone kilku klas) - klasę ustala repozytorium z planu. */
+    val classless: List<SubstitutionDto> = emptyList()
 )

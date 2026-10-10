@@ -57,4 +57,7 @@ object AppVersion {
     }
 
     fun isNewer(candidate: String, current: String): Boolean = compare(candidate, current) > 0
+
+    /** Wydanie stabilne: bez dopisku alpha/beta/rc i bez "-dev" ("1.0.1", nie "1.0.1-beta1"). */
+    fun isStable(version: String): Boolean = parse(version).let { it.preWord == null && !it.development }
 }

@@ -143,6 +143,72 @@ class SubstitutionsRepositoryImplTest {
         assertEquals(listOf(2), repo.getAllFrom(d).map { it.lessonNumber })
     }
 
+    @Test
+    fun correctedEntryReplacesThePreviousOneEvenOnAnIncompleteDay() = runTest {
+        val d = today.plusDays(1)
+        source.items = listOf(dto(d, 1), dto(d, 4))
+        repo.syncAll()
+        // Szkoła zmienia salę w lekcji 4, a inny wiersz dnia jest nieczytelny (dzień niekompletny).
+        val moved = dto(d, 4).copy(roomOrInfo = "214")
+        val pageSource = object : SubstitutionsSource {
+            override suspend fun fetchSubstitutions() = listOf(moved)
+            override suspend fun fetchPage() = SubstitutionsPage(setOf(d.format(fmt)), listOf(moved), incompleteDates = setOf(d.format(fmt)))
+        }
+        SubstitutionsRepositoryImpl(pageSource, db.substitutionDao(), db).syncAll()
+        val saved = repo.getAllFrom(d)
+        assertEquals(listOf(1, 4), saved.map { it.lessonNumber })   // lekcja 1 (nieodczytana) zostaje
+        assertEquals("214", saved.single { it.lessonNumber == 4 }.roomOrInfo)
+    }
+
+    @Test
+    fun onlyDaysShownOnThePageAreReplaced() = runTest {
+        // Strona pokazała pojutrze, potem wróciła do jutra - zastępstwa z pojutrza zostają (bez dowodu odwołania).
+        source.items = listOf(dto(today.plusDays(2), 1))
+        repo.syncAll()
+        source.items = listOf(dto(today.plusDays(1), 1))
+        repo.syncAll()
+        assertEquals(listOf(today.plusDays(1), today.plusDays(2)), repo.getAllFrom(today).map { it.date })
+        // Strona przechodzi na kolejny dzień - wcześniejsze zostają.
+        source.items = listOf(dto(today.plusDays(3), 2))
+        repo.syncAll()
+        assertEquals(listOf(today.plusDays(1), today.plusDays(2), today.plusDays(3)), repo.getAllFrom(today).map { it.date })
+        // Szkoła wraca do dzisiejszej strony (nagłe zastępstwo) - przyszłe dni zostają.
+        source.items = listOf(dto(today, 5))
+        repo.syncAll()
+        assertEquals(listOf(today, today.plusDays(1), today.plusDays(2), today.plusDays(3)), repo.getAllFrom(today).map { it.date })
+        // Nieodświeżona strona z minionym dniem też niczego nie usuwa.
+        source.items = listOf(dto(today.minusDays(1), 4))
+        repo.syncAll()
+        assertEquals(listOf(today.minusDays(1), today, today.plusDays(1), today.plusDays(2), today.plusDays(3)), repo.getAllFrom(today.minusDays(1)).map { it.date })
+    }
+
+    @Test
+    fun joinedLessonWithoutClassIsAssignedToTheTeachersGroupInTheStoredPlan() = runTest {
+        // 9.10.2026: "Wychowanie fizyczne - Zajęcia Świetlicowe" - zajęcia łączone, bez klasy na stronie.
+        val d = today.plusDays(1)
+        val lessonId = "o3|${d.toEpochDay()}|3"
+        db.teacherDao().upsertAll(listOf(
+            pl.zse.bydgoszcz.elektron.data.local.TeacherEntity("Cz", "D.Czyżewski", "https://plan.zse.bydgoszcz.pl/plany/n9.html"),
+            pl.zse.bydgoszcz.elektron.data.local.TeacherEntity("Ch", "M.Chabowski", "https://plan.zse.bydgoszcz.pl/plany/n1.html")))
+        db.lessonDao().upsertAll(listOf(pl.zse.bydgoszcz.elektron.data.local.LessonEntity(
+            lessonId, "o3", "1D 1D PBŚ", d.toEpochDay(), d.dayOfWeek.value, 3, "09:50", "10:35", null)))
+        db.lessonGroupDao().upsertAll(listOf(
+            pl.zse.bydgoszcz.elektron.data.local.LessonGroupEntity(lessonId, 0, "wf-1/2", "Ch", null, null, "sg", null, null, null),
+            pl.zse.bydgoszcz.elektron.data.local.LessonGroupEntity(lessonId, 1, "wf-2/2", "Cz", null, null, "sg", null, null, null)))
+        val joined = SubstitutionDto(d.format(fmt), "Dariusz Czyżewski", 3, "", null, "Zajęcia Świetlicowe", null, null, subject = "Wychowanie fizyczne")
+        val pageSource = object : SubstitutionsSource {
+            override suspend fun fetchSubstitutions() = emptyList<SubstitutionDto>()
+            override suspend fun fetchPage() = SubstitutionsPage(setOf(d.format(fmt)), emptyList(), classless = listOf(joined))
+        }
+        assertTrue(SubstitutionsRepositoryImpl(pageSource, db.substitutionDao(), db).syncAll().isSuccess)
+        val saved = repo.getAllFrom(d).single()
+        assertEquals("1D", saved.classShortName)
+        assertEquals(2, saved.groupNumber)
+        assertEquals(3, saved.lessonNumber)
+        assertEquals("Zajęcia Świetlicowe", saved.roomOrInfo)
+        assertEquals("Dariusz Czyżewski", saved.originalTeacher)
+    }
+
     private fun watchWrites(table: String) {
         val sql = db.openHelper.writableDatabase
         sql.execSQL("CREATE TABLE IF NOT EXISTS audit_writes (value INTEGER)")

@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import kotlinx.coroutines.flow.catch
@@ -38,7 +40,8 @@ class ElektronAppViewModel @Inject constructor(
     coordinator: SyncCoordinator,
     reminders: LessonReminderScheduler,
     noteReminders: pl.zse.bydgoszcz.elektron.work.NoteReminderScheduler,
-    notes: pl.zse.bydgoszcz.elektron.data.repository.LessonNotesRepository
+    notes: pl.zse.bydgoszcz.elektron.data.repository.LessonNotesRepository,
+    private val transitPreferences: pl.zse.bydgoszcz.elektron.data.repository.TransitPreferencesRepository
 ) : ViewModel() {
 
     data class AppState(
@@ -81,7 +84,7 @@ class ElektronAppViewModel @Inject constructor(
                 // Zabezpieczenie na wypadek, gdyby zmiana klasy dotarła przed flagą syncu:
                 // bez zapisanego planu klasy nie przeliczamy (nie kasujemy alarmu).
                 val cid = values[0] as String?
-                val today = LocalDate.now()
+                val today = AppClock.today()
                 runCatchingCancellable {
                     if (cid == null || timetableRepo.hasLessons(cid, today, today.plusDays(7))) reminders.requestReschedule()
                 }.onFailure { android.util.Log.w("LessonReminders", "Nie udało się sprawdzić planu; kolejna zmiana ponowi próbę", it) }
@@ -101,13 +104,15 @@ class ElektronAppViewModel @Inject constructor(
         val todayLessons = if (chosen != StartScreen.SMART) emptyList() else {
             val cid = settings.selectedClassId.first()
             if (cid == null) emptyList() else {
-                val today = LocalDate.now()
+                val today = AppClock.today()
                 LessonGroups.filter(timetableRepo.getLessonsOnce(cid, today, today), settings.groupSelections(cid).first())
             }
         }
-        when (chosen.resolve(todayLessons, LocalTime.now())) {
+        when (chosen.resolve(todayLessons, AppClock.time())) {
             StartScreen.TIMETABLE -> ElektronRoutes.TIMETABLE
             StartScreen.SUBSTITUTIONS -> ElektronRoutes.SUBSTITUTIONS
+            // Tylko z włączoną zakładką (wyłączona - strona główna, jak dla nieznanego ekranu).
+            StartScreen.TRANSIT -> if (transitPreferences.preferences.first().visible) ElektronRoutes.TRANSIT else ElektronRoutes.DASHBOARD
             else -> ElektronRoutes.DASHBOARD
         }
     }.getOrDefault(ElektronRoutes.DASHBOARD)
@@ -134,7 +139,7 @@ class ElektronAppViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppState(isReady = false))
 
     /** Nazwy/kolory przedmiotów i wygląd planu - podawane całemu UI przez LocalPersonalization. */
-    // null = jeszcze nie wczytano: aplikacja czeka na to (MainActivity), żeby nazwy/kolory
+    // null = jeszcze nie wczytano: aplikacja czeka na to (ElektronActivity), żeby nazwy/kolory
     // przedmiotów i tryb planu nie przeskakiwały z domyślnych na własne po pierwszej klatce.
     val personalization: StateFlow<Personalization?> =
         combine(settings.subjectStyles, settings.timetableLook) { styles, look -> Personalization(styles, look) }

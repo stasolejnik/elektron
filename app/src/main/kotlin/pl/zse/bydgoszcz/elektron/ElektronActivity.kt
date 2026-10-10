@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.presentation.common.Personalization
 import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
 import kotlinx.coroutines.launch
@@ -50,7 +52,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.LessonLinks
 import java.time.LocalDate
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class ElektronActivity : ComponentActivity() {
 
     @Inject lateinit var updateRepo: UpdateRepository
     @Inject lateinit var coordinator: pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
@@ -87,7 +89,7 @@ class MainActivity : ComponentActivity() {
             val deepLink by pendingDeepLink.collectAsStateWithLifecycle()
             val personalization by appViewModel.personalization.collectAsStateWithLifecycle()
             // Raport z poprzedniej awarii (jeśli była) - pokazywany raz, potem usuwany.
-            var crashReport by remember { mutableStateOf(CrashReporter.pending(this@MainActivity)) }
+            var crashReport by remember { mutableStateOf(CrashReporter.pending(this@ElektronActivity)) }
             val dark = when (state.themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
@@ -107,7 +109,9 @@ class MainActivity : ComponentActivity() {
 
             ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor, accent = state.accent) {
                 CompositionLocalProvider(LocalPersonalization provides (personalization ?: Personalization())) {
-                    if (explainNotifications) androidx.compose.material3.AlertDialog(
+                    // Po kolei: najpierw raport awarii i "Co nowego", dopiero potem prośba
+                    // o powiadomienia (dawniej dwa okna naraz po aktualizacji).
+                    if (explainNotifications && crashReport == null && state.changelogToShow.isEmpty()) androidx.compose.material3.AlertDialog(
                         onDismissRequest = { explainNotifications = false; permissionPrefs.edit().putBoolean("explained", true).apply() },
                         title = { androidx.compose.material3.Text("Powiadomienia ze szkoły") },
                         text = { androidx.compose.material3.Text("Możesz otrzymywać powiadomienia o nowych zastępstwach. Powiadomienia o ogłoszeniach oraz przypomnienia o lekcjach i notatkach są domyślnie wyłączone. Możesz je włączyć osobno w ustawieniach.") },
@@ -146,7 +150,7 @@ class MainActivity : ComponentActivity() {
                     }
                     crashReport?.let { report ->
                         CrashReportDialog(report = report, onDismiss = {
-                            CrashReporter.clear(this@MainActivity)
+                            CrashReporter.clear(this@ElektronActivity)
                             crashReport = null
                         })
                     }
@@ -196,7 +200,7 @@ class MainActivity : ComponentActivity() {
         val fromNotif = intent.getStringExtra(LocalNotificationSink.EXTRA_DEEP_LINK)
         if (!fromNotif.isNullOrBlank()) {
             if (fromNotif.startsWith("http://") || fromNotif.startsWith("https://")) {
-                // MainActivity jest eksportowana — link z intentu mógł podać dowolna aplikacja.
+                // ElektronActivity jest eksportowana — link z intentu mógł podać dowolna aplikacja.
                 // Otwieramy tylko strony szkoły (dawniej: każdy adres).
                 if (SafeUrls.isSchoolUrl(fromNotif)) SafeUrls.open(this, fromNotif)
                 return null
@@ -207,7 +211,7 @@ class MainActivity : ComponentActivity() {
         // zwykłe otwarcie aplikacji).
         val lessonExtra = intent.getStringExtra(LessonLinks.EXTRA_LESSON)
         if (lessonExtra != null || data?.startsWith("elektron://") == true) {
-            val r = LessonLinks.resolveIntent(lessonExtra, data, LocalDate.now())
+            val r = LessonLinks.resolveIntent(lessonExtra, data, AppClock.today())
             Log.i(TAG, "Lekcja: extra=$lessonExtra, źródło=${r.source}, ${r.reason}")
             r.target?.let { return LessonLinks.deepLink(it) }
         }
@@ -215,12 +219,13 @@ class MainActivity : ComponentActivity() {
             "substitutions" -> "substitutions"
             "announcements" -> "announcements"
             "timetable" -> "timetable"
-            "dashboard" -> "dashboard" // widżety
+            "transit" -> "transit" // skrót tylko z włączoną zakładką Odjazdy
+            "dashboard" -> "dashboard" // widżety i skrót
             else -> null
         }
     }
 
     private companion object {
-        const val TAG = "MainActivity"
+        const val TAG = "ElektronActivity"
     }
 }

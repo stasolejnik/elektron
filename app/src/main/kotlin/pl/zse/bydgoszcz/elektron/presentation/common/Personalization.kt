@@ -6,7 +6,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
 import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
 
-/** Personalizacja dostępna w całym UI (podawana w MainActivity). */
+/** Personalizacja dostępna w całym UI (podawana w ElektronActivity). */
 data class Personalization(
     val styles: Map<String, SubjectStyle> = emptyMap(),
     val look: TimetableLook = TimetableLook()

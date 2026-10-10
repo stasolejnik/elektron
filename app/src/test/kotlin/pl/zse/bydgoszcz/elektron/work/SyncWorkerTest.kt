@@ -102,14 +102,16 @@ class SyncWorkerTest {
 
     private lateinit var notificationsRepo: NotificationsRepositoryImpl
 
-    private fun runWorker(): ListenableWorker.Result {
+    private fun runWorker(background: Boolean = false, time: java.time.LocalTime? = null): ListenableWorker.Result {
         val t = TestCoordinator(context, db, settings, timetableSource, subsSource, Anns(), sink)
+        time?.let { at -> t.coordinator.localTime = { at } }
         notificationsRepo = t.notificationsRepo
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
                 SyncWorker(appContext, workerParameters, t.coordinator, t.notificationsRepo)
         }
-        val worker = TestListenableWorkerBuilder<SyncWorker>(context).setWorkerFactory(factory).build()
+        val worker = TestListenableWorkerBuilder<SyncWorker>(context).setWorkerFactory(factory)
+            .setInputData(androidx.work.workDataOf("background" to background)).build()
         return runBlocking { worker.doWork() }
     }
 
@@ -160,5 +162,13 @@ class SyncWorkerTest {
         runWorker()
         val am = context.getSystemService(AlarmManager::class.java)
         assertNotNull(shadowOf(am).nextScheduledAlarm)
+    }
+
+    @Test
+    fun nightRunWithNothingDueSucceedsInsteadOfRetrying() {
+        subsSource.items = listOf(sub(1))
+        runWorker()
+        // Wszystko świeże, w nocy nic nie jest do sprawdzenia: sukces, nie ponowienia co 30 s.
+        assertEquals(ListenableWorker.Result.success(), runWorker(background = true, time = java.time.LocalTime.of(23, 30)))
     }
 }

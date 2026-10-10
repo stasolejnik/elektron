@@ -3,6 +3,7 @@ package pl.zse.bydgoszcz.elektron.data.repository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -84,12 +85,17 @@ class NotificationsRepositoryImpl @Inject constructor(
     override suspend fun setLastSyncAt(t: Instant) = withContext(Dispatchers.IO) {
         syncStateDao.upsert(SyncStateEntity(KEY_LAST_SYNC, t.epochSecond, "ok", null))
     }
+    // distinctUntilChanged: Room emituje przy KAŻDYM zapisie do sync_state (kilkanaście na sync),
+    // a strona główna przeliczała wtedy cały stan mimo tej samej wartości.
     override fun observeLastSyncAt(): Flow<Instant?> =
-        syncStateDao.observe(KEY_LAST_SYNC).map { it?.lastSyncEpochSeconds?.let(Instant::ofEpochSecond) }
+        syncStateDao.observe(KEY_LAST_SYNC).map { it?.lastSyncEpochSeconds?.let(Instant::ofEpochSecond) }.distinctUntilChanged()
 
 
     override fun observeLastSyncError(): Flow<String?> =
-        syncStateDao.observe(KEY_LAST_ERROR).map { it?.message?.takeIf { m -> m.isNotBlank() } }
+        syncStateDao.observe(KEY_LAST_ERROR).map { e ->
+            // Po aktualizacji z rc7 zapisany tam komunikat do pierwszej synchronizacji - w nowej, łagodnej postaci.
+            pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException.normalize(e?.message?.takeIf { m -> m.isNotBlank() })
+        }.distinctUntilChanged()
     override suspend fun setLastSyncError(msg: String?) = withContext(Dispatchers.IO) {
         syncStateDao.upsert(SyncStateEntity(KEY_LAST_ERROR, Instant.now().epochSecond, "ok", msg ?: ""))
     }
@@ -97,7 +103,7 @@ class NotificationsRepositoryImpl @Inject constructor(
     override fun observeLoadedResources(): Flow<Set<String>> =
         syncStateDao.observe(KEY_LOADED).map { e ->
             e?.message?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
-        }
+        }.distinctUntilChanged()
     // Bug audytu #5: markLoaded jest wołane równolegle z 3 niezależnych korutyn
     // (Setup/Ustawienia/Start syncują timetable+subs+anns naraz). Read-modify-write na
     // CSV bez blokady gubił flagi, bo ostatni zapis nadpisywał poprzedni. Mutex serializuje

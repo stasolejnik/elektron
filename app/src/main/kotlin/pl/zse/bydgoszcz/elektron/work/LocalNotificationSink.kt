@@ -17,7 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
-import pl.zse.bydgoszcz.elektron.MainActivity
+import pl.zse.bydgoszcz.elektron.ElektronActivity
 import pl.zse.bydgoszcz.elektron.R
 import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
@@ -71,31 +71,18 @@ class LocalNotificationSink @Inject constructor(
 
     override suspend fun postSubstitution(sub: Substitution, originalSubject: String?) {
         if (!canNotify()) return
-        val roomShort = sub.roomOrInfo.take(40)
-        val subName = sub.substituteTeacher ?: "brak zastępcy"
-        val title = "Nowe zastępstwo - ${sub.lessonNumber} lekcja, $subName, $roomShort"
-        val day = dayLabel(sub.date)
-        // Zwinięte: jedna linia z dniem. Rozwinięte: pełne szczegóły w osobnych liniach.
-        val detail = buildString {
-            append("$day • Zastępuje: ${sub.originalTeacher}")
-            originalSubject?.let { append(" • $it") }
-            sub.notes?.let { append(" • $it") }
-        }
-        val expanded = buildString {
-            append("Kiedy: $day, ${sub.lessonNumber} lekcja")
-            sub.groupNumber?.let { append(" (grupa $it)") }
-            append("\nZastępuje: ${sub.originalTeacher}")
-            originalSubject?.let { append(" • $it") }
-            append("\nZastępca: $subName")
-            append("\nSala / informacja: ${sub.roomOrInfo}")
-            sub.notes?.let { append("\nUwagi: $it") }
-        }
+        // Treść jak w aplikacji (SubstitutionNotice). Nazwa przedmiotu po personalizacji.
+        val styles = runCatchingCancellable { settings.subjectStyles.first() }.getOrDefault(emptyMap())
+        val subject = pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles.displayName(originalSubject, styles)
+        val content = pl.zse.bydgoszcz.elektron.domain.model.SubstitutionNotice.content(sub, subject, java.time.LocalDate.now())
+        // Jeden wpis w panelu na lekcję: poprawione zastępstwo (nowe ID) zastępuje poprzednią wersję.
+        val tag = pl.zse.bydgoszcz.elektron.domain.model.SubstitutionNotice.tag(sub)
         val pi = PendingIntent.getActivity(
-            context, sub.id.hashCode(), deepLinkIntent("substitutions"),
+            context, tag.hashCode(), deepLinkIntent("substitutions"),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val showInPlan = PendingIntent.getActivity(
-            context, sub.id.hashCode() xor 0x5A5A, pl.zse.bydgoszcz.elektron.widget.lessonIntent(context,
+            context, tag.hashCode() xor 0x5A5A, pl.zse.bydgoszcz.elektron.widget.lessonIntent(context,
                 pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(sub.date, sub.lessonNumber)).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },
@@ -103,9 +90,9 @@ class LocalNotificationSink @Inject constructor(
         )
         val n = NotificationCompat.Builder(context, CHANNEL_SUBSTITUTIONS)
             .setSmallIcon(R.drawable.ic_stat_elektron)
-            .setContentTitle(title)
-            .setContentText(detail)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
+            .setContentTitle(content.title)
+            .setContentText(content.text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content.expanded))
             .setContentIntent(pi)
             .addAction(0, "Pokaż w planie", showInPlan)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
@@ -113,13 +100,14 @@ class LocalNotificationSink @Inject constructor(
             .setSilent(isQuietNow())
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        safeNotify(sub.id.hashCode(), n)
+        try { NotificationManagerCompat.from(context).notify(tag, SUBSTITUTION_ID, n) }
+        catch (e: SecurityException) { Log.w(TAG, "Brak uprawnień", e) }
     }
 
     override suspend fun postAnnouncement(ann: Announcement) {
         if (!canNotify()) return
         val body = ann.excerpt ?: ann.title
-        // Bezpośrednio do przeglądarki — dawniej przez MainActivity, która najpierw
+        // Bezpośrednio do przeglądarki — dawniej przez ElektronActivity, która najpierw
         // uruchamiała appkę, a potem przekierowywała (mignięcie ekranu appki).
         // Tylko bezpieczne adresy http(s); inaczej otwieramy sekcję Ogłoszeń w aplikacji.
         val target = if (SafeUrls.isWebUrl(ann.url)) {
@@ -215,19 +203,8 @@ class LocalNotificationSink @Inject constructor(
     private suspend fun isQuietNow(): Boolean =
         runCatchingCancellable { settings.quietHours.first().isQuiet(java.time.LocalTime.now()) }.getOrDefault(false)
 
-    private fun dayLabel(date: java.time.LocalDate): String {
-        val today = java.time.LocalDate.now()
-        val pl = java.util.Locale("pl", "PL")
-        return when (date) {
-            today -> "Dziś"
-            today.plusDays(1) -> "Jutro"
-            else -> date.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, pl)
-                .replaceFirstChar { it.titlecase(pl) } + " " + date.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM"))
-        }
-    }
-
     private fun deepLinkIntent(route: String): Intent =
-        Intent(context, MainActivity::class.java).apply {
+        Intent(context, ElektronActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_DEEP_LINK, route)
         }
@@ -252,6 +229,8 @@ class LocalNotificationSink @Inject constructor(
         const val CHANNEL_NOTES = "elektron_lesson_notes"
         const val CHANNEL_REMINDERS = "elektron_reminders"
         private const val REMINDER_ID_BASE = 0x7E000000
+        /** Zastępstwa: rozróżnia je znacznik (SubstitutionNotice.tag), ID jest stałe. */
+        private const val SUBSTITUTION_ID = 0x5B000001
         const val EXTRA_DEEP_LINK = "elektron_deep_link"
         private const val TAG = "LocalNotificationSink"
     }

@@ -9,6 +9,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import pl.zse.bydgoszcz.elektron.data.repository.inMemoryDb
+import pl.zse.bydgoszcz.elektron.testutil.FakeSettings
 import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
@@ -23,7 +24,7 @@ class UpdateChecksTest {
         }.build()
         val db = inMemoryDb()
         try {
-            val repo = UpdateRepositoryImpl(client, db.syncStateDao())
+            val repo = UpdateRepositoryImpl(client, db.syncStateDao(), FakeSettings())
             val results = (1..5).map { async(Dispatchers.IO) { repo.check(false) } }.awaitAll()
             assertTrue(results.all { it.isSuccess })
             assertEquals(1, count.get())
@@ -39,7 +40,7 @@ class UpdateChecksTest {
         }.build()
         val db = inMemoryDb()
         try {
-            val repo = UpdateRepositoryImpl(client, db.syncStateDao())
+            val repo = UpdateRepositoryImpl(client, db.syncStateDao(), FakeSettings())
             assertTrue(repo.check(false).isFailure)
             assertTrue(repo.check(false).isFailure)
             assertEquals(1, count.get())

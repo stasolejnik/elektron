@@ -54,6 +54,27 @@ import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
 import pl.zse.bydgoszcz.elektron.domain.model.WidgetLook
 import pl.zse.bydgoszcz.elektron.presentation.common.GroupedSection
 import pl.zse.bydgoszcz.elektron.presentation.common.pressable
+import pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork
+import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.DirectionsBus
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Widgets
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler
 import java.time.LocalTime
 
@@ -72,20 +93,108 @@ private val REMINDER_OPTIONS = listOf(
     ReminderMode.EVERY to "Przed każdą lekcją"
 )
 
+/** Strona główna: ekran startowy aplikacji i karty widoczne na Starcie. */
 @Composable
-internal fun StartScreenSection(current: StartScreen, onChange: (StartScreen) -> Unit) {
+internal fun HomeSection(current: StartScreen, transitTab: Boolean, onChange: (StartScreen) -> Unit, cards: @Composable () -> Unit) {
     var choosing by remember { mutableStateOf(false) }
-    GroupedSection(
-        "Uruchamianie",
-        footer = if (current == StartScreen.SMART)
-            "W godzinach lekcji aplikacja otwiera się na planie, poza nimi - na stronie głównej."
-        else null
-    ) {
-        ValueRow("Ekran startowy", START_OPTIONS.first { it.first == current }.second) { choosing = true }
+    val options = START_OPTIONS + if (transitTab) listOf(StartScreen.TRANSIT to "Odjazdy") else emptyList()
+    // Odjazdy wybrane, a zakładka wyłączona - aplikacja otworzy stronę główną.
+    val shown = if (current == StartScreen.TRANSIT && !transitTab) "Strona główna" else options.firstOrNull { it.first == current }?.second ?: "Automatycznie"
+    GroupedSection("Strona główna", icon = Icons.Outlined.Home) {
+        ValueRow("Ekran startowy", shown,
+            supporting = if (current == StartScreen.SMART) "W godzinach lekcji plan, poza nimi strona główna" else null) { choosing = true }
+        RowDivider()
+        cards()
     }
     if (choosing) {
-        ChoiceDialog("Ekran startowy", START_OPTIONS, current,
+        ChoiceDialog("Ekran startowy", options, current,
             onSelect = { onChange(it); choosing = false }, onDismiss = { choosing = false })
+    }
+}
+
+/**
+ * Odjazdy: zakładka i karta na stronie głównej są niezależne i domyślnie wyłączone;
+ * przystanki można wybrać tutaj, bez otwierania zakładki.
+ */
+@Composable
+internal fun TransitSection(
+    settings: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel.Settings,
+    saving: Boolean, error: String?,
+    onTab: (Boolean) -> Unit, onCard: (Boolean) -> Unit, onTransfers: (Boolean) -> Unit,
+    onPick: (origin: Boolean) -> Unit
+) {
+    val prefs = settings.preferences
+    val ready = settings.ready && !settings.failed && !saving
+    GroupedSection("Odjazdy", icon = Icons.Outlined.DirectionsBus,
+        footer = if (prefs.showOnDashboard) "Karta pojawia się od początku ostatniej lekcji do godziny po zajęciach." else null) {
+        SwitchRow("Zakładka Odjazdy", prefs.visible, enabled = ready, supporting = "Na dolnym pasku", onChange = onTab)
+        RowDivider()
+        SwitchRow("Karta na stronie głównej", prefs.showOnDashboard, enabled = ready, supporting = "Najbliższe połączenie po lekcjach", onChange = onCard)
+        if (prefs.visible || prefs.showOnDashboard) {
+            RowDivider()
+            ValueRow("Dokąd", prefs.destination?.name ?: "Wybierz", enabled = ready) { onPick(false) }
+            RowDivider()
+            ValueRow("Odjazd z", prefs.preferredOrigin?.name ?: "Najbliższy", enabled = ready) { onPick(true) }
+            RowDivider()
+            SwitchRow("Połączenia z przesiadką", prefs.allowTransfers, enabled = ready, onChange = onTransfers)
+        }
+        if (settings.failed) Text("Nie udało się odczytać ustawień Odjazdów.", modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        error?.let { Text(it, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+/** Powiadomienia o nowościach i ciche godziny w jednym miejscu. */
+@Composable
+internal fun NotificationsSection(
+    substitutions: Boolean, announcements: Boolean, quiet: QuietHours,
+    onSubs: (Boolean) -> Unit, onAnnouncements: (Boolean) -> Unit, onQuiet: (QuietHours) -> Unit
+) {
+    var picking by remember { mutableStateOf<Boolean?>(null) }   // true = od, false = do
+    GroupedSection("Powiadomienia", icon = Icons.Outlined.Notifications) {
+        SystemNotificationStatus()
+        SwitchRow("Nowe zastępstwa", substitutions, supporting = "Zmiany w planie Twojej klasy", onChange = onSubs)
+        RowDivider()
+        SwitchRow("Nowe ogłoszenia", announcements, supporting = "Wpisy na stronie szkoły", onChange = onAnnouncements)
+        RowDivider()
+        SwitchRow("Ciche godziny", quiet.enabled, supporting = "Bez dźwięku i wibracji - nic nie ginie") { onQuiet(quiet.copy(enabled = it)) }
+        if (quiet.enabled) {
+            RowDivider()
+            ValueRow("Od", quiet.from.toString()) { picking = true }
+            RowDivider()
+            ValueRow("Do", quiet.to.toString()) { picking = false }
+        }
+    }
+    picking?.let { from ->
+        TimeDialog(
+            title = if (from) "Ciche godziny od" else "Ciche godziny do",
+            initial = if (from) quiet.from else quiet.to,
+            onPick = { t -> onQuiet(if (from) quiet.copy(from = t) else quiet.copy(to = t)); picking = null },
+            onDismiss = { picking = null }
+        )
+    }
+}
+
+/** Praca w tle: stan sprawdzany przy każdym powrocie na ekran (zmiana w ustawieniach systemu). */
+@Composable
+internal fun BackgroundSection() {
+    val ctx = LocalContext.current
+    var unrestricted by remember { mutableStateOf(BackgroundWork.isUnrestricted(ctx)) }
+    OnResume { unrestricted = BackgroundWork.isUnrestricted(ctx) }
+    GroupedSection(
+        "Działanie w tle",
+        icon = Icons.Outlined.BatteryChargingFull,
+        footer = if (unrestricted) null
+        else "Telefon może usypiać aplikację w tle - widżety przestają się wtedy odświeżać, " +
+            "a powiadomienia przychodzą z opóźnieniem. Ustaw eLektron na „Bez ograniczeń”."
+    ) {
+        if (unrestricted) {
+            ValueRow("Optymalizacja baterii", "Wyłączona", supporting = "Widżety i powiadomienia działają bez ograniczeń", onClick = null)
+        } else {
+            ActionRow("Wyłącz optymalizację baterii", trailingChevron = true) { BackgroundWork.openSettings(ctx) }
+            RowDivider()
+            ActionRow("Poradnik dla Twojego telefonu", trailingIcon = true) { SafeUrls.open(ctx, BackgroundWork.GUIDE_URL) }
+        }
     }
 }
 
@@ -105,16 +214,14 @@ internal fun RemindersSection(current: ReminderSettings, status: LessonReminderS
     }
 
     val enabled = current.mode != ReminderMode.OFF
-    GroupedSection(
-        "Przypomnienia o lekcjach",
-        footer = if (!enabled) "Powiadomienie przed lekcją z salą i informacją o zastępstwie." else null
-    ) {
-        ValueRow("Przypomnienia", REMINDER_OPTIONS.first { it.first == current.mode }.second) { choosingMode = true }
+    GroupedSection("Przypomnienia o lekcjach", icon = Icons.Outlined.Alarm) {
+        ValueRow("Przypomnienia", REMINDER_OPTIONS.first { it.first == current.mode }.second,
+            supporting = if (!enabled) "Powiadomienie z salą i informacją o zastępstwie" else null) { choosingMode = true }
         if (enabled) {
             RowDivider()
             ValueRow("Ile wcześniej", "${current.minutesBefore} min") { choosingMinutes = true }
             RowDivider()
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(when {
                     !notificationsOn -> "Powiadomienia zablokowane w systemie"
                     status.error -> "Nie udało się ustawić przypomnienia"
@@ -154,33 +261,8 @@ internal fun RemindersSection(current: ReminderSettings, status: LessonReminderS
 }
 
 @Composable
-internal fun QuietHoursSection(current: QuietHours, onChange: (QuietHours) -> Unit) {
-    var picking by remember { mutableStateOf<Boolean?>(null) }   // true = od, false = do
-    GroupedSection(
-        "Ciche godziny",
-        footer = "W tych godzinach powiadomienia przychodzą bez dźwięku i wibracji - nic nie ginie."
-    ) {
-        SwitchRow("Ciche godziny", current.enabled) { onChange(current.copy(enabled = it)) }
-        if (current.enabled) {
-            RowDivider()
-            ValueRow("Od", current.from.toString()) { picking = true }
-            RowDivider()
-            ValueRow("Do", current.to.toString()) { picking = false }
-        }
-    }
-    picking?.let { from ->
-        TimeDialog(
-            title = if (from) "Ciche godziny od" else "Ciche godziny do",
-            initial = if (from) current.from else current.to,
-            onPick = { t -> onChange(if (from) current.copy(from = t) else current.copy(to = t)); picking = null },
-            onDismiss = { picking = null }
-        )
-    }
-}
-
-@Composable
 internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit) {
-    GroupedSection("Widżety", footer = "Przezroczystość tła i zawartość wszystkich widżetów aplikacji.") {
+    GroupedSection("Widżety", icon = Icons.Outlined.Widgets, footer = "Dotyczy wszystkich widżetów eLektronu na ekranie głównym. W motywie Auto przy przezroczystości powyżej 40% kolor tekstu dopasowuje się do tapety (jasna tapeta - ciemny tekst).") {
         // Suwak pokazuje przezroczystość (0% = pełne tło, 100% = bez tła); zapisujemy krycie.
         // Widżety odświeżają się po puszczeniu suwaka, nie przy każdym ruchu palca.
         var transparency by remember(current.opacity) { mutableFloatStateOf((100 - current.opacity).toFloat()) }
@@ -201,42 +283,90 @@ internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit)
                 .semantics { contentDescription = "Przezroczystość tła widżetów" }
         )
         RowDivider()
-        SwitchRow("Pokazuj nauczyciela", current.showTeacher) { onChange(current.copy(showTeacher = it)) }
-        RowDivider()
         SwitchRow("Pokazuj salę", current.showRoom) { onChange(current.copy(showRoom = it)) }
+        RowDivider()
+        SwitchRow("Pokazuj nauczyciela", current.showTeacher) { onChange(current.copy(showTeacher = it)) }
     }
 }
 
-/** Klasa: wiersz z wybraną klasą, wybór w oknie (bez przewijanej listy wewnątrz Ustawień). */
+/**
+ * Karta klasy na górze Ustawień: od niej zależy wszystko inne. Wybór klasy w oknie (bez
+ * przewijanej listy wewnątrz Ustawień), zmiana dopiero po potwierdzeniu.
+ */
 @Composable
-internal fun ClassSection(classes: List<SchoolClass>, selectedId: String?, onSelect: (String) -> Unit) {
-    var choosing by remember { mutableStateOf(false) }
-    GroupedSection("Klasa", footer = "Plan, zastępstwa i powiadomienia dotyczą wybranej klasy.") {
-        if (classes.isEmpty()) {
-            Text("Brak listy klas. Pociągnij w dół na stronie głównej, aby odświeżyć.",
-                Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            val current = classes.firstOrNull { it.id == selectedId }
-            ValueRow("Twoja klasa", current?.fullName ?: "wybierz") { choosing = true }
+internal fun ClassCard(classes: List<SchoolClass>, selectedId: String?, onSelect: (String) -> Unit, onOpenGroups: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    var choosing by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val current = classes.firstOrNull { it.id == selectedId }
+    GroupedSection(null) {
+        Row(
+            Modifier.fillMaxWidth().pressable(enabled = classes.isNotEmpty(), onClickLabel = "Zmień klasę") { choosing = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(52.dp).clip(CircleShape).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
+                Text(current?.shortName ?: "?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    color = colors.onPrimaryContainer, maxLines = 1)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(current?.let { "Klasa ${it.shortName}" } ?: "Wybierz klasę", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    when {
+                        classes.isEmpty() -> "Brak listy klas - pociągnij w dół na stronie głównej"
+                        current != null && current.fullName != current.shortName -> current.fullName
+                        else -> "Plan, zastępstwa i powiadomienia tej klasy"
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2
+                )
+            }
+            if (classes.isNotEmpty()) Text("Zmień", style = MaterialTheme.typography.labelLarge, color = colors.primary)
         }
+        RowDivider()
+        ActionRow("Grupy zajęciowe", supporting = "Tylko Twoje lekcje w planie i na stronie głównej", trailingChevron = true, onClick = onOpenGroups)
     }
+    // Zmiana klasy pobiera dane od nowa i otwiera krok grup bez cofania - jedno przypadkowe
+    // dotknięcie na liście było dawniej od razu zmianą klasy.
+    // Id, nie obiekt - okno potwierdzenia przetrwa obrót ekranu.
+    var pendingId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val pending = classes.firstOrNull { it.id == pendingId }
     if (choosing) {
         ChoiceDialog("Twoja klasa", classes.map { it.id to it.fullName }, selectedId ?: "",
-            onSelect = { onSelect(it); choosing = false }, onDismiss = { choosing = false })
+            onSelect = { id ->
+                choosing = false
+                if (id != selectedId) pendingId = id
+            }, onDismiss = { choosing = false })
+    }
+    pending?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingId = null },
+            title = { Text("Zmienić klasę na ${target.fullName}?") },
+            text = { Text("Aplikacja pobierze plan i zastępstwa tej klasy i poprosi o wybór grup. Grupy obecnej klasy zostaną zapamiętane.") },
+            confirmButton = { TextButton(onClick = { pendingId = null; onSelect(target.id) }) { Text("Zmień klasę") } },
+            dismissButton = { TextButton(onClick = { pendingId = null }) { Text("Anuluj") } }
+        )
     }
 }
 
-/** Wiersz "etykieta ... wartość" otwierający wybór. */
+/** Wiersz "etykieta ... wartość" otwierający wybór ([onClick] null - tylko informacja). */
 @Composable
-internal fun ValueRow(label: String, value: String, onClick: () -> Unit) {
+internal fun ValueRow(label: String, value: String, supporting: String? = null, enabled: Boolean = true, onClick: (() -> Unit)?) {
+    val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().pressable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.pressable(enabled = enabled, onClick = onClick) else Modifier)
+            .heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = if (enabled) colors.onSurface else colors.onSurfaceVariant)
+            supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp)) }
+        }
+        // Wartość przy prawej krawędzi, tuż przed strzałką (dawniej dwie wagi dzieliły wiersz na pół
+        // i krótka wartość, np. "Stabilne", wisiała w środku). Długa nazwa przystanku zawija się.
+        Text(value, style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant, textAlign = TextAlign.End,
+            modifier = Modifier.widthIn(max = 180.dp), maxLines = 2)
+        if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null,
+            tint = colors.onSurfaceVariant, modifier = Modifier.padding(start = 2.dp).size(22.dp))
     }
 }
 

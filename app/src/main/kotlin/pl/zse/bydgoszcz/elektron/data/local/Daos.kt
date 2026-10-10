@@ -19,6 +19,10 @@ interface SchoolClassDao {
 
     @Query("DELETE FROM school_classes")
     suspend fun clear()
+
+    /** Klasy, których nie ma już na liście szkoły (np. absolwenci po nowym roku szkolnym). */
+    @Query("DELETE FROM school_classes WHERE id NOT IN (:keep)")
+    suspend fun deleteExcept(keep: List<String>)
 }
 
 @Dao
@@ -37,6 +41,9 @@ interface TeacherDao {
 
     @Query("DELETE FROM teachers")
     suspend fun clear()
+
+    @Query("DELETE FROM teachers WHERE code NOT IN (:keep)")
+    suspend fun deleteExcept(keep: List<String>)
 }
 
 @Dao
@@ -52,6 +59,9 @@ interface RoomDao {
 
     @Query("DELETE FROM rooms")
     suspend fun clear()
+
+    @Query("DELETE FROM rooms WHERE id NOT IN (:keep)")
+    suspend fun deleteExcept(keep: List<String>)
 }
 
 @Dao
@@ -80,6 +90,9 @@ interface LessonDao {
 
     @Query("SELECT COUNT(*) FROM lessons WHERE classId = :classId AND dateEpochDay BETWEEN :fromDay AND :toDay")
     suspend fun countForRange(classId: String, fromDay: Long, toDay: Long): Int
+
+    @Query("SELECT DISTINCT classId FROM lessons")
+    suspend fun classIds(): List<String>
 }
 
 @Dao
@@ -124,6 +137,10 @@ interface SubstitutionDao {
     /** Jeden dzień - zastępowany świeżym kompletem z tej samej strony. */
     @Query("DELETE FROM substitutions WHERE dateEpochDay = :day")
     suspend fun deleteForDay(day: Long)
+
+    @Query("DELETE FROM substitutions WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
+
 
     @Query("DELETE FROM substitutions WHERE dateEpochDay < :beforeDay")
     suspend fun deleteOlderThan(beforeDay: Long)

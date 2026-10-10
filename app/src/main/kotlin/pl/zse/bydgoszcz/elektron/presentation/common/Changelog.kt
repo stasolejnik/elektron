@@ -5,6 +5,19 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(35, "1.0.0", listOf(
+            "Pierwsza stabilna wersja eLektrona",
+            "Zastępstwa za lekcje, na które nie chodzisz, nie trafiają na stronę główną ani do powiadomień",
+            "Czytelniejsze powiadomienia o zastępstwach: dzień i lekcja w tytule, „Za: przedmiot · nauczyciel”",
+            "Poprawione przez szkołę zastępstwo zastępuje poprzednie powiadomienie",
+            "Widżety: Zastępstwa pokazują czas sprawdzenia, Plan dnia zaczyna od bieżącej lekcji, a przezroczyste dopasowują tekst do tapety",
+            "Przedmiot przy zastępstwach w zakładce i na stronie głównej",
+            "Nowy widok ogłoszeń: cała treść, a zdjęcia w tym miejscu, co w poście",
+            "Uporządkowane Ustawienia i wybór kanału aktualizacji: stabilne albo beta",
+            "Wybór ikony aplikacji i krótsze skróty po przytrzymaniu ikony, także do Odjazdów",
+            "Szybsze Odjazdy: ostatni wynik od razu po uruchomieniu, pierwsze kursy przed sprawdzeniem wszystkich przystanków i mniej zapytań",
+            "Mniejsze zużycie baterii: widżety i nocna synchronizacja rzadziej budzą telefon"
+        )),
         Entry(34, "1.0.0-rc7", listOf(
             "Usprawnienia Odjazdów i wyboru przystanków",
             "Czytelniejsze godziny i wyniki połączeń",

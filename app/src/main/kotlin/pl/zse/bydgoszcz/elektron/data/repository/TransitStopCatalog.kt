@@ -14,6 +14,7 @@ import okio.buffer
 import okio.source
 import org.json.JSONArray
 import pl.zse.bydgoszcz.elektron.data.remote.http.readCancellable
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolTransit
 import pl.zse.bydgoszcz.elektron.domain.model.TransitDestination
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import java.io.File
@@ -93,11 +94,31 @@ internal object TransitStopParser {
         require(platforms.isNotEmpty()) { "Katalog nie zawiera przystanków" }
         return platforms
     }
+    /**
+     * Stanowiska o tej samej nazwie dalej niż [SAME_STOP_METERS] od siebie (np. "Szkoła" w dwóch
+     * dzielnicach) to osobne przystanki. Dawniej łączone w jeden ze środkiem pomiędzy nimi - planer
+     * dostawał punkt daleko od obu i nie znajdował połączeń.
+     */
     fun group(platforms: List<TransitDestination>): List<TransitDestination> {
-        val destinations = platforms.groupBy { it.name }.map { (name, stops) ->
-            TransitDestination(name, stops.flatMap { it.stopIds }, stops.map { it.latitude }.average(), stops.map { it.longitude }.average())
-        }.sortedBy { it.name }
+        val destinations = platforms.groupBy { it.name }.flatMap { (name, stops) -> clusters(stops).map { cluster ->
+            TransitDestination(name, cluster.flatMap { it.stopIds }, cluster.map { it.latitude }.average(), cluster.map { it.longitude }.average())
+        } }.sortedWith(compareBy<TransitDestination> { it.name }.thenBy { SchoolTransit.distance(it.latitude, it.longitude) })
         require(destinations.isNotEmpty()) { "Katalog nie zawiera przystanków" }
         return destinations
+    }
+
+    const val SAME_STOP_METERS = 800.0
+
+    /** Łączenie pojedyncze: stanowisko należy do zespołu, gdy jest bliżej niż [SAME_STOP_METERS] od któregoś z nich. */
+    private fun clusters(stops: List<TransitDestination>): List<List<TransitDestination>> {
+        if (stops.size < 2) return listOf(stops)
+        val parent = IntArray(stops.size) { it }
+        fun root(i: Int): Int { var r = i; while (parent[r] != r) r = parent[r]; return r }
+        for (i in stops.indices) for (j in i + 1 until stops.size) {
+            if (SchoolTransit.distanceBetween(stops[i].latitude, stops[i].longitude, stops[j].latitude, stops[j].longitude) <= SAME_STOP_METERS) {
+                parent[root(j)] = root(i)
+            }
+        }
+        return stops.indices.groupBy(::root).values.map { group -> group.map { stops[it] } }
     }
 }

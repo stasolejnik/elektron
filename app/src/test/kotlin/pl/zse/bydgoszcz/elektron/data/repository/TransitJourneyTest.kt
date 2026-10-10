@@ -65,17 +65,24 @@ class TransitJourneyTest {
         assertTrue("A faster alternative remains visible", ranked.any { it.key == earlierDistant.key })
         assertTrue(TransitJourneys.rank(listOf(laterNearest), laterNearest.departureMs).isEmpty())
     }
-    @Test fun cacheSurvivesWalkingDeadlineButExpiresAfterOneMinuteOrForAnotherGoal() {
+    @Test fun scheduledResultIsReusedForTenMinutesUntilItsDeparturesPass() {
         val journey = parse().single()
-        val fetched = journey.departureMs - (journey.walkMinutes + 2) * 60_000L
+        val fetched = journey.departureMs - 15 * 60_000L
         val cache = TransitJourneyRepository.Result(destination.key, listOf(journey), fetched)
         assertTrue(cache.canReuse(destination.key, fetched))
-        assertTrue(cache.canReuse(destination.key, fetched + 1))
-        assertFalse(cache.canReuse(destination.key, fetched + 60_000))
+        assertTrue(cache.canReuse(destination.key, fetched + 60_000))
+        assertTrue(cache.canReuse(destination.key, fetched + TransitJourneyRepository.Result.REUSE_MS - 1))
+        assertFalse(cache.canReuse(destination.key, fetched + TransitJourneyRepository.Result.REUSE_MS))
         assertFalse(cache.canReuse("other-goal", fetched))
+        // Gdy wszystkie kursy odjechały - nowe pobranie mimo świeżego wyniku.
+        val departed = cache.copy(fetchedAt = journey.departureMs - 60_000L)
+        assertFalse(departed.canReuse(destination.key, journey.departureMs + 1))
+        // Niepełny wynik ponawiamy po minucie.
+        val partial = cache.copy(partialFailure = true)
+        assertTrue(partial.canReuse(destination.key, fetched + 59_999L))
+        assertFalse(partial.canReuse(destination.key, fetched + 60_000L))
         val empty = cache.copy(journeys = emptyList())
-        assertTrue(empty.canReuse(destination.key, fetched + 59_999L))
-        assertFalse(empty.canReuse(destination.key, fetched + 60_000L))
+        assertTrue(empty.canReuse(destination.key, fetched + 60_000L))
         assertFalse(empty.canReuse(destination.key, fetched - 1))
     }
     @Test fun distantTransferNeedsWalkingTimeAndKnownPlatforms() {
@@ -98,6 +105,13 @@ class TransitJourneyTest {
         assertEquals(1, TransitJourneyParser.parse(response, destination, known, now).size)
         val far = known + ("28" to TransitDestination("Daleko", listOf("28"), 53.2, 18.2))
         assertTrue(TransitJourneyParser.parse(response, destination, far, now).isEmpty())
+    }
+    @Test fun platformJustBeyondOneKilometreCountsOnlyForAChosenOrigin() {
+        // Stanowisko ok. 1045 m od szkoły (drugie stanowisko przystanku, którego środek jest bliżej).
+        val farPlatform = mapOf("24" to TransitDestination("Jagiellońska - Łużycka", listOf("24"), SchoolTransit.LATITUDE + 0.0094, SchoolTransit.LONGITUDE))
+        assertTrue(TransitJourneyParser.parse(fixture(), destination, farPlatform, now).isEmpty())
+        assertEquals(1, TransitJourneyParser.parse(fixture(), destination, farPlatform, now,
+            maxBoardingMeters = TransitJourneyParser.MAX_CHOSEN_ORIGIN_METERS).size)
     }
     @Test fun transferArrivingAfterDepartureOfSecondLegIsRejected() {
         val response = fixture()

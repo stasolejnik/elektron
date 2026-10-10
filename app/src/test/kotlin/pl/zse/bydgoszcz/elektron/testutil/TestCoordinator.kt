@@ -34,5 +34,8 @@ class TestCoordinator(
         settings, timetableRepo, substitutionsRepo, announcementsRepo, notificationsRepo,
         SubstitutionNotifier(settings, timetableRepo, notificationsRepo, sink), sink,
         WidgetUpdater(context), LessonReminderScheduler(context, settings, timetableRepo), db
-    )
+    ).apply {
+        // Stała pora dnia: reguła nocna (BackgroundSyncPolicy) nie może zależeć od godziny uruchomienia testów.
+        localTime = { java.time.LocalTime.NOON }
+    }
 }

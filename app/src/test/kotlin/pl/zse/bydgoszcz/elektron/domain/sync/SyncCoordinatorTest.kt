@@ -47,6 +47,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.testutil.FakeSettings
 import pl.zse.bydgoszcz.elektron.testutil.TestCoordinator
+import pl.zse.bydgoszcz.elektron.testutil.clearAndAwait
 import pl.zse.bydgoszcz.elektron.work.NotificationSink
 import java.io.IOException
 import java.time.DayOfWeek
@@ -353,6 +354,26 @@ class SyncCoordinatorTest {
         assertEquals(calls + 1, timetable.calls.get())
     }
 
+    @Test fun failingAnnouncementsWaitForTheirIntervalInBackgroundRuns() = runTest {
+        coordinator.sync(SyncRequest.full())
+        anns.error = IOException("RSS nieczytelny")
+        assertTrue(SyncOutcome.ANNOUNCEMENTS in coordinator.sync(SyncRequest.of(SyncOutcome.ANNOUNCEMENTS)).failures.keys)
+        // Następny przebieg w tle nie pyta znów o ten sam zepsuty kanał (zastępstwa - jak zawsze).
+        val background = coordinator.sync(SyncRequest.full(background = true))
+        assertFalse(SyncOutcome.ANNOUNCEMENTS in background.failures.keys)
+        assertEquals(setOf(SyncOutcome.SUBSTITUTIONS), background.succeeded)
+    }
+
+    @Test fun nightBackgroundRunSkipsRecentlyCheckedSourcesButManualRefreshDoesNot() = runTest {
+        coordinator.sync(SyncRequest.full())
+        coordinator.localTime = { java.time.LocalTime.of(23, 30) }
+        val night = coordinator.sync(SyncRequest.full(background = true))
+        assertEquals(emptySet<String>(), night.succeeded)
+        assertTrue(night.failures.isEmpty())
+        val manual = coordinator.sync(SyncRequest.of(SyncOutcome.SUBSTITUTIONS))
+        assertEquals(setOf(SyncOutcome.SUBSTITUTIONS), manual.succeeded)
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test fun loadMoreIsGuardedBeforeDatabaseCountReturns() = runTest {
         kotlinx.coroutines.Dispatchers.setMain(kotlinx.coroutines.test.StandardTestDispatcher(testScheduler))
@@ -376,7 +397,7 @@ class SyncCoordinatorTest {
             runCurrent()
             assertEquals(1, requests)
         } finally {
-            store.clear()
+            store.clearAndAwait(vm)
             kotlinx.coroutines.Dispatchers.resetMain()
         }
     }
@@ -420,7 +441,7 @@ class SyncCoordinatorTest {
             assertNotNull(vm.message.value)
             vm.consumeMessage(vm.message.value!!)
             assertNull(vm.message.value)
-        } finally { store.clear(); Dispatchers.resetMain() }
+        } finally { store.clearAndAwait(vm); Dispatchers.resetMain() }
     }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -459,7 +480,7 @@ class SyncCoordinatorTest {
             vm.setFavoritesOnly(false)
             val all = withTimeout(10_000) { vm.state.first { !it.favoritesOnly && it.loadMoreError } }
             assertEquals(10, all.items.size)
-        } finally { gate.complete(Unit); store.clear(); Dispatchers.resetMain() }
+        } finally { gate.complete(Unit); store.clearAndAwait(vm); Dispatchers.resetMain() }
     }
 
     @Test fun backgroundRetriesFailedManualRefreshDespiteRecentSuccess() = runBlocking {
@@ -521,7 +542,7 @@ class SyncCoordinatorTest {
             assertFalse(state.loadingTimetable)
             assertFalse(state.loadingSubs)
             assertFalse(state.loadingAnns)
-        } finally { owner.clear(); Dispatchers.resetMain() }
+        } finally { owner.clearAndAwait(vm); Dispatchers.resetMain() }
     }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -542,7 +563,7 @@ class SyncCoordinatorTest {
             val state = vm.state.first { it.hasChanges }
             assertFalse(closed)
             assertEquals(mapOf("ang" to "1/2", "wf" to "2/2"), state.selections)
-        } finally { owner.clear(); Dispatchers.resetMain() }
+        } finally { owner.clearAndAwait(vm); Dispatchers.resetMain() }
     }
 
     @Test fun failedRefreshKeepsTimeOfLastSuccessfulSourceRead() = runBlocking {
@@ -561,9 +582,11 @@ class SyncCoordinatorTest {
         Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())
         val owner = androidx.lifecycle.ViewModelStore()
         val handle = androidx.lifecycle.SavedStateHandle()
+        val created = mutableListOf<androidx.lifecycle.ViewModel>()
         try {
             fun vm(saved: androidx.lifecycle.SavedStateHandle) = pl.zse.bydgoszcz.elektron.presentation.groups.GroupsViewModel(
                 settings, t.timetableRepo, t.notificationsRepo, coordinator, pl.zse.bydgoszcz.elektron.widget.WidgetUpdater(context), saved)
+                .also { created += it }
             val first = vm(handle); owner.put("first", first)
             first.state.first { it.ready }; first.startEditing("o3"); first.setChoice("ang", "1/2")
             first.state.first { it.selections["ang"] == "1/2" }
@@ -573,7 +596,7 @@ class SyncCoordinatorTest {
             assertEquals("1/2", restored.state.first { it.ready }.selections["ang"])
             restored.startEditing("o4")
             assertTrue(restored.state.first { it.selections.isEmpty() }.selections.isEmpty())
-        } finally { owner.clear(); Dispatchers.resetMain() }
+        } finally { owner.clearAndAwait(*created.toTypedArray()); Dispatchers.resetMain() }
     }
 
     @Test fun failedClassWriteDoesNotClearPreviousCacheOrLoadedMarkers() = runBlocking {

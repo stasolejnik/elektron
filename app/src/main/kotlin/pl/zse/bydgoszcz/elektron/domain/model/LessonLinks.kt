@@ -9,11 +9,11 @@ data class LessonTarget(val date: LocalDate, val lessonNumber: Int)
  * Link "otwórz szczegóły tej lekcji" (zakładka Zastępstwa, widżet Zastępstwa):
  * deep link "lesson/<epochDay>/<numer>". Widżet podaje cel dwoma kanałami: w extra [EXTRA_LESSON]
  * i w data URI intencji ("elektron://lesson/<epochDay>/<numer>", [uri]) - [resolveIntent].
- * Dane z intencji są niezaufane (MainActivity jest eksportowana): numer 0..12, data najwyżej
+ * Dane z intencji są niezaufane (ElektronActivity jest eksportowana): numer 0..12, data najwyżej
  * rok od dziś - inaczej link jest ignorowany.
  */
 object LessonLinks {
-    /** Extra intencji z widżetu (rozpoznawane przez MainActivity). */
+    /** Extra intencji z widżetu (rozpoznawane przez ElektronActivity). */
     const val EXTRA_LESSON = "elektron_lesson"
     private const val PREFIX = "lesson/"
     private const val URI_PREFIX = "elektron://lesson/"

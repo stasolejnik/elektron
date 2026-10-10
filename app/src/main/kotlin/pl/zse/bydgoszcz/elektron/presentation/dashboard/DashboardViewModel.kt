@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.dashboard
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
 import java.time.LocalDateTime
@@ -175,8 +177,8 @@ class DashboardViewModel @Inject constructor(
         // Bug #1 (drugorzędny): today/now liczone na nowo przy każdym przeliczeniu, nie raz
         // przy tworzeniu ViewModelu — appka otwarta przez noc nie pokaże wczorajszej lekcji
         // jako "trwającej teraz".
-        val today = LocalDate.now()
-        val now = LocalTime.now()
+        val today = AppClock.today()
+        val now = AppClock.time()
 
         // Lekcje po odfiltrowaniu grup, na które użytkownik nie chodzi. c.lessons (surowe)
         // zostają do oceny, czy zastępstwo z numerem grupy dotyczy użytkownika.
@@ -218,6 +220,7 @@ class DashboardViewModel @Inject constructor(
             .filter { sub: Substitution -> !SubstitutionRelevance.isOver(sub, nowDt, lessonEnds) }
             .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
             .take(10)
+            .map { LessonGroups.withSubject(it, c.lessons, c.groups) }
 
         val timetableLoaded = "timetable" in c.loaded
         val subsLoaded = "subs" in c.loaded

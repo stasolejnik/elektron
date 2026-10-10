@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.transit
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -74,18 +76,73 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                 journeyError.value = null
             }
         }
+        // Ostatni pełny wynik na dysk: po ponownym uruchomieniu aplikacji odjazdy są widoczne od razu.
+        viewModelScope.launch {
+            journeys.filterNotNull().filter { it.complete }.distinctUntilChanged().collect { result ->
+                runCatchingCancellable { journeyRepository.saveLast(result) }
+            }
+        }
     }
     private fun cancelJourneyRequest() {
         journeyJob?.cancel(); journeyJob = null; journeyKey = null
-        journeyLoading.value = false; moreLoading.value = false
+        // W trakcie odczytu zapisu (pierwsze otwarcie) nadal "ładowanie" - bez mignięcia pustej karty.
+        journeyLoading.value = restoringCache; moreLoading.value = false
     }
     private fun cancelWalkingRequest() { walkingJob?.cancel(); walkingJob = null; walkingKey = null }
     private val journeyConsumers = mutableSetOf<Any>()
     fun startJourneySession(consumer: Any, minimumCount: Int = 1) { journeyConsumers.add(consumer); refreshJourneys(minimumCount) }
+    private var cacheChecked = false
+    private var restoringCache = false
+    private var restoreMinimumCount = 1
     fun refreshJourneys(minimumCount: Int = 1) {
         if (journeyConsumers.isEmpty()) return
+        // Ekran woła odświeżenie kilka razy przy starcie - czekają na odczyt zapisu, żeby świeży
+        // wynik nie wywołał zapytania.
+        if (restoringCache) { restoreMinimumCount = maxOf(restoreMinimumCount, minimumCount); return }
+        if (!cacheChecked) {
+            // Najpierw zapisany wynik (jeśli świeży, bez żadnego zapytania - jak po minucie w aplikacji).
+            cacheChecked = true; restoringCache = true; restoreMinimumCount = minimumCount
+            // Bez "Brak nadchodzących połączeń" na karcie w trakcie odczytu.
+            journeyLoading.value = true
+            viewModelScope.launch {
+                try { restoreCachedJourneys() } finally {
+                    restoringCache = false
+                    if (journeyJob?.isActive != true) journeyLoading.value = false
+                }
+                refreshJourneys(restoreMinimumCount)
+            }
+            return
+        }
         if (requestKey(settings.value.preferences) == automaticRetryKey && android.os.SystemClock.elapsedRealtime() < automaticRetryAt) return
         loadJourneys(minimumCount = minimumCount)
+    }
+    private var savedStopsChecked = false
+    /**
+     * Raz na sesję, po pierwszym wyszukiwaniu - udanym albo nie (katalog jest już wczytany, zwykle bez
+     * dodatkowego zapytania): zapisany cel i przystanek początkowy wobec katalogu. Zmienione numery stanowisk -
+     * ten sam przystanek z katalogu (patrz TransitStops).
+     */
+    private fun checkSavedStops() {
+        if (savedStopsChecked) return
+        savedStopsChecked = true
+        viewModelScope.launch {
+            val prefs = settings.first { it.ready }.takeUnless { it.failed }?.preferences ?: return@launch
+            if (prefs.destination == null && prefs.preferredOrigin == null) return@launch
+            val fresh = runCatchingCancellable { catalog.load() }.getOrNull()?.takeUnless { it.stale } ?: return@launch
+            val destination = pl.zse.bydgoszcz.elektron.domain.model.TransitStops.refreshed(prefs.destination, fresh.stops)
+            val origin = pl.zse.bydgoszcz.elektron.domain.model.TransitStops.refreshed(prefs.preferredOrigin, fresh.stops, maxFromSchoolMeters = 1000.0)
+            val replacements = listOfNotNull(destination?.let { prefs.destination!!.key to it }, origin?.let { prefs.preferredOrigin!!.key to it }).toMap()
+            if (replacements.isNotEmpty()) {
+                android.util.Log.i("Transit", "Zapisany przystanek ma nowe numery stanowisk - aktualizuję")
+                runCatchingCancellable { preferencesRepository.refreshStops(replacements) }
+            }
+        }
+    }
+    private suspend fun restoreCachedJourneys() {
+        val ready = settings.first { it.ready }
+        if (ready.failed || journeys.value != null) return
+        val cached = runCatchingCancellable { journeyRepository.loadLast() }.getOrNull() ?: return
+        if (journeys.value == null && matches(cached, settings.value.preferences)) journeys.value = cached
     }
     fun stopJourneySession(consumer: Any) {
         if (journeyConsumers.remove(consumer) && journeyConsumers.isEmpty()) cancelJourneys()
@@ -96,12 +153,19 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         val destination = prefs.destination ?: return
         if (!prefs.canLoadJourneys) return
         val old = journeys.value?.takeIf { matches(it, prefs) }
-        val reusable = !force && old?.canReuse(destination.key, System.currentTimeMillis(), prefs.preferredOrigin?.key, prefs.allowTransfers) == true
+        val reusable = !force && old?.canReuse(destination.key, AppClock.millis(), prefs.preferredOrigin?.key, prefs.allowTransfers) == true
         val requestedCount = minimumCount.coerceIn(1, 300)
-        val existingCount = old?.journeys?.count { it.departureMs > System.currentTimeMillis() } ?: 0
+        val existingCount = old?.journeys?.count { it.departureMs > AppClock.millis() } ?: 0
         if (!more && reusable && (existingCount >= requestedCount || old?.nextWhenMs == null)) {
             journeyError.value = null
-            if (old!!.journeys.any { it.walkPending } && walkingJob?.isActive != true) loadWalking(old)
+            // Dojście "niedostępne" przez brak sieci - po powrocie internetu ponawiamy (dawniej dopiero
+            // z nowym wynikiem, do 10 minut później).
+            val retryWalking = old!!.journeys.any { !it.walkAvailable && !it.walkPending } && walkingJob?.isActive != true &&
+                journeyRepository.walkingRetryDue()
+            val current = if (!retryWalking) old else old.copy(journeys = old.journeys.map {
+                if (it.walkAvailable) it else it.copy(walkPending = true)
+            }).also { journeys.value = it }
+            if (current.journeys.any { it.walkPending } && walkingJob?.isActive != true) loadWalking(current)
             return
         }
         val append = more || (reusable && existingCount < requestedCount)
@@ -117,6 +181,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         journeyMinimumCount = requestedCount
         journeyLoading.value = !more; moreLoading.value = more; journeyError.value = null
         journeyJob = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val thisJob = coroutineContext[Job]
             try {
                 runCatchingCancellable {
                     var cursor = after
@@ -125,19 +190,34 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                     // A planner page often contains one ride. Fill the requested display
                     // batch, not just one server page. Publish each page without waiting for walks.
                     repeat(12) {
-                        val result = journeyRepository.find(destination, prefs.preferredOrigin, cursor, prefs.allowTransfers, cursors)
+                        // Pierwsza strona: wyniki cząstkowe, dopóki nic nie jest pokazane (pierwsze uruchomienie,
+                        // nowy cel). Gotowej listy nie podmieniamy niepełną - bez skakania kart.
+                        val onPartial: (suspend (TransitJourneyRepository.Result) -> Unit)? = if (merge) null else { partial ->
+                            // Repozytorium woła to z wątku IO; stan ViewModelu (journeyJob, ustawienia) czytamy
+                            // i zmieniamy na głównym, jak wszędzie indziej - bez wyścigu ze zmianą celu.
+                            kotlinx.coroutines.withContext(Dispatchers.Main.immediate) {
+                                val current = settings.value.preferences
+                                val shown = journeys.value?.takeIf { matches(it, current) }
+                                val nothingShown = shown == null || !shown.complete || shown.journeys.none { it.departureMs > AppClock.millis() }
+                                if (journeyJob === thisJob && nothingShown && matches(partial, current)) journeys.value = partial
+                            }
+                        }
+                        val result = journeyRepository.find(destination, prefs.preferredOrigin, cursor, prefs.allowTransfers, cursors, onPartial)
                         val current = settings.value.preferences
                         if (!matches(result, current)) return@runCatchingCancellable
                         val previous = journeys.value?.takeIf { matches(it, current) } ?: old
                         val published = if (merge && previous != null) result.copy(
                             journeys = kotlinx.coroutines.withContext(Dispatchers.Default) {
-                                pl.zse.bydgoszcz.elektron.domain.model.TransitJourneys.rank(previous.journeys + result.journeys, System.currentTimeMillis(), current.preferredOrigin, current.allowTransfers)
+                                pl.zse.bydgoszcz.elektron.domain.model.TransitJourneys.rank(previous.journeys + result.journeys, AppClock.millis(), current.preferredOrigin, current.allowTransfers)
                             },
                             boardingStops = (previous.boardingStops + result.boardingStops).distinctBy { it.key },
-                            partialFailure = previous.partialFailure || result.partialFailure) else result
+                            partialFailure = previous.partialFailure || result.partialFailure,
+                            // Dociągnięcie do wyniku cząstkowego (przerwane pierwsze sprawdzenie) nie czyni go pełnym.
+                            complete = previous.complete && result.complete) else result
                         if (!matches(published, settings.value.preferences)) return@runCatchingCancellable
                         journeys.value = published
                         automaticRetryKey = null; automaticRetryAt = 0L
+                        checkSavedStops()
                         loadWalking(published)
                         val next = published.nextWhenMs
                         if (published.journeys.size >= journeyMinimumCount || next == null || (cursor != null && next <= cursor!!)) return@runCatchingCancellable
@@ -146,6 +226,8 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                         cursors = published.platformCursors
                     }
                 }.onFailure {
+                    // Nieaktualne numery stanowisk przystanku początkowego kończą się błędem, nie pustym wynikiem.
+                    checkSavedStops()
                     if (requestKey(settings.value.preferences) == key) {
                         automaticRetryKey = key
                         automaticRetryAt = android.os.SystemClock.elapsedRealtime() + 60_000L

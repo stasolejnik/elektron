@@ -34,6 +34,8 @@ class TransitWalkingRepository internal constructor(private val client: OkHttpCl
     // Short, memory-only cooldowns avoid repeating optional routing work when offline
     // or when the router cannot reach a platform. Departure refreshes remain independent.
     private var retryAfter = 0L
+    /** Ostatnia próba padła na sieci (nie na braku trasy) - po [retryAfter] warto ponowić. */
+    @Volatile private var networkFailed = false
     private val unavailableUntil = linkedMapOf<String, Long>()
     private fun cacheKey(stop: TransitDestination) = "${SchoolTransit.LATITUDE},${SchoolTransit.LONGITUDE}:${stop.latitude},${stop.longitude}"
 
@@ -72,6 +74,9 @@ class TransitWalkingRepository internal constructor(private val client: OkHttpCl
             stop.stopIds.forEach { put(it, path) }
         } }
     }
+    /** Trasy nie udało się pobrać przez sieć, a przerwa po błędzie minęła (np. wrócił internet). */
+    fun retryDue(): Boolean = networkFailed && elapsedMs() >= retryAfter
+
     suspend fun fromSchool(stops: List<TransitDestination>): Map<String, Path> = withContext(Dispatchers.IO) {
         lock.withLock {
             synchronized(cache) { restoreCache() }
@@ -83,6 +88,8 @@ class TransitWalkingRepository internal constructor(private val client: OkHttpCl
                 cache[cacheKey(it)]?.let { path -> now - path.savedAt in 0..604_800_000L } != true &&
                     cacheKey(it) !in unavailableUntil
             } }
+            // Nic do pobrania (wszystko w pamięci albo bez trasy) - nie ma czego ponawiać.
+            if (missing.isEmpty()) networkFailed = false
             if (missing.isNotEmpty() && elapsed >= retryAfter) runCatchingCancellable {
                 // At most one request per second, including retries after failures/cancellation.
                 lastRequest?.let { delay((1000 - (elapsedMs() - it)).coerceAtLeast(0)) }
@@ -126,7 +133,7 @@ class TransitWalkingRepository internal constructor(private val client: OkHttpCl
                     try { output.write(data.toString().toByteArray()); atomic.finishWrite(output) }
                     catch (e: Exception) { atomic.failWrite(output); throw e }
                 } }
-            }.onFailure { retryAfter = elapsedMs() + 60_000L }
+            }.onSuccess { networkFailed = false }.onFailure { retryAfter = elapsedMs() + 60_000L; networkFailed = true }
             synchronized(cache) { cachedPaths(stops, now) }
         }
     }

@@ -69,6 +69,16 @@ class AnnouncementsRepositoryImplTest {
     @After fun tearDown() = db.close()
 
     @Test
+    fun feedWithOnlyUnreadableItemsIsAFailureNotASilentSuccess() = runTest {
+        source.news = listOf(rss("https://zse/a").copy(pubDate = "wczoraj"))
+        assertTrue(repo.syncAll().isFailure)
+        // Jeden czytelny wpis wystarczy.
+        source.news = listOf(rss("https://zse/a").copy(pubDate = "wczoraj"), rss("https://zse/b"))
+        assertTrue(repo.syncAll().isSuccess)
+        assertEquals(listOf("https://zse/b"), repo.getAll().map { it.id })
+    }
+
+    @Test
     fun syncKeepsDownloadedArticleContent() = runTest {
         // REPLACE przy syncu kasował pobraną treść artykułu.
         db.announcementDao().upsertAll(listOf(AnnouncementEntity(
@@ -310,6 +320,20 @@ class AnnouncementsRepositoryImplTest {
             repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, FavoriteAnnouncementsStore(file))
             assertEquals(expected, repo.observeById(existing.id).first()!!.isFavorite)
         } finally { directory.deleteRecursively() }
+    }
+
+    @Test fun articleSavedByOlderVersionIsDownloadedAgainButKeptWhenOffline() = kotlinx.coroutines.runBlocking {
+        val id = "https://zse/old"
+        // Treść bez znacznika wersji - zapisana przez wcześniejszą wersję aplikacji (np. ucięty podgląd).
+        db.announcementDao().upsertAll(listOf(AnnouncementEntity(id, "A", id, 1_800_000_000, null, null, "<p>Podgląd</p>", false, "RSS_NEWS", false)))
+        source.article = null
+        repo.loadFullArticle(id).getOrThrow()
+        assertEquals("<p>Podgląd</p>", repo.observeById(id).first()!!.fullHtml)
+        source.article = "<p>Cały artykuł</p>"
+        repo.loadFullArticle(id).getOrThrow()
+        assertEquals("<p>Cały artykuł</p>", repo.observeById(id).first()!!.fullHtml)
+        repo.loadFullArticle(id).getOrThrow()
+        assertEquals(2, source.articleCalls)
     }
 
     @Test fun explicitRefreshReplacesIncompleteCacheAndFailurePreservesFullArticle() = kotlinx.coroutines.runBlocking {

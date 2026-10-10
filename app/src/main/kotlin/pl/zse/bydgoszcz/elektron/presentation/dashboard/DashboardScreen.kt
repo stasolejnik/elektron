@@ -4,10 +4,7 @@ import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
 import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
 import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,13 +24,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.FreeBreakfast
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import pl.zse.bydgoszcz.elektron.presentation.common.rememberNow
 import pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
@@ -65,7 +65,6 @@ import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
-import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import pl.zse.bydgoszcz.elektron.presentation.common.SectionTitle
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -74,10 +73,13 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun DashboardScreen(
     /** Dotknięcie karty najbliższej lekcji - przejście do planu (na dzień startowy). */
-    onOpenTimetable: () -> Unit = {},
+    /** Dzień pokazanej lekcji (null - brak lekcji, zwykłe otwarcie planu). */
+    onOpenTimetable: (java.time.LocalDate?) -> Unit = {},
     /** Dotknięcie zastępstwa - przejście do zakładki Zastępstwa. */
     onOpenSubstitutions: () -> Unit = {},
     onOpenTransit: () -> Unit = {},
+    /** Dotknięcie ogłoszenia - podgląd w aplikacji (zakładka Ogłoszenia: ulubione, treść offline). */
+    onOpenAnnouncement: (String) -> Unit = {},
     transitViewModel: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel = hiltViewModel(),
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -88,8 +90,7 @@ fun DashboardScreen(
     }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val ctx = LocalContext.current
-    val openUrl = { url: String -> SafeUrls.open(ctx, url); Unit }
+    val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -125,14 +126,16 @@ fun DashboardScreen(
                         item(key = "stale") { StaleNote(since) }
                     }
                     state.lastSyncError?.let { err ->
-                        item(key = "error") { ErrorBanner(err) { viewModel.refresh() } }
+                        item(key = "error") {
+                            if (pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException.isWarning(err)) WarningNote(err)
+                            else ErrorBanner(err, syncing = state.isSyncing) { viewModel.refresh() }
+                        }
                     }
 
-                    item(key = "syncing") {
-                        AnimatedVisibility(
-                            visible = state.isSyncing && !state.isRefreshing && state.lastSyncError == null,
-                            enter = fadeIn(), exit = fadeOut()
-                        ) { SyncingIndicator() }
+                    // Tylko gdy widoczny: pusty element listy dokładał odstęp (spacedBy) - zbędna przerwa
+                    // nad "Następną lekcją".
+                    if (state.isSyncing && !state.isRefreshing && state.lastSyncError == null) {
+                        item(key = "syncing") { SyncingIndicator(Modifier.animateItem()) }
                     }
 
                     if (state.showNextLesson) {
@@ -151,12 +154,15 @@ fun DashboardScreen(
                         item(key = "h_next") { SectionTitle(title, icon) }
                         item(key = "next") {
                             if (state.loadingTimetable) DelayedLoading { LoadingCard("Ładowanie planu lekcji…") }
-                            else NextLessonCard(state, onOpenTimetable)
+                            else NextLessonCard(state) { onOpenTimetable(state.nextLesson?.date) }
                         }
                     }
 
-                    item(key = "departure") {
-                        DashboardDeparture(transitViewModel, state.showDeparture, onOpenTransit)
+                    // Jak wyżej: karta Odjazdów tylko wtedy, gdy ma się pojawić (inaczej pusty odstęp).
+                    if (state.showDeparture && transitSettings.ready && !transitSettings.failed && transitSettings.preferences.showOnDashboard) {
+                        item(key = "departure") {
+                            DashboardDeparture(transitViewModel, eligible = true, onOpenTransit)
+                        }
                     }
                     if (state.showSubstitutions) {
                         item(key = "h_subs") {
@@ -178,7 +184,7 @@ fun DashboardScreen(
                     if (state.latestAnnouncements.isNotEmpty()) {
                         item(key = "h_anns") { SectionTitle("Najnowsze ogłoszenia", Icons.Filled.Campaign) }
                         items(state.latestAnnouncements, key = { "ann_${it.id}" }) { ann ->
-                            AnnouncementRow(ann, Modifier.animateItem()) { openUrl(ann.url) }
+                            AnnouncementRow(ann, Modifier.animateItem()) { onOpenAnnouncement(ann.id) }
                         }
                     } else if (state.loadingAnns) {
                         item(key = "h_anns") { SectionTitle("Najnowsze ogłoszenia", Icons.Filled.Campaign) }
@@ -229,9 +235,9 @@ private fun StaleNote(since: java.time.Instant) {
 }
 
 @Composable
-private fun SyncingIndicator() {
+private fun SyncingIndicator(modifier: Modifier = Modifier) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
@@ -267,13 +273,31 @@ private fun EmptyCard(text: String) {
 }
 
 @Composable
-private fun ErrorBanner(text: String, onRetry: () -> Unit) {
+private fun ErrorBanner(text: String, syncing: Boolean, onRetry: () -> Unit) {
+    val onError = MaterialTheme.colorScheme.onErrorContainer
     ElektronCard(containerColor = MaterialTheme.colorScheme.errorContainer) {
-        Column(Modifier.padding(16.dp)) {
-            Text(text, style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onErrorContainer)
-            Spacer(Modifier.height(10.dp))
-            FilledTonalButton(onClick = onRetry) { Text("Spróbuj ponownie") }
+        Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = onError)
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = onError)
+        }
+        // W trakcie synchronizacji (np. pierwszej po aktualizacji) karta zostaje na miejscu,
+        // ale widać, że sprawdzanie trwa - bez wciskania "Spróbuj ponownie" w ciemno.
+        // Przycisk w kolorach karty: tonalny przycisk w akcencie (np. zielonym) gryzł się z czerwienią.
+        TextButton(onClick = onRetry, enabled = !syncing,
+            colors = ButtonDefaults.textButtonColors(contentColor = onError, disabledContentColor = onError.copy(alpha = 0.6f)),
+            modifier = Modifier.padding(start = 44.dp, bottom = 4.dp)) {
+            Text(if (syncing) "Sprawdzam…" else "Spróbuj ponownie", fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/** Ostrzeżenie o niepełnych danych szkoły - informacja, nie błąd (ponowienie nic nie zmieni). */
+@Composable
+private fun WarningNote(text: String) {
+    ElektronCard {
+        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -354,10 +378,6 @@ private fun NextLessonCard(state: DashboardViewModel.State, onClick: () -> Unit)
                             style = MaterialTheme.typography.labelLarge, color = onContainer)
                     }
                 }
-                sub?.notes?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = onContainer)
-                }
             }
         }
     }
@@ -398,7 +418,8 @@ private fun SubstitutionRow(
                     Text(it, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text("Za: ${s.originalTeacher}", style = MaterialTheme.typography.bodySmall,
+                val subject = LocalPersonalization.current.subjectName(s.originalSubject)
+                Text("Za: " + listOfNotNull(subject, s.originalTeacher).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SubstitutionDisplay.notes(s)?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,
@@ -426,7 +447,7 @@ private fun AnnouncementRow(a: Announcement, modifier: Modifier = Modifier, onCl
     val fmt = DateTimeFormatter.ofPattern("d.MM.yyyy")
     val date = a.publishedAt.atZone(ZoneId.systemDefault()).toLocalDate().format(fmt)
     ElektronCard(modifier = modifier, onClick = onClick) {
-        a.coverImageUrl?.let { url ->
+        pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls.schoolImage(a.coverImageUrl)?.let { url ->
             // Pełna szerokość, proporcje 16:9, przycięcie — dawniej ContentScale.Fit
             // zostawiał puste pasy po bokach obrazka.
             // Łagodne pojawienie się obrazka + tło zamiast pustego miejsca podczas wczytywania.

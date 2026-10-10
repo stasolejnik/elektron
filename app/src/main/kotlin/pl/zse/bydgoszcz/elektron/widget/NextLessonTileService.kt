@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import android.annotation.SuppressLint
@@ -17,7 +19,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import pl.zse.bydgoszcz.elektron.MainActivity
+import pl.zse.bydgoszcz.elektron.ElektronActivity
 import pl.zse.bydgoszcz.elektron.work.LocalNotificationSink
 import java.time.Duration
 import java.time.LocalTime
@@ -58,7 +60,7 @@ class NextLessonTileService : TileService() {
         when (state) {
             is WidgetState.Ready -> {
                 val lesson = state.focus
-                val now = LocalTime.now()
+                val now = AppClock.time()
                 tile.label = "${lesson.number}. ${lesson.title}"
                 val sub = when {
                     state.focusIsNow ->
@@ -98,7 +100,7 @@ class NextLessonTileService : TileService() {
     @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
-        val intent = Intent(this, MainActivity::class.java).apply {
+        val intent = Intent(this, ElektronActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(LocalNotificationSink.EXTRA_DEEP_LINK, "timetable")
         }

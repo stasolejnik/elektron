@@ -73,8 +73,10 @@ class AnnouncementsViewModel @Inject constructor(
     fun consumeMessage(expected: String) { if (message.value == expected) message.value = null }
     fun setFavoritesOnly(value: Boolean) {
         if (favoritesOnly.value == value) return
-        favoritesOnly.value = value
+        // Najpierw liczba pozycji, potem filtr: stan liczony w tle mógł połączyć nowy filtr ze starą
+        // liczbą (np. 20 po "Pokaż więcej" w ulubionych) i na chwilę pokazać za długą listę.
         visibleCount.value = PAGE_SIZE
+        favoritesOnly.value = value
     }
     val clearingFavorites = MutableStateFlow(false)
     fun clearFavorites() {
@@ -175,6 +177,8 @@ class AnnouncementsViewModel @Inject constructor(
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
+    /** Bieżący tekst wyszukiwania (bez czekania na przefiltrowaną listę). */
+    val queryText: String get() = query.value
     fun setQuery(q: String) { query.value = q }
 
     fun loadMore() {

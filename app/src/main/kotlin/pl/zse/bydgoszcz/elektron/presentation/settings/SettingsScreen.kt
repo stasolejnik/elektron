@@ -15,7 +15,6 @@ import pl.zse.bydgoszcz.elektron.crash.ReportDialog
 import pl.zse.bydgoszcz.elektron.presentation.common.revealWhen
 import androidx.compose.foundation.layout.Box
 import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
-import pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork
 import pl.zse.bydgoszcz.elektron.crash.CrashReport
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
@@ -31,6 +30,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -81,6 +81,13 @@ import pl.zse.bydgoszcz.elektron.presentation.common.GroupedSection
 import pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar
 import pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls
 import pl.zse.bydgoszcz.elektron.presentation.common.pressable
+import pl.zse.bydgoszcz.elektron.domain.model.UpdateChannel
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SystemUpdate
 
 private const val REPO_URL = "https://github.com/stasolejnik/elektron"
 private const val PRIVACY_URL = "https://github.com/stasolejnik/elektron/blob/main/PRYWATNOSC.md"
@@ -105,7 +112,7 @@ fun SettingsScreen(
     val devMode by viewModel.devMode.collectAsStateWithLifecycle()
     val notesViewModel: pl.zse.bydgoszcz.elektron.presentation.timetable.LessonNotesViewModel = hiltViewModel()
     val notesState by notesViewModel.state.collectAsStateWithLifecycle()
-    var showNotes by remember { mutableStateOf(false) }
+    var showNotes by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     if (showNotes) pl.zse.bydgoszcz.elektron.presentation.timetable.LessonNotesLibrary(
         notesState.notes.filter { it.classId == state.selectedClassId }, notesViewModel) { showNotes = false }
     val noteError by notesViewModel.settingsError.collectAsStateWithLifecycle()
@@ -167,15 +174,52 @@ fun SettingsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { LargeTitleBar(title = "Ustawienia", scrollBehavior = scrollBehavior) }
     ) { padding ->
+        // Kolejność: kim jesteś (klasa), co i kiedy dostajesz (powiadomienia, przypomnienia),
+        // co widzisz (strona główna, Odjazdy, wygląd, plan, pasek, widżety), a na końcu sprawy
+        // techniczne (praca w tle, aktualizacje, dane, informacje).
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).revealWhen(state.ready),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
-            item {
-                GroupedSection("Wygląd") {
+            item(key = "class") { ClassCard(state.classes, state.selectedClassId, onSelect = viewModel::setClass, onOpenGroups = onOpenGroups) }
+
+            item(key = "notifications") {
+                NotificationsSection(state.notifSubs, state.notifAnn, state.quiet,
+                    onSubs = viewModel::setNotifSubs, onAnnouncements = viewModel::setNotifAnn, onQuiet = viewModel::setQuietHours)
+            }
+
+            item(key = "reminders") {
+                val reminderStatus by viewModel.reminderStatus.collectAsStateWithLifecycle()
+                RemindersSection(state.reminder, reminderStatus, viewModel::refreshReminderStatus) { viewModel.setReminder(it) }
+            }
+
+            item(key = "notes") {
+                NoteRemindersSection(notesState.enabled, notesState.ready && !notesState.error, notesState.timing, notesViewModel::setReminderTiming, notesViewModel::refreshReminders, notesViewModel::setReminders) { showNotes = true }
+            }
+
+            item(key = "home") {
+                HomeSection(state.startScreen, transitTab = transitSettings.preferences.visible, onChange = viewModel::setStartScreen) {
+                    SwitchRow("Następna lekcja", state.showNextLesson) { viewModel.setShowNextLesson(it) }
+                    RowDivider()
+                    SwitchRow("Zastępstwa", state.showSubstitutions) { viewModel.setShowSubstitutions(it) }
+                    RowDivider()
+                    SwitchRow("Najnowsze ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
+                }
+            }
+
+            item(key = "transit") {
+                TransitSection(transitSettings, transitSaving, transitError,
+                    onTab = { transitViewModel.setTabVisible("transit", it) },
+                    onCard = transitViewModel::setShowOnDashboard,
+                    onTransfers = transitViewModel::setAllowTransfers,
+                    onPick = { origin -> transitViewModel.query.value = ""; transitPicker = if (origin) 2 else 1 })
+            }
+
+            item(key = "look") {
+                GroupedSection("Wygląd", icon = Icons.Outlined.Palette) {
                     SingleChoiceSegmentedButtonRow(
-                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         val options = listOf(ThemeMode.SYSTEM to "Auto", ThemeMode.LIGHT to "Jasny", ThemeMode.DARK to "Ciemny")
                         options.forEachIndexed { i, (mode, label) ->
@@ -197,14 +241,16 @@ fun SettingsScreen(
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         RowDivider()
-                        SwitchRow("Kolory z tapety", state.dynamicColor) { viewModel.setDynamicColor(it) }
+                        SwitchRow("Kolory z tapety", state.dynamicColor, supporting = "Material You zamiast koloru akcentu") { viewModel.setDynamicColor(it) }
                     }
+                    RowDivider()
+                    AppIconRow()
                 }
             }
 
-            item {
+            item(key = "plan") {
                 val look = state.look
-                GroupedSection("Wygląd planu") {
+                GroupedSection("Plan lekcji", icon = Icons.Outlined.CalendarMonth) {
                     ActionRow("Nazwy i kolory przedmiotów", trailingChevron = true, onClick = onOpenSubjects)
                     RowDivider()
                     SwitchRow("Pokazuj salę", look.showRoom) { viewModel.setTimetableLook(look.copy(showRoom = it)) }
@@ -213,111 +259,50 @@ fun SettingsScreen(
                 }
             }
 
-            item {
-                GroupedSection("Strona główna") {
-                    SwitchRow("Następna lekcja", state.showNextLesson) { viewModel.setShowNextLesson(it) }
-                    RowDivider()
-                    SwitchRow("Zastępstwa", state.showSubstitutions) { viewModel.setShowSubstitutions(it) }
-                    RowDivider()
-                    SwitchRow("Ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
-                    RowDivider()
-                    val transitReady = transitSettings.ready && !transitSettings.failed && !transitSaving
-                    SwitchRow("Odjazdy na stronie głównej", transitSettings.preferences.showOnDashboard, enabled = transitReady) { transitViewModel.setShowOnDashboard(it) }
-                    if (transitSettings.preferences.showOnDashboard) {
+            item(key = "bar") { pl.zse.bydgoszcz.elektron.presentation.transit.TransitVisibilitySection(transitViewModel) }
+
+            item(key = "widgets") { WidgetsSection(state.widgetLook) { viewModel.setWidgetLook(it) } }
+
+            item(key = "background") { BackgroundSection() }
+
+            // Aktualizacje (GitHub Releases); nie w wersji F-Droid.
+            if (BuildConfig.UPDATE_CHECK) {
+                item(key = "updates") {
+                    var choosingChannel by remember { mutableStateOf(false) }
+                    GroupedSection("Aktualizacje", icon = Icons.Outlined.SystemUpdate,
+                        footer = if (state.updateChannel == UpdateChannel.BETA)
+                            "Wersje beta są testowe i mogą zawierać błędy. Gdy ukaże się wersja stabilna, też ją dostaniesz."
+                        else null) {
+                        ValueRow("Kanał", state.updateChannel.label) { choosingChannel = true }
                         RowDivider()
-                        ActionRow("Cel: ${transitSettings.preferences.destination?.name ?: "Wybierz przystanek"}", trailingChevron = true) {
-                            if (transitReady) { transitViewModel.query.value = ""; transitPicker = 1 }
+                        ActionRow("Sprawdź aktualizacje", enabled = updateStatus != SettingsViewModel.UpdateStatus.Checking) { viewModel.checkForUpdates() }
+                        when (val st = updateStatus) {
+                            SettingsViewModel.UpdateStatus.Idle -> Unit
+                            SettingsViewModel.UpdateStatus.Checking -> UpdateNote("Sprawdzam…")
+                            SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
+                            SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
+                            is SettingsViewModel.UpdateStatus.Available -> {
+                                UpdateNote("Dostępna wersja ${st.update.versionName}.")
+                                Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                                    UpdateActions(st.update, onLater = null)
+                                }
+                            }
                         }
-                        RowDivider()
-                        ActionRow("Przystanek początkowy: ${transitSettings.preferences.preferredOrigin?.name ?: "Najbliższy odpowiedni"}", trailingChevron = true) {
-                            if (transitReady) { transitViewModel.query.value = ""; transitPicker = 2 }
-                        }
-                        RowDivider()
-                        SwitchRow("Połączenia z przesiadką", transitSettings.preferences.allowTransfers, enabled = transitReady) { transitViewModel.setAllowTransfers(it) }
                     }
-                    if (transitSettings.failed) Text("Nie udało się odczytać ustawień Odjazdów.", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
-                    transitError?.let { Text(it, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
-                }
-            }
-
-            item { pl.zse.bydgoszcz.elektron.presentation.transit.TransitVisibilitySection(transitViewModel) }
-
-            item { WidgetsSection(state.widgetLook) { viewModel.setWidgetLook(it) } }
-
-            item { StartScreenSection(state.startScreen) { viewModel.setStartScreen(it) } }
-
-            item {
-                GroupedSection("Powiadomienia") {
-                    SystemNotificationStatus()
-                    SwitchRow("Nowe zastępstwa", state.notifSubs) { viewModel.setNotifSubs(it) }
-                    RowDivider()
-                    SwitchRow("Nowe ogłoszenia", state.notifAnn) { viewModel.setNotifAnn(it) }
-                }
-            }
-
-            item {
-                val reminderStatus by viewModel.reminderStatus.collectAsStateWithLifecycle()
-                RemindersSection(state.reminder, reminderStatus, viewModel::refreshReminderStatus) { viewModel.setReminder(it) }
-            }
-
-            item {
-                NoteRemindersSection(notesState.enabled, notesState.ready && !notesState.error, notesState.timing, notesViewModel::setReminderTiming, notesViewModel::refreshReminders, notesViewModel::setReminders) { showNotes = true }
-            }
-
-            item { QuietHoursSection(state.quiet) { viewModel.setQuietHours(it) } }
-
-            item {
-                // Stan sprawdzany przy każdym powrocie na ekran - użytkownik zmienia go
-                // w ustawieniach systemu i wraca tutaj.
-                var unrestricted by remember { mutableStateOf(BackgroundWork.isUnrestricted(ctx)) }
-                val lifecycleOwner = LocalLifecycleOwner.current
-                DisposableEffect(lifecycleOwner) {
-                    val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) unrestricted = BackgroundWork.isUnrestricted(ctx)
-                    }
-                    lifecycleOwner.lifecycle.addObserver(observer)
-                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-                }
-                GroupedSection(
-                    "Działanie w tle",
-                    footer = if (unrestricted)
-                        "Widżety i powiadomienia działają bez ograniczeń."
-                    else
-                        "Telefon może usypiać aplikację w tle - widżety przestają się wtedy odświeżać, " +
-                            "a powiadomienia przychodzą z opóźnieniem. Ustaw eLektron na „Bez ograniczeń”."
-                ) {
-                    if (unrestricted) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Optymalizacja baterii", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                            Text("Wyłączona", style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    } else {
-                        ActionRow("Wyłącz optymalizację baterii", trailingChevron = true) {
-                            BackgroundWork.openSettings(ctx)
-                        }
-                        RowDivider()
-                        ActionRow("Poradnik dla Twojego telefonu", trailingIcon = true) {
-                            SafeUrls.open(ctx, BackgroundWork.GUIDE_URL)
-                        }
+                    if (choosingChannel) {
+                        ChoiceDialog("Kanał aktualizacji",
+                            listOf(UpdateChannel.STABLE to "Stabilne (zalecane)", UpdateChannel.BETA to "Beta - wersje testowe i stabilne"),
+                            state.updateChannel,
+                            onSelect = { viewModel.setUpdateChannel(it); choosingChannel = false },
+                            onDismiss = { choosingChannel = false })
                     }
                 }
             }
 
-            item { ClassSection(state.classes, state.selectedClassId) { viewModel.setClass(it) } }
-
-            item {
-                GroupedSection("Grupy zajęciowe", footer = "Wybierz swoje grupy (np. językowe, zajęcia praktyczne) - w planie i na stronie głównej zobaczysz tylko swoje lekcje.") {
-                    ActionRow("Wybierz swoje grupy", trailingChevron = true, onClick = onOpenGroups)
-                }
-            }
-
-            item {
+            item(key = "data") {
                 var confirmReset by remember { mutableStateOf(false) }
-                GroupedSection("Dane", footer = "Pobiera plan, zastępstwa i ogłoszenia od nowa. Klasa, grupy i ustawienia zostają.") {
+                GroupedSection("Dane", icon = Icons.Outlined.Storage,
+                    footer = "Pobiera plan, zastępstwa i ogłoszenia od nowa. Klasa, grupy, notatki i ustawienia zostają.") {
                     ActionRow("Wyczyść dane podręczne", destructive = true) { confirmReset = true }
                 }
                 if (confirmReset) {
@@ -335,31 +320,10 @@ fun SettingsScreen(
                 }
             }
 
-            // Aktualizacje (GitHub Releases) - osobna sekcja tuż nad "O aplikacji"; nie w wersji F-Droid.
-            if (BuildConfig.UPDATE_CHECK) {
-                item {
-                    GroupedSection("Aktualizacje") {
-                        ActionRow("Sprawdź aktualizacje") { viewModel.checkForUpdates() }
-                        when (val st = updateStatus) {
-                            SettingsViewModel.UpdateStatus.Idle -> Unit
-                            SettingsViewModel.UpdateStatus.Checking -> UpdateNote("Sprawdzam…")
-                            SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
-                            SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
-                            is SettingsViewModel.UpdateStatus.Available -> {
-                                UpdateNote("Dostępna wersja ${st.update.versionName}.")
-                                Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
-                                    UpdateActions(st.update, onLater = null)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                GroupedSection("O aplikacji") {
+            item(key = "about") {
+                GroupedSection("O aplikacji", icon = Icons.Outlined.Info) {
                     Column(
-                        Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
+                        Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Image(
@@ -372,26 +336,26 @@ fun SettingsScreen(
                                     onClick = onLogoTap
                                 )
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
                         Text("eLektron", style = MaterialTheme.typography.titleLarge)
                         Text("Wersja ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text(aboutText(linkColor),
-                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center)
                     RowDivider()
-                    ActionRow("Kod źródłowy na GitHubie", trailingIcon = true) {
-                        SafeUrls.open(ctx, REPO_URL)
+                    // Raport z logami: kopiowanie, e-mail do dewelopera albo zgłoszenie na GitHubie.
+                    ActionRow("Zgłoś problem", trailingChevron = true) { viewModel.openFeedback() }
+                    RowDivider()
+                    ActionRow("Napisz do autora", supporting = CrashReport.CONTACT_EMAIL, trailingIcon = true) {
+                        if (!openContactEmail(ctx)) SafeUrls.open(ctx, REPO_URL)
                     }
                     RowDivider()
-                    // Raport z logami: kopiowanie, e-mail do dewelopera albo zgłoszenie na GitHubie.
-                    ActionRow("Zgłoś problem") { viewModel.openFeedback() }
-                    RowDivider()
-                    ActionRow(CrashReport.CONTACT_EMAIL, trailingIcon = true) {
-                        if (!openContactEmail(ctx)) SafeUrls.open(ctx, REPO_URL)
+                    ActionRow("Kod źródłowy na GitHubie", trailingIcon = true) {
+                        SafeUrls.open(ctx, REPO_URL)
                     }
                     RowDivider()
                     ActionRow("Polityka prywatności", trailingIcon = true) {
@@ -401,24 +365,36 @@ fun SettingsScreen(
             }
 
             if (devMode) {
-                item {
+                item(key = "dev") {
+                    val devDialog by viewModel.devDialog.collectAsStateWithLifecycle()
+                    DevSimulationDialogs(devDialog,
+                        onSubstitution = viewModel::devSimulateSubstitution,
+                        onAnnouncement = viewModel::devSimulateAnnouncement,
+                        onCustomSubstitution = { viewModel.devDialog.value = SettingsViewModel.DevDialog.CustomSubstitution },
+                        onCustomAnnouncement = { viewModel.devDialog.value = SettingsViewModel.DevDialog.CustomAnnouncement },
+                        onDismiss = { viewModel.devDialog.value = null })
+                    val offset by viewModel.simulatedOffset.collectAsStateWithLifecycle()
                     GroupedSection(
                         "Tryb dewelopera",
-                        footer = "Symulacje są widoczne tylko na tym telefonie: zastępstwo trafia na najbliższą lekcję " +
-                            "(plan, zastępstwa, strona główna, widżety) i wysyła powiadomienie. Znikają po " +
-                            "„Usuń symulacje” albo przy synchronizacji tego dnia ze stroną szkoły."
+                        icon = Icons.Outlined.Code,
+                        footer = "Symulacje są widoczne tylko na tym telefonie. Zastępstwo (własne albo wzorowane na zapisanym, " +
+                            "także minionym) trafia na najbliższą lekcję - do planu, zastępstw, strony głównej i widżetów - " +
+                            "i wysyła powiadomienie; tak samo ogłoszenie. Znikają po „Usuń symulacje” albo przy synchronizacji. " +
+                            "Symulowany czas dalej płynie; synchronizacja, przypomnienia i powiadomienia zostają w prawdziwym czasie."
                     ) {
-                        ActionRow("Symuluj zastępstwo") { viewModel.devSimulateSubstitution(freed = false) }
+                        DevTimeRows(offset, onSimulate = viewModel::simulateTime, onReset = viewModel::resetSimulatedTime)
                         RowDivider()
-                        ActionRow("Symuluj odwołanie lekcji") { viewModel.devSimulateSubstitution(freed = true) }
+                        ActionRow("Symuluj zastępstwo…", trailingChevron = true) { viewModel.devOpenSubstitution() }
                         RowDivider()
-                        ActionRow("Symuluj ogłoszenie") { viewModel.devSimulateAnnouncement() }
+                        ActionRow("Symuluj ogłoszenie…", trailingChevron = true) { viewModel.devOpenAnnouncement() }
                         RowDivider()
                         ActionRow("Usuń symulacje") { viewModel.devClearSimulations() }
                         RowDivider()
+                        ActionRow("Odśwież widżety") { viewModel.devRefreshWidgets() }
+                        RowDivider()
                         ActionRow("Raport błędu (bez awarii)") { viewModel.openFeedback() }
                         RowDivider()
-                        ActionRow("Symuluj awarię aplikacji") { confirmCrash = true }
+                        ActionRow("Symuluj awarię aplikacji", destructive = true) { confirmCrash = true }
                         RowDivider()
                         ActionRow("Wyłącz tryb dewelopera") { viewModel.setDevMode(false) }
                     }
@@ -426,8 +402,8 @@ fun SettingsScreen(
             }
 
             // Licencja: plakietka GPLv3 (dotknięcie otwiera tekst licencji).
-            item {
-                Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
+            item(key = "license") {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Image(
                         painter = painterResource(R.drawable.gpl_v3),
                         contentDescription = "Licencja GNU GPL w wersji 3 lub nowszej - otwórz tekst licencji",
@@ -446,7 +422,7 @@ private fun aboutText(linkColor: Color): AnnotatedString =
         append(" autorstwa ")
         link("Kacpra Górki", "https://github.com/kacpergorka", linkColor)
         append(", przeznaczony na Androida. Projekt niezależny, niepowiązany z ZSE w Bydgoszczy ani z firmą VULCAN. ")
-        append("Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic).")
+        append("Kod aplikacji napisało bezduszne AI, głównie Claude (Anthropic) i ChatGPT (OpenAI).")
     }
 
 private fun AnnotatedString.Builder.link(text: String, url: String, color: Color) {
@@ -461,14 +437,30 @@ internal fun RowDivider() {
     HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
+/** Etykieta wiersza z opcjonalnym opisem pod spodem (zamiast długich stopek pod sekcją). */
 @Composable
-internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+private fun RowLabel(label: String, supporting: String?, color: Color, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = color)
+        supporting?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+}
+
+@Composable
+internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, supporting: String? = null, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().then(Modifier.toggleable(value = checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange)).padding(horizontal = 16.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().then(Modifier.toggleable(value = checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange))
+            // Obszar dotyku co najmniej 52 dp (dawniej ok. 44 dp: 32 dp przełącznika + marginesy).
+            .heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, modifier = Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge)
+        RowLabel(label, supporting,
+            if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            Modifier.weight(1f).padding(end = 12.dp))
         Switch(
             checked = checked, onCheckedChange = null, enabled = enabled,
             colors = SwitchDefaults.colors(
@@ -485,27 +477,40 @@ internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true,
     }
 }
 
+/**
+ * Wiersz-akcja. Przejście dalej (strzałka) ma zwykły kolor tekstu, czynność - kolor akcentu,
+ * nieodwracalna - czerwony; link do strony - ikona otwarcia na końcu.
+ */
 @Composable
 internal fun ActionRow(
     label: String,
     destructive: Boolean = false,
     trailingIcon: Boolean = false,
     trailingChevron: Boolean = false,
+    supporting: String? = null,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().pressable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().pressable(enabled = enabled, onClick = onClick)
+            .heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
-            color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+        val color = when {
+            !enabled -> colors.onSurfaceVariant
+            destructive -> colors.error
+            trailingChevron || trailingIcon -> colors.onSurface
+            else -> colors.primary
+        }
+        RowLabel(label, supporting, color, Modifier.weight(1f).padding(end = 8.dp))
         if (trailingIcon) {
             Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
         if (trailingChevron) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                tint = colors.onSurfaceVariant, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -514,11 +519,11 @@ internal fun ActionRow(
 private fun UpdateNote(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp))
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
 }
 
 @Composable
-private fun SystemNotificationStatus() {
+internal fun SystemNotificationStatus() {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     var allowed by remember { mutableStateOf(androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) }
@@ -531,11 +536,10 @@ private fun SystemNotificationStatus() {
     }
     if (!allowed) {
         Text("Android blokuje powiadomienia eLektrona. Zmiana opcji poniżej nie odblokuje ich w systemie.",
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
-        ActionRow("Otwórz ustawienia powiadomień", trailingIcon = true) {
-            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
-        }
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        // Z zapasowym ekranem aplikacji - bez awarii na systemach bez ustawień powiadomień.
+        ActionRow("Otwórz ustawienia powiadomień", trailingIcon = true) { openNotificationSettings(context) }
         RowDivider()
     }
 }

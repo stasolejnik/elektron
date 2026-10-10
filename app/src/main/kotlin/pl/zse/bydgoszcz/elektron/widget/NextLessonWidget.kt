@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
@@ -55,8 +57,8 @@ class NextLessonWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val load: suspend () -> Pair<WidgetState, WidgetPalette> = {
             val state = WidgetDataLoader.load(context)
-            if (state is WidgetState.Ready) {
-                WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(state.refreshAt)
+            widgetTickAt(state, AppClock.now())?.let {
+                WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(it)
             }
             state to WidgetDataLoader.palette(context)
         }
@@ -158,7 +160,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 12.sp), maxLines = noteLines)
             }
             // Czas: w trakcie lekcji pasek postępu + "Zostało X min", przed lekcją "Za X min".
-            val now = LocalTime.now()
+            val now = AppClock.time()
             if (showTimeStatus && state.focusIsNow) {
                 val total = Duration.between(lesson.timeFrom, lesson.timeTo).seconds.coerceAtLeast(1)
                 val done = Duration.between(lesson.timeFrom, now).seconds.coerceIn(0, total)

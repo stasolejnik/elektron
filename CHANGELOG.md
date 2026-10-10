@@ -4,6 +4,37 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.0] - 2026-10-10 (35)
+
+Pierwsza stabilna wersja eLektrona.
+
+- Zastępstwa zapisane dla całej klasy za lekcję, na którą nie chodzisz („Nie chodzę” w grupach), nie trafiają na stronę główną, do zakładki, widżetu ani powiadomień; są w „Pokaż zastępstwa innych grup”.
+- Powiadomienia o zastępstwach: dzień i lekcja w tytule, „Za: przedmiot · nauczyciel”, zwolnienie z lekcji opisane tekstem szkoły. Poprawione zastępstwo zastępuje poprzednie powiadomienie.
+- Widżet Zastępstwa pokazuje „Sprawdzono: …”, gdy dane nie są z dziś albo mają ponad 3 godziny; Plan dnia zawsze zaczyna od bieżącej lekcji.
+- Przedmiot przy zastępstwach w zakładce i na stronie głównej; ogłoszenia ze strony głównej otwierają się w aplikacji.
+- Potwierdzenie zmiany klasy, większe pola przełączników, własne nazwy przedmiotów w „Twoich grupach”, stopka z porą wyświetlania karty Odjazdów.
+- Szybsze Odjazdy: ostatni pełny wynik widać od razu po uruchomieniu aplikacji, pierwsze kursy przed odpowiedzią wszystkich stanowisk, a stanowiska bez kursów do celu dostają mniej zapytań. Pobrany rozkład używany do 10 minut.
+- Mniejsze zużycie baterii: widżet planu budzi telefon co 5 min tylko w trakcie lekcji, przerwy i 30 min przed lekcją; w nocy (23:00–5:00) zastępstwa i ogłoszenia sprawdzane w tle najwyżej co 2,5 h; zegar ekranów tyka raz na minutę.
+- Zastępstwa: wpis bez klasy (zajęcia łączone, np. „Wychowanie fizyczne - Zajęcia Świetlicowe”) jest przypisywany do klasy i grupy z planu tylko przy pewnym dopasowaniu nauczyciela i nie powoduje już stałego błędu; ucięta odpowiedź serwera nie zastępuje zapisanych zastępstw, a zastępowane są tylko dni pokazane na stronie.
+- Przypomnienia o notatkach przez alarm systemowy (punktualnie także w trybie uśpienia), WorkManager jako zapas.
+- Odjazdy: przystanki o tej samej nazwie w różnych miejscach osobno, zapisany przystanek po zmianie numeracji stanowisk aktualizowany, czas dojścia ponawiany po powrocie internetu.
+- Niższy pasek nawigacji; Android 8–11 - kolory widżetów od razu po zmianie trybu ciemnego.
+- Poprawki niezawodności: synchronizacja w tle bez zbędnych ponowień, ponawianie odczytu w widżetach, przypomnienia o notatkach po nieudanym wyświetleniu, bez powtórnego dźwięku powiadomień, poprawione wpisy zastępstw w dniach częściowo nieczytelnych, usuwanie nieistniejących klas i nauczycieli, odrzucanie uciętego planu, odczyt dat ogłoszeń w innych wariantach.
+- Wybór grupy, której nie ma już w nowym planie, nie ukrywa wszystkich lekcji przedmiotu; uszkodzone ustawienia Odjazdów nie blokują ich na stałe; raport awarii także przy starcie; usuwanie pobranego pliku aktualizacji.
+- Podpisy paska nawigacji w jednej linii; niepełne dane zastępstw jako łagodna informacja zamiast czerwonego błędu.
+- Poprawki interfejsu: karta „Następna lekcja” otwiera dzień tej lekcji, plan nie zostaje przezroczysty po szybkich skokach, wyszukiwanie ogłoszeń nie gubi znaków, okna i szczegóły lekcji przetrwają obrót ekranu.
+- Mniej zbędnych przeliczeń strony głównej; stabilniejsze testy.
+- Nowy widok ogłoszeń: cała treść w jednej przewijanej kolumnie, zdjęcia w miejscu z posta i przeglądarka zdjęć z przybliżaniem, bez pustych przerw; treść zapisana przez starsze wersje pobierana od nowa.
+- Nowy układ Ustawień: karta klasy na górze, powiadomienia z cichymi godzinami, Odjazdy w jednej sekcji, nagłówki z ikonami i krótkie opisy opcji; kanał aktualizacji „Stabilne” (domyślnie) albo „Beta”.
+- Tytuły w kartach i oknach w kolorze tekstu zamiast szarego; strona główna bez pustych przerw; czytelniejsza trwająca lekcja z zastępstwem w widoku Dzień; baner błędu w kolorach karty.
+- Ogłoszenia bez nawigacji „Poprzedni / Następny” i bez „Odśwież”; pamięć zdjęć do 50 MB. Zwarty ekran Odjazdów („Odjazd z” i „Dokąd” jak w planerach), Odjazdy jako ekran startowy, religia w szybkim wyborze grup, symulacja czasu w trybie dewelopera.
+- Wybór ikony aplikacji (Ustawienia → Wygląd): domyślna albo logo na białym tle (po zmianie aplikacja się zamyka). Skróty po przytrzymaniu ikony z ikoną aplikacji i krótkimi nazwami („Strona główna”, „Ogłoszenia”), skrót Odjazdy przy włączonej zakładce. Skróty przypięte na ekran główny w starszych wersjach trzeba przypiąć ponownie.
+- Poprawki po ostatnim przeglądzie: symulowany czas zawsze widoczny w panelu dewelopera (także po ponownym uruchomieniu), błąd przypisania zastępstw zajęć łączonych nie usuwa wcześniej zapisanych, błąd odczytu ustawień przy starcie nie zamyka aplikacji.
+- Widżety z przezroczystym tłem (ponad 40%) w motywie Auto dobierają kolor tekstu do jasności tapety - w trybie jasnym na ciemnej tapecie tekst był nieczytelny. Wybrany motyw jasny lub ciemny zawsze obowiązuje. Widżet Plan dnia przerysowuje wiersze lekcji po zmianie motywu (także trybu ciemnego systemu), przezroczystości czy dnia - wcześniej launcher zostawiał stare wiersze listy.
+- Po zewnętrznym przeglądzie kodu: nowy plan nie wypełnia dni przed „Obowiązuje od”, miniatury ogłoszeń tylko z serwerów szkoły, kanał Stabilne nie pokaże wydania Pre-release także po zmianie kanału bez internetu.
+
+Krótki opis do wydania na GitHubie: [release-notes/1.0.0.md](release-notes/1.0.0.md).
+
 ## [1.0.0-rc7] - 2026-10-07 (34)
 
 - Niezależna karta Odjazdów na stronie głównej i wybór przystanków w Ustawieniach; karta i zakładka domyślnie wyłączone.

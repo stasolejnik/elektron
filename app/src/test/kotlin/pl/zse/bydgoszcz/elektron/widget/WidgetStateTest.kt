@@ -52,6 +52,21 @@ class WidgetStateTest {
     }
 
     @Test
+    fun widgetWakesOnlyWhenTheDisplayChanges() {
+        // Przed pierwszą lekcją: następne odświeżenie dopiero na początku odliczania (30 min przed),
+        // potem co 5 min.
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(9, 20)), (at(friday, "09:00") as WidgetState.Ready).refreshAt)
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(9, 30)), (at(friday, "09:25") as WidgetState.Ready).refreshAt)
+        // Wieczorem (widżet pokazuje następny dzień) - jedno odświeżenie o północy, nie co 5 min.
+        assertEquals(LocalDateTime.of(friday.plusDays(1), LocalTime.of(0, 1)), (at(friday, "23:30") as WidgetState.Ready).refreshAt)
+        // Okienko (długa luka) przed lekcją - bez wybudzeń do początku odliczania.
+        val gap = WidgetDataLoader.buildState(listOf(lesson(friday, 1, "08:00", "08:45"), lesson(friday, 4, "10:45", "11:30")),
+            LocalDateTime.of(friday, LocalTime.of(9, 0))) as WidgetState.Ready
+        assertNull(gap.breakFrom)
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(10, 15)), gap.refreshAt)
+    }
+
+    @Test
     fun beforeFirstLessonIsNotBreak() {
         val st = at(friday, "09:00") as WidgetState.Ready
         assertEquals(3, st.focus.number)

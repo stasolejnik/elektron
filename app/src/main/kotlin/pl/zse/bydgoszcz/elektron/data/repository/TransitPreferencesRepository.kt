@@ -15,7 +15,15 @@ import pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.transitPreferences by preferencesDataStore(name = "school_departures")
+// Uszkodzony plik (np. przerwany zapis przy pełnej pamięci) - domyślne zamiast trwale wyłączonych
+// Odjazdów i ustawień paska nawigacji (ten sam plik), które naprawiało tylko czyszczenie danych.
+private val Context.transitPreferences by preferencesDataStore(
+    name = "school_departures",
+    corruptionHandler = androidx.datastore.core.handlers.ReplaceFileCorruptionHandler { e ->
+        android.util.Log.w("TransitPreferences", "Uszkodzony plik ustawień Odjazdów - przywracam domyślne", e)
+        emptyPreferences()
+    }
+)
 
 @Singleton
 class TransitPreferencesRepository internal constructor(private val store: DataStore<Preferences>) {
@@ -82,6 +90,27 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
             val merged = pl.zse.bydgoszcz.elektron.domain.model.NavigationOrder.reorderVisible(
                 prefs[orderKey]?.split(',').orEmpty(), visibleOrder)
             prefs[orderKey] = merged.joinToString(",")
+        }; Unit
+    }
+    /**
+     * Ten sam przystanek z odświeżonego katalogu (inne numery stanowisk) w miejsce zapisanego - celu
+     * lub przystanku początkowego - i w historii; kolejność historii bez zmian (to nie nowy wybór).
+     * [replacements]: klucz zapisanego przystanku -> nowy. Przystanek zmieniony w międzyczasie przez
+     * użytkownika (inny klucz) zostaje.
+     */
+    suspend fun refreshStops(replacements: Map<String, TransitDestination>) = withContext(Dispatchers.IO) {
+        if (replacements.isEmpty()) return@withContext
+        store.edit { prefs ->
+            fun replace(currentKey: Preferences.Key<String>, recentKey: Preferences.Key<String>) {
+                val old = decode(prefs[currentKey])
+                old?.let { replacements[it.key] }?.let { prefs[currentKey] = encode(it).toString() }
+                val history = history(prefs[recentKey], old)
+                if (history.any { it.key in replacements }) {
+                    prefs[recentKey] = encodeHistory(history.map { replacements[it.key] ?: it }.distinctBy { it.key })
+                }
+            }
+            replace(destinationKey, recentDestinationsKey)
+            replace(originKey, recentOriginsKey)
         }; Unit
     }
     suspend fun clearDestination() = withContext(Dispatchers.IO) {

@@ -98,7 +98,10 @@ object OptivumTimetableParser {
         }
         Log.i(TAG, "Sparsowano $classId: wierszy=$dataRows, komórek=${lessons.size}, ostrzeżeń=$warnings")
         // Tabela bez ani jednego wiersza z godzinami lekcji = inny układ niż znany.
-        return TimetableDto(classId, className, generatedAt, validFrom, lessons, layoutOk = dataRows > 0 && warnings == 0 && tables.size == 1)
+        // Stopka "wygenerowano" jest za tabelą: bez niej odpowiedź mogła zostać ucięta (zerwane
+        // połączenie bez Content-Length) - tabela bez ostatnich lekcji skasowałaby je z planu.
+        val footer = docText.contains("wygenerowano", ignoreCase = true)
+        return TimetableDto(classId, className, generatedAt, validFrom, lessons, layoutOk = dataRows > 0 && warnings == 0 && tables.size == 1 && footer)
     }
 
     private fun parseTime(raw: String): Pair<String, String> {

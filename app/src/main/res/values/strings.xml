@@ -1,9 +1,5 @@
 <resources>
     <string name="app_name">eLektron</string>
-    <string name="sc_subs_short">Zastępstwa</string>
-    <string name="sc_subs_long">Zastępstwa na dziś</string>
-    <string name="sc_ann_short">Ogłoszenia</string>
-    <string name="sc_ann_long">Najnowsze ogłoszenia</string>
     <string name="widget_next_lesson_name">Następna lekcja</string>
     <string name="widget_next_lesson_desc">Trwająca lub najbliższa lekcja, z uwzględnieniem Twoich grup i zastępstw.</string>
     <string name="widget_day_plan_name">Plan dnia</string>
@@ -11,8 +7,4 @@
     <string name="widget_substitutions_name">Zastępstwa</string>
     <string name="widget_substitutions_desc">Nadchodzące zastępstwa Twojej klasy i grup.</string>
     <string name="tile_next_lesson">Następna lekcja</string>
-    <string name="sc_dashboard_short">Strona główna</string>
-    <string name="sc_dashboard_long">Otwórz stronę główną</string>
-    <string name="sc_timetable_short">Plan lekcji</string>
-    <string name="sc_timetable_long">Otwórz plan lekcji</string>
 </resources>

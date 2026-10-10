@@ -21,6 +21,13 @@ data class SyncOutcome(
     fun userError(): String? = errorMessage(failures)
         ?: if (succeeded.isEmpty() && failures.isNotEmpty()) SyncErrors.userMessage(failures.values.first()) else null
 
+    /**
+     * Ponowienie pracy w tle tylko przy błędach. Przebieg bez żadnego źródła do sprawdzenia
+     * (w nocy wszystko świeże) to sukces - dawniej "nic nie pobrano" = Result.retry(),
+     * czyli kilka dodatkowych wybudzeń co cykl.
+     */
+    val shouldRetry: Boolean get() = !interrupted && succeeded.isEmpty() && failures.isNotEmpty()
+
     companion object {
         const val TIMETABLE = "timetable"
         const val SUBSTITUTIONS = "subs"
@@ -45,8 +52,12 @@ data class SyncOutcome(
                 failures.containsKey(SUBSTITUTIONS) -> "zastępstw"
                 else -> "planu lekcji"
             }
-            return if (important is SchoolPageChangedException) SchoolPageChangedException.USER_MESSAGE
-                else "Nie udało się odświeżyć $what. ${SyncErrors.userMessage(important)}"
+            return when {
+                important is SchoolPageChangedException -> SchoolPageChangedException.USER_MESSAGE
+                // Same niepełne zastępstwa: odświeżenie się udało - jedno zdanie zamiast "Nie udało się… Nie udało się…".
+                important is IncompleteSchoolDataException && TIMETABLE !in failures -> IncompleteSchoolDataException.USER_MESSAGE
+                else -> "Nie udało się odświeżyć $what. ${SyncErrors.userMessage(important)}"
+            }
         }
     }
 }

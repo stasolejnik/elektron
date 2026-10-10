@@ -333,7 +333,7 @@ class TransitViewModelTest {
             vm.startJourneySession(consumer, 3)
             repeat(5) { vm.refreshJourneys(3) }
             assertEquals(3, plans.get())
-            vm.journeys.value = vm.journeys.value!!.copy(fetchedAt = System.currentTimeMillis() - 61_000L)
+            vm.journeys.value = vm.journeys.value!!.copy(fetchedAt = System.currentTimeMillis() - pl.zse.bydgoszcz.elektron.data.repository.TransitJourneyRepository.Result.REUSE_MS - 1_000L)
             vm.refreshJourneys(3)
             vm.journeyLoading.first { !it }
             assertEquals(3, vm.journeys.value!!.journeys.size)

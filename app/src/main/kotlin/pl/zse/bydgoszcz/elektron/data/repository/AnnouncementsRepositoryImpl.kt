@@ -18,6 +18,7 @@ import pl.zse.bydgoszcz.elektron.data.local.AnnouncementDao
 import pl.zse.bydgoszcz.elektron.data.local.AnnouncementEntity
 import pl.zse.bydgoszcz.elektron.data.local.AppDatabase
 import pl.zse.bydgoszcz.elektron.data.mapper.AnnouncementMapper
+import pl.zse.bydgoszcz.elektron.data.mapper.ArticleContent
 import pl.zse.bydgoszcz.elektron.data.remote.sources.AnnouncementsSource
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
 import pl.zse.bydgoszcz.elektron.domain.model.AnnouncementSource
@@ -84,6 +85,9 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                 return@runCatchingCancellable
             }
             val freshEntities = all.mapNotNull(AnnouncementMapper::toEntity).associateBy { it.id }.values.toList()
+            // Kanał z wpisami, z których żadnego nie da się odczytać (np. zmieniony format daty),
+            // to błąd - dawniej "sukces" bez nowych ogłoszeń.
+            if (freshEntities.isEmpty()) throw IllegalStateException("Ogłoszenia: żaden wpis RSS nie dał się odczytać")
             // REPLACE nadpisywał pobraną treść artykułu (fullHtml) przy każdym syncu —
             // scalamy z tym, co już jest w Room, zanim wstawimy.
             db.withTransaction {
@@ -152,10 +156,23 @@ class AnnouncementsRepositoryImpl @Inject constructor(
             restoreFavorites()
             articleMutex.withLock {
                 val current = dao.getById(id) ?: throw java.io.IOException("Brak zapisanego ogłoszenia")
-                if (!force && !current.fullHtml.isNullOrBlank()) return@withLock
-                val html = source.fetchArticleHtml(current.url)
-                if (html.isNullOrBlank()) throw pl.zse.bydgoszcz.elektron.domain.model.ArticleContentException()
-                dao.updateArticle(id, html)
+                val saved = !current.fullHtml.isNullOrBlank()
+                // Treść zapisana starszą wersją aplikacji (np. ucięta) - pobieramy od nowa, ale bez
+                // internetu zostaje zapisana wersja i nie ma komunikatu o błędzie.
+                val outdated = saved && !ArticleContent.isCurrent(current.fullHtml)
+                if (!force && saved && !outdated) return@withLock
+                val html = try {
+                    source.fetchArticleHtml(current.url)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    if (outdated && !force) return@withLock else throw e
+                }
+                if (html.isNullOrBlank()) {
+                    if (outdated && !force) return@withLock
+                    throw pl.zse.bydgoszcz.elektron.domain.model.ArticleContentException()
+                }
+                dao.updateArticle(id, ArticleContent.mark(html))
                 if (dao.getById(id)?.isFavorite == true) persistFavorites()
             }
         }

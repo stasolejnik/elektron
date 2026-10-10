@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
@@ -211,7 +213,7 @@ private fun DayGridColumn(
                 ongoing = nowMinute != null && nowTime >= lesson.timeFrom && nowTime < lesson.timeTo,
                 modifier = Modifier.offset(y = from * PER_MINUTE).height(length * PER_MINUTE).fillMaxWidth(),
                 hasNote = notes.containsKey(LessonNote.key(lesson)),
-                onLongClick = if (LessonNote.canEdit(lesson, java.time.LocalDateTime.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
+                onLongClick = if (LessonNote.canEdit(lesson, AppClock.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                 onClick = { onLessonClick(lesson) }
             )
         }

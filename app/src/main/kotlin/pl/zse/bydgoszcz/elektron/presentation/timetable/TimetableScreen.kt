@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import android.content.Intent
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.EditNote
@@ -124,7 +126,15 @@ fun TimetableScreen(
     val dateFmt = DateTimeFormatter.ofPattern("dd.MM", plLocale)
     val scope = rememberCoroutineScope()
     // Szczegóły lekcji po dotknięciu (widok tygodnia i dnia).
-    var detailsLesson by remember { mutableStateOf<Lesson?>(null) }
+    // Wskazanie lekcji (klasa, dzień, id) zamiast obiektu - okno przetrwa obrót ekranu,
+    // a treść i tak czytamy z aktualnego planu.
+    var detailsRef by rememberSaveable { mutableStateOf<String?>(null) }
+    val detailsTarget = remember(detailsRef) {
+        detailsRef?.split('\n', limit = 3)?.takeIf { it.size == 3 }?.let { (classId, day, id) ->
+            day.toLongOrNull()?.let { Triple(classId, LocalDate.ofEpochDay(it), id) }
+        }
+    }
+    val showDetails: (Lesson?) -> Unit = { lesson -> detailsRef = lesson?.let { "${it.classId}\n${it.date.toEpochDay()}\n${it.id}" } }
     var visiblePlan by remember { mutableStateOf<VisiblePlan?>(null) }
     val shareContext = LocalContext.current
     val shareStyles = LocalPersonalization.current.styles
@@ -134,11 +144,11 @@ fun TimetableScreen(
     val noteIndex = remember(notesState.notes) { notesState.notes.associateBy { it.key } }
     val editingLesson by notesViewModel.editorLesson.collectAsStateWithLifecycle()
     LaunchedEffect(state.selectedClassId) {
-        if (detailsLesson?.classId != state.selectedClassId) detailsLesson = null
+        if (detailsTarget?.first != state.selectedClassId) showDetails(null)
     }
     val editNote: (Lesson) -> Unit = { lesson ->
-        if (notesState.ready && !notesState.error && (LessonNote.canEdit(lesson, LocalDateTime.now()) || noteIndex.containsKey(LessonNote.key(lesson)))) {
-            detailsLesson = null; notesViewModel.openEditor(lesson)
+        if (notesState.ready && !notesState.error && (LessonNote.canEdit(lesson, AppClock.now()) || noteIndex.containsKey(LessonNote.key(lesson)))) {
+            showDetails(null); notesViewModel.openEditor(lesson)
         }
     }
     val orphanedDraft by notesViewModel.orphanedDraft.collectAsStateWithLifecycle()
@@ -146,19 +156,19 @@ fun TimetableScreen(
     editingLesson?.let { lesson ->
         LessonNoteEditor(lesson, notesState, notesViewModel) { notesViewModel.closeEditor() }
     }
-    detailsLesson?.let { target ->
-        val detailWeek by remember(target.classId, target.date) { viewModel.week(target.date.with(java.time.DayOfWeek.MONDAY)) }
+    detailsTarget?.let { (targetClass, targetDate, targetId) ->
+        val detailWeek by remember(targetClass, targetDate) { viewModel.week(targetDate.with(java.time.DayOfWeek.MONDAY)) }
             .collectAsStateWithLifecycle(initialValue = null)
-        val lesson = detailWeek?.flatMap { it.lessons }?.firstOrNull { it.id == target.id }
+        val lesson = detailWeek?.flatMap { it.lessons }?.firstOrNull { it.id == targetId }
         if (lesson != null) LessonDetailsSheet(lesson,
             userNote = notesState.notes.firstOrNull { it.key == LessonNote.key(lesson) },
             onEditNote = if (notesState.ready && !notesState.error &&
-                (LessonNote.canEdit(lesson, LocalDateTime.now()) || noteIndex.containsKey(LessonNote.key(lesson)))) ({ editNote(lesson) }) else null
-        ) { detailsLesson = null }
+                (LessonNote.canEdit(lesson, AppClock.now()) || noteIndex.containsKey(LessonNote.key(lesson)))) ({ editNote(lesson) }) else null
+        ) { showDetails(null) }
         else if (detailWeek != null) androidx.compose.material3.AlertDialog(
-            onDismissRequest = { detailsLesson = null }, title = { Text("Lekcja nie jest już w Twoim planie") },
+            onDismissRequest = { showDetails(null) }, title = { Text("Lekcja nie jest już w Twoim planie") },
             text = { Text("Plan lub wybrane grupy się zmieniły. Zapisane notatki pozostają w bibliotece.") },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { detailsLesson = null }) { Text("OK") } }
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showDetails(null) }) { Text("OK") } }
         )
     }
     // Lekcja otwarta z zastępstwa (zakładka Zastępstwa, widżet) - żądanie jednorazowe.
@@ -166,7 +176,7 @@ fun TimetableScreen(
     LaunchedEffect(requestedLesson) {
         requestedLesson?.let {
             viewModel.consumeLessonDetails()
-            detailsLesson = it
+            showDetails(it)
         }
     }
 
@@ -206,7 +216,7 @@ fun TimetableScreen(
     }
     // Bieżąca data (zmienia się po północy). Aplikacja potrafi wisieć w pamięci całymi dniami,
     // a pager pamięta ostatnio oglądaną stronę — po zmianie daty wracamy do dziś.
-    val today by remember { currentDateFlow() }.collectAsStateWithLifecycle(initialValue = LocalDate.now())
+    val today by remember { currentDateFlow() }.collectAsStateWithLifecycle(initialValue = AppClock.today())
     val todayPage = when (mode) {
         TimetableViewModel.ViewMode.DAY -> TimetableViewModel.pageForDay(base, today)
         TimetableViewModel.ViewMode.WEEK -> TimetableViewModel.pageForWeek(base, today)
@@ -241,9 +251,15 @@ fun TimetableScreen(
         }
         if (target != pagerState.currentPage) {
             if (shown) {
-                fade.snapTo(0f)
-                pagerState.scrollToPage(target)
-                fade.animateTo(1f, tween(180))
+                // Kolejny skok (np. otwarcie lekcji z widżetu tuż po starcie) anuluje to przejście -
+                // bez przywrócenia plan zostawał przezroczysty, gdy nowy cel był już na ekranie.
+                try {
+                    fade.snapTo(0f)
+                    pagerState.scrollToPage(target)
+                    fade.animateTo(1f, tween(180))
+                } finally {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { fade.snapTo(1f) }
+                }
             } else {
                 pagerState.scrollToPage(target)
             }
@@ -383,7 +399,7 @@ fun TimetableScreen(
                             val current = page == pagerState.currentPage
                             val lessons = week?.firstOrNull { it.date == date }?.lessons.orEmpty()
                             SideEffect { if (current) visiblePlan = VisiblePlan(page, false, date, lessons) }
-                            DayPage(date, week, clock, loading, pastWeek, pageModifier, noteIndex, editNote) { detailsLesson = it }
+                            DayPage(date, week, clock, loading, pastWeek, pageModifier, noteIndex, editNote) { showDetails(it) }
                         }
                         TimetableViewModel.ViewMode.WEEK -> {
                             val monday = TimetableViewModel.mondayForPage(base, page)
@@ -393,7 +409,7 @@ fun TimetableScreen(
                             val current = page == pagerState.currentPage
                             val lessons = week.orEmpty().flatMap { it.lessons }
                             SideEffect { if (current) visiblePlan = VisiblePlan(page, true, monday, lessons) }
-                            WeekPage(week, loading, pastWeek, pageModifier, noteIndex, editNote, state.anchorDate, jump?.id) { detailsLesson = it }
+                            WeekPage(week, loading, pastWeek, pageModifier, noteIndex, editNote, state.anchorDate, jump?.id) { showDetails(it) }
                         }
                     }
                 }
@@ -427,7 +443,7 @@ private fun DayPage(
             val weekHasLessons = week?.any { it.lessons.isNotEmpty() } == true
             item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading(loading, pastWeek) }
         } else {
-            val isToday = date == LocalDate.now()
+            val isToday = date == AppClock.today()
             // Ta sama reguła co strona główna i widżety (LessonClock): "Za X min" tylko przy
             // następnej lekcji w przerwie albo w ostatnich 30 min przed nią. Dawniej każda
             // następna lekcja po wcześniejszej dostawała odliczanie - w trakcie lekcji 3. przy
@@ -441,7 +457,7 @@ private fun DayPage(
                     else -> null
                 }
                 LessonRow(lesson, badge, userNote = notes[LessonNote.key(lesson)],
-                    onLongClick = if (LessonNote.canEdit(lesson, LocalDateTime.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
+                    onLongClick = if (LessonNote.canEdit(lesson, AppClock.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                     onClick = { onLessonClick(lesson) })
             }
         }
@@ -548,16 +564,21 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
 
     // Trwająca lekcja (tylko dzisiejsze karty mają zegar): obramowanie, "zostało X min"
     // i pasek postępu - jak na stronie głównej i w widżecie.
-    val now = if (lesson.date == LocalDate.now()) rememberNow().value.toLocalTime() else null
+    val now = if (lesson.date == AppClock.today()) rememberNow().value.toLocalTime() else null
     val ongoing = now != null && now >= lesson.timeFrom && now < lesson.timeTo
     val accent = MaterialTheme.colorScheme.primary
+    // Wyróżnienia (obramowanie, pasek postępu, "zostało", plakietki, notatka) w kolorze karty:
+    // na pomarańczowej karcie zastępstwa akcent aplikacji (np. turkus) gryzł się z tłem.
+    val emphasis = if (sub != null) fg else accent
+    // Trwającą lekcję widać po obramowaniu, pasku i "zostało X min" - bez powtórzonego "Trwa teraz".
+    val shownBadge = badge?.takeUnless { ongoing }
 
     Card(modifier = modifier.fillMaxWidth().padding(vertical = 1.dp)
             .then(if (onClick != null) Modifier.clip(MaterialTheme.shapes.large).combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Dodaj lub edytuj notatkę") else Modifier)
             .semantics(mergeDescendants = true) {},
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = bg),
-        border = if (ongoing) BorderStroke(1.5.dp, if (sub != null) fg else accent) else null) {
+        border = if (ongoing) BorderStroke(2.dp, emphasis) else null) {
       Column {
         Row(
             Modifier
@@ -626,14 +647,14 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 }
                 userNote?.let {
                     Text("Notatka: ${it.text}", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        color = emphasis, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                badge?.let {
-                    Spacer(Modifier.padding(vertical = 2.dp))
+                shownBadge?.let {
                     Text(it,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary)
+                        color = emphasis,
+                        modifier = Modifier.padding(top = 2.dp))
                 }
             }
             // Szerokość według treści (min. 52 dp). Dawniej sztywne 52 dp: przy większej czcionce
@@ -649,19 +670,20 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                     color = timeColor)
                 if (ongoing) {
                     Text("zostało ${LessonClock.minutesCeil(now, lesson.timeTo)} min",
-                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, softWrap = false,
-                        color = if (sub != null) fg else accent)
+                        color = emphasis, modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }
         if (ongoing) {
             LinearProgressIndicator(
                 progress = { LessonClock.progress(lesson.timeFrom, lesson.timeTo, now) },
-                modifier = Modifier.fillMaxWidth().height(3.dp),
-                color = if (sub != null) fg else accent,
-                trackColor = Color.Transparent,
-                drawStopIndicator = {}
+                modifier = Modifier.fillMaxWidth().height(4.dp),
+                color = emphasis,
+                trackColor = emphasis.copy(alpha = 0.15f),
+                drawStopIndicator = {},
+                gapSize = 0.dp
             )
         }
       }

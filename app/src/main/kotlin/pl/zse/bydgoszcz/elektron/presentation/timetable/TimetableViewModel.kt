@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
 import pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest
@@ -64,7 +66,7 @@ class TimetableViewModel @Inject constructor(
     data class State(
         val selectedClassId: String? = null,
         val mode: ViewMode = ViewMode.DAY,
-        val anchorDate: LocalDate = LocalDate.now(),
+        val anchorDate: LocalDate = AppClock.today(),
         val isRefreshing: Boolean = false
     )
 
@@ -124,7 +126,7 @@ class TimetableViewModel @Inject constructor(
                 if (cid == null) return@onEach
                 // Miniony tydzień spoza bazy: strona szkoły ma tylko aktualny plan - nie pobieramy
                 // (dawniej bieżący szablon trafiał jako plan sprzed miesięcy). Ekran pokazuje komunikat.
-                if (isPastWeek(monday, LocalDate.now())) return@onEach
+                if (isPastWeek(monday, AppClock.today())) return@onEach
                 runCatchingCancellable {
                 if (!repo.hasLessons(cid, monday, monday.plusDays(4))) {
                     _syncingWeek.value = monday
@@ -215,7 +217,7 @@ class TimetableViewModel @Inject constructor(
         }
     }
 
-    private fun initialAnchor(): LocalDate = nextSchoolDay(LocalDate.now())
+    private fun initialAnchor(): LocalDate = nextSchoolDay(AppClock.today())
 
     /**
      * Dzień startowy planu (dziś; po lekcjach następny dzień) - liczony w ViewModelu, a nie na
@@ -266,6 +268,18 @@ class TimetableViewModel @Inject constructor(
     }
 
     private fun lessonDayPinned(): Boolean = System.nanoTime() < pinnedUntilNanos
+
+    /**
+     * Plan na dzień [date] bez okna szczegółów - karta "Następna lekcja" na stronie głównej.
+     * Dawniej sama zakładka otwierała dzień preferowany (dziś albo następny dzień roboczy),
+     * który nie musiał mieć pokazanej lekcji (np. dziś bez lekcji, karta "Jutro").
+     */
+    fun openDay(date: LocalDate) {
+        pinnedUntilNanos = System.nanoTime() + PIN_MS * 1_000_000
+        openLessonJob?.cancel()
+        anchor.value = date
+        _openingJump.value = OpeningJump(date, ++jumpSeq)
+    }
 
     /**
      * Plan na dzień [target] (w widoku tygodnia - jego tydzień) i okno szczegółów tej lekcji,
@@ -321,8 +335,8 @@ class TimetableViewModel @Inject constructor(
 
     /** Dzień otwierany domyślnie: dziś, a po ostatniej dzisiejszej lekcji (według grup) — następny. */
     suspend fun preferredDay(): LocalDate {
-        val today = LocalDate.now()
-        val now = LocalTime.now()
+        val today = AppClock.today()
+        val now = AppClock.time()
         val cid = settings.selectedClassId.first() ?: return nextSchoolDay(today)
         val lessons = runCatchingCancellable {
             LessonGroups.filter(repo.getLessonsOnce(cid, today, today), settings.groupSelections(cid).first())

@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.navigation
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.Animatable
 import pl.zse.bydgoszcz.elektron.presentation.timetable.TimetableViewModel
@@ -130,6 +132,7 @@ fun ElektronNavHost(
     // Dzień startowy planu: liczony przy wyjściu z zakładki planu (w tle - po powrocie plan
     // już stoi na właściwym dniu) i przy wejściu do niej (mógł minąć koniec lekcji).
     val timetableViewModel: TimetableViewModel = hiltViewModel()
+    val announcementsViewModel: pl.zse.bydgoszcz.elektron.presentation.announcements.AnnouncementsViewModel = hiltViewModel()
     LaunchedEffect(pagerState) {
         var last = previousDestinations.value.getOrNull(pagerState.settledPage)?.route
         snapshotFlow {
@@ -161,7 +164,7 @@ fun ElektronNavHost(
             if (route != null) {
                 showGroups = false
                 showSubjects = false
-                val lesson = LessonLinks.parseDeepLink(link, LocalDate.now())
+                val lesson = LessonLinks.parseDeepLink(link, AppClock.today())
                 if (lesson != null) openLesson(lesson) else goTo(route)
             }
             onDeepLinkConsumed()
@@ -217,9 +220,14 @@ fun ElektronNavHost(
                 ) {
                 when (currentDestinations.getOrNull(page)?.route) {
                     ElektronRoutes.DASHBOARD -> DashboardScreen(
-                        onOpenTimetable = { goTo(ElektronRoutes.TIMETABLE) },
+                        onOpenTimetable = { day -> day?.let(timetableViewModel::openDay); goTo(ElektronRoutes.TIMETABLE) },
                         onOpenSubstitutions = { goTo(ElektronRoutes.SUBSTITUTIONS) },
                         onOpenTransit = { goTo(ElektronRoutes.TRANSIT) },
+                        onOpenAnnouncement = { id ->
+                            // Ten sam ViewModel co w zakładce (zasięg Activity) - okno podglądu pokazuje Ogłoszenia.
+                            announcementsViewModel.openArticle(id)
+                            goTo(ElektronRoutes.ANNOUNCEMENTS)
+                        },
                         transitViewModel = transitViewModel
                     )
                     ElektronRoutes.TIMETABLE -> TimetableScreen(isShown = pagerState.settledPage == page)
@@ -271,7 +279,7 @@ fun ElektronNavHost(
  */
 private fun routeForDeepLink(link: String?): String? = when {
     LessonLinks.isLessonDeepLink(link) ->
-        if (LessonLinks.parseDeepLink(link, LocalDate.now()) != null) ElektronRoutes.TIMETABLE else null
+        if (LessonLinks.parseDeepLink(link, AppClock.today()) != null) ElektronRoutes.TIMETABLE else null
     else -> sectionRoute(link)
 }
 
@@ -280,6 +288,7 @@ private fun sectionRoute(link: String?): String? = when (link) {
     "timetable" -> ElektronRoutes.TIMETABLE
     "substitutions" -> ElektronRoutes.SUBSTITUTIONS
     "announcements" -> ElektronRoutes.ANNOUNCEMENTS
+    "transit" -> ElektronRoutes.TRANSIT
     "settings" -> ElektronRoutes.SETTINGS
     else -> null
 }

@@ -25,11 +25,11 @@ import androidx.glance.layout.padding
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
-import pl.zse.bydgoszcz.elektron.MainActivity
+import pl.zse.bydgoszcz.elektron.ElektronActivity
 import pl.zse.bydgoszcz.elektron.domain.model.LessonLinks
 import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 
-/** Klucz extra rozpoznawany przez MainActivity.resolveDeepLink (ten sam co w skrótach). */
+/** Klucz extra rozpoznawany przez ElektronActivity.resolveDeepLink (ten sam co w skrótach). */
 private val ShortcutKey = ActionParameters.Key<String>("elektron_shortcut")
 
 /**
@@ -51,7 +51,7 @@ fun WidgetContainer(
         .background(WidgetColors.background)
         .cornerRadius(22.dp)
         .padding(14.dp)
-        .clickable(action ?: actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to target)))
+        .clickable(action ?: actionStartActivity<ElektronActivity>(actionParametersOf(ShortcutKey to target)))
     if (description != null) modifier = modifier.semantics { contentDescription = description }
     Box(modifier = modifier, content = content)
 }
@@ -69,13 +69,13 @@ fun WidgetMessage(text: String) {
 /**
  * Wiersz widżetu Zastępstwa: plan na dzień zastępstwa i szczegóły tej lekcji.
  * Cel dwoma kanałami w samej intencji: extra [LessonLinks.EXTRA_LESSON] i data URI
- * ([LessonLinks.uri]) - MainActivity przyjmuje oba (LessonLinks.resolveIntent). Data URI jest
+ * ([LessonLinks.uri]) - ElektronActivity przyjmuje oba (LessonLinks.resolveIntent). Data URI jest
  * inne dla każdej lekcji, więc PendingIntenty wierszy (porównywane bez extras) się nie sklejają.
- * Intencja jawna (komponent MainActivity) - przeciążenie actionStartActivity(Intent) dostaje
+ * Intencja jawna (komponent ElektronActivity) - przeciążenie actionStartActivity(Intent) dostaje
  * gotową intencję i niczego w niej nie zgaduje.
  */
 fun lessonIntent(context: Context, target: LessonTarget): Intent =
-    Intent(context, MainActivity::class.java)
+    Intent(context, ElektronActivity::class.java)
         .setData(Uri.parse(LessonLinks.uri(target)))
         .putExtra(LessonLinks.EXTRA_LESSON, LessonLinks.deepLink(target))
 
@@ -84,8 +84,8 @@ fun openLessonAction(context: Context, target: LessonTarget): Action =
 
 /** Otwarcie sekcji aplikacji (np. "substitutions") - ten sam klucz co skróty. */
 fun openSectionAction(section: String): Action =
-    actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to section))
+    actionStartActivity<ElektronActivity>(actionParametersOf(ShortcutKey to section))
 
 /** Otwarcie aplikacji na stronie głównej — także z wierszy list w widżetach. */
 fun openAppAction(): Action =
-    actionStartActivity<MainActivity>(actionParametersOf(ShortcutKey to "dashboard"))
+    actionStartActivity<ElektronActivity>(actionParametersOf(ShortcutKey to "dashboard"))

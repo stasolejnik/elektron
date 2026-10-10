@@ -41,7 +41,10 @@ val LightColors = lightColorScheme(
     onBackground = Color(0xFF000000),
     surface = Color(0xFFF2F2F7),
     onSurface = Color(0xFF000000),
-    surfaceVariant = Color(0xFFFFFFFF),
+    // Celowo o odcień inny niż karty (surfaceContainer*): Material wybiera kolor treści po samym
+    // kolorze tła i przy identycznym surfaceVariant tytuły w kartach i arkuszach były szare
+    // (onSurfaceVariant) zamiast czarne.
+    surfaceVariant = Color(0xFFFEFEFE),
     onSurfaceVariant = Color(0xFF6C6C70),
     surfaceContainerLowest = Color(0xFFFFFFFF),
     surfaceContainerLow = Color(0xFFFFFFFF),
@@ -73,7 +76,8 @@ val DarkColors = darkColorScheme(
     onBackground = Color(0xFFFFFFFF),
     surface = Color(0xFF000000),
     onSurface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFF1C1C1E),
+    // Jak w jasnym: o odcień inny niż karty (#1C1C1E), inaczej tytuły w kartach były szare.
+    surfaceVariant = Color(0xFF1D1D1F),
     onSurfaceVariant = Color(0xFF8E8E93),
     surfaceContainerLowest = Color(0xFF000000),
     surfaceContainerLow = Color(0xFF1C1C1E),

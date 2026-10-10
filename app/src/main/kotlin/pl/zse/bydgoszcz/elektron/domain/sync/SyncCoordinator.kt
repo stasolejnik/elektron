@@ -25,6 +25,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import pl.zse.bydgoszcz.elektron.data.local.AppDatabase
+import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome
 import pl.zse.bydgoszcz.elektron.domain.repository.AnnouncementsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
@@ -85,6 +86,8 @@ class SyncCoordinator @Inject constructor(
     private val lock = Any()
     private val flights = mutableListOf<Flight>()
     private val running = MutableStateFlow(0)
+    /** Zegar do reguły nocnej synchronizacji w tle (testy podają stałą godzinę). */
+    internal var localTime: () -> java.time.LocalTime = { java.time.LocalTime.now() }
     val operationError = MutableStateFlow<String?>(null)
     fun consumeOperationError() { operationError.value = null }
 
@@ -219,11 +222,18 @@ class SyncCoordinator @Inject constructor(
             "source_${source}_${classId}"
             else "source_$source"
         val loaded = notificationsRepo.observeLoadedResources().first()
+        val time = localTime()
         val sources = request.sources.filterTo(mutableSetOf()) { source ->
             val last = db.syncStateDao().get(sourceKey(source))
-            !request.background || (source != SyncOutcome.SIDEBAR && source !in loaded) ||
-                BackgroundSyncPolicy.isDue(source,
-                    last?.takeIf { it.status == "ok" }?.lastSyncEpochSeconds, now)
+            // Ogłoszenia: odstęp także od nieudanej próby - trwale nieczytelny kanał RSS był
+            // pobierany przy każdym przebiegu (co 15 min, także w nocy). Plan i zastępstwa po
+            // błędzie nadal są ponawiane od razu.
+            val announcements = source == SyncOutcome.ANNOUNCEMENTS
+            val reference = if (announcements) last?.lastSyncEpochSeconds
+                else last?.takeIf { it.status == "ok" }?.lastSyncEpochSeconds
+            // Nigdy nie pobrane - od razu (także ogłoszenia, dopóki nie było nieudanej próby).
+            val neverLoaded = source != SyncOutcome.SIDEBAR && source !in loaded && !(announcements && last?.status == "error")
+            !request.background || neverLoaded || BackgroundSyncPolicy.isDue(source, reference, now, time)
         }
         val failed = ConcurrentHashMap<String, Throwable>()
         val ok = ConcurrentHashMap.newKeySet<String>()
@@ -233,14 +243,28 @@ class SyncCoordinator @Inject constructor(
         }
         try {
             coroutineScope {
-                if (SyncOutcome.SIDEBAR in sources) launch { timetableRepo.syncSidebar().record(SyncOutcome.SIDEBAR) }
-                if (SyncOutcome.TIMETABLE in sources && classId != null) launch {
+                val sidebarJob = if (SyncOutcome.SIDEBAR in sources) launch {
+                    timetableRepo.syncSidebar().record(SyncOutcome.SIDEBAR)
+                } else null
+                val timetableJob = if (SyncOutcome.TIMETABLE in sources && classId != null) launch {
                     timetableRepo.syncTimetable(classId, request.anchorDate).record(SyncOutcome.TIMETABLE)
+                } else null
+                // Zastępstwa po zapisie planu: wpisy bez klasy (zajęcia łączone) są przypisywane według
+                // zapisanego planu - przy pierwszej synchronizacji (wybór klasy, czyszczenie danych)
+                // plan jeszcze się zapisywał i takie zastępstwa znikały do kolejnego pobrania. Lista
+                // nauczycieli (sidebar) daje pełne nazwiska do dopasowania - bez niej to samo.
+                if (SyncOutcome.SUBSTITUTIONS in sources) launch {
+                    sidebarJob?.join()
+                    timetableJob?.join()
+                    substitutionsRepo.syncAll().record(SyncOutcome.SUBSTITUTIONS)
                 }
-                if (SyncOutcome.SUBSTITUTIONS in sources) launch { substitutionsRepo.syncAll().record(SyncOutcome.SUBSTITUTIONS) }
                 if (SyncOutcome.ANNOUNCEMENTS in sources) launch { announcementsRepo.syncAll().record(SyncOutcome.ANNOUNCEMENTS) }
             }
             val outcome = SyncOutcome(ok.toSet(), failed.toMap())
+            if (SyncOutcome.TIMETABLE in outcome.succeeded && classId != null) {
+                pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { dropStaleGroupChoices(classId) }
+                    .onFailure { Log.w(TAG, "Nie udało się sprawdzić wyborów grup", it) }
+            }
             for (source in outcome.succeeded) {
                 db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity(
                     sourceKey(source), now, "ok", null))
@@ -277,9 +301,22 @@ class SyncCoordinator @Inject constructor(
                 // Przypomnienia: czekamy na ustawienie alarmu (proces workera może zaraz zniknąć).
                 pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { reminders.reschedule() }
                     .onFailure { Log.w(TAG, "Nie udało się przeliczyć przypomnień", it) }
-                pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { widgetUpdater.updateNow() }
+                // Przebieg bez pobierania (nic nie było do sprawdzenia, np. w nocy) nie zmienia
+                // danych - widżety mają własny harmonogram, więc nie przerysowujemy ich co 15 min.
+                if (sources.isNotEmpty()) pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { widgetUpdater.updateNow() }
                     .onFailure { Log.w(TAG, "Nie udało się odświeżyć widżetów", it) }
             }
+        }
+    }
+
+    /** Wybór grupy, której nie ma już w nowym planie, wraca do "wszystkie grupy" (patrz [LessonGroups.staleSelections]). */
+    private suspend fun dropStaleGroupChoices(classId: String) {
+        val monday = LocalDate.now().with(java.time.DayOfWeek.MONDAY)
+        val lessons = timetableRepo.getLessonsOnce(classId, monday, monday.plusWeeks(5))
+        if (lessons.isEmpty()) return
+        for (subject in LessonGroups.staleSelections(lessons, settings.groupSelections(classId).first())) {
+            Log.i(TAG, "Grupa $subject zniknęła z planu - pokazuję wszystkie grupy")
+            settings.setGroupSelection(classId, subject, null)
         }
     }
 
@@ -292,25 +329,29 @@ class SyncCoordinator @Inject constructor(
     private suspend fun notifyNew(classId: String?, allowed: Boolean, substitutionsLoaded: Boolean) {
         // Blokada dzielona z pushami FCM (SubstitutionNotifier.notifyPushed) - bez duplikatów.
         notificationsRepo.withNotifyLock {
-            val initialDone = allowed && notificationsRepo.isInitialSyncDone() && notificationsRepo.isSeenStoreReady()
-            val seenSubs = notificationsRepo.getSeenSubstitutionIds()
-            val seenAnns = notificationsRepo.getSeenAnnouncementIds()
-            val currentSubs = substitutionsRepo.getAllFrom(LocalDate.now().minusDays(1))
-            val currentAnns = announcementsRepo.getAll()
-            if (initialDone) {
-                if (classId != null) substitutionNotifier.notifyFresh(currentSubs.filter { it.id !in seenSubs })
-                val freshAnns = currentAnns.filter { it.id !in seenAnns }
-                if (settings.notificationsAnnouncements.first() && freshAnns.isNotEmpty()) {
-                    freshAnns.take(5).forEach { sink.postAnnouncement(it) }
+            // Wysyłka i zapis "widzianych" jako jeden krok: anulowanie pomiędzy (limit czasu pusha,
+            // zmiana klasy) powtarzało przy następnym syncu dźwięk już pokazanych powiadomień.
+            withContext(NonCancellable) {
+                val initialDone = allowed && notificationsRepo.isInitialSyncDone() && notificationsRepo.isSeenStoreReady()
+                val seenSubs = notificationsRepo.getSeenSubstitutionIds()
+                val seenAnns = notificationsRepo.getSeenAnnouncementIds()
+                val currentSubs = substitutionsRepo.getAllFrom(LocalDate.now().minusDays(1))
+                val currentAnns = announcementsRepo.getAll()
+                if (initialDone) {
+                    if (classId != null) substitutionNotifier.notifyFresh(currentSubs.filter { it.id !in seenSubs })
+                    val freshAnns = currentAnns.filter { it.id !in seenAnns }
+                    if (settings.notificationsAnnouncements.first() && freshAnns.isNotEmpty()) {
+                        freshAnns.take(5).forEach { sink.postAnnouncement(it) }
+                    }
                 }
-            }
-            notificationsRepo.setSeenSubstitutionIds(currentSubs.map { it.id }.toSet())
-            notificationsRepo.setSeenAnnouncementIds(currentAnns.map { it.id }.toSet())
-            // Punkt odniesienia gotowy dopiero, gdy zastępstwa naprawdę się pobrały - inaczej
-            // następna udana synchronizacja powiadomiłaby o wszystkich zastępstwach naraz.
-            if (substitutionsLoaded) {
-                if (!notificationsRepo.isInitialSyncDone()) notificationsRepo.setInitialSyncDone()
-                if (!notificationsRepo.isSeenStoreReady()) notificationsRepo.markSeenStoreReady()
+                notificationsRepo.setSeenSubstitutionIds(currentSubs.map { it.id }.toSet())
+                notificationsRepo.setSeenAnnouncementIds(currentAnns.map { it.id }.toSet())
+                // Punkt odniesienia gotowy dopiero, gdy zastępstwa naprawdę się pobrały - inaczej
+                // następna udana synchronizacja powiadomiłaby o wszystkich zastępstwach naraz.
+                if (substitutionsLoaded) {
+                    if (!notificationsRepo.isInitialSyncDone()) notificationsRepo.setInitialSyncDone()
+                    if (!notificationsRepo.isSeenStoreReady()) notificationsRepo.markSeenStoreReady()
+                }
             }
         }
     }

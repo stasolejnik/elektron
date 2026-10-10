@@ -8,7 +8,9 @@ enum class StartScreen(val key: String) {
     SMART("smart"),
     DASHBOARD("dashboard"),
     TIMETABLE("timetable"),
-    SUBSTITUTIONS("substitutions");
+    SUBSTITUTIONS("substitutions"),
+    /** Odjazdy - do wyboru tylko z włączoną zakładką Odjazdy. */
+    TRANSIT("transit");
 
     /** Ekran do otwarcia teraz; SMART rozstrzyga według dzisiejszych lekcji (po filtrze grup). */
     fun resolve(todayLessons: List<Lesson>, now: LocalTime): StartScreen {

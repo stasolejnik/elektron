@@ -35,6 +35,11 @@ class SystemEventsReceiver : BroadcastReceiver() {
         val ep = EntryPointAccessors.fromApplication(context.applicationContext, SystemEventsEntryPoint::class.java)
         CoroutineScope(Dispatchers.Default).launch {
             try {
+                // Zainstalowana aktualizacja z przycisku "Aktualizuj" (wersja z GitHuba): pobrany
+                // plik APK (ok. 20 MB) nie jest już potrzebny - dawniej leżał do następnego pobrania.
+                if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) runCatching {
+                    java.io.File(context.cacheDir, "updates").listFiles()?.forEach { it.delete() }
+                }
                 // goAsync daje ok. 10 s.
                 withTimeoutOrNull(8_000) {
                     pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { ep.noteScheduler().reschedule(force = true) }

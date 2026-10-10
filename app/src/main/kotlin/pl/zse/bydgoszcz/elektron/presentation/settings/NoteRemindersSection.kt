@@ -10,6 +10,9 @@ import androidx.compose.ui.platform.LocalContext
 import pl.zse.bydgoszcz.elektron.presentation.common.*
 import pl.zse.bydgoszcz.elektron.work.LocalNotificationSink
 import androidx.core.app.NotificationManagerCompat
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun NoteRemindersSection(enabled: Boolean, ready: Boolean, timing: NoteReminderSettings, onTimingChange: (NoteReminderSettings) -> Unit, onResume: () -> Unit, onChange: (Boolean) -> Unit, onOpenNotes: () -> Unit) {
@@ -22,9 +25,11 @@ internal fun NoteRemindersSection(enabled: Boolean, ready: Boolean, timing: Note
             ?.getNotificationChannel(LocalNotificationSink.CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE)
     var allowed by remember { mutableStateOf(canNotify()) }
     OnResume { allowed = canNotify(); onResume() }
-    GroupedSection("Notatki do lekcji", footer = "Przytrzymaj przyszłą lekcję w planie, aby zapisać notatkę. Wybierz dzień wcześniej i godzinę albo liczbę minut przed lekcją. Gdy dodasz notatkę zbyt późno, przypomnienie przyjdzie przed lekcją lub możliwie szybko. System może opóźnić powiadomienie.") {
-        if (!ready) Text("Nie udało się jeszcze odczytać notatek.", style = MaterialTheme.typography.bodySmall)
-        ActionRow("Moje notatki", trailingChevron = true) { if (ready) onOpenNotes() }
+    GroupedSection("Notatki do lekcji", icon = androidx.compose.material.icons.Icons.Outlined.EditNote,
+        footer = "Przytrzymaj przyszłą lekcję w planie, aby zapisać notatkę. Gdy dodasz ją zbyt późno, przypomnienie przyjdzie możliwie szybko.") {
+        if (!ready) Text("Nie udało się jeszcze odczytać notatek.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error, modifier = androidx.compose.ui.Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
+        ActionRow("Moje notatki", trailingChevron = true, enabled = ready) { onOpenNotes() }
         RowDivider()
         SwitchRow("Przypomnienia o notatkach", enabled, onChange = onChange)
         if (enabled) {

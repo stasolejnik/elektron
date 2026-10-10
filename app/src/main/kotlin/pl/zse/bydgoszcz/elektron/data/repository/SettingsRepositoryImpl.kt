@@ -10,6 +10,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
 import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
 import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
+import pl.zse.bydgoszcz.elektron.domain.model.UpdateChannel
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import android.content.Context
@@ -92,6 +93,7 @@ class SettingsRepositoryImpl internal constructor(
         val LOOK_ROOM = booleanPreferencesKey("timetable_show_room")
         val LOOK_TEACHER = booleanPreferencesKey("timetable_show_teacher")
         val LAST_SEEN_VERSION = intPreferencesKey("last_seen_version_code")
+        val UPDATE_CHANNEL = stringPreferencesKey("update_channel")
         val GROUPS_CONFIGURED_FOR = stringPreferencesKey("groups_configured_for")
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
     }
@@ -236,6 +238,12 @@ class SettingsRepositoryImpl internal constructor(
             it[Keys.LOOK_ROOM] = look.showRoom
             it[Keys.LOOK_TEACHER] = look.showTeacher
         }
+    }
+
+    override val updateChannel: Flow<UpdateChannel> =
+        prefs.map { UpdateChannel.fromKey(it[Keys.UPDATE_CHANNEL]) }.distinctUntilChanged()
+    override suspend fun setUpdateChannel(channel: UpdateChannel) {
+        safeEdit { it[Keys.UPDATE_CHANNEL] = channel.key }
     }
 
     override val lastSeenVersionCode: Flow<Int> = prefs.map { it[Keys.LAST_SEEN_VERSION] ?: 0 }.distinctUntilChanged()

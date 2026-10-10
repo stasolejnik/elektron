@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
+
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import android.content.Context
 import android.util.Log
@@ -68,7 +70,7 @@ class WidgetUpdater @Inject constructor(
     fun scheduleTick(at: LocalDateTime): kotlinx.coroutines.Job = scope.launch(Dispatchers.IO) {
             tickMutex.lock()
             try {
-                val now = LocalDateTime.now()
+                val now = AppClock.now()
                 val delay = Duration.between(now, at).plusSeconds(5).coerceIn(Duration.ofMinutes(1), Duration.ofDays(1))
                 val planned = System.currentTimeMillis() + delay.toMillis()
                 val wm = WorkManager.getInstance(context)

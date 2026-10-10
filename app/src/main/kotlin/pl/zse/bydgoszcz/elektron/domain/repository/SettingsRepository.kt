@@ -6,8 +6,10 @@ import pl.zse.bydgoszcz.elektron.domain.model.QuietHours
 import pl.zse.bydgoszcz.elektron.domain.model.ReminderSettings
 import pl.zse.bydgoszcz.elektron.domain.model.StartScreen
 import pl.zse.bydgoszcz.elektron.domain.model.TimetableLook
+import pl.zse.bydgoszcz.elektron.domain.model.UpdateChannel
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyle
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -61,6 +63,10 @@ interface SettingsRepository {
 
     val timetableLook: Flow<TimetableLook>
     suspend fun setTimetableLook(look: TimetableLook)
+
+    /** Kanał aktualizacji z GitHuba; domyślnie stabilny. */
+    val updateChannel: Flow<UpdateChannel> get() = flowOf(UpdateChannel.STABLE)
+    suspend fun setUpdateChannel(channel: UpdateChannel) {}
 
     val lastSeenVersionCode: Flow<Int>
     suspend fun setLastSeenVersionCode(code: Int)
