@@ -29,16 +29,16 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 ## Zrzuty ekranu
 
 <p align="center">
-  <img src="docs/screenshots/strona-glowna.png" alt="Strona główna" title="Strona główna" width="200">
-  <img src="docs/screenshots/plan.png" alt="Plan lekcji" title="Plan lekcji" width="200">
-  <img src="docs/screenshots/zastepstwa.png" alt="Zastępstwa" title="Zastępstwa" width="200">
-  <img src="docs/screenshots/odjazdy.png" alt="Odjazdy" title="Odjazdy" width="200">
+  <img src="docs/screenshots/strona-glowna.png" alt="Strona główna" title="Strona główna" width="23%">
+  <img src="docs/screenshots/plan.png" alt="Plan lekcji" title="Plan lekcji" width="23%">
+  <img src="docs/screenshots/zastepstwa.png" alt="Zastępstwa" title="Zastępstwa" width="23%">
+  <img src="docs/screenshots/odjazdy.png" alt="Odjazdy" title="Odjazdy" width="23%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/ogloszenia.png" alt="Ogłoszenia" title="Ogłoszenia" width="200">
-  <img src="docs/screenshots/ustawienia.png" alt="Ustawienia" title="Ustawienia" width="200">
-  <img src="docs/screenshots/widzety.png" alt="Widżety" title="Widżety" width="200">
-  <img src="docs/screenshots/powiadomienia.png" alt="Powiadomienia" title="Powiadomienia" width="200">
+  <img src="docs/screenshots/ogloszenia.png" alt="Ogłoszenia" title="Ogłoszenia" width="23%">
+  <img src="docs/screenshots/ustawienia.png" alt="Ustawienia" title="Ustawienia" width="23%">
+  <img src="docs/screenshots/widzety.png" alt="Widżety" title="Widżety" width="23%">
+  <img src="docs/screenshots/powiadomienia.png" alt="Powiadomienia" title="Powiadomienia" width="23%">
 </p>
 
 ## Funkcje
