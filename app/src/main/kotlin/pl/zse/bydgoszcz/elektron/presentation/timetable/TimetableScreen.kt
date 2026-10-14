@@ -600,10 +600,11 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                 textAlign = TextAlign.Center)
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                 if (sub != null) {
-                    // Zastępstwo: najważniejszy jest nauczyciel, który zastępuje (nie sala).
-                    Text(SubstitutionDisplay.headline(sub), style = MaterialTheme.typography.titleMedium, color = fg,
+                    // Zastępstwo w widoku dnia: najpierw informacja szkoły ("Zajęcia w auli"), pod nią
+                    // nauczyciel; bez informacji - nauczyciel, który zastępuje, i sala.
+                    Text(SubstitutionDisplay.headline(sub, infoFirst = true), style = MaterialTheme.typography.titleMedium, color = fg,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    SubstitutionDisplay.place(sub)?.let {
+                    SubstitutionDisplay.place(sub, infoFirst = true)?.let {
                         Text(it, style = MaterialTheme.typography.bodyMedium, color = fg)
                     }
                     val forLine = buildString {

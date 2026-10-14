@@ -139,6 +139,14 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                         }
                     }
                 }
+                if (state.offline) {
+                    item(key = "offline") {
+                        Text("Brak internetu - pokazuję tylko ogłoszenia zapisane do czytania offline.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().animateItem())
+                    }
+                }
                 if (state.isSearching && state.items.isEmpty()) {
                     item(key = "no_results") {
                         Text("Brak wyników dla „${state.query.trim()}” w pobranych ogłoszeniach.",
@@ -161,7 +169,11 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(48.dp))
                                 Spacer(Modifier.size(12.dp))
-                                Text(if (state.favoritesOnly) "Brak ulubionych ogłoszeń" else "Brak ogłoszeń", style = MaterialTheme.typography.titleMedium)
+                                Text(when {
+                                    state.favoritesOnly -> "Brak ulubionych ogłoszeń"
+                                    state.offline -> "Brak zapisanych ogłoszeń"
+                                    else -> "Brak ogłoszeń"
+                                }, style = MaterialTheme.typography.titleMedium)
                                 if (state.favoritesOnly) Text("Dotknij zakładki przy ogłoszeniu, aby je tutaj zapisać.",
                                     style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))

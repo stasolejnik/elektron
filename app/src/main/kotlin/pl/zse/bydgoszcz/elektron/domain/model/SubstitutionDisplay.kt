@@ -19,9 +19,9 @@ object SubstitutionDisplay {
     fun info(sub: Substitution): String? = sub.roomOrInfo.trim().takeIf { it.isNotEmpty() && !isRoom(it) }
 
     /**
-     * [infoFirst] - strona główna: informacja szkoły jest nagłówkiem także przy wpisanym
-     * zastępcy, a nauczyciel trafia do drugiej linii. Plan, zakładka Zastępstwa, widżety
-     * i powiadomienia: najpierw nauczyciel.
+     * [infoFirst] - widok dnia w planie: informacja szkoły jest nagłówkiem także przy wpisanym
+     * zastępcy, a nauczyciel trafia do drugiej linii. Strona główna, plan tygodniowy, zakładka
+     * Zastępstwa, widżety i powiadomienia: najpierw nauczyciel.
      */
     fun headline(sub: Substitution, infoFirst: Boolean = false): String =
         (if (infoFirst) info(sub) else null)

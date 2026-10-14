@@ -27,12 +27,12 @@ class SubstitutionDisplayTest {
     }
 
     @Test
-    fun homeScreenPutsSchoolInfoFirstElsewhereTeacherFirst() {
+    fun dayViewPutsSchoolInfoFirstElsewhereTeacherFirst() {
         val s = sub("Zajęcia w auli", "M. Zelek", "za ostatnią lekcję")
-        // Strona główna: informacja szkoły na pierwszym planie, nauczyciel pod nią.
+        // Widok dnia w planie: informacja szkoły na pierwszym planie, nauczyciel pod nią.
         assertEquals("Zajęcia w auli", SubstitutionDisplay.headline(s, infoFirst = true))
         assertEquals("M. Zelek", SubstitutionDisplay.place(s, infoFirst = true))
-        // Plan, zakładka Zastępstwa, widżety: najpierw nauczyciel.
+        // Strona główna, zakładka Zastępstwa, widżety: najpierw nauczyciel.
         assertEquals("M. Zelek", SubstitutionDisplay.headline(s))
         assertEquals("Zajęcia w auli", SubstitutionDisplay.place(s))
         // Sama sala: bez różnicy.

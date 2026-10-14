@@ -30,7 +30,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AnnouncementsViewModel @Inject constructor(
     private val repo: AnnouncementsRepository,
-    private val coordinator: SyncCoordinator
+    private val coordinator: SyncCoordinator,
+    network: pl.zse.bydgoszcz.elektron.domain.repository.NetworkStatus = pl.zse.bydgoszcz.elektron.domain.repository.NetworkStatus.AlwaysOnline
 ) : ViewModel() {
 
     private companion object { const val PAGE_SIZE = 10 }
@@ -47,14 +48,16 @@ class AnnouncementsViewModel @Inject constructor(
         val favoritesOnly: Boolean = false,
         val favoriteCount: Int = 0,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
-        val ready: Boolean = false
+        val ready: Boolean = false,
+        /** Brak internetu: lista ogranicza się do ogłoszeń z zapisaną treścią (do czytania offline). */
+        val offline: Boolean = false
     ) {
         val isSearching: Boolean get() = query.isNotBlank()
     }
 
     /** Ogłoszenie z tekstem znormalizowanym raz (a nie przy każdym wciśnięciu klawisza). */
     private data class Indexed(val ann: Announcement, val text: String)
-    private data class Selection(val items: List<Indexed>, val query: String, val favorites: Boolean, val favoriteCount: Int)
+    private data class Selection(val items: List<Indexed>, val query: String, val favorites: Boolean, val favoriteCount: Int, val offline: Boolean)
 
     private data class Flags(val loadingMore: Boolean, val error: Boolean, val exhausted: Boolean, val initialPending: Boolean)
 
@@ -141,16 +144,18 @@ class AnnouncementsViewModel @Inject constructor(
     }
 
     val state: StateFlow<State> = combine(
-        combine(indexed, query, favoritesOnly) { all, q, favorites ->
+        combine(indexed, query, favoritesOnly, network.online) { all, q, favorites, online ->
             val saved = all.filter { it.ann.isFavorite }
-            Selection(if (favorites) saved else all, q, favorites, saved.size)
+            // Offline tylko wpisy z pobraną treścią - inne i tak nie dadzą się otworzyć.
+            val base = if (favorites) saved else all
+            Selection(if (online) base else base.filter { !it.ann.fullHtml.isNullOrBlank() }, q, favorites, saved.size, !online)
         },
         visibleCount,
         refreshing,
         combine(loadingMore, loadMoreError, archiveExhausted, coordinator.initialSyncPending) { l, e, x, p ->
             Flags(l, e, x, p)
         }
-    ) { (all, q, favorites, favoriteCount), count, refresh, flags ->
+    ) { (all, q, favorites, favoriteCount, offline), count, refresh, flags ->
         val loading = !favorites && flags.loadingMore
         val error = !favorites && flags.error
         val exhausted = flags.exhausted
@@ -165,7 +170,9 @@ class AnnouncementsViewModel @Inject constructor(
             // "Pokaż więcej" jest dostępne, dopóki są wpisy w bazie ALBO archiwum strony
             // (dawniej przycisk znikał po wyczerpaniu kilkudziesięciu wpisów z RSS).
             // Przy wyszukiwaniu: dopóki archiwum się nie skończyło (szukaj w starszych).
-            hasMore = if (favorites) !searching && all.size > count else if (searching) !exhausted else all.size > count || !exhausted,
+            // Offline: tylko to, co jest w bazie (archiwum szkoły wymaga internetu).
+            hasMore = if (favorites || offline) !searching && all.size > count else if (searching) !exhausted else all.size > count || !exhausted,
+            offline = offline,
             favoritesOnly = favorites,
             favoriteCount = favoriteCount,
             query = q,

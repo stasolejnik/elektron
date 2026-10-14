@@ -15,7 +15,10 @@ Wersja testowa (kanał „Beta”). Szczegóły: [release-notes/1.0.1-beta1.md](
 - Build: cel JVM ustawiony wprost zamiast `jvmToolchain(17)` - projekt buduje się z JDK 17 i nowszym (F-Droid używa JDK 21); CI buduje na JDK 21.
 - Widżet Plan dnia: dotknięcie „N lekcji za Tobą · Pokaż” pokazuje minione lekcje u góry listy (do przejścia do następnej lekcji). Launcher nie pozwala ustawić przewinięcia listy widżetu, dlatego przełącznik zamiast przewijania.
 - Odjazdy: animacja pojawiania się kolejnych połączeń i wskaźnik wczytywania w przycisku „Pokaż więcej”.
-- Strona główna: przy zastępstwie informacja szkoły (nie numer sali) jest nagłówkiem także wtedy, gdy wpisany jest zastępca; nauczyciel trafia do drugiej linii. Plan, zakładka Zastępstwa, widżety i powiadomienia bez zmian (najpierw nauczyciel).
+- Widok dnia w planie: przy zastępstwie informacja szkoły (nie numer sali) jest nagłówkiem także wtedy, gdy wpisany jest zastępca; nauczyciel trafia do drugiej linii. Strona główna, plan tygodniowy, zakładka Zastępstwa, widżety i powiadomienia bez zmian (najpierw nauczyciel).
+- Odjazdy: przeciągnięcie w górę na końcu listy (nowym gestem) wczytuje kolejne połączenia.
+- Ogłoszenia offline (stan sieci z ConnectivityManager, bez wymogu weryfikacji sieci): tylko wpisy z zapisaną treścią i informacja nad listą; bez dociągania archiwum.
+- Plan tygodniowy: kółko w nagłówku tylko przy dzisiejszej dacie (dawniej przy dniu wybranym do przewinięcia, także w innych tygodniach).
 - Plan tygodniowy: kafelek zastępstwa pokazuje zastępcę i salę albo informację szkoły zamiast strzałki „↔” przy nazwie przedmiotu.
 - Zastępstwa: strona z kilkoma nieczytelnymi wierszami (dane zapisane z ostrzeżeniem) liczy się jak udane pobranie - powiadomienia (także po pushu), stan „sprawdzono” i zwykły odstęp w tle; bez ponawiania tej samej strony i bez pobierania co 15 min w nocy.
 - Znacznik powiadomienia zastępstwa obejmuje nieobecnego nauczyciela - dwa zastępstwa tej samej lekcji nie zastępują się w panelu.

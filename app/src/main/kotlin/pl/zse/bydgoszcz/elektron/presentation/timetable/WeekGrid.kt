@@ -105,7 +105,7 @@ internal fun WeekGrid(
     }
 
     Column(modifier) {
-        WeekHeader(days, selectedDay)
+        WeekHeader(days, today)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         // Margines pod siatką - ostatnią lekcję da się przewinąć nad pasek nawigacji.
         Row(Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll).padding(bottom = 24.dp)) {
@@ -125,7 +125,7 @@ internal fun WeekGrid(
 }
 
 @Composable
-private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, selectedDay: LocalDate?) {
+private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, today: LocalDate) {
     val months = remember(days) { days.map { it.date.monthValue }.distinct() }
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -136,7 +136,9 @@ private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, selectedDay: Lo
             textAlign = TextAlign.Center
         )
         days.forEach { day ->
-            val isToday = day.date == selectedDay
+            // Kółko tylko przy dzisiejszym dniu - w innym tygodniu żaden dzień nie jest wyróżniony
+            // (dawniej kółko dostawał dzień wybrany do przewinięcia, np. środa następnego tygodnia).
+            val isToday = day.date == today
             Column(
                 Modifier.weight(1f).semantics(mergeDescendants = true) {},
                 horizontalAlignment = Alignment.CenterHorizontally

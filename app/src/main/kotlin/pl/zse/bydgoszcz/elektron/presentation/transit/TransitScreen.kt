@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -107,7 +108,17 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                     .padding(vertical = 8.dp))
         },
         containerColor = MaterialTheme.colorScheme.background) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        // "Pokaż więcej" także gestem: przeciągnięcie w górę na końcu listy (jak przejście do
+        // następnego dnia w planie) - nowym ruchem, nie rozpędem przewijania listy.
+        val canShowMore = journeys.size > visibleCount || matching?.nextWhenMs != null
+        val showMore: () -> Unit = {
+            visibleCount = minOf(visibleCount, journeys.size) + 3
+            if (journeys.size < visibleCount && matching?.nextWhenMs != null) viewModel.loadJourneys(more = true, minimumCount = visibleCount)
+        }
+        val pullAction by rememberUpdatedState(if (canShowMore && !loading && !moreLoading) showMore else null)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val pullMore = remember(density) { PullToLoadMore(with(density) { 56.dp.toPx() }) { pullAction?.invoke() } }
+        LazyColumn(Modifier.fillMaxSize().padding(padding).nestedScroll(pullMore), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "route") {
                 RouteCard(
@@ -155,10 +166,7 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                 }
             }
             if (journeys.size > visibleCount || matching?.nextWhenMs != null) item(key = "more") {
-                TextButton(onClick = {
-                    visibleCount = minOf(visibleCount, journeys.size) + 3
-                    if (journeys.size < visibleCount && matching?.nextWhenMs != null) viewModel.loadJourneys(more = true, minimumCount = visibleCount)
-                }, enabled = !loading && !moreLoading, modifier = Modifier.fillMaxWidth().animateItem()) {
+                TextButton(onClick = showMore, enabled = !loading && !moreLoading, modifier = Modifier.fillMaxWidth().animateItem()) {
                     AnimatedVisibility(visible = moreLoading) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -258,4 +266,38 @@ private fun RideDirection(line: String, direction: String) {
         Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
         Text(direction, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
     }
+}
+
+/**
+ * Przeciągnięcie w górę na końcu listy odjazdów wczytuje kolejne. Tylko nowy gest przy końcu
+ * listy (jak w planie): ruch, który przewijał listę, nie wywołuje wczytania po dojechaniu do dołu.
+ */
+private class PullToLoadMore(private val thresholdPx: Float, private val onPull: () -> Unit) :
+    androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+    private var listMoved = false
+    private var pulled = 0f
+    private var fired = false
+
+    override fun onPostScroll(
+        consumed: androidx.compose.ui.geometry.Offset,
+        available: androidx.compose.ui.geometry.Offset,
+        source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+    ): androidx.compose.ui.geometry.Offset {
+        if (source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) return androidx.compose.ui.geometry.Offset.Zero
+        if (consumed.y != 0f) listMoved = true
+        if (listMoved || fired || available.y >= 0f) return androidx.compose.ui.geometry.Offset.Zero
+        pulled += -available.y
+        if (pulled >= thresholdPx) { fired = true; onPull() }
+        return androidx.compose.ui.geometry.Offset.Zero
+    }
+
+    override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+        reset(); return androidx.compose.ui.unit.Velocity.Zero
+    }
+
+    override suspend fun onPostFling(consumed: androidx.compose.ui.unit.Velocity, available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+        reset(); return androidx.compose.ui.unit.Velocity.Zero
+    }
+
+    private fun reset() { listMoved = false; pulled = 0f; fired = false }
 }
