@@ -24,6 +24,19 @@ import java.io.File
 @Config(sdk = [34])
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransitViewModelTest {
+    /**
+     * Wstawia gotowy wynik do ViewModelu. Obserwator ustawień biegnie na wątku IO (Main to Unconfined)
+     * i po zmianie celu zeruje wynik, więc mógłby nadpisać ten wstawiony już po powrocie z
+     * settings.first { ... }. Wstawiamy ponownie, aż wynik przetrwa chwilę.
+     */
+    private suspend fun preset(vm: TransitViewModel, result: TransitJourneyRepository.Result) {
+        repeat(50) {
+            vm.journeys.value = result
+            withContext(Dispatchers.IO) { Thread.sleep(50) }
+            if (vm.journeys.value === result) return
+        }
+        fail("obserwator ustawień wciąż zeruje wynik")
+    }
     @Test fun settingsReadFailureDoesNotCrashTheObserverOrStartNetworkWork() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -142,7 +155,7 @@ class TransitViewModelTest {
             prefs.select(goal); prefs.setEnabled(true)
             vm.settings.first { it.preferences.visible }
             val first = TransitJourney(listOf(TransitRide("6", "Bielawy", "24", "Start", "26", "Cel", now + 600_000L, now + 900_000L)), 4, 240.2)
-            vm.journeys.value = TransitJourneyRepository.Result(goal.key, listOf(first), now, nextWhenMs = cursor)
+            preset(vm, TransitJourneyRepository.Result(goal.key, listOf(first), now, nextWhenMs = cursor))
             vm.loadJourneys(more = true)
             val merged = vm.journeys.first { it?.journeys?.size == 2 }!!
             assertTrue(merged.journeys.any { it.key == first.key })
@@ -199,7 +212,7 @@ class TransitViewModelTest {
             prefs.select(goal); prefs.setEnabled(true)
             vm.settings.first { it.preferences.visible }
             val trip = TransitJourney(listOf(TransitRide("6", "Bielawy", "24", "Start", "26", "Cel", now + 600_000L, now + 900_000L)), 1, 100.0, walkAvailable = false, walkPending = true)
-            vm.journeys.value = TransitJourneyRepository.Result(goal.key, listOf(trip), now, nextWhenMs = now + 900_000L, boardingStops = listOf(stop))
+            preset(vm, TransitJourneyRepository.Result(goal.key, listOf(trip), now, nextWhenMs = now + 900_000L, boardingStops = listOf(stop)))
             val oldConsumer = Any()
             val newConsumer = Any()
             vm.startJourneySession(oldConsumer)

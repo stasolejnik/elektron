@@ -157,7 +157,8 @@ class AnnouncementsRepositoryImplTest {
         val saved = repo.observeById(id).first()!!
         assertTrue(saved.isFavorite)
         assertEquals("<p>Treść offline</p>", saved.fullHtml)
-        org.junit.Assert.assertNull(repo.observeAll().first().single().fullHtml)
+        // Lista niesie tylko znacznik zapisanej treści, nie samą treść.
+        assertEquals(pl.zse.bydgoszcz.elektron.data.local.SAVED_CONTENT_MARKER, repo.observeAll().first().single().fullHtml)
         org.junit.Assert.assertNull(repo.observeLatest(1).first().single().fullHtml)
         repo.loadFullArticle(id).getOrThrow()
         assertEquals(1, source.articleCalls)
