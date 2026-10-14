@@ -29,7 +29,7 @@ class WeekOpeningTest {
     }
     @Test fun otherWeeksAndEmptyDaysHaveSafeOpening() {
         val monday = today.with(java.time.DayOfWeek.MONDAY).minusWeeks(1)
-        assertEquals(monday, WeekOpening.selectedDay(listOf(monday), today, today))
+        assertNull(WeekOpening.selectedDay(listOf(monday), today, today))
         assertNull(WeekOpening.selectedDay(emptyList(), today, today))
         assertNull(WeekOpening.startMinute(monday, emptyList(), today.atTime(14, 0)))
     }

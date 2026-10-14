@@ -13,7 +13,7 @@ object Changelog {
             "Widżet Plan dnia: dotknij „za Tobą”, aby zobaczyć wcześniejsze lekcje",
             "Odjazdy: kolejne połączenia pojawiają się płynnie, a przeciągnięcie na końcu listy wczytuje następne",
             "Ogłoszenia bez internetu: tylko wpisy zapisane do czytania offline",
-            "Plan tygodniowy: kółko tylko przy dzisiejszym dniu w bieżącym tygodniu",
+            "Plan tygodniowy: kółko tylko przy dzisiejszym dniu w bieżącym tygodniu, inne tygodnie od pierwszej lekcji",
             "Plan dnia: przy zastępstwie najpierw informacja od szkoły (np. „Zajęcia w auli”), pod nią nauczyciel",
             "Plan tygodniowy pokazuje treść zastępstwa zamiast samej strzałki",
             "Powiadomienia o zastępstwach działają także, gdy części wpisów na stronie szkoły nie da się odczytać",

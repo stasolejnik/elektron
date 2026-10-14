@@ -411,7 +411,9 @@ fun TimetableScreen(
                             val current = page == pagerState.currentPage
                             val lessons = week.orEmpty().flatMap { it.lessons }
                             SideEffect { if (current) visiblePlan = VisiblePlan(page, true, monday, lessons) }
-                            WeekPage(week, loading, pastWeek, pageModifier, noteIndex, editNote, state.anchorDate, jump?.id) { showDetails(it) }
+                            // Dzień do pokazania: startowy albo otwarty z lekcji (jump), nie anchorDate - ten po
+                            // przewinięciu tygodnia wskazuje ten sam dzień tygodnia w nowym tygodniu.
+                            WeekPage(week, loading, pastWeek, pageModifier, noteIndex, editNote, jump?.day ?: today, jump?.id) { showDetails(it) }
                         }
                     }
                 }

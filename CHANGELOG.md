@@ -19,6 +19,7 @@ Wersja testowa (kanał „Beta”). Szczegóły: [release-notes/1.0.1-beta1.md](
 - Odjazdy: przeciągnięcie w górę na końcu listy (nowym gestem) wczytuje kolejne połączenia.
 - Ogłoszenia offline (stan sieci z ConnectivityManager, bez wymogu weryfikacji sieci): tylko wpisy z zapisaną treścią i informacja nad listą; bez dociągania archiwum.
 - Plan tygodniowy: kółko w nagłówku tylko przy dzisiejszej dacie (dawniej przy dniu wybranym do przewinięcia, także w innych tygodniach).
+- Plan tygodniowy: inny tydzień otwiera się od pierwszej lekcji (dawniej po zatrzymaniu przewijał się do lekcji tego samego dnia tygodnia).
 - Plan tygodniowy: kafelek zastępstwa pokazuje zastępcę i salę albo informację szkoły zamiast strzałki „↔” przy nazwie przedmiotu.
 - Zastępstwa: strona z kilkoma nieczytelnymi wierszami (dane zapisane z ostrzeżeniem) liczy się jak udane pobranie - powiadomienia (także po pushu), stan „sprawdzono” i zwykły odstęp w tle; bez ponawiania tej samej strony i bez pobierania co 15 min w nocy.
 - Znacznik powiadomienia zastępstwa obejmuje nieobecnego nauczyciela - dwa zastępstwa tej samej lekcji nie zastępują się w panelu.

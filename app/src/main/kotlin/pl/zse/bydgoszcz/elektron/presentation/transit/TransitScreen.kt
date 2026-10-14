@@ -20,7 +20,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -117,8 +120,10 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
         }
         val pullAction by rememberUpdatedState(if (canShowMore && !loading && !moreLoading) showMore else null)
         val density = androidx.compose.ui.platform.LocalDensity.current
-        val pullMore = remember(density) { PullToLoadMore(with(density) { 56.dp.toPx() }) { pullAction?.invoke() } }
-        LazyColumn(Modifier.fillMaxSize().padding(padding).nestedScroll(pullMore), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val pullThreshold = with(density) { 56.dp.toPx() }
+        LazyColumn(Modifier.fillMaxSize().padding(padding).pullUpAtEnd(listState, pullThreshold) { pullAction?.invoke() },
+            state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "route") {
                 RouteCard(
@@ -269,35 +274,23 @@ private fun RideDirection(line: String, direction: String) {
 }
 
 /**
- * Przeciągnięcie w górę na końcu listy odjazdów wczytuje kolejne. Tylko nowy gest przy końcu
+ * Przeciągnięcie w górę na końcu listy odjazdów wczytuje kolejne. Tylko gest zaczęty przy końcu
  * listy (jak w planie): ruch, który przewijał listę, nie wywołuje wczytania po dojechaniu do dołu.
+ * Czyta sam dotyk (bez zużywania), bo nadmiaru przewijania na końcu listy nie dostaje
+ * nadrzędne nestedScroll - pochłania go efekt rozciągnięcia (overscroll).
  */
-private class PullToLoadMore(private val thresholdPx: Float, private val onPull: () -> Unit) :
-    androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-    private var listMoved = false
-    private var pulled = 0f
-    private var fired = false
-
-    override fun onPostScroll(
-        consumed: androidx.compose.ui.geometry.Offset,
-        available: androidx.compose.ui.geometry.Offset,
-        source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
-    ): androidx.compose.ui.geometry.Offset {
-        if (source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) return androidx.compose.ui.geometry.Offset.Zero
-        if (consumed.y != 0f) listMoved = true
-        if (listMoved || fired || available.y >= 0f) return androidx.compose.ui.geometry.Offset.Zero
-        pulled += -available.y
-        if (pulled >= thresholdPx) { fired = true; onPull() }
-        return androidx.compose.ui.geometry.Offset.Zero
+private fun Modifier.pullUpAtEnd(state: androidx.compose.foundation.lazy.LazyListState, thresholdPx: Float, onPull: () -> Unit) =
+    pointerInput(state, thresholdPx) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (state.canScrollForward) return@awaitEachGesture
+            var pulled = 0f
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                if (state.canScrollForward) continue
+                pulled += change.previousPosition.y - change.position.y
+                if (pulled >= thresholdPx) { onPull(); break }
+            }
+        }
     }
-
-    override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-        reset(); return androidx.compose.ui.unit.Velocity.Zero
-    }
-
-    override suspend fun onPostFling(consumed: androidx.compose.ui.unit.Velocity, available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-        reset(); return androidx.compose.ui.unit.Velocity.Zero
-    }
-
-    private fun reset() { listMoved = false; pulled = 0f; fired = false }
-}
