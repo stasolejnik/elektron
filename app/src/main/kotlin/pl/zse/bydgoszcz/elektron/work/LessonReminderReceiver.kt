@@ -54,7 +54,7 @@ class LessonReminderReceiver : BroadcastReceiver() {
                 intent.getStringExtra(LessonReminderScheduler.EXTRA_CLASS), number, start, now
             )
             // Przed przeliczeniem: spóźniony alarm zostaje w kolejce tylko do chwili, gdy przyjdzie.
-            ep.scheduler().markHandled(number, start)
+            ep.scheduler().markHandled(intent.getStringExtra(LessonReminderScheduler.EXTRA_KEY) ?: LessonReminders.key(number, start))
             if (delivery != null) ep.notifications().postReminder(
                 id = delivery.id, title = delivery.title, body = delivery.body,
                 timeoutMs = (delivery.end.atZone(zone).toInstant().toEpochMilli() - System.currentTimeMillis()).coerceAtLeast(60_000L)

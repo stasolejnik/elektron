@@ -10,6 +10,7 @@ data class Announcement(
     val publishedAt: Instant,
     val excerpt: String?,
     val coverImageUrl: String?,
+    /** Treść artykułu; na liście ogłoszeń (observeAll) tylko znacznik, że treść jest zapisana. */
     val fullHtml: String?,
     val source: AnnouncementSource,
     val isFavorite: Boolean = false

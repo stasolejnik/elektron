@@ -89,6 +89,9 @@ class LessonReminderScheduler @Inject constructor(
         val intent = baseIntent()
             .putExtra(EXTRA_CLASS, reminder.lesson.classId)
             .putExtra(EXTRA_NUMBER, reminder.lesson.number)
+            // Klucz liczony tu, przy planowaniu: po zmianie strefy czasowej odtworzenie go z godziny
+            // w alarmie dałoby inny klucz i alarm wracałby co chwilę aż do końca okna dostarczenia.
+            .putExtra(EXTRA_KEY, LessonReminders.key(reminder))
             .putExtra(EXTRA_ID, reminder.lesson.id.hashCode())
             .putExtra(EXTRA_WHAT, what)
             .putExtra(EXTRA_BODY, body)
@@ -125,8 +128,8 @@ class LessonReminderScheduler @Inject constructor(
     }
 
     /** Alarm przypomnienia przyszedł (pokazany albo już nieaktualny) - nie ustawiamy go ponownie. */
-    fun markHandled(number: Int, start: LocalDateTime) {
-        prefs().edit().putString(KEY_HANDLED, LessonReminders.key(number, start)).apply()
+    fun markHandled(key: String) {
+        prefs().edit().putString(KEY_HANDLED, key).apply()
     }
 
     private fun handledKey(): String? = prefs().getString(KEY_HANDLED, null)
@@ -146,6 +149,7 @@ class LessonReminderScheduler @Inject constructor(
         const val EXTRA_WHAT = "reminder_what"
         const val EXTRA_BODY = "reminder_body"
         const val EXTRA_START = "reminder_start"
+        const val EXTRA_KEY = "reminder_key"
         const val EXTRA_END = "reminder_end"
 
         fun canUseExactAlarms(context: Context): Boolean {

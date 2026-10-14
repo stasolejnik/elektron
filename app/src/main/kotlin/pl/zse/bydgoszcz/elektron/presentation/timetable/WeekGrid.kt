@@ -271,9 +271,12 @@ private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifie
     ) {
         Box(Modifier.width(3.dp).fillMaxHeight().background(bar))
         Box(Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 3.dp)) {
-            // Zastępstwo: zamiast samej strzałki - co się dzieje (informacja szkoły albo zastępca) i sala.
-            val tileText = if (sub != null) listOfNotNull(SubstitutionDisplay.headline(sub), SubstitutionDisplay.place(sub)).joinToString(" · ")
-                else name
+            // Zastępstwo: zamiast samej strzałki - przedmiot i co się dzieje (zastępca albo informacja
+            // szkoły) z salą. Sam numer sali bez zastępcy jako "s. 12", nie gołe "12".
+            val tileText = if (sub != null) {
+                val headline = SubstitutionDisplay.headline(sub).let { if (SubstitutionDisplay.isRoom(it)) "s. $it" else it }
+                listOfNotNull(name, headline, SubstitutionDisplay.place(sub)).joinToString(" · ")
+            } else name
             Text(
                 listOfNotNull(if (hasNote) "✎" else null, tileText).joinToString(" "),
                 color = fg,

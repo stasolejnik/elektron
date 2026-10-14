@@ -228,6 +228,7 @@ class WidgetStateTest {
         val st = WidgetDataLoader.buildState(morning, LocalDateTime.of(friday, LocalTime.of(7, 30))) as WidgetState.Ready
         assertEquals(2, st.focus.number)
         assertEquals(2, st.lessons.size)                          // zwolniona lekcja dalej na liście
+        assertEquals("zwolniona lekcja jeszcze przed nami - nie \"za Tobą\"", 0, st.firstNotPastIndex)
         // Po południu: reszta lekcji zwolniona - widżet pokazuje następny dzień zamiast "Teraz".
         val afternoon = listOf(
             lesson(friday, 1, "08:00", "08:45"),

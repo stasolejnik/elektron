@@ -9,7 +9,7 @@ internal object WidgetNoteLayout {
     // Dziś zawsze od bieżącej lekcji, także w dzień z notatką (dawniej notatka do dowolnej
     // lekcji pokazywała minione i spychała trwającą poza mały widżet). Notatki minionych
     // lekcji są w szczegółach lekcji i w "Moich notatkach".
-    fun dayPlanStart(state: WidgetState.Ready): Int = if (state.isToday) state.focusIndex else 0
+    fun dayPlanStart(state: WidgetState.Ready): Int = if (state.isToday) state.firstNotPastIndex else 0
 
     fun dayPlanLines(heightDp: Float, lessonCount: Int, schoolNote: Boolean, fontScale: Float): Int {
         val perRow = (heightDp - 54f * fontScale.coerceAtLeast(1f)).coerceAtLeast(0f) / lessonCount.coerceIn(1, 4)

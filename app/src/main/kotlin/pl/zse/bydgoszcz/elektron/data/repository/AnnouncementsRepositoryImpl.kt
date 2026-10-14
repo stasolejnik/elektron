@@ -270,8 +270,12 @@ class AnnouncementsRepositoryImpl @Inject constructor(
                         // uznawała je za nowe i powiadamiała o artykułach sprzed miesięcy.
                         val seen = notifications
                         val inserted = if (seen == null) insert() else seen.withNotifyLock {
+                            // Strona 1 archiwum to najnowsze wpisy: artykuł opublikowany po ostatnim pobraniu
+                            // RSS zostaje "nowy" (powiadomienie przy następnej synchronizacji).
+                            val newest = dao.newestEpochSeconds()
                             val rows = insert()
-                            if (rows.isNotEmpty()) seen.setSeenAnnouncementIds(seen.getSeenAnnouncementIds() + rows.map { it.id })
+                            val old = rows.filter { newest == null || it.publishedAtEpochSeconds <= newest }
+                            if (old.isNotEmpty()) seen.setSeenAnnouncementIds(seen.getSeenAnnouncementIds() + old.map { it.id })
                             rows
                         }
                         added = inserted.size

@@ -101,8 +101,13 @@ class SubstitutionsRepositoryImpl @Inject constructor(
         val lessons = lessonDao.classIds().flatMap { lessonDao.getForRange(it, days.min(), days.max()) }
         val teachers = db.teacherDao().getAll().associate { it.code to it.fullName }
         val daysWithPlan = lessons.mapTo(HashSet()) { it.dateEpochDay }
-        val noPlan = if (teachers.isEmpty()) days.toSet() else days.filterTo(HashSet()) { it !in daysWithPlan }
-        if (lessons.isEmpty()) return emptyList<pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto>() to noPlan
+        fun day(dto: pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto) =
+            runCatching { LocalDate.parse(dto.dateRaw, PL_DATE) }.getOrNull()?.toEpochDay()
+        // Dni z wpisem, którego nie dało się przypisać, a brak planu albo listy nauczycieli mógł być
+        // przyczyną. Inne dni zastępowane normalnie (odwołane zastępstwa znikają).
+        fun noPlan(unresolved: List<pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto>): Set<Long> =
+            unresolved.mapNotNullTo(HashSet()) { e -> day(e)?.takeIf { teachers.isEmpty() || it !in daysWithPlan } }
+        if (lessons.isEmpty()) return emptyList<pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto>() to noPlan(entries)
         val groups = db.lessonGroupDao().getForLessons(lessons.map { it.id }).groupBy { it.lessonId }
         val slots = lessons.flatMap { lesson ->
             val dateRaw = LocalDate.ofEpochDay(lesson.dateEpochDay).format(PL_DATE)
@@ -112,8 +117,10 @@ class SubstitutionsRepositoryImpl @Inject constructor(
                     g.teacherCode?.let(teachers::get) ?: g.teacherFullName, g.classRef)
             }
         }
-        return pl.zse.bydgoszcz.elektron.data.mapper.ClasslessSubstitutions.resolve(entries, slots, teachers.values)
-            .also { Log.i(TAG, "Zastępstwa bez klasy: ${entries.size}, przypisane: ${it.size}") } to noPlan
+        val resolved = pl.zse.bydgoszcz.elektron.data.mapper.ClasslessSubstitutions.resolve(entries, slots, teachers.values)
+            .also { Log.i(TAG, "Zastępstwa bez klasy: ${entries.size}, przypisane: ${it.size}") }
+        val assigned = resolved.mapTo(HashSet()) { Triple(it.dateRaw, it.lessonNumber, it.originalTeacher) }
+        return resolved to noPlan(entries.filter { Triple(it.dateRaw, it.lessonNumber, it.originalTeacher) !in assigned })
     }
 
     /** Ta sama lekcja tego samego nieobecnego nauczyciela - jeden wpis na stronie szkoły. */

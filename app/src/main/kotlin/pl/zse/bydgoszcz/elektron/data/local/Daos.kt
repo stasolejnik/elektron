@@ -152,13 +152,25 @@ interface SubstitutionDao {
     fun observeForRange(fromDay: Long, toDay: Long): Flow<List<SubstitutionEntity>>
 }
 
+/** Wartość fullHtml na liście ogłoszeń: treść jest zapisana, ale nie jest wczytywana. */
+const val SAVED_CONTENT_MARKER = "saved"
+
 @Dao
 interface AnnouncementDao {
     @Query("SELECT * FROM announcements WHERE isFavorite = 1")
     suspend fun getFavorites(): List<AnnouncementEntity>
 
-    @Query("SELECT id, title, url, publishedAtEpochSeconds, excerpt, coverImageUrl, NULL AS fullHtml, isRead, source, isFavorite FROM announcements ORDER BY publishedAtEpochSeconds DESC")
+    /**
+     * Lista bez treści artykułów (lżejsza). W polu fullHtml tylko znacznik [SAVED_CONTENT_MARKER],
+     * gdy treść jest zapisana - lista offline pokazuje wtedy wpis (dawniej NULL dla wszystkich).
+     */
+    @Query("SELECT id, title, url, publishedAtEpochSeconds, excerpt, coverImageUrl, " +
+        "CASE WHEN fullHtml IS NULL OR fullHtml = '' THEN NULL ELSE '$SAVED_CONTENT_MARKER' END AS fullHtml, " +
+        "isRead, source, isFavorite FROM announcements ORDER BY publishedAtEpochSeconds DESC")
     fun observeAll(): Flow<List<AnnouncementEntity>>
+
+    @Query("SELECT MAX(publishedAtEpochSeconds) FROM announcements")
+    suspend fun newestEpochSeconds(): Long?
 
     @Query("SELECT id, title, url, publishedAtEpochSeconds, excerpt, coverImageUrl, NULL AS fullHtml, isRead, source, isFavorite FROM announcements ORDER BY publishedAtEpochSeconds DESC LIMIT :limit")
     fun observeLatest(limit: Int): Flow<List<AnnouncementEntity>>

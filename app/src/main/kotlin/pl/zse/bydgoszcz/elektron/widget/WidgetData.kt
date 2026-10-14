@@ -118,7 +118,13 @@ sealed interface WidgetState {
          * zmianą co 5 min (pasek postępu i "Zostało X min" pozostają aktualne).
          */
         val refreshAt: LocalDateTime,
-        val readError: Boolean = false
+        val readError: Boolean = false,
+        /**
+         * Pierwsza lekcja, która się jeszcze nie skończyła (dziś; inny dzień - 0). Plan dnia chowa
+         * lekcje przed nią jako "za Tobą". Zwolniona lekcja, która dopiero będzie, zostaje widoczna
+         * (z informacją szkoły), choć [focusIndex] ją pomija.
+         */
+        val firstNotPastIndex: Int = 0
     ) : WidgetState {
         val focus: WidgetLesson get() = lessons[focusIndex]
         val following: WidgetLesson? get() = lessons.getOrNull(focusIndex + 1)
@@ -246,7 +252,8 @@ object WidgetDataLoader {
             isToday = isToday,
             breakFrom = breakFrom,
             nextChangeAt = nextChangeAt,
-            refreshAt = refreshAt
+            refreshAt = refreshAt,
+            firstNotPastIndex = if (isToday) dayLessons.indexOfFirst { it.timeTo > now }.let { if (it < 0) focusIndex else minOf(it, focusIndex) } else 0
         )
     }
 

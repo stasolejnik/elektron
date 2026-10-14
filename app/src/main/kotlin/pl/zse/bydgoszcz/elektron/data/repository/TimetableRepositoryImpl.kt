@@ -84,7 +84,11 @@ class TimetableRepositoryImpl @Inject constructor(
                 // więc dzisiejszy dzień (widżety, przypomnienia) zostawał ze starą salą na kilka godzin.
                 val monday = LocalDate.now().with(JavaDayOfWeek.MONDAY)
                 val anchorMonday = maxOf(anchorDate, LocalDate.now()).with(JavaDayOfWeek.MONDAY)
-                val weeks = maxOf(WEEKS_AHEAD.toLong(), java.time.temporal.ChronoUnit.WEEKS.between(monday, anchorMonday) + 1)
+                // Bieżące WEEKS_AHEAD tygodni + oglądany tydzień (bez tygodni pomiędzy - tydzień +40 nie
+                // zapisuje 41 tygodni lekcji).
+                val anchorOffset = java.time.temporal.ChronoUnit.WEEKS.between(monday, anchorMonday)
+                val weekOffsets = (0L until WEEKS_AHEAD.toLong()) + listOf(anchorOffset).filter { it >= WEEKS_AHEAD }
+                val weeks = weekOffsets.max() + 1
                 val dto = source.fetchTimetable(classId)
                 // Zmieniony układ strony: zapisany plan zostaje, ale sync kończy się błędem,
                 // żeby użytkownik dostał komunikat zamiast cichego braku aktualizacji.
@@ -102,7 +106,7 @@ class TimetableRepositoryImpl @Inject constructor(
                 // zapis na WEEKS_AHEAD tygodni (pokrywa 21-dniowy zakres Startu).
                 val lessons = mutableListOf<pl.zse.bydgoszcz.elektron.data.local.LessonEntity>()
                 val groups = mutableListOf<pl.zse.bydgoszcz.elektron.data.local.LessonGroupEntity>()
-                for (w in 0 until weeks) {
+                for (w in weekOffsets) {
                     val (l, g) = TimetableMapper.toEntities(dto, monday.plusWeeks(w))
                     lessons += l
                     groups += g
