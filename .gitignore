@@ -7,6 +7,8 @@ build/
 .cxx
 *.iml
 /.idea/
+/.vscode/
+/.fleet/
 local.properties
 
 # --- Gotowe paczki (trafiają do GitHub Releases, nie do repo) ---
@@ -25,6 +27,9 @@ keystore.properties
 # --- Konfiguracja Firebase: trzymana lokalnie (kopia zapasowa poza repo) ---
 # Świeży klon potrzebuje własnego pliku - patrz README / PORADNIK_PUSH.md.
 app/google-services.json
+# Klucz konta usługi Firebase (watcher) nie należy do tego repozytorium.
+*service-account*.json
+*-firebase-adminsdk-*.json
 
 # --- Pliki lokalne ---
 AI_CONTEXT.md
