@@ -453,7 +453,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 - Wieczne kółko ładowania tygodnia bez internetu.
 - Plan i strona główna nie przechodziły same na nowy dzień po północy.
 
-## 0.4.0-alpha (11)
+## [0.4.0-alpha] (11)
 
 ### Dodane
 - Widżety „Następna lekcja” i „Plan dnia”, odświeżane z dzwonkiem.
@@ -465,6 +465,14 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[1.0.1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.1
+[1.0.1-beta1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.1-beta1
+[1.0.0]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0
+[1.0.0-rc7]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc7
+[1.0.0-rc6]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc6
+[1.0.0-rc5.1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc5.1
+[1.0.0-rc5]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc5
+[1.0.0-rc4]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc4
 [1.0.0-rc3]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc3
 [1.0.0-rc2]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc2
 [1.0.0-rc1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc1
@@ -476,3 +484,4 @@ Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 [0.6.1-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.1-beta
 [0.6.0-beta]: https://github.com/stasolejnik/elektron/releases/tag/v0.6.0-beta
 [0.5.0-alpha]: https://github.com/stasolejnik/elektron/releases/tag/v0.5.0-alpha
+[0.4.0-alpha]: https://github.com/stasolejnik/elektron/releases/tag/v0.4.0-alpha
