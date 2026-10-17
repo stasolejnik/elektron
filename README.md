@@ -58,7 +58,7 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   późniejsze odjazdy i opcjonalne połączenia z przesiadką.
 - **Strona główna:** trwająca lub najbliższa lekcja, przerwa i nadchodzące zmiany.
 - **Powiadomienia:** nowe zastępstwa i ogłoszenia, przypomnienia o lekcjach i notatkach,
-  ciche godziny oraz powiadomienie na żywo w dni lekcyjne (co trwa, ile zostało, co dalej).
+  ciche godziny oraz powiadomienie na żywo w dni lekcyjne (odliczanie do przerwy albo lekcji, co trwa, co dalej).
 - **Szybki dostęp:** widżety Następna lekcja, Plan dnia i Zastępstwa, kafelek szybkich
   ustawień oraz skróty po przytrzymaniu ikony aplikacji.
 - **Wygląd:** własne nazwy i kolory przedmiotów, jasny lub ciemny motyw, kolor akcentu,
@@ -76,7 +76,7 @@ Sekcje w zakładce **Ustawienia**, w kolejności z aplikacji.
 | Sekcja | Co ustawisz |
 |---|---|
 | **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały. Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
-| **Powiadomienia** | Nowe zastępstwa i nowe ogłoszenia (ogłoszenia domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: trwająca lekcja albo przerwa z odliczaniem, co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. |
+| **Powiadomienia** | Nowe zastępstwa i nowe ogłoszenia (ogłoszenia domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. |
 | **Przypomnienia o lekcjach** | Przypomnienie przed lekcją (domyślnie wyłączone) i ile minut wcześniej. Punktualne przypomnienia wymagają zgody na alarmy o czasie. |
 | **Notatki do lekcji** | Lista wszystkich notatek oraz przypomnienia o nich: dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
 | **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Odjazdy. Karty widoczne na stronie głównej. |

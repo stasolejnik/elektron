@@ -1,5 +1,6 @@
-New: live notifications (Settings → Notifications) show what is on now, time left and what is next on school days.
-New: school notices from the substitutions page (e.g. blood donation) in the Substitutions tab and on the home screen.
+New: live notifications (Settings → Notifications) count down to the break or the next lesson on school days, with what is on now and next.
+New: school notices from the substitutions page (e.g. blood donation).
 Next lesson widget: "in X min" at every size and the following lesson.
+Opening the app refreshes substitutions at once; widgets change at the bell.
 Lessons your class is freed from are no longer shown as ongoing.
-Fixes for substitutions, the timetable and reminders.
+Timetable and reminder fixes.

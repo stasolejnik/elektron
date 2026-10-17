@@ -1,5 +1,6 @@
-Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia) - w dni lekcyjne widać, co trwa, ile zostało i co dalej.
-Nowość: informacje szkoły ze strony zastępstw (np. o oddawaniu krwi) w zakładce Zastępstwa i na stronie głównej.
+Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia) - w dni lekcyjne odliczanie do przerwy albo do lekcji, co trwa i co dalej.
+Nowość: informacje szkoły ze strony zastępstw (np. o oddawaniu krwi).
 Widżet Następna lekcja: „Za X min” w każdym rozmiarze i kolejna lekcja.
+Otwarcie aplikacji od razu odświeża zastępstwa, widżety zmieniają się przy dzwonku.
 Lekcje, z których klasa jest zwolniona, nie są pokazywane jako trwające.
-Poprawki zastępstw, planu i przypomnień.
+Poprawki planu i przypomnień.

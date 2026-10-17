@@ -30,13 +30,13 @@ object LiveLesson {
 
     data class Content(
         val phase: Phase,
-        /** Np. "Lekcja: Matematyka · s. 105", "Przerwa · potem 4. Fizyka", "Pierwsza lekcja · 1. Matematyka". */
+        /** Etykieta odliczania przy chronometrze: "Do przerwy", "Do okienka", "Do końca lekcji", "Do lekcji". */
         val title: String,
         /** Chwila, do której odlicza chronometr (koniec lekcji albo początek następnej). */
         val countdownTo: LocalDateTime,
         /** Początek odcinka (lekcji, przerwy, okienka, czasu przed lekcjami) - do paska postępu. */
         val progressFrom: LocalDateTime,
-        /** Zwinięta treść, np. "Do 14:25 · potem 8. wf · s. Hala3" albo "Od 13:40 · s. 104 · I.Kowalska". */
+        /** Zwinięta treść, np. "Teraz: 7. j.niemiecki · s. 104" albo "Przerwa, potem: 7. j.niemiecki · s. 104". */
         val text: String,
         /** Rozwinięta treść - kolejne linie (zastępstwo, notatka, co dalej). */
         val lines: List<String>,
@@ -81,8 +81,14 @@ object LiveLesson {
                 val next = after(l)
                 val note = noteOf(l)
                 val nextNote = next?.let(::noteOf)
+                // Etykieta odliczania (tytuł stoi tuż przy chronometrze): co zacznie się po tej lekcji.
+                val title = when {
+                    next == null -> "Do końca lekcji"
+                    java.time.Duration.between(l.timeTo, next.timeFrom).toMinutes() > LessonClock.BREAK_MAX_MINUTES -> "Do okienka"
+                    else -> "Do przerwy"
+                }
                 val lines = buildList {
-                    add("Do ${l.timeTo} (${l.number}. lekcja)")
+                    add("Teraz: ${describe(l, styles)}, do ${l.timeTo}")
                     substitutionLine(l)?.let(::add)
                     note?.let { add("Notatka: ${preview(it)}") }
                     add(next?.let { "Potem: ${describe(it, styles)}" } ?: "To ostatnia lekcja dzisiaj")
@@ -91,28 +97,25 @@ object LiveLesson {
                 }
                 Content(
                     phase = Phase.LESSON,
-                    title = "Lekcja: ${headline(l, styles)}",
+                    title = title,
                     countdownTo = today.atTime(l.timeTo),
                     progressFrom = today.atTime(l.timeFrom),
-                    text = "Do ${l.timeTo} · " + (next?.let { "potem ${short(it, styles)}" } ?: "ostatnia dzisiaj") +
-                        if (note != null || nextNote != null) " · ✎" else "",
+                    text = "Teraz: ${l.number}. ${headline(l, styles)}" + if (note != null || nextNote != null) " · ✎" else "",
                     lines = lines,
                     target = LessonTarget(today, l.number),
                     hasNote = note != null || nextNote != null,
                     windowEnd = end
                 )
             }
-            is LessonClock.Break -> upcoming(Phase.BREAK, "Przerwa · potem ${status.next.number}. ${subject(status.next, styles)}",
-                status.next, today.atTime(status.from), styles, ::noteOf, ::after, end)
+            is LessonClock.Break -> upcoming(Phase.BREAK, "Przerwa, potem", status.next, today.atTime(status.from), styles, ::noteOf, ::after, end)
             is LessonClock.Before -> {
                 val next = status.next.takeIf { it.date == today } ?: return null
                 val first = held.first().id == next.id
-                if (first) upcoming(Phase.BEFORE, "Pierwsza lekcja · ${next.number}. ${subject(next, styles)}", next,
+                if (first) upcoming(Phase.BEFORE, "Pierwsza lekcja", next,
                     today.atTime(next.timeFrom).minusMinutes(LEAD_MINUTES), styles, ::noteOf, ::after, end)
                 else {
                     val prevEnd = held.filter { it.timeTo <= now.toLocalTime() }.maxOf { it.timeTo }
-                    upcoming(Phase.GAP, "Okienko · potem ${next.number}. ${subject(next, styles)}", next,
-                        today.atTime(prevEnd), styles, ::noteOf, ::after, end)
+                    upcoming(Phase.GAP, "Okienko, potem", next, today.atTime(prevEnd), styles, ::noteOf, ::after, end)
                 }
             }
             LessonClock.Nothing -> null
@@ -120,29 +123,27 @@ object LiveLesson {
     }
 
     /**
-     * Przed lekcją [next] (przerwa, okienko, przed pierwszą): odliczanie do jej początku.
-     * Tytuł mówi, co będzie; zwinięta treść - od kiedy, sala i nauczyciel (albo zastępca).
+     * Przed lekcją [next] (przerwa, okienko, przed pierwszą): tytuł "Do lekcji" przy chronometrze
+     * odliczającym do jej początku; treść - [what] i ta lekcja z salą (np. "Przerwa, potem: 7. j.niemiecki · s. 104").
      */
     private fun upcoming(
-        phase: Phase, title: String, next: Lesson, from: LocalDateTime,
+        phase: Phase, what: String, next: Lesson, from: LocalDateTime,
         styles: Map<String, SubjectStyle>, noteOf: (Lesson) -> String?, after: (Lesson) -> Lesson?, end: LocalDateTime
     ): Content {
         val note = noteOf(next)
         val later = after(next)
-        val where = describe(next, styles, withSubject = false)
         val lines = buildList {
-            add("Od ${next.timeFrom}: ${describe(next, styles)}")
+            add("$what: ${describe(next, styles)}, od ${next.timeFrom}")
             substitutionLine(next)?.let(::add)
             note?.let { add("Notatka: ${preview(it)}") }
-            later?.let { add("Potem: ${describe(it, styles)}") }
+            later?.let { add("Później: ${describe(it, styles)}") }
         }
         return Content(
             phase = phase,
-            title = title,
+            title = "Do lekcji",
             countdownTo = next.date.atTime(next.timeFrom),
             progressFrom = from,
-            text = listOf("Od ${next.timeFrom}", where).filter { it.isNotBlank() }.joinToString(" · ") +
-                if (note != null) " · ✎" else "",
+            text = "$what: ${short(next, styles)}" + if (note != null) " · ✎" else "",
             lines = lines,
             target = LessonTarget(next.date, next.number),
             hasNote = note != null,

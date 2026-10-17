@@ -205,11 +205,12 @@ class LiveLessonScheduler @Inject constructor(
         /** Notification.EXTRA_REQUEST_PROMOTED_ONGOING (API 36). */
         private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
+        /** Ekran blokady: tylko rodzaj odliczania, bez przedmiotów i sal. */
         private val PUBLIC_TITLES = mapOf(
-            LiveLesson.Phase.BEFORE to "Lekcje wkrótce",
-            LiveLesson.Phase.LESSON to "Trwa lekcja",
-            LiveLesson.Phase.BREAK to "Przerwa",
-            LiveLesson.Phase.GAP to "Okienko"
+            LiveLesson.Phase.BEFORE to "Do lekcji",
+            LiveLesson.Phase.LESSON to "Do końca lekcji",
+            LiveLesson.Phase.BREAK to "Do lekcji",
+            LiveLesson.Phase.GAP to "Do lekcji"
         )
 
         /** Zgoda na powiadomienia i włączony kanał "Na żywo". */
