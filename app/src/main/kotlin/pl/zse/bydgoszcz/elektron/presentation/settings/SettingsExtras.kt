@@ -156,8 +156,10 @@ internal fun NotificationsSection(
     // Zgoda na powiadomienia i kanał "Na żywo" - sprawdzane przy każdym powrocie z ustawień systemu.
     var liveAllowed by remember { mutableStateOf(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.canPost(ctx)) }
     var liveDenied by remember { mutableStateOf(false) }
+    var liveExact by remember { mutableStateOf(LessonReminderScheduler.canUseExactAlarms(ctx)) }
     OnResume {
         liveAllowed = pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.canPost(ctx)
+        liveExact = LessonReminderScheduler.canUseExactAlarms(ctx)
         onLiveResume()
     }
     val permission = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -186,6 +188,13 @@ internal fun NotificationsSection(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             ActionRow("Otwórz ustawienia powiadomień", trailingIcon = true) { openNotificationSettings(ctx) }
+        }
+        // Bez dokładnych alarmów zmiana lekcji na przerwę może przyjść z opóźnieniem (odliczanie poniżej zera).
+        if (live && liveAllowed && !liveExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Text("Bez zgody na alarmy o czasie powiadomienie może zmienić się chwilę po dzwonku.",
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ActionRow("Zezwól na alarmy o czasie", trailingChevron = true) { openExactAlarmSettings(ctx) }
         }
         RowDivider()
         SwitchRow("Ciche godziny", quiet.enabled, supporting = "Bez dźwięku i wibracji - nic nie ginie") { onQuiet(quiet.copy(enabled = it)) }

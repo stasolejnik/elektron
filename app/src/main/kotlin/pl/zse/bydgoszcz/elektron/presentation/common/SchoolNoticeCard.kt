@@ -43,30 +43,30 @@ fun SchoolNoticeCard(text: String, collapsedLines: Int, key: String, modifier: M
     var overflows by rememberSaveable(key) { mutableStateOf(false) }
     val onColor = MaterialTheme.colorScheme.onSecondaryContainer
     ElektronCard(modifier = modifier, containerColor = MaterialTheme.colorScheme.secondaryContainer) {
-        Row(
-            Modifier.padding(start = 16.dp, end = 16.dp, top = if (compact) 12.dp else 14.dp, bottom = if (overflows || expanded) 4.dp else 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        // Ikona w wierszu tytułu, treść na całą szerokość karty (dawniej wcięta pod ikoną i większa).
+        Column(
+            Modifier.padding(start = 16.dp, end = 16.dp, top = if (compact) 12.dp else 14.dp, bottom = if (overflows || expanded) 2.dp else if (compact) 12.dp else 14.dp)
+                .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
         ) {
-            Icon(Icons.Outlined.Campaign, contentDescription = null, tint = onColor, modifier = Modifier.size(22.dp))
-            Column(Modifier.weight(1f).animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Outlined.Campaign, contentDescription = null, tint = onColor, modifier = Modifier.size(18.dp))
                 Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
                     color = onColor, modifier = Modifier.semantics { heading() })
-                SelectionContainer {
-                    Text(
-                        text,
-                        style = (if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge)
-                            .copy(lineBreak = LineBreak.Paragraph),
-                        color = onColor,
-                        maxLines = if (expanded) Int.MAX_VALUE else collapsedLines,
-                        overflow = TextOverflow.Ellipsis,
-                        onTextLayout = { if (!expanded) overflows = it.hasVisualOverflow },
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-                if (overflows || expanded) {
-                    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.align(Alignment.End)) {
-                        Text(if (expanded) "Zwiń" else "Pokaż więcej")
-                    }
+            }
+            SelectionContainer {
+                Text(
+                    text,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineBreak = LineBreak.Paragraph),
+                    color = onColor,
+                    maxLines = if (expanded) Int.MAX_VALUE else collapsedLines,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { if (!expanded) overflows = it.hasVisualOverflow },
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+            if (overflows || expanded) {
+                TextButton(onClick = { expanded = !expanded }, modifier = Modifier.align(Alignment.End)) {
+                    Text(if (expanded) "Zwiń" else "Pokaż więcej")
                 }
             }
         }

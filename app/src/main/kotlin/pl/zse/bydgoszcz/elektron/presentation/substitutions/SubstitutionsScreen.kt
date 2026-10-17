@@ -181,9 +181,10 @@ fun SubstitutionsScreen(
                     }
                     if (group.items.isEmpty()) item(key = "none_${group.date}") {
                         // Dzień z samą informacją szkoły.
-                        Text("Brak zastępstw dla Twojej klasy", style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 4.dp, top = 2.dp).animateItem())
+                        ElektronCard(modifier = Modifier.animateItem()) {
+                            Text("Brak zastępstw dla Twojej klasy", style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                        }
                     }
                     items(group.items, key = { it.id }) {
                         SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem().semantics(mergeDescendants = true) {})

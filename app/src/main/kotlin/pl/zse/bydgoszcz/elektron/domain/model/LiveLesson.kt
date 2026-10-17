@@ -30,15 +30,13 @@ object LiveLesson {
 
     data class Content(
         val phase: Phase,
-        /** Np. "Lekcja: Matematyka · s. 105", "Przerwa", "Pierwsza lekcja: Matematyka · s. 105". */
+        /** Np. "Lekcja: Matematyka · s. 105", "Przerwa · potem 4. Fizyka", "Pierwsza lekcja · 1. Matematyka". */
         val title: String,
-        /** Podpis przy chronometrze: "zostało", "lekcja za", "za". */
-        val countdownLabel: String,
         /** Chwila, do której odlicza chronometr (koniec lekcji albo początek następnej). */
         val countdownTo: LocalDateTime,
         /** Początek odcinka (lekcji, przerwy, okienka, czasu przed lekcjami) - do paska postępu. */
         val progressFrom: LocalDateTime,
-        /** Zwinięta treść: co dalej, np. "Dalej: 4. Fizyka · s. 12 · J. Kowalski". */
+        /** Zwinięta treść, np. "Do 14:25 · potem 8. wf · s. Hala3" albo "Od 13:40 · s. 104 · I.Kowalska". */
         val text: String,
         /** Rozwinięta treść - kolejne linie (zastępstwo, notatka, co dalej). */
         val lines: List<String>,
@@ -81,51 +79,59 @@ object LiveLesson {
             is LessonClock.During -> {
                 val l = status.lesson
                 val next = after(l)
+                val note = noteOf(l)
+                val nextNote = next?.let(::noteOf)
                 val lines = buildList {
+                    add("Do ${l.timeTo} (${l.number}. lekcja)")
                     substitutionLine(l)?.let(::add)
-                    noteOf(l)?.let { add("Notatka: ${preview(it)}") }
-                    add(next?.let { "Dalej: ${describe(it, styles)}" } ?: "To ostatnia lekcja dzisiaj")
-                    next?.let { substitutionLine(it, "Dalej zastępstwo") }?.let(::add)
-                    next?.let(::noteOf)?.let { add("Notatka do następnej: ${preview(it)}") }
+                    note?.let { add("Notatka: ${preview(it)}") }
+                    add(next?.let { "Potem: ${describe(it, styles)}" } ?: "To ostatnia lekcja dzisiaj")
+                    next?.let { substitutionLine(it, "Potem zastępstwo") }?.let(::add)
+                    nextNote?.let { add("Notatka do następnej: ${preview(it)}") }
                 }
                 Content(
                     phase = Phase.LESSON,
                     title = "Lekcja: ${headline(l, styles)}",
-                    countdownLabel = "zostało",
                     countdownTo = today.atTime(l.timeTo),
                     progressFrom = today.atTime(l.timeFrom),
-                    text = (next?.let { "Dalej: ${describe(it, styles)}" } ?: "To ostatnia lekcja dzisiaj") +
-                        if (noteOf(l) != null || next?.let(::noteOf) != null) " · ✎" else "",
+                    text = "Do ${l.timeTo} · " + (next?.let { "potem ${short(it, styles)}" } ?: "ostatnia dzisiaj") +
+                        if (note != null || nextNote != null) " · ✎" else "",
                     lines = lines,
                     target = LessonTarget(today, l.number),
-                    hasNote = noteOf(l) != null || next?.let(::noteOf) != null,
+                    hasNote = note != null || nextNote != null,
                     windowEnd = end
                 )
             }
-            is LessonClock.Break -> upcoming(Phase.BREAK, "Przerwa", "zostało", status.next, today.atTime(status.from), styles, ::noteOf, ::after, end)
+            is LessonClock.Break -> upcoming(Phase.BREAK, "Przerwa · potem ${status.next.number}. ${subject(status.next, styles)}",
+                status.next, today.atTime(status.from), styles, ::noteOf, ::after, end)
             is LessonClock.Before -> {
                 val next = status.next.takeIf { it.date == today } ?: return null
                 val first = held.first().id == next.id
-                if (first) upcoming(Phase.BEFORE, "Pierwsza lekcja: ${headline(next, styles)}", "za", next,
+                if (first) upcoming(Phase.BEFORE, "Pierwsza lekcja · ${next.number}. ${subject(next, styles)}", next,
                     today.atTime(next.timeFrom).minusMinutes(LEAD_MINUTES), styles, ::noteOf, ::after, end)
                 else {
                     val prevEnd = held.filter { it.timeTo <= now.toLocalTime() }.maxOf { it.timeTo }
-                    upcoming(Phase.GAP, "Okienko", "lekcja za", next, today.atTime(prevEnd), styles, ::noteOf, ::after, end)
+                    upcoming(Phase.GAP, "Okienko · potem ${next.number}. ${subject(next, styles)}", next,
+                        today.atTime(prevEnd), styles, ::noteOf, ::after, end)
                 }
             }
             LessonClock.Nothing -> null
         }
     }
 
-    /** Przed lekcją [next] (przerwa, okienko, przed pierwszą): odliczanie do jej początku. */
+    /**
+     * Przed lekcją [next] (przerwa, okienko, przed pierwszą): odliczanie do jej początku.
+     * Tytuł mówi, co będzie; zwinięta treść - od kiedy, sala i nauczyciel (albo zastępca).
+     */
     private fun upcoming(
-        phase: Phase, title: String, label: String, next: Lesson, from: LocalDateTime,
+        phase: Phase, title: String, next: Lesson, from: LocalDateTime,
         styles: Map<String, SubjectStyle>, noteOf: (Lesson) -> String?, after: (Lesson) -> Lesson?, end: LocalDateTime
     ): Content {
         val note = noteOf(next)
         val later = after(next)
+        val where = describe(next, styles, withSubject = false)
         val lines = buildList {
-            add("${if (phase == Phase.BEFORE) "Teraz" else "Dalej"}: ${describe(next, styles)}")
+            add("Od ${next.timeFrom}: ${describe(next, styles)}")
             substitutionLine(next)?.let(::add)
             note?.let { add("Notatka: ${preview(it)}") }
             later?.let { add("Potem: ${describe(it, styles)}") }
@@ -133,17 +139,20 @@ object LiveLesson {
         return Content(
             phase = phase,
             title = title,
-            countdownLabel = label,
             countdownTo = next.date.atTime(next.timeFrom),
             progressFrom = from,
-            text = (if (phase == Phase.BEFORE) describe(next, styles, withSubject = false).ifBlank { "${next.number}. lekcja" }
-                else "Dalej: ${describe(next, styles)}") + if (note != null) " · ✎" else "",
+            text = listOf("Od ${next.timeFrom}", where).filter { it.isNotBlank() }.joinToString(" · ") +
+                if (note != null) " · ✎" else "",
             lines = lines,
             target = LessonTarget(next.date, next.number),
             hasNote = note != null,
             windowEnd = end
         )
     }
+
+    /** Krótko do zwiniętej treści: "8. wf · s. Hala3". */
+    private fun short(l: Lesson, styles: Map<String, SubjectStyle>): String =
+        listOfNotNull("${l.number}. ${subject(l, styles)}", room(l)?.let { "s. $it" }).joinToString(" · ")
 
     /**
      * Najbliższa chwila po [now], w której treść się zmienia: początek okna, początek i koniec każdej

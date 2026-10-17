@@ -117,7 +117,6 @@ class LiveLessonScheduler @Inject constructor(
             .setSmallIcon(R.drawable.ic_stat_elektron)
             .setContentTitle(content.title)
             .setContentText(content.text)
-            .setSubText(content.countdownLabel)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content.lines.joinToString("\n")).setBigContentTitle(content.title))
             .setUsesChronometer(true)
             .setChronometerCountDown(true)
