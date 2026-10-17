@@ -41,7 +41,8 @@ class ZseSubstitutionsSource @Inject constructor(
                 throw java.io.IOException("Zastępstwa: niepełna odpowiedź serwera")
             }
             val parsed = ZastepstwaParser.parseDetailed(doc)
-            SubstitutionsPage(ZastepstwaParser.pageDates(doc), parsed.items, parsed.incompleteDates, parsed.classless)
+            SubstitutionsPage(ZastepstwaParser.pageDates(doc), parsed.items, parsed.incompleteDates, parsed.classless,
+                ZastepstwaParser.notices(doc))
         }
     }
 

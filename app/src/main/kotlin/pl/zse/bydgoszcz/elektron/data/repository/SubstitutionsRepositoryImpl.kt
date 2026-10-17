@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import pl.zse.bydgoszcz.elektron.data.local.AppDatabase
 import pl.zse.bydgoszcz.elektron.data.local.SubstitutionDao
@@ -68,6 +69,16 @@ class SubstitutionsRepositoryImpl @Inject constructor(
                 // sama wybiera dzień eksportu i powrót do wcześniejszej daty nie oznacza odwołania późniejszej
                 // (dawniej był usuwany - uczeń tracił prawdziwe zastępstwa, także w kopii offline).
                 val byDay = entities.groupBy { it.dateEpochDay }
+                // Informacja szkoły: dzień ze strony dostaje jej obecny tekst - usunięty ze strony znika.
+                val notices = page.notices.mapNotNull { (raw, text) ->
+                    runCatching { LocalDate.parse(raw, PL_DATE) }.getOrNull()?.toEpochDay()?.let { it to text }
+                }.toMap()
+                val noticeDao = db.schoolNoticeDao()
+                for (day in pageDays + notices.keys) {
+                    val text = notices[day]
+                    if (text == null) { if (noticeDao.get(day) != null) noticeDao.deleteForDay(day) }
+                    else if (noticeDao.get(day)?.text != text) noticeDao.upsert(pl.zse.bydgoszcz.elektron.data.local.SchoolNoticeEntity(day, text))
+                }
                 for (day in pageDays) {
                     val old = dao.getForRange(day, day)
                     val fresh = byDay[day].orEmpty()
@@ -87,6 +98,7 @@ class SubstitutionsRepositoryImpl @Inject constructor(
                 }
             }
             dao.deleteOlderThan(LocalDate.now().minusDays(60).toEpochDay())
+            db.schoolNoticeDao().deleteOlderThan(LocalDate.now().minusDays(60).toEpochDay())
             if (page.incompleteDates.isNotEmpty()) throw pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException()
         }
     }
@@ -128,6 +140,11 @@ class SubstitutionsRepositoryImpl @Inject constructor(
         listOf(e.lessonNumber, e.classShortName.uppercase(), e.groupNumber ?: 0, e.originalTeacher)
 
     override suspend fun deleteSimulated(): Int = withContext(Dispatchers.IO) { dao.deleteDevEntries() }
+
+    override fun observeNotices(day: LocalDate): Flow<Map<LocalDate, String>> =
+        db.schoolNoticeDao().observeFrom(day.toEpochDay())
+            .map { list -> list.associate { LocalDate.ofEpochDay(it.dateEpochDay) to it.text } }
+            .distinctUntilChanged()
 
     override fun observeForDay(day: LocalDate): Flow<List<Substitution>> =
         dao.observeForDay(day.toEpochDay()).map { it.map(SubstitutionMapper::toDomain) }

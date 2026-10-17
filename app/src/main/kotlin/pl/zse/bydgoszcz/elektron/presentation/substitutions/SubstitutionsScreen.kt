@@ -173,6 +173,18 @@ fun SubstitutionsScreen(
                             modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 2.dp)
                         )
                     }
+                    group.notice?.let { notice ->
+                        item(key = "notice_${group.date}") {
+                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 3,
+                                key = "${group.date}|${notice.hashCode()}", modifier = Modifier.animateItem())
+                        }
+                    }
+                    if (group.items.isEmpty()) item(key = "none_${group.date}") {
+                        // Dzień z samą informacją szkoły.
+                        Text("Brak zastępstw dla Twojej klasy", style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp).animateItem())
+                    }
                     items(group.items, key = { it.id }) {
                         SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem().semantics(mergeDescendants = true) {})
                     }

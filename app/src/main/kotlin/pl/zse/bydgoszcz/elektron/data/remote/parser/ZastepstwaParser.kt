@@ -48,6 +48,53 @@ object ZastepstwaParser {
         }.toSet()
 
     /**
+     * Informacja szkoły dopisana pod datą (np. o oddawaniu krwi): tekst w tej samej komórce co
+     * "Zastępstwa w dniu dd.mm.rrrr dzień", po <BR><BR>, kolejne linie rozdzielone <BR>.
+     * Osobno dla każdego dnia ("dd.mm.rrrr" -> tekst); dzień bez informacji nie ma wpisu. Podział na
+     * linie zostaje, puste linie na początku i końcu znikają (w środku najwyżej jedna).
+     * Bez nazw klas CSS - te Optivum nadaje przy każdym eksporcie od nowa.
+     */
+    fun notices(doc: Document): Map<String, String> {
+        val out = linkedMapOf<String, String>()
+        for (row in doc.select("table tr")) {
+            val cells = row.select("> td, > th")
+            if (cells.size != 1) continue
+            val date = DATE_RE.find(cells[0].text())?.groupValues?.get(1) ?: continue
+            val lines = cellLines(cells[0])
+            val header = lines.indexOfFirst { DATE_RE.containsMatchIn(it) }
+            val body = lines.drop(header + 1)
+                .fold(mutableListOf<String>()) { acc, line -> if (!(line.isEmpty() && acc.lastOrNull()?.isEmpty() != false)) acc += line; acc }
+                .dropLastWhile { it.isEmpty() }
+            if (body.isEmpty()) continue
+            val text = body.joinToString("\n")
+            out[date] = out[date]?.let { "$it\n$text" } ?: text
+        }
+        return out
+    }
+
+    /** Linie tekstu komórki: <br> i bloki (p, div) dzielą linie, reszta tekstu sklejana spacjami. */
+    private fun cellLines(cell: org.jsoup.nodes.Element): List<String> {
+        val sb = StringBuilder()
+        fun walk(node: org.jsoup.nodes.Node) {
+            when (node) {
+                is org.jsoup.nodes.TextNode -> sb.append(node.wholeText.replace('\n', ' ').replace('\r', ' '))
+                is org.jsoup.nodes.Element -> {
+                    val block = node.tagName().lowercase() in setOf("p", "div", "li")
+                    if (node.tagName().equals("br", ignoreCase = true)) sb.append('\n')
+                    else {
+                        if (block) sb.append('\n')
+                        node.childNodes().forEach(::walk)
+                        if (block) sb.append('\n')
+                    }
+                }
+                else -> {}
+            }
+        }
+        cell.childNodes().forEach(::walk)
+        return sb.toString().split('\n').map { it.replace('\u00A0', ' ').replace(Regex("[ \\t]+"), " ").trim() }
+    }
+
+    /**
      * Stopka eksportu Optivum ("Przygotowano za pomocą programu firmy VULCAN") jest za tabelą.
      * Bez niej odpowiedź mogła zostać ucięta (zerwane połączenie, HTTP 200) - brakujące wiersze
      * wyglądałyby jak odwołane zastępstwa i dzień zostałby zastąpiony skróconą listą.

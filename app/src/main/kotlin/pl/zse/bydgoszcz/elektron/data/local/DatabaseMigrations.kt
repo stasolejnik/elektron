@@ -3,7 +3,7 @@ package pl.zse.bydgoszcz.elektron.data.local
 import androidx.room.migration.Migration
 
 /** Aktualna wersja schematu bazy. Podnosisz ją => MUSISZ dodać migrację poniżej. */
-const val DATABASE_VERSION = 3
+const val DATABASE_VERSION = 4
 
 /**
  * Migracje schematu Room.
@@ -37,6 +37,12 @@ object DatabaseMigrations {
         object : Migration(2, 3) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE announcements ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+            }
+        },
+        // 1.0.1: informacje szkoły ze strony zastępstw (jedna na dzień).
+        object : Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `school_notices` (`dateEpochDay` INTEGER NOT NULL, `text` TEXT NOT NULL, PRIMARY KEY(`dateEpochDay`))")
             }
         },
     )

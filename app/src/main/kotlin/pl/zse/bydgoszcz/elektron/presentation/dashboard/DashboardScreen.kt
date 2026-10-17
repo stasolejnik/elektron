@@ -138,6 +138,15 @@ fun DashboardScreen(
                         item(key = "syncing") { SyncingIndicator(Modifier.animateItem()) }
                     }
 
+                    // Informacja szkoły (np. o oddawaniu krwi) dla pokazywanego dnia - tylko gdy jest.
+                    state.schoolNotice?.let { (day, text) ->
+                        item(key = "school_notice") {
+                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(text, collapsedLines = 2,
+                                key = "$day|${text.hashCode()}", compact = true, modifier = Modifier.animateItem(),
+                                title = "Informacja szkoły · " + noticeDayLabel(day, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()))
+                        }
+                    }
+
                     if (state.showNextLesson) {
                         val icon = when (state.nextLessonStatus) {
                             DashboardViewModel.LessonStatus.Now -> Icons.Filled.PlayArrow
@@ -473,4 +482,11 @@ private fun AnnouncementRow(a: Announcement, modifier: Modifier = Modifier, onCl
             }
         }
     }
+}
+
+/** "dziś", "jutro" albo nazwa dnia - dzień informacji szkoły na stronie głównej. */
+internal fun noticeDayLabel(day: java.time.LocalDate, today: java.time.LocalDate): String = when (day) {
+    today -> "dziś"
+    today.plusDays(1) -> "jutro"
+    else -> day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("pl", "PL"))
 }

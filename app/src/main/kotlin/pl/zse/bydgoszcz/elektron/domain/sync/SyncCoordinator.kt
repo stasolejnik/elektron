@@ -204,7 +204,7 @@ class SyncCoordinator @Inject constructor(
         if (reset) announcementsRepo.resetArchive { db.withTransaction {
             val sql = db.openHelper.writableDatabase
             listOf("lesson_groups", "lessons", "substitutions", "school_classes", "teachers", "rooms",
-                "notifications", "sync_state").forEach { sql.execSQL("DELETE FROM `$it`") }
+                "notifications", "sync_state", "school_notices").forEach { sql.execSQL("DELETE FROM `$it`") }
             sql.execSQL("DELETE FROM announcements WHERE isFavorite = 0")
         } }
         // Zapis wyboru musi się udać przed czyszczeniem metadanych starej klasy.

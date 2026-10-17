@@ -13,6 +13,11 @@ interface SubstitutionsRepository {
     fun observeFrom(day: LocalDate): Flow<List<Substitution>>
     suspend fun getForClassAndDay(classShortName: String, day: LocalDate): List<Substitution>
     suspend fun getAllFrom(day: LocalDate): List<Substitution>
+    /**
+     * Informacje szkoły ze strony zastępstw (dzień -> tekst, podział na linie zachowany) od [day].
+     * Działa offline z ostatnio pobranej strony.
+     */
+    fun observeNotices(day: LocalDate): Flow<Map<LocalDate, String>> = kotlinx.coroutines.flow.flowOf(emptyMap())
     /** Zapis pojedynczego wpisu (np. z pusha FCM). */
     suspend fun upsertOne(sub: Substitution)
 }

@@ -78,7 +78,9 @@ class SubstitutionsViewModel @Inject constructor(
     }
 
     /** [label]: "Dziś · 28 września" — liczone tu, żeby po północy zmieniło się samo. */
-    data class DayGroup(val date: LocalDate, val label: String, val items: List<Substitution>)
+    data class DayGroup(val date: LocalDate, val label: String, val items: List<Substitution>,
+        /** Informacja szkoły pod datą na stronie zastępstw; dzień z samą informacją też jest na liście. */
+        val notice: String? = null)
 
     /** Lista + czy schowano dzisiejsze zastępstwa (lekcje już się skończyły). */
     private data class Content(
@@ -113,11 +115,11 @@ class SubstitutionsViewModel @Inject constructor(
     // Ticker przelicza listę co 30 s, żeby zakończone dziś lekcje znikały na bieżąco.
     private val content: StateFlow<Content> = combine(
         classInfoFlow,
-        startDay.flatMapLatest { day -> repo.observeFrom(day) },
+        startDay.flatMapLatest { day -> combine(repo.observeFrom(day), repo.observeNotices(day)) { subs, notices -> subs to notices } },
         lessonsFlow,
         settings.activeGroupSelections,
         visibleMinuteTicker(visible)
-    ) { (_, short), subs, lessons, groups, _ ->
+    ) { (_, short), (subs, notices), lessons, groups, _ ->
         if (short == null) return@combine Content(emptyList(), false)
         val now = AppClock.now()
         val today = now.toLocalDate()
@@ -130,9 +132,11 @@ class SubstitutionsViewModel @Inject constructor(
             .partition { LessonGroups.substitutionRelevant(it, lessons, groups) }
         val (over, shown) = relevant.partition { SubstitutionRelevance.isOver(it, now, ends) }
         Content(
-            days = shown.groupBy { it.date }
-                .toSortedMap()
-                .map { (d, list) -> DayGroup(d, dayLabel(d, today), list.sortedWith(compareBy({ it.lessonNumber }))) },
+            days = shown.groupBy { it.date }.toSortedMap().let { byDay ->
+                (byDay.keys + notices.keys.filter { it >= today }).toSortedSet().map { d ->
+                    DayGroup(d, dayLabel(d, today), byDay[d].orEmpty().sortedWith(compareBy({ it.lessonNumber })), notices[d])
+                }
+            },
             todayHidden = over.any { it.date == today },
             otherGroups = otherGroups.filterNot { SubstitutionRelevance.isOver(it, now, ends) }
                 .sortedWith(compareBy({ it.date }, { it.lessonNumber }))

@@ -89,6 +89,8 @@ class DashboardViewModel @Inject constructor(
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true,
+        /** Informacja szkoły dla pokazywanego dnia (dzień, tekst); null - brak, bez pustego miejsca. */
+        val schoolNotice: Pair<LocalDate, String>? = null,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -116,7 +118,8 @@ class DashboardViewModel @Inject constructor(
         val update: AppUpdate? = null,
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
-        val showAnnouncements: Boolean = true
+        val showAnnouncements: Boolean = true,
+        val notices: Map<LocalDate, String> = emptyMap()
     )
 
     private val refreshing = MutableStateFlow(false)
@@ -157,6 +160,7 @@ class DashboardViewModel @Inject constructor(
         .combine(settings.showAnnouncements) { core, v -> core.copy(showAnnouncements = v) }
         .combine(settings.activeGroupSelections) { core, sel -> core.copy(groups = sel) }
         .combine(updateRepo.availableUpdate) { core, u -> core.copy(update = u) }
+        .combine(todayFlow.flatMapLatest { day -> substitutionsRepo.observeNotices(day) }) { core, n -> core.copy(notices = n) }
         .combine(visibleMinuteTicker(visible)) { core, _ -> core }
         .map { core -> compute(core).copy(ready = true) }
         // Przeliczanie stanu (filtry grup, zastępstwa, odliczanie) poza wątkiem UI.
@@ -268,7 +272,8 @@ class DashboardViewModel @Inject constructor(
             }, nowDt),
             showNextLesson = c.showNextLesson,
             showSubstitutions = c.showSubstitutions,
-            showAnnouncements = c.showAnnouncements
+            showAnnouncements = c.showAnnouncements,
+            schoolNotice = pl.zse.bydgoszcz.elektron.domain.model.SchoolNotices.forDashboard(c.notices, lessons, nowDt, lesson?.date)
         )
     }
 

@@ -79,6 +79,13 @@ data class SubstitutionEntity(
     val originalSubject: String? = null
 )
 
+/** Informacja szkoły dopisana pod datą na stronie zastępstw (np. o oddawaniu krwi) - jedna na dzień. */
+@Entity(tableName = "school_notices")
+data class SchoolNoticeEntity(
+    @PrimaryKey val dateEpochDay: Long,
+    val text: String
+)
+
 @Entity(tableName = "announcements", indices = [Index("publishedAtEpochSeconds")])
 data class AnnouncementEntity(
     @PrimaryKey val id: String,

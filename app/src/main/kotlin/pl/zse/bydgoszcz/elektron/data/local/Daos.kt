@@ -152,6 +152,24 @@ interface SubstitutionDao {
     fun observeForRange(fromDay: Long, toDay: Long): Flow<List<SubstitutionEntity>>
 }
 
+@Dao
+interface SchoolNoticeDao {
+    @Query("SELECT * FROM school_notices WHERE dateEpochDay >= :fromDay ORDER BY dateEpochDay")
+    fun observeFrom(fromDay: Long): Flow<List<SchoolNoticeEntity>>
+
+    @Query("SELECT * FROM school_notices WHERE dateEpochDay = :day LIMIT 1")
+    suspend fun get(day: Long): SchoolNoticeEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(notice: SchoolNoticeEntity)
+
+    @Query("DELETE FROM school_notices WHERE dateEpochDay = :day")
+    suspend fun deleteForDay(day: Long)
+
+    @Query("DELETE FROM school_notices WHERE dateEpochDay < :beforeDay")
+    suspend fun deleteOlderThan(beforeDay: Long)
+}
+
 /** Wartość fullHtml na liście ogłoszeń: treść jest zapisana, ale nie jest wczytywana. */
 const val SAVED_CONTENT_MARKER = "saved"
 
