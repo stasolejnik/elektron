@@ -47,6 +47,7 @@ class SettingsViewModel @Inject constructor(
     private val reminders: LessonReminderScheduler,
     private val notificationsRepo: NotificationsRepository,
     private val developerTools: DeveloperTools,
+    private val liveLessons: pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -180,6 +181,7 @@ class SettingsViewModel @Inject constructor(
         val widgetLook: WidgetLook = WidgetLook(),
         val accent: AccentSetting = AccentSetting(),
         val updateChannel: UpdateChannel = UpdateChannel.STABLE,
+        val liveNotifications: Boolean = false,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -195,7 +197,8 @@ class SettingsViewModel @Inject constructor(
         settings.quietHours,
         settings.widgetLook,
         settings.accent,
-        settings.updateChannel
+        settings.updateChannel,
+        settings.liveNotifications
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -215,7 +218,8 @@ class SettingsViewModel @Inject constructor(
             quiet = values[12] as QuietHours,
             widgetLook = values[13] as WidgetLook,
             accent = values[14] as AccentSetting,
-            updateChannel = values[15] as UpdateChannel
+            updateChannel = values[15] as UpdateChannel,
+            liveNotifications = values[16] as Boolean
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -292,6 +296,16 @@ class SettingsViewModel @Inject constructor(
     fun resetCache() {
         state.value.selectedClassId?.let { classSelection.resetCacheAndResync(it) }
     }
+
+    /** Powiadomienie na żywo: włączenie pokazuje je od razu (w oknie lekcji), wyłączenie usuwa. */
+    fun setLiveNotifications(b: Boolean) = writeSetting {
+        settings.setLiveNotifications(b)
+        if (b) settings.setLiveHiddenDay(null)
+        liveLessons.reschedule()
+    }
+
+    /** Powrót z ustawień systemu (np. zgoda na powiadomienia) - pokaż albo usuń powiadomienie na żywo. */
+    fun refreshLiveNotifications() = liveLessons.requestReschedule()
 
     fun setNotifSubs(b: Boolean) = writeSetting { settings.setNotificationsSubstitutions(b) }
     fun setNotifAnn(b: Boolean) = writeSetting { settings.setNotificationsAnnouncements(b) }

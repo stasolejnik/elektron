@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Po restarcie telefonu ponowne ustawienie przypomnienia o lekcji (Android kasuje alarmy). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Android 16: powiadomienie na żywo jako "Live Update" (zwykłe uprawnienie, bez pytania). -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <application
         android:name=".ElektronApplication"
@@ -126,6 +128,10 @@
         <!-- Alarm przypomnienia przed lekcją (tylko z własnego PendingIntent). -->
         <receiver
             android:name=".work.LessonReminderReceiver"
+            android:exported="false" />
+        <!-- Powiadomienie na żywo: granice lekcji, pasek postępu, "Ukryj na dziś" (tylko z własnego PendingIntent). -->
+        <receiver
+            android:name=".work.LiveLessonReceiver"
             android:exported="false" />
         <!-- Alarm przypomnienia o notatce (tylko z własnego PendingIntent). -->
         <receiver

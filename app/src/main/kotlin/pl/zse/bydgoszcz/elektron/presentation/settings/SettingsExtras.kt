@@ -148,14 +148,45 @@ internal fun TransitSection(
 @Composable
 internal fun NotificationsSection(
     substitutions: Boolean, announcements: Boolean, quiet: QuietHours,
-    onSubs: (Boolean) -> Unit, onAnnouncements: (Boolean) -> Unit, onQuiet: (QuietHours) -> Unit
+    onSubs: (Boolean) -> Unit, onAnnouncements: (Boolean) -> Unit, onQuiet: (QuietHours) -> Unit,
+    live: Boolean = false, onLive: (Boolean) -> Unit = {}, onLiveResume: () -> Unit = {}
 ) {
     var picking by remember { mutableStateOf<Boolean?>(null) }   // true = od, false = do
+    val ctx = LocalContext.current
+    // Zgoda na powiadomienia i kanał "Na żywo" - sprawdzane przy każdym powrocie z ustawień systemu.
+    var liveAllowed by remember { mutableStateOf(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.canPost(ctx)) }
+    var liveDenied by remember { mutableStateOf(false) }
+    OnResume {
+        liveAllowed = pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.canPost(ctx)
+        onLiveResume()
+    }
+    val permission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        liveAllowed = pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.canPost(ctx)
+        liveDenied = !granted
+        if (granted) onLive(true)
+    }
     GroupedSection("Powiadomienia", icon = Icons.Outlined.Notifications) {
         SystemNotificationStatus()
         SwitchRow("Nowe zastępstwa", substitutions, supporting = "Zmiany w planie Twojej klasy", onChange = onSubs)
         RowDivider()
         SwitchRow("Nowe ogłoszenia", announcements, supporting = "Wpisy na stronie szkoły", onChange = onAnnouncements)
+        RowDivider()
+        SwitchRow("Powiadomienia na żywo", live,
+            supporting = "W dni lekcyjne: co trwa, ile zostało i co dalej. Ciche, więc działa też w ciche godziny"
+        ) { enable ->
+            val needsPermission = enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (needsPermission) permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) else onLive(enable)
+        }
+        if ((live || liveDenied) && !liveAllowed) {
+            Text("Bez zgody na powiadomienia (albo przy wyłączonym kanale „Na żywo: lekcje”) powiadomienie się nie pokaże.",
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            ActionRow("Otwórz ustawienia powiadomień", trailingIcon = true) { openNotificationSettings(ctx) }
+        }
         RowDivider()
         SwitchRow("Ciche godziny", quiet.enabled, supporting = "Bez dźwięku i wibracji - nic nie ginie") { onQuiet(quiet.copy(enabled = it)) }
         if (quiet.enabled) {

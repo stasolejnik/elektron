@@ -186,7 +186,9 @@ fun SettingsScreen(
 
             item(key = "notifications") {
                 NotificationsSection(state.notifSubs, state.notifAnn, state.quiet,
-                    onSubs = viewModel::setNotifSubs, onAnnouncements = viewModel::setNotifAnn, onQuiet = viewModel::setQuietHours)
+                    onSubs = viewModel::setNotifSubs, onAnnouncements = viewModel::setNotifAnn, onQuiet = viewModel::setQuietHours,
+                    live = state.liveNotifications, onLive = { viewModel.setLiveNotifications(it) },
+                    onLiveResume = { viewModel.refreshLiveNotifications() })
             }
 
             item(key = "reminders") {

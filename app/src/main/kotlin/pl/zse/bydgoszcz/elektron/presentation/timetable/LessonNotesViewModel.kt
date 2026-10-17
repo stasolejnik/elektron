@@ -20,7 +20,9 @@ class LessonNotesViewModel @Inject constructor(
     private val widgetUpdater: WidgetUpdater,
     private val savedState: androidx.lifecycle.SavedStateHandle,
     private val timetable: pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository,
-    private val settings: pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
+    private val settings: pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository,
+    /** Powiadomienie na żywo pokazuje notatkę trwającej albo następnej lekcji. */
+    private val liveLessons: pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler? = null
 ) : ViewModel() {
     data class State(val notes: List<LessonNote> = emptyList(), val enabled: Boolean = false,
         val timing: NoteReminderSettings = NoteReminderSettings(),
@@ -93,7 +95,7 @@ class LessonNotesViewModel @Inject constructor(
                         ?: error("Lekcja nie jest już w planie")
                     repository.save(LessonNote(latest.classId, latest.date, latest.number, LessonNote.subject(latest), text, 0))
                 }
-                    .onSuccess { scheduler.requestReschedule(); widgetUpdater.requestUpdate(); onSaved() }
+                    .onSuccess { scheduler.requestReschedule(); liveLessons?.requestReschedule(); widgetUpdater.requestUpdate(); onSaved() }
                     .onFailure { error.value = "Nie udało się zapisać notatki. Spróbuj ponownie." }
             } finally { saving.value = false }
         }
@@ -104,7 +106,7 @@ class LessonNotesViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 runCatchingCancellable { repository.delete(note.key) }
-                    .onSuccess { scheduler.requestReschedule(); widgetUpdater.requestUpdate(); onDeleted() }
+                    .onSuccess { scheduler.requestReschedule(); liveLessons?.requestReschedule(); widgetUpdater.requestUpdate(); onDeleted() }
                     .onFailure { error.value = "Nie udało się usunąć notatki." }
             } finally { saving.value = false }
         }

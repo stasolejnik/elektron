@@ -64,6 +64,13 @@ interface SettingsRepository {
     val timetableLook: Flow<TimetableLook>
     suspend fun setTimetableLook(look: TimetableLook)
 
+    /** Powiadomienie na żywo w dni lekcyjne (domyślnie wyłączone). */
+    val liveNotifications: Flow<Boolean> get() = flowOf(false)
+    suspend fun setLiveNotifications(enabled: Boolean) {}
+    /** Dzień (epochDay), w którym użytkownik ukrył albo odrzucił powiadomienie na żywo; null - żaden. */
+    val liveHiddenDay: Flow<Long?> get() = flowOf(null)
+    suspend fun setLiveHiddenDay(epochDay: Long?) {}
+
     /** Kanał aktualizacji z GitHuba; domyślnie stabilny. */
     val updateChannel: Flow<UpdateChannel> get() = flowOf(UpdateChannel.STABLE)
     suspend fun setUpdateChannel(channel: UpdateChannel) {}

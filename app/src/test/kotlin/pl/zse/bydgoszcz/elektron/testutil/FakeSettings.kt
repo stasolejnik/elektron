@@ -61,4 +61,10 @@ class FakeSettings(
     override suspend fun setGroupSelection(classId: String, subject: String, choice: String?) {}
     override val groupsConfiguredFor: Flow<String?> = flowOf(classId)
     override suspend fun setGroupsConfiguredFor(classId: String) {}
+    val liveFlow = MutableStateFlow(false)
+    val liveHiddenFlow = MutableStateFlow<Long?>(null)
+    override val liveNotifications: Flow<Boolean> = liveFlow
+    override suspend fun setLiveNotifications(enabled: Boolean) { liveFlow.value = enabled }
+    override val liveHiddenDay: Flow<Long?> = liveHiddenFlow
+    override suspend fun setLiveHiddenDay(epochDay: Long?) { liveHiddenFlow.value = epochDay }
 }

@@ -20,7 +20,7 @@ class NotificationChannelsTest {
         val manager = context.getSystemService(NotificationManager::class.java)
         val group = manager.notificationChannelGroups.single { it.name == "eLektron" }
         val channels = manager.notificationChannels.filter { it.group == group.id }
-        assertEquals(setOf("Zastępstwa", "Ogłoszenia", "Notatki do lekcji", "Przypomnienia o lekcjach"), channels.map { it.name.toString() }.toSet())
+        assertEquals(setOf("Zastępstwa", "Ogłoszenia", "Notatki do lekcji", "Przypomnienia o lekcjach", "Na żywo: lekcje"), channels.map { it.name.toString() }.toSet())
         if (Build.VERSION.SDK_INT >= 28) assertEquals("Powiadomienia z aplikacji eLektron", group.description)
         // Recreating the sink must not duplicate or replace the user's channel settings.
         LocalNotificationSink(context, FakeSettings())

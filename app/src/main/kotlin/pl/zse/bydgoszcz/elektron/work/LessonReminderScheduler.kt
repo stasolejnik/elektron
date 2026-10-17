@@ -40,7 +40,9 @@ class LessonReminderScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: SettingsRepository,
     private val timetableRepo: TimetableRepository,
-    private val noteReminders: NoteReminderScheduler? = null
+    private val noteReminders: NoteReminderScheduler? = null,
+    /** Powiadomienie na żywo - przeliczane razem z przypomnieniami (te same wyzwalacze). */
+    private val liveLessons: LiveLessonScheduler? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
@@ -62,6 +64,7 @@ class LessonReminderScheduler @Inject constructor(
             _status.value = Status(error = true, ready = true)
             Log.w(TAG, "Nie udało się ustawić przypomnienia", it)
         }
+        liveLessons?.reschedule(now)
     }
 
     private suspend fun rescheduleLocked(now: LocalDateTime) {

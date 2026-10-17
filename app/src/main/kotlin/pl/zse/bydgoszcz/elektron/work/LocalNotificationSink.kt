@@ -61,6 +61,17 @@ class LocalNotificationSink @Inject constructor(
             description = "Przypomnienia o Twoich notatkach do przyszłych lekcji."
             group = GROUP_ELEKTRON
         })
+        // Powiadomienie na żywo: ciche (bez dźwięku, wibracji i kropki na ikonie), stale widoczne w dni lekcyjne.
+        mgr.createNotificationChannel(
+            NotificationChannel(CHANNEL_LIVE, "Na żywo: lekcje", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "Co trwa teraz i co dalej - w dni lekcyjne (Ustawienia -> Powiadomienia)."
+                group = GROUP_ELEKTRON
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+            }
+        )
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_REMINDERS, "Przypomnienia o lekcjach", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Przypomnienia przed lekcją (Ustawienia -> Powiadomienia)."
@@ -228,6 +239,7 @@ class LocalNotificationSink @Inject constructor(
         const val CHANNEL_ANNOUNCEMENTS = "elektron_announcements"
         const val CHANNEL_NOTES = "elektron_lesson_notes"
         const val CHANNEL_REMINDERS = "elektron_reminders"
+        const val CHANNEL_LIVE = "elektron_live"
         private const val REMINDER_ID_BASE = 0x7E000000
         /** Zastępstwa: rozróżnia je znacznik (SubstitutionNotice.tag), ID jest stałe. */
         private const val SUBSTITUTION_ID = 0x5B000001
