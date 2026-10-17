@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.first
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.Substitution
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionRelevance
-import pl.zse.bydgoszcz.elektron.domain.repository.NotificationsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
@@ -24,7 +23,6 @@ import javax.inject.Singleton
 class SubstitutionNotifier @Inject constructor(
     private val settings: SettingsRepository,
     private val timetableRepo: TimetableRepository,
-    private val notificationsRepo: NotificationsRepository,
     private val sink: NotificationSink
 ) {
 
@@ -35,21 +33,6 @@ class SubstitutionNotifier @Inject constructor(
     suspend fun notifyFresh(fresh: List<Substitution>) {
         if (fresh.isEmpty() || !settings.notificationsSubstitutions.first()) return
         relevant(fresh).forEach { (sub, subject) -> sink.postSubstitution(sub, subject) }
-    }
-
-    /**
-     * Push FCM o jednym zastępstwie: powiadomienie, jeśli dotyczy użytkownika i nie było jeszcze
-     * widziane (synchronizacja mogła je już obsłużyć) - pod tą samą blokadą co synchronizacja.
-     */
-    suspend fun notifyPushed(sub: Substitution) {
-        if (!settings.notificationsSubstitutions.first()) return
-        val (target, subject) = relevant(listOf(sub)).singleOrNull() ?: return
-        notificationsRepo.withNotifyLock {
-            val seen = notificationsRepo.getSeenSubstitutionIds()
-            if (target.id in seen) return@withNotifyLock      // już obsłużone - bez duplikatu
-            sink.postSubstitution(target, subject)
-            notificationsRepo.setSeenSubstitutionIds(seen + target.id)
-        }
     }
 
     /** Zastępstwa z [subs] dotyczące użytkownika (klasa, grupy, lekcja jeszcze trwa) + przedmiot. */

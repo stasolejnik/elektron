@@ -340,7 +340,7 @@ class SyncCoordinator @Inject constructor(
      * po zmianie klasy ([allowed] = false) tylko zapisują stan.
      */
     private suspend fun notifyNew(classId: String?, allowed: Boolean, substitutionsLoaded: Boolean) {
-        // Blokada dzielona z pushami FCM (SubstitutionNotifier.notifyPushed) - bez duplikatów.
+        // Blokada dzielona z pushami ogłoszeń FCM (ElektronFirebaseMessagingService) - bez duplikatów.
         notificationsRepo.withNotifyLock {
             // Wysyłka i zapis "widzianych" jako jeden krok: anulowanie pomiędzy (limit czasu pusha,
             // zmiana klasy) powtarzało przy następnym syncu dźwięk już pokazanych powiadomień.

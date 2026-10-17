@@ -33,7 +33,7 @@ class TestCoordinator(
         pl.zse.bydgoszcz.elektron.data.repository.FavoriteAnnouncementsStore(null), notificationsRepo)
     val coordinator = SyncCoordinator(
         settings, timetableRepo, substitutionsRepo, announcementsRepo, notificationsRepo,
-        SubstitutionNotifier(settings, timetableRepo, notificationsRepo, sink), sink,
+        SubstitutionNotifier(settings, timetableRepo, sink), sink,
         WidgetUpdater(context), LessonReminderScheduler(context, settings, timetableRepo), db
     ).apply {
         // Stała pora dnia: reguła nocna (BackgroundSyncPolicy) nie może zależeć od godziny uruchomienia testów.

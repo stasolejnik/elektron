@@ -15,7 +15,6 @@ import pl.zse.bydgoszcz.elektron.data.remote.dto.LessonCellDto
 import pl.zse.bydgoszcz.elektron.data.remote.dto.LessonGroupDto
 import pl.zse.bydgoszcz.elektron.data.remote.dto.TimetableDto
 import pl.zse.bydgoszcz.elektron.data.remote.sources.TimetableSource
-import pl.zse.bydgoszcz.elektron.data.repository.NotificationsRepositoryImpl
 import pl.zse.bydgoszcz.elektron.data.repository.TimetableRepositoryImpl
 import pl.zse.bydgoszcz.elektron.data.repository.inMemoryDb
 import pl.zse.bydgoszcz.elektron.domain.model.Announcement
@@ -24,7 +23,7 @@ import pl.zse.bydgoszcz.elektron.testutil.FakeSettings
 import java.time.DayOfWeek
 import java.time.LocalDate
 
-/** Jedna logika powiadomień o zastępstwach dla synchronizacji i pushy FCM. */
+/** Powiadomienia o zastępstwach po synchronizacji (także wywołanej pushem FCM). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class SubstitutionNotifierTest {
@@ -40,7 +39,6 @@ class SubstitutionNotifierTest {
     private val settings = FakeSettings()
     private val sink = RecordingSink()
     private lateinit var notifier: SubstitutionNotifier
-    private lateinit var notificationsRepo: NotificationsRepositoryImpl
     // Następny tydzień: lekcje na pewno jeszcze się nie odbyły.
     private val nextMonday = LocalDate.now().with(DayOfWeek.MONDAY).plusWeeks(1)
 
@@ -56,8 +54,7 @@ class SubstitutionNotifierTest {
         }, db.schoolClassDao(), db.teacherDao(), db.roomDao(), db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
         timetableRepo.syncSidebar()
         timetableRepo.syncTimetable("o3", LocalDate.now())
-        notificationsRepo = NotificationsRepositoryImpl(db.notificationDao(), db.syncStateDao())
-        notifier = SubstitutionNotifier(settings, timetableRepo, notificationsRepo, sink)
+        notifier = SubstitutionNotifier(settings, timetableRepo, sink)
     }
 
     @After fun tearDown() = db.close()
@@ -82,28 +79,12 @@ class SubstitutionNotifierTest {
         settings.groupSelectionsFlow.value = emptyMap()
         settings.notifySubs.value = false
         notifier.notifyFresh(listOf(sub("a")))
-        notifier.notifyPushed(sub("b"))
         assertTrue(sink.posted.isEmpty())
     }
 
     @Test
     fun pastLessonIsNotNotified() = runBlocking {
         notifier.notifyFresh(listOf(sub("old", date = LocalDate.now().minusDays(1))))
-        assertTrue(sink.posted.isEmpty())
-    }
-
-    @Test
-    fun pushIsNotifiedOnceAndMarkedSeen() = runBlocking {
-        notifier.notifyPushed(sub("p"))
-        notifier.notifyPushed(sub("p"))                 // drugi push albo sync - bez duplikatu
-        assertEquals(listOf("p"), sink.posted.map { it.first.id })
-        assertTrue("p" in notificationsRepo.getSeenSubstitutionIds())
-    }
-
-    @Test
-    fun pushAlreadySeenBySyncIsSkipped() = runBlocking {
-        notificationsRepo.setSeenSubstitutionIds(setOf("s"))
-        notifier.notifyPushed(sub("s"))
         assertTrue(sink.posted.isEmpty())
     }
 }

@@ -18,14 +18,6 @@ import javax.inject.Singleton
 class SyncScheduler @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    fun syncNow() {
-        val req = OneTimeWorkRequestBuilder<SyncWorker>()
-            .setConstraints(networkConstraints())
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_MANUAL, ExistingWorkPolicy.REPLACE, req)
-    }
-
     fun syncSubstitutionsNow() {
         val req = OneTimeWorkRequestBuilder<SyncWorker>()
             .setInputData(androidx.work.workDataOf("source" to pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS))
@@ -53,7 +45,6 @@ class SyncScheduler @Inject constructor(
 
     companion object {
         const val WORK_PUSH_SUBS = "elektron_push_substitutions_sync"
-        const val WORK_MANUAL = "elektron_manual_sync"
         const val WORK_PERIODIC = "elektron_periodic_sync"
     }
 }

@@ -642,7 +642,7 @@ class SyncCoordinatorTest {
             override fun observeLoadedResources() = kotlinx.coroutines.flow.flow<Set<String>> { throw IOException("Błąd odczytu bazy") }
         }
         val broken = SyncCoordinator(settings, t.timetableRepo, t.substitutionsRepo, t.announcementsRepo,
-            brokenNotifications, pl.zse.bydgoszcz.elektron.work.SubstitutionNotifier(settings, t.timetableRepo, brokenNotifications, sink),
+            brokenNotifications, pl.zse.bydgoszcz.elektron.work.SubstitutionNotifier(settings, t.timetableRepo, sink),
             sink, pl.zse.bydgoszcz.elektron.widget.WidgetUpdater(context),
             pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler(context, settings, t.timetableRepo), db)
         val outcome = broken.sync(SyncRequest.full())
