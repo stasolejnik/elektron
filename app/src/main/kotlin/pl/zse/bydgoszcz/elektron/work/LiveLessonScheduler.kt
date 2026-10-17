@@ -78,6 +78,7 @@ class LiveLessonScheduler @Inject constructor(
         if (!settings.liveNotifications.first() || classId == null || !canPost(context)) {
             NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
             cancelAlarms()
+            if (settings.liveNotifications.first()) Log.i(TAG, "Wyłączone: ${if (classId == null) "brak klasy" else "brak zgody na powiadomienia"}")
             return
         }
         val today = now.toLocalDate()
@@ -95,6 +96,10 @@ class LiveLessonScheduler @Inject constructor(
         setAlarm(BOUNDARY_REQUEST, ACTION_BOUNDARY, next, wakeUp = true)
         val progressAt = content?.let { minOf(next ?: it.windowEnd, now.plusMinutes(PROGRESS_MINUTES)) }
         setAlarm(PROGRESS_REQUEST, ACTION_PROGRESS, progressAt?.takeIf { next == null || it < next }, wakeUp = false)
+        // Diagnostyka ("Zgłoś problem"): co pokazano i kiedy następna zmiana.
+        Log.i(TAG, "Teraz ${now.withNano(0)}${if (AppClock.simulated) " (symulacja)" else ""}: " +
+            (content?.let { "${it.phase}, do ${it.countdownTo.toLocalTime()}" } ?: if (hidden) "ukryte na dziś" else "bez powiadomienia") +
+            ", następna zmiana ${next?.withNano(0) ?: "brak"}, dokładne alarmy: ${LessonReminderScheduler.canUseExactAlarms(context)}")
     }
 
     private fun post(content: LiveLesson.Content, now: LocalDateTime) {
@@ -155,7 +160,13 @@ class LiveLessonScheduler @Inject constructor(
         val pi = broadcast(request, action)
         if (at == null) { am.cancel(pi); return }
         val ms = realMillis(at) + 1_000L
-        if (!wakeUp) { am.set(AlarmManager.RTC, ms, pi); return }
+        if (!wakeUp) {
+            // Bez budzenia, ale co do sekundy, gdy telefon działa (zwykłe set() system przesuwał o minuty).
+            try {
+                if (LessonReminderScheduler.canUseExactAlarms(context)) am.setExact(AlarmManager.RTC, ms, pi) else am.set(AlarmManager.RTC, ms, pi)
+            } catch (e: SecurityException) { am.set(AlarmManager.RTC, ms, pi) }
+            return
+        }
         try {
             if (LessonReminderScheduler.canUseExactAlarms(context)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi)
             else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi)

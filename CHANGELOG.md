@@ -15,6 +15,9 @@ Krótki opis do wydania na GitHubie: [release-notes/1.0.1.md](release-notes/1.0.
 - Widżet Plan dnia: przy podświetlonej lekcji „lekcja za X min” w przerwie i „za X min” przed lekcją.
 - Widok Dzień w planie: lekcja, z której klasa jest zwolniona, nie ma już ramki, paska i „zostało X min” trwającej lekcji (także kafelek w planie tygodniowym).
 - Plan tygodniowy: przewijanie dalekich tygodni (dalej niż 4 tygodnie) nie pobiera planu w kółko - zapis tygodnia +5 nie kasuje już zapisanego tygodnia +4 przy tym samym planie.
+- Synchronizacja przy otwarciu aplikacji: powrót na ekran odświeża to, na co przyszła pora (zastępstwa, plan co 6 h, ogłoszenia co godzinę), najwyżej raz na 2 min. Dawniej ekrany pokazywały dane z ostatniej synchronizacji w tle, którą system przy oszczędzaniu baterii odkładał nawet o godziny.
+- Widżety i kafelek zmieniają się przy dzwonku razem z powiadomieniem na żywo: odświeżenia na dokładnym alarmie bez budzenia telefonu (przy wygaszonym ekranie - zaraz po jego włączeniu) zamiast zadania WorkManagera z opóźnieniem, które system przesuwał. Termin zerowany po restarcie, aktualizacji i zmianie czasu. Pasek postępu powiadomienia na żywo też na dokładnym alarmie bez budzenia.
+- Diagnostyka: raport „Zgłoś problem” zawiera przeliczenia powiadomienia na żywo i odświeżeń widżetów.
 - „Co nowego” w wersji stabilnej bez osobnych wpisów wersji testowych.
 
 ## [1.0.1-beta1] - 2026-10-11 (36)

@@ -49,6 +49,7 @@ class SystemEventsReceiver : BroadcastReceiver() {
                     // updateNow (czekamy), nie requestUpdate: tamto tylko startuje korutynę
                     // i od razu wraca, więc po finish() proces mógł zostać zamknięty, zanim
                     // widżety (np. z nowymi akcjami wierszy po aktualizacji) się przerysowały.
+                    ep.widgetUpdater().resetTicks()
                     ep.widgetUpdater().updateNow()
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }

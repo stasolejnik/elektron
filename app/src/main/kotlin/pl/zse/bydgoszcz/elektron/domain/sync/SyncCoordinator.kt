@@ -147,6 +147,19 @@ class SyncCoordinator @Inject constructor(
         }
     }
 
+    /**
+     * Otwarcie aplikacji (powrót na ekran): odświeżenie tego, na co przyszła pora (reguła jak w tle -
+     * zastępstwa zawsze, plan co 6 h, ogłoszenia co godzinę), najwyżej raz na [OPEN_SYNC_GAP_SECONDS].
+     * Dawniej ekran pokazywał dane z ostatniej synchronizacji w tle, którą system przy oszczędzaniu
+     * baterii potrafił odłożyć o godziny.
+     */
+    suspend fun syncOnOpen(now: Instant = Instant.now()): SyncOutcome? {
+        if (settings.selectedClassId.first() == null) return null
+        val last = observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS).first()
+        if (!shouldSyncOnOpen(last, now)) return null
+        return sync(SyncRequest.full(background = true))
+    }
+
     /** Wybór klasy i pierwsza synchronizacja jej danych (praca nie zależy od żadnego ekranu). */
     fun selectClass(classId: String) = startClassChange(classId, reset = false)
 
@@ -376,5 +389,13 @@ class SyncCoordinator @Inject constructor(
         }
     }
 
-    companion object { private const val TAG = "SyncCoordinator" }
+    companion object {
+        private const val TAG = "SyncCoordinator"
+        const val OPEN_SYNC_GAP_SECONDS = 120L
+
+        /** Czy odświeżyć przy otwarciu: zastępstwa nigdy nie pobrane albo starsze niż [OPEN_SYNC_GAP_SECONDS]. */
+        fun shouldSyncOnOpen(lastSubstitutions: Instant?, now: Instant): Boolean =
+            lastSubstitutions == null || now.epochSecond - lastSubstitutions.epochSecond >= OPEN_SYNC_GAP_SECONDS ||
+                now.isBefore(lastSubstitutions)
+    }
 }

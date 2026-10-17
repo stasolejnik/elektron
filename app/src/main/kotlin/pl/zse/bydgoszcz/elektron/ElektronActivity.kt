@@ -176,6 +176,11 @@ class ElektronActivity : ComponentActivity() {
         super.onStart()
         noteReminders.requestReschedule(force = true)
         if (BuildConfig.UPDATE_CHECK) lifecycleScope.launch { updateRepo.check(force = false) }
+        // Świeże dane od razu po otwarciu (nie dopiero przy synchronizacji w tle).
+        lifecycleScope.launch {
+            pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { coordinator.syncOnOpen() }
+                .onFailure { Log.w(TAG, "Odświeżenie przy otwarciu nieudane", it) }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -10,6 +10,7 @@ object Changelog {
             "Nowość: informacje szkoły ze strony zastępstw (np. o oddawaniu krwi) w zakładce Zastępstwa i na stronie głównej",
             "Widżet Następna lekcja: „Za X min” w każdym rozmiarze i kolejna lekcja pod spodem",
             "Widżet Plan dnia odlicza czas do najbliższej lekcji",
+            "Otwarcie aplikacji od razu odświeża zastępstwa, a widżety zmieniają się przy dzwonku",
             "Zmiana samych uwag w zastępstwie aktualizuje powiadomienie",
             "Powiadomienia o zastępstwach działają także, gdy części wpisów na stronie szkoły nie da się odczytać",
             "Plan dnia: przy zastępstwie najpierw informacja od szkoły, pod nią nauczyciel",

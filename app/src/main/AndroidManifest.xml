@@ -134,6 +134,10 @@
         <receiver
             android:name=".work.LessonReminderReceiver"
             android:exported="false" />
+        <!-- Odświeżenie widżetów przy dzwonku (tylko z własnego PendingIntent). -->
+        <receiver
+            android:name=".widget.WidgetTickReceiver"
+            android:exported="false" />
         <!-- Powiadomienie na żywo: granice lekcji, pasek postępu, "Ukryj na dziś" (tylko z własnego PendingIntent). -->
         <receiver
             android:name=".work.LiveLessonReceiver"

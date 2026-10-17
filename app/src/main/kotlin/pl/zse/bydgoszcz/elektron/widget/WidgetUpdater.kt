@@ -66,39 +66,94 @@ class WidgetUpdater @Inject constructor(
         ).forEach { result -> result.onFailure { Log.w(TAG, "Nie udało się odświeżyć jednego z widżetów", it) } }
     }
 
-    /** Zaplanuj odświeżenie na [at] (z ograniczeniem 1 min – 24 h, zabezpieczenie przed zmianą czasu). */
+    /**
+     * Zaplanuj odświeżenie na [at] (czas aplikacji, także symulowany; ograniczenie 1 min - 24 h).
+     * Dokładny alarm BEZ budzenia telefonu: przy włączonym ekranie przychodzi co do sekundy (dzwonek),
+     * przy wygaszonym - zaraz po jego włączeniu, więc nie dokłada wybudzeń. Dawniej zadanie WorkManagera
+     * z opóźnieniem, które system odkładał (Doze, grupy czuwania) - widżet zmieniał się po dzwonku
+     * z opóźnieniem, a powiadomienie na żywo już wcześniej. Trzy widżety planują osobno; zostaje
+     * najwcześniejszy termin, który jeszcze nie minął.
+     */
     fun scheduleTick(at: LocalDateTime): kotlinx.coroutines.Job = scope.launch(Dispatchers.IO) {
-            tickMutex.lock()
+        tickMutex.lock()
+        try {
+            val zone = java.time.ZoneId.systemDefault()
+            val delay = Duration.between(AppClock.now().atZone(zone), at.atZone(zone)).plusSeconds(1)
+                .coerceIn(Duration.ofMinutes(1), Duration.ofDays(1))
+            val planned = System.currentTimeMillis() + delay.toMillis()
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val current = prefs.getLong(KEY_TICK_AT, 0L)
+            // Wcześniejszy alarm nadal czeka (jego PendingIntent istnieje) - nie przesuwamy go później.
+            if (current > System.currentTimeMillis() && current <= planned && tickPending()) return@launch
+            val am = context.getSystemService(android.app.AlarmManager::class.java) ?: return@launch
+            val pi = tickIntent()
             try {
-                val now = AppClock.now()
-                // Strefa czasowa: przy zmianie czasu (DST) różnica lokalnych godzin nie jest prawdziwym odstępem.
-                val zone = java.time.ZoneId.systemDefault()
-                val delay = Duration.between(now.atZone(zone), at.atZone(zone)).plusSeconds(5).coerceIn(Duration.ofMinutes(1), Duration.ofDays(1))
-                val planned = System.currentTimeMillis() + delay.toMillis()
-                val wm = WorkManager.getInstance(context)
-                val earlier = wm.getWorkInfosForUniqueWork(WORK_TICK).get().any { info ->
-                    info.state == androidx.work.WorkInfo.State.ENQUEUED && info.tags.any { tag ->
-                        tag.removePrefix("tick-at:").toLongOrNull()?.let { it <= planned } == true
-                    }
-                }
-                if (earlier) return@launch
-                val request = OneTimeWorkRequestBuilder<WidgetTickWorker>().addTag("tick-at:$planned")
-                    .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS).build()
-                wm.enqueueUniqueWork(WORK_TICK, ExistingWorkPolicy.REPLACE, request).result.get()
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Log.w(TAG, "Nie udało się zaplanować odświeżenia widżetów", e)
-            } finally { tickMutex.unlock() }
-        }
+                if (pl.zse.bydgoszcz.elektron.work.LessonReminderScheduler.canUseExactAlarms(context))
+                    am.setExact(android.app.AlarmManager.RTC, planned, pi)
+                else am.set(android.app.AlarmManager.RTC, planned, pi)
+            } catch (e: SecurityException) {
+                am.set(android.app.AlarmManager.RTC, planned, pi)
+            }
+            prefs.edit().putLong(KEY_TICK_AT, planned).apply()
+            // Zadanie z poprzedniej wersji (WorkManager) - już niepotrzebne.
+            if (!prefs.getBoolean(KEY_LEGACY_CANCELLED, false)) {
+                runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK_TICK) }
+                prefs.edit().putBoolean(KEY_LEGACY_CANCELLED, true).apply()
+            }
+            Log.i(TAG, "Odświeżenie widżetów: ${at.toLocalTime().withNano(0)} (za ${delay.toMinutes()} min)")
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.w(TAG, "Nie udało się zaplanować odświeżenia widżetów", e)
+        } finally { tickMutex.unlock() }
+    }
 
+    /** Alarm odświeżenia przyszedł - następny termin zaplanują widżety po przerysowaniu. */
+    internal fun onTickFired() {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_TICK_AT).apply()
+    }
+
+    /** Restart, aktualizacja aplikacji, zmiana czasu: system skasował alarmy - termin od nowa. */
+    fun resetTicks() = onTickFired()
+
+    private fun tickPending(): Boolean = android.app.PendingIntent.getBroadcast(
+        context, TICK_REQUEST, android.content.Intent(context, WidgetTickReceiver::class.java),
+        android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE) != null
+
+    private fun tickIntent(): android.app.PendingIntent = android.app.PendingIntent.getBroadcast(
+        context, TICK_REQUEST, android.content.Intent(context, WidgetTickReceiver::class.java),
+        android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
 
     companion object {
         private const val TAG = "WidgetUpdater"
         private const val WORK_TICK = "elektron_widget_tick"
+        private const val PREFS = "widget_ticks"
+        private const val KEY_TICK_AT = "tick_at"
+        private const val KEY_LEGACY_CANCELLED = "legacy_cancelled"
+        private const val TICK_REQUEST = 4301
     }
 }
 
-/** Jednorazowe odświeżenie widżetów w chwili dzwonka (planowane przez [WidgetUpdater.scheduleTick]). */
+/**
+ * Odświeżenie z alarmu [WidgetUpdater.scheduleTick]. Glance rysuje widżety w osobnej pracy, więc
+ * odbiornik tylko zleca odświeżenie (updateAll) i od razu kończy.
+ */
+class WidgetTickReceiver : android.content.BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: android.content.Intent) {
+        val pending = goAsync()
+        val updater = WidgetDataLoader.entryPoint(context).widgetUpdater()
+        CoroutineScope(Dispatchers.Default).launch {
+            try {
+                updater.onTickFired()
+                kotlinx.coroutines.withTimeoutOrNull(8_000) { runTickUpdate { updater.updateNow() } }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Log.w("WidgetUpdater", "Nie udało się odświeżyć widżetów z alarmu", e)
+            } finally { pending.finish() }
+        }
+    }
+}
+
+/** Jednorazowe odświeżenie z poprzedniej wersji (WorkManager) - zostaje, żeby zaplanowane zadania się wykonały. */
 @HiltWorker
 class WidgetTickWorker @AssistedInject constructor(
     @Assisted ctx: Context,
