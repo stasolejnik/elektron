@@ -1,8 +1,8 @@
 package pl.zse.bydgoszcz.elektron.presentation.common
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,7 +46,7 @@ fun SchoolNoticeCard(text: String, collapsedLines: Int, key: String, modifier: M
         // Ikona w wierszu tytułu, treść na całą szerokość karty (dawniej wcięta pod ikoną i większa).
         Column(
             Modifier.padding(start = 16.dp, end = 16.dp, top = if (compact) 12.dp else 14.dp, bottom = if (overflows || expanded) 2.dp else if (compact) 12.dp else 14.dp)
-                .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+                .animateContentSize(tween(durationMillis = 180, easing = FastOutSlowInEasing))
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Outlined.Campaign, contentDescription = null, tint = onColor, modifier = Modifier.size(18.dp))

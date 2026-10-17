@@ -135,14 +135,14 @@ fun DashboardScreen(
                     // Tylko gdy widoczny: pusty element listy dokładał odstęp (spacedBy) - zbędna przerwa
                     // nad "Następną lekcją".
                     if (state.isSyncing && !state.isRefreshing && state.lastSyncError == null) {
-                        item(key = "syncing") { SyncingIndicator(Modifier.animateItem()) }
+                        item(key = "syncing") { SyncingIndicator(Modifier.animateItem(placementSpec = null)) }
                     }
 
                     // Informacja szkoły (np. o oddawaniu krwi) dla pokazywanego dnia - tylko gdy jest.
                     state.schoolNotice?.let { (day, text) ->
                         item(key = "school_notice") {
                             pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(text, collapsedLines = 2,
-                                key = "$day|${text.hashCode()}", compact = true, modifier = Modifier.animateItem(),
+                                key = "$day|${text.hashCode()}", compact = true,
                                 title = "Informacja szkoły · " + noticeDayLabel(day, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()))
                         }
                     }
@@ -183,7 +183,7 @@ fun DashboardScreen(
                             state.loadingSubs -> item(key = "subs_loading") { DelayedLoading { LoadingCard("Ładowanie zastępstw…") } }
                             state.upcomingSubstitutions.isEmpty() -> item(key = "subs_empty") { EmptyCard("Brak zastępstw") }
                             else -> items(state.upcomingSubstitutions, key = { "sub_${it.id}" }) {
-                                SubstitutionRow(it, Modifier.animateItem().semantics(mergeDescendants = true) {}, onOpenSubstitutions)
+                                SubstitutionRow(it, Modifier.animateItem(placementSpec = null).semantics(mergeDescendants = true) {}, onOpenSubstitutions)
                             }
                         }
                     }
@@ -193,7 +193,7 @@ fun DashboardScreen(
                     if (state.latestAnnouncements.isNotEmpty()) {
                         item(key = "h_anns") { SectionTitle("Najnowsze ogłoszenia", Icons.Filled.Campaign) }
                         items(state.latestAnnouncements, key = { "ann_${it.id}" }) { ann ->
-                            AnnouncementRow(ann, Modifier.animateItem()) { onOpenAnnouncement(ann.id) }
+                            AnnouncementRow(ann, Modifier.animateItem(placementSpec = null)) { onOpenAnnouncement(ann.id) }
                         }
                     } else if (state.loadingAnns) {
                         item(key = "h_anns") { SectionTitle("Najnowsze ogłoszenia", Icons.Filled.Campaign) }

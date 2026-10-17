@@ -7,7 +7,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Przypomnienia przed lekcją o czasie (Android 12+: użytkownik może odmówić -
          wtedy alarm niedokładny, kilka minut opóźnienia). -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <!-- Android 13+: przypomnienia o lekcjach i zmiana powiadomienia na żywo przy dzwonku muszą
+         przyjść o czasie. Nadawane przy instalacji (od Androida 14 SCHEDULE_EXACT_ALARM jest
+         domyślnie odmówione, a niedokładny alarm spóźniał się, np. odliczanie poniżej zera).
+         Ograniczenie tego uprawnienia dotyczy tylko sklepu Google Play - eLektron go nie używa. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- Po restarcie telefonu ponowne ustawienie przypomnienia o lekcji (Android kasuje alarmy). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Android 16: powiadomienie na żywo jako "Live Update" (zwykłe uprawnienie, bez pytania). -->

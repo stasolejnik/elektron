@@ -176,18 +176,18 @@ fun SubstitutionsScreen(
                     group.notice?.let { notice ->
                         item(key = "notice_${group.date}") {
                             pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 3,
-                                key = "${group.date}|${notice.hashCode()}", modifier = Modifier.animateItem())
+                                key = "${group.date}|${notice.hashCode()}")
                         }
                     }
                     if (group.items.isEmpty()) item(key = "none_${group.date}") {
                         // Dzień z samą informacją szkoły.
-                        ElektronCard(modifier = Modifier.animateItem()) {
+                        ElektronCard {
                             Text("Brak zastępstw dla Twojej klasy", style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
                         }
                     }
                     items(group.items, key = { it.id }) {
-                        SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem().semantics(mergeDescendants = true) {})
+                        SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem(placementSpec = null).semantics(mergeDescendants = true) {})
                     }
                 }
                 // Zastępstwa innych grup klasy: domyślnie ukryte, na żądanie przygaszone.
@@ -195,7 +195,7 @@ fun SubstitutionsScreen(
                     item(key = "other_toggle") {
                         TextButton(
                             onClick = viewModel::toggleOtherGroups,
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).animateItem()
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).animateItem(placementSpec = null)
                         ) {
                             Text(
                                 if (showOtherGroups) "Ukryj zastępstwa innych grup"
@@ -207,7 +207,7 @@ fun SubstitutionsScreen(
                         items(otherGroups, key = { "other_${it.id}" }) {
                             // Okno szczegółów otworzy się tylko, jeśli ta lekcja jest w Twoim planie
                             // (po filtrze grup) - inaczej sam plan na ten dzień.
-                            SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem().alpha(0.55f).semantics(mergeDescendants = true) {
+                            SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem(placementSpec = null).alpha(0.55f).semantics(mergeDescendants = true) {
                                 contentDescription = "Zastępstwo innej grupy"
                             })
                         }
