@@ -238,4 +238,61 @@ class WidgetStateTest {
         assertEquals(monday, later.date)
         assertFalse(later.isToday)
     }
+
+    @Test
+    fun widgetFollowsLessonClockEveryMinute() {
+        // Ta sama reguła co strona główna: trwająca / przerwa / odliczanie liczone identycznie.
+        val freedSub = pl.zse.bydgoszcz.elektron.domain.model.Substitution("f", friday, 4, "1D", null, "Uczniowie zwolnieni do domu", null, null, "X")
+        val day = listOf(lesson(friday, 1, "08:00", "08:45"), lesson(friday, 3, "09:50", "10:35"),
+            lesson(friday, 4, "10:45", "11:30").copy(substitution = freedSub), lesson(friday, 5, "11:40", "12:25"))
+        var t = LocalDateTime.of(friday, LocalTime.of(7, 0))
+        while (t.toLocalTime() < LocalTime.of(12, 25)) {
+            val st = WidgetDataLoader.buildState(day, t) as WidgetState.Ready
+            val text = widgetTimeStatus(st, t.toLocalTime())
+            val expected = when (val c = pl.zse.bydgoszcz.elektron.domain.model.LessonClock.status(day, t)) {
+                is pl.zse.bydgoszcz.elektron.domain.model.LessonClock.During -> "Zostało ${c.minutesLeft} min"
+                is pl.zse.bydgoszcz.elektron.domain.model.LessonClock.Break -> "Lekcja za ${c.minutesUntil} min"
+                is pl.zse.bydgoszcz.elektron.domain.model.LessonClock.Before -> c.minutesUntil?.let { "Za $it min" }
+                else -> null
+            }
+            assertEquals("o $t", expected, text)
+            t = t.plusMinutes(1)
+        }
+    }
+
+    @Test
+    fun countdownOnlyInLast30MinutesAndNotForAnotherDay() {
+        assertNull(widgetTimeStatus(at(friday, "09:00") as WidgetState.Ready, LocalTime.of(9, 0)))
+        assertEquals("Za 15 min", widgetTimeStatus(at(friday, "09:35") as WidgetState.Ready, LocalTime.of(9, 35)))
+        assertEquals("ZA 15 MIN", widgetCompactLabel(at(friday, "09:35") as WidgetState.Ready, LocalTime.of(9, 35), "NASTĘPNA"))
+        assertEquals("TERAZ · 30 MIN", widgetCompactLabel(at(friday, "11:00") as WidgetState.Ready, LocalTime.of(11, 0), "TERAZ"))
+        assertEquals("PRZERWA · 5 MIN", widgetCompactLabel(at(friday, "11:35") as WidgetState.Ready, LocalTime.of(11, 35), "PRZERWA"))
+        // Wieczorem widżet pokazuje poniedziałek - bez "Za X min".
+        val evening = at(friday, "23:30") as WidgetState.Ready
+        assertNull(widgetTimeStatus(evening, LocalTime.of(23, 30)))
+        assertEquals("PONIEDZIAŁEK", widgetCompactLabel(evening, LocalTime.of(23, 30), "PONIEDZIAŁEK"))
+    }
+
+    @Test
+    fun followingLessonSkipsFreedLessons() {
+        val freedSub = pl.zse.bydgoszcz.elektron.domain.model.Substitution("f", friday, 4, "1D", null, "Uczniowie zwolnieni do domu", null, null, "X")
+        val day = listOf(lesson(friday, 3, "09:50", "10:35"),
+            lesson(friday, 4, "10:45", "11:30").copy(substitution = freedSub), lesson(friday, 5, "11:40", "12:25", "fiz"))
+        val st = WidgetDataLoader.buildState(day, LocalDateTime.of(friday, LocalTime.of(10, 0))) as WidgetState.Ready
+        assertEquals(3, st.focus.number)
+        assertEquals(5, st.following?.number)
+        assertEquals("Potem: 5. fiz · 11:40 · s. 105", followingShort(st.following!!))
+        // Ostatnia lekcja - nie ma kolejnej.
+        assertNull((WidgetDataLoader.buildState(day, LocalDateTime.of(friday, LocalTime.of(12, 0))) as WidgetState.Ready).following)
+    }
+
+    @Test
+    fun followingShrinksToOneLineThenDisappears() {
+        // Najmniejszy widżet (110 dp): zarezerwowane ok. 84 dp - zostaje jedna linia.
+        assertEquals(1, WidgetNoteLayout.followingLines(110f, 84f))
+        assertEquals(2, WidgetNoteLayout.followingLines(160f, 84f))
+        assertEquals(0, WidgetNoteLayout.followingLines(110f, 100f))
+        // Większa czcionka systemowa - wcześniej znika.
+        assertEquals(0, WidgetNoteLayout.followingLines(110f, 84f, 2f))
+    }
 }

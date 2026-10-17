@@ -3,7 +3,6 @@ package pl.zse.bydgoszcz.elektron.widget
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 import java.time.LocalTime
-import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
 import android.content.Context
@@ -152,9 +151,10 @@ class DayPlanWidget : GlanceAppWidget() {
                         target = WidgetTargets.lesson(state, offset + visible.indexOf(lesson)),
                         dayLabel = state.dayLabel,
                         highlighted = lesson.number == state.focus.number,
-                        // Trwająca lekcja: "zostało X min" (jak w widżecie Następna lekcja i w planie).
-                        remaining = if (state.isToday && state.focusIsNow && lesson.number == state.focus.number)
-                            "zostało ${LessonClock.minutesCeil(AppClock.time(), lesson.timeTo)} min" else null,
+                        // Podświetlona lekcja: "zostało X min", w przerwie "lekcja za X min", przed nią
+                        // "za X min" - ta sama reguła co widżet Następna lekcja i strona główna.
+                        remaining = if (lesson.number == state.focus.number)
+                            widgetTimeStatus(state, AppClock.time())?.replaceFirstChar { it.lowercase() } else null,
                         past = state.isToday && lesson.timeTo <= AppClock.time(),
                         visibleLessonCount = visible.size
                     )

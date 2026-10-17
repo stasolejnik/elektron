@@ -6,6 +6,21 @@ internal object WidgetNoteLayout {
     fun lines(heightDp: Float, reservedDp: Float, fontScale: Float = 1f): Int =
         ((heightDp - reservedDp) / (18f * fontScale.coerceAtLeast(1f))).toInt().coerceIn(0, 2000)
 
+    /**
+     * Linie kolejnej lekcji pod lekcją główną widżetu Następna lekcja: 2 (nazwa, potem godziny i sala),
+     * 1 (skrót w jednej linii) albo 0 - przy najmniejszym rozmiarze bez miejsca znika.
+     * Liczone przed notatką: notatka dostaje to, co zostanie.
+     */
+    fun followingLines(heightDp: Float, reservedDp: Float, fontScale: Float = 1f): Int {
+        val line = 16f * fontScale.coerceAtLeast(1f)
+        val free = heightDp - reservedDp - 4f
+        return when {
+            free >= 2 * line + 8f -> 2
+            free >= line -> 1
+            else -> 0
+        }
+    }
+
     // Dziś zawsze od bieżącej lekcji, także w dzień z notatką (dawniej notatka do dowolnej
     // lekcji pokazywała minione i spychała trwającą poza mały widżet). Notatki minionych
     // lekcji są w szczegółach lekcji i w "Moich notatkach".

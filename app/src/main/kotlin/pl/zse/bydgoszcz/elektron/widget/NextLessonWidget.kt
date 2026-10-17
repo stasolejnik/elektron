@@ -2,7 +2,6 @@ package pl.zse.bydgoszcz.elektron.widget
 
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
-import pl.zse.bydgoszcz.elektron.domain.model.LessonClock
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
 import android.content.Context
@@ -43,7 +42,6 @@ import androidx.glance.background
 import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.cornerRadius
 import java.time.Duration
-import java.time.LocalTime
 import pl.zse.bydgoszcz.elektron.R
 
 /**
@@ -83,7 +81,9 @@ class NextLessonWidget : GlanceAppWidget() {
             target = "timetable",
             description = ready?.let { r ->
                 val l = r.focus
-                listOfNotNull("${r.dayLabel}, lekcja ${l.number}", l.title, l.timeRange, l.room?.let { "sala $it" }, l.detail, l.note, l.userNote?.let { "Notatka: $it" })
+                listOfNotNull("${r.dayLabel}, lekcja ${l.number}", l.title, l.timeRange, l.room?.let { "sala $it" }, l.detail, l.note,
+                    widgetTimeStatus(r, AppClock.time()), l.userNote?.let { "Notatka: $it" },
+                    r.following?.let { f -> listOfNotNull("Potem lekcja ${f.number}", f.title, f.timeRange, f.room?.let { "sala $it" }, f.note).joinToString(", ") })
                     .joinToString(", ") + ". Otwórz plan lekcji"
             }
         ) {
@@ -93,17 +93,16 @@ class NextLessonWidget : GlanceAppWidget() {
                 is WidgetState.NoLessons -> WidgetMessage("Brak lekcji w najbliższych dniach.")
                 is WidgetState.Ready -> {
                     val wide = LocalSize.current.width >= WIDE.width
-                    if (wide) {
+                    val following = state.following
+                    if (wide && following != null) {
                         Row(GlanceModifier.fillMaxSize()) {
-                            Box(GlanceModifier.defaultWeight().fillMaxHeight()) { Focus(state) }
-                            val following = state.following
-                            if (following != null) {
-                                Spacer(GlanceModifier.width(12.dp))
-                                Box(GlanceModifier.defaultWeight().fillMaxHeight()) { Following(following, state.date) }
-                            }
+                            Box(GlanceModifier.defaultWeight().fillMaxHeight()) { Focus(state, showFollowing = false) }
+                            Spacer(GlanceModifier.width(12.dp))
+                            Box(GlanceModifier.defaultWeight().fillMaxHeight()) { Following(following, state.date) }
                         }
                     } else {
-                        Focus(state)
+                        // Wąski widżet: kolejna lekcja pod główną (skrót w jednej linii albo nic, gdy brak miejsca).
+                        Focus(state, showFollowing = true)
                     }
                 }
             }
@@ -111,7 +110,7 @@ class NextLessonWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun Focus(state: WidgetState.Ready) {
+    private fun Focus(state: WidgetState.Ready, showFollowing: Boolean) {
         val lesson = state.focus
         val accent = if (lesson.isSubstitution) WidgetColors.substitution else WidgetColors.accent
         // Numer i pasek postępu w kolorze przedmiotu (Ustawienia -> Przedmioty), jak w planie.
@@ -133,12 +132,21 @@ class NextLessonWidget : GlanceAppWidget() {
         val reserved = 30f + scale * (18f + 20f * titleLines + 16f +
             (if (compact) 0f else 36f) + (if (showDetail) 16f else 0f) +
             (if (lesson.note != null) 18f else 0f) + (if (showTimeStatus) 28f else 0f))
-        val noteLines = WidgetNoteLayout.lines(height, reserved, scale)
+        val following = state.following?.takeIf { showFollowing }
+        val followingLines = if (following == null) 0 else WidgetNoteLayout.followingLines(height, reserved, scale)
+        val noteLines = WidgetNoteLayout.lines(height, reserved + followingLines * 16f * scale + (if (followingLines > 0) 4f else 0f), scale)
+        val now = AppClock.time()
+        // Bez wiersza czasu (mały widżet) odliczanie trafia do nagłówka - "Za X min" jak na stronie głównej.
+        val header = when {
+            state.readError -> "BŁĄD ODCZYTU · ZAPISANY PLAN"
+            !showTimeStatus -> widgetCompactLabel(state, now, label)
+            else -> label
+        }
         Column(GlanceModifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
                 Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(16.dp))
                 Spacer(GlanceModifier.width(6.dp))
-                Text(if (state.readError) "BŁĄD ODCZYTU · ZAPISANY PLAN" else label, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                Text(header, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             }
             Spacer(GlanceModifier.defaultWeight())
             if (!compact) Text("${lesson.number}", style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
@@ -159,11 +167,16 @@ class NextLessonWidget : GlanceAppWidget() {
             if (noteLines > 0) lesson.userNote?.let {
                 Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 12.sp), maxLines = noteLines)
             }
-            // Czas: w trakcie lekcji pasek postępu + "Zostało X min", przed lekcją "Za X min".
-            val now = AppClock.time()
-            if (showTimeStatus && state.focusIsNow) {
-                val total = Duration.between(lesson.timeFrom, lesson.timeTo).seconds.coerceAtLeast(1)
-                val done = Duration.between(lesson.timeFrom, now).seconds.coerceIn(0, total)
+            // Czas: w trakcie lekcji i przerwy pasek postępu, tekst ze wspólnej reguły (widgetTimeStatus).
+            val status = if (showTimeStatus) widgetTimeStatus(state, now) else null
+            val progressFrom = when {
+                state.focusIsNow -> lesson.timeFrom
+                else -> state.breakFrom
+            }
+            val progressTo = if (state.focusIsNow) lesson.timeTo else lesson.timeFrom
+            if (status != null && progressFrom != null) {
+                val total = Duration.between(progressFrom, progressTo).seconds.coerceAtLeast(1)
+                val done = Duration.between(progressFrom, now).seconds.coerceIn(0, total)
                 Spacer(GlanceModifier.height(6.dp))
                 LinearProgressIndicator(
                     progress = done.toFloat() / total,
@@ -171,26 +184,24 @@ class NextLessonWidget : GlanceAppWidget() {
                     color = lessonColor,
                     backgroundColor = WidgetColors.accentContainer
                 )
-                val left = LessonClock.minutesCeil(now, lesson.timeTo)
-                Text("Zostało $left min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-            } else if (showTimeStatus && state.breakFrom != null) {
-                // Przerwa: pasek postępu przerwy i ile do następnej lekcji.
-                val total = Duration.between(state.breakFrom, lesson.timeFrom).seconds.coerceAtLeast(1)
-                val done = Duration.between(state.breakFrom, now).seconds.coerceIn(0, total)
-                Spacer(GlanceModifier.height(6.dp))
-                LinearProgressIndicator(
-                    progress = done.toFloat() / total,
-                    modifier = GlanceModifier.fillMaxWidth().height(4.dp).cornerRadius(2.dp),
-                    color = lessonColor,
-                    backgroundColor = WidgetColors.accentContainer
-                )
-                val until = LessonClock.minutesCeil(now, lesson.timeFrom)
-                Text("Lekcja za $until min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-            } else if (showTimeStatus && state.isToday) {
-                // Przed pierwszą lekcją i w okienku - dopiero 30 min przed lekcją (dawniej 60).
-                val until = LessonClock.minutesCeil(now, lesson.timeFrom)
-                if (now <= lesson.timeFrom && until <= LessonClock.COUNTDOWN_MINUTES) {
-                    Text("Za $until min", style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+            }
+            status?.let {
+                Text(it, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+            }
+            // Kolejna lekcja (wąski widżet): dwie linie, gdy jest miejsce, inaczej jedna albo wcale.
+            if (following != null && followingLines > 0) {
+                val color = if (following.isSubstitution) WidgetColors.substitution else WidgetColors.textSecondary
+                Spacer(GlanceModifier.height(4.dp))
+                val click = GlanceModifier.clickable(openLessonAction(LocalContext.current,
+                    pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(state.date, following.number)))
+                if (followingLines >= 2) {
+                    Text("Potem: ${following.number}. ${following.title}", modifier = click,
+                        style = TextStyle(color = if (following.isSubstitution) WidgetColors.substitution else WidgetColors.textPrimary,
+                            fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                    Text(listOfNotNull(following.timeRange, following.room?.let { "s. $it" }, following.note).joinToString(" · "),
+                        style = TextStyle(color = color, fontSize = 11.sp), maxLines = 1)
+                } else {
+                    Text(followingShort(following), modifier = click, style = TextStyle(color = color, fontSize = 11.sp), maxLines = 1)
                 }
             }
         }

@@ -124,10 +124,15 @@ sealed interface WidgetState {
          * lekcje przed nią jako "za Tobą". Zwolniona lekcja, która dopiero będzie, zostaje widoczna
          * (z informacją szkoły), choć [focusIndex] ją pomija.
          */
-        val firstNotPastIndex: Int = 0
+        val firstNotPastIndex: Int = 0,
+        /**
+         * Lekcja po [focus], która się odbywa (zwolnione pomijane, jak w LessonClock); null - brak.
+         * Dawniej po prostu następny wiersz, także zwolniony.
+         */
+        val followingIndex: Int? = null
     ) : WidgetState {
         val focus: WidgetLesson get() = lessons[focusIndex]
-        val following: WidgetLesson? get() = lessons.getOrNull(focusIndex + 1)
+        val following: WidgetLesson? get() = followingIndex?.let(lessons::getOrNull)
     }
 }
 
@@ -253,7 +258,8 @@ object WidgetDataLoader {
             breakFrom = breakFrom,
             nextChangeAt = nextChangeAt,
             refreshAt = refreshAt,
-            firstNotPastIndex = if (isToday) dayLessons.indexOfFirst { it.timeTo > now }.let { if (it < 0) focusIndex else minOf(it, focusIndex) } else 0
+            firstNotPastIndex = if (isToday) dayLessons.indexOfFirst { it.timeTo > now }.let { if (it < 0) focusIndex else minOf(it, focusIndex) } else 0,
+            followingIndex = (focusIndex + 1 until dayLessons.size).firstOrNull { takesPlace(dayLessons[it]) }
         )
     }
 
@@ -352,6 +358,42 @@ object WidgetDataLoader {
         )
     }
 }
+
+/**
+ * Czas przy lekcji widżetu w chwili [now] - ta sama reguła co strona główna (LessonClock):
+ * w trakcie "Zostało X min", w przerwie "Lekcja za X min", przed lekcją "Za X min" dopiero
+ * w ostatnich [LessonClock.COUNTDOWN_MINUTES] min (okienko i inny dzień - bez odliczania).
+ */
+internal fun widgetTimeStatus(state: WidgetState.Ready, now: LocalTime): String? {
+    val lesson = state.focus
+    return when {
+        state.focusIsNow -> "Zostało ${LessonClock.minutesCeil(now, lesson.timeTo)} min"
+        state.breakFrom != null -> "Lekcja za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min"
+        state.isToday && now <= lesson.timeFrom &&
+            LessonClock.minutesCeil(now, lesson.timeFrom) <= LessonClock.COUNTDOWN_MINUTES ->
+            "Za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min"
+        else -> null
+    }
+}
+
+/**
+ * Nagłówek małego widżetu (bez miejsca na wiersz czasu): czas razem z etykietą, np. "ZA 12 MIN",
+ * "TERAZ · 12 MIN", "PRZERWA · 4 MIN". Bez odliczania - sama etykieta ([fallback]).
+ */
+internal fun widgetCompactLabel(state: WidgetState.Ready, now: LocalTime, fallback: String): String {
+    val lesson = state.focus
+    return when {
+        state.focusIsNow -> "TERAZ · ${LessonClock.minutesCeil(now, lesson.timeTo)} MIN"
+        state.breakFrom != null -> "PRZERWA · ${LessonClock.minutesCeil(now, lesson.timeFrom)} MIN"
+        widgetTimeStatus(state, now) != null -> "ZA ${LessonClock.minutesCeil(now, lesson.timeFrom)} MIN"
+        else -> fallback
+    }
+}
+
+/** Kolejna lekcja w jednej linii (mały widżet): "Potem: 4. fizyka · 10:45 · s. 12". */
+internal fun followingShort(lesson: WidgetLesson): String =
+    listOfNotNull("Potem: ${lesson.number}. ${lesson.title}", lesson.timeFrom.toString(),
+        lesson.room?.let { "s. $it" } ?: lesson.note).joinToString(" · ")
 
 /** Midnight updates date labels; today's known lesson ends remove completed substitutions. */
 internal fun nextSubstitutionChange(now: LocalDateTime, targets: List<LessonTarget>, ends: Map<Int, LocalTime>): LocalDateTime =
