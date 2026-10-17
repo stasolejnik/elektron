@@ -286,13 +286,41 @@ class WidgetStateTest {
         assertNull((WidgetDataLoader.buildState(day, LocalDateTime.of(friday, LocalTime.of(12, 0))) as WidgetState.Ready).following)
     }
 
+    private fun plan(height: Float, scale: Float = 1f, status: Boolean = true, following: Boolean = true, detail: Boolean = true, note: Boolean = false) =
+        WidgetNoteLayout.nextLesson(height, scale, hasStatus = status, hasProgress = status, hasDetail = detail,
+            hasSchoolNote = false, hasFollowing = following, hasUserNote = note)
+
     @Test
-    fun followingShrinksToOneLineThenDisappears() {
-        // Najmniejszy widżet (110 dp): zarezerwowane ok. 84 dp - zostaje jedna linia.
-        assertEquals(1, WidgetNoteLayout.followingLines(110f, 84f))
-        assertEquals(2, WidgetNoteLayout.followingLines(160f, 84f))
-        assertEquals(0, WidgetNoteLayout.followingLines(110f, 100f))
-        // Większa czcionka systemowa - wcześniej znika.
-        assertEquals(0, WidgetNoteLayout.followingLines(110f, 84f, 2f))
+    fun smallestWidgetKeepsEssentialsAndShowsNextLessonIfItFits() {
+        val p = plan(110f)
+        assertEquals(1, p.titleLines)
+        assertFalse(p.bigNumber)
+        // 110 dp: kolejna lekcja w jednej linii; czas zostaje w nagłówku (bez wiersza z paskiem).
+        assertEquals(1, p.followingLines)
+        assertFalse(p.timeRow)
+        // Bez kolejnej lekcji to miejsce dostaje czas z paskiem.
+        assertTrue(plan(110f, following = false).timeRow)
+    }
+
+    @Test
+    fun mediumWidgetUsesSpaceInsteadOfLeavingAGap() {
+        // Przypadek ze zrzutu: ok. 150 dp i powiększona czcionka - czas z paskiem i kolejna lekcja.
+        val p = plan(150f, scale = 1.3f, detail = false)
+        assertTrue(p.timeRow)
+        assertEquals(1, p.followingLines)
+        val roomy = plan(220f)
+        assertTrue(roomy.timeRow)
+        assertEquals(2, roomy.followingLines)
+        assertTrue(roomy.detail)
+        assertEquals(2, roomy.titleLines)
+    }
+
+    @Test
+    fun leftoverSpaceGoesToNoteThenBigNumber() {
+        assertTrue(plan(320f, note = true).noteLines > 0)
+        assertTrue(plan(320f).bigNumber)
+        assertFalse(plan(160f).bigNumber)
+        // Większa czcionka - mniej mieści się w tej samej wysokości.
+        assertTrue(plan(160f, scale = 2f).followingLines <= plan(160f).followingLines)
     }
 }

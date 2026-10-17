@@ -64,7 +64,8 @@ class LessonReminderScheduler @Inject constructor(
             _status.value = Status(error = true, ready = true)
             Log.w(TAG, "Nie udało się ustawić przypomnienia", it)
         }
-        liveLessons?.reschedule(now)
+        // Czas aplikacji (także symulowany), nie [now] przypomnień - te działają w czasie telefonu.
+        liveLessons?.reschedule()
     }
 
     private suspend fun rescheduleLocked(now: LocalDateTime) {

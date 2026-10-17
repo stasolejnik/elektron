@@ -122,20 +122,24 @@ class NextLessonWidget : GlanceAppWidget() {
             state.isToday -> "NASTĘPNA"
             else -> state.dayLabel.uppercase()
         }
-        val scale = LocalContext.current.resources.configuration.fontScale.coerceAtLeast(1f)
+        val scale = LocalContext.current.resources.configuration.fontScale
         val height = LocalSize.current.height.value
-        val compact = height < 210f * scale
-        val titleLines = if (compact) 1 else 2
-        val showTimeStatus = height >= 150f * scale
-        val showDetail = lesson.detail != null && height >= 180f * scale &&
-            ((!state.focusIsNow && state.breakFrom == null) || lesson.isSubstitution)
-        val reserved = 30f + scale * (18f + 20f * titleLines + 16f +
-            (if (compact) 0f else 36f) + (if (showDetail) 16f else 0f) +
-            (if (lesson.note != null) 18f else 0f) + (if (showTimeStatus) 28f else 0f))
-        val following = state.following?.takeIf { showFollowing }
-        val followingLines = if (following == null) 0 else WidgetNoteLayout.followingLines(height, reserved, scale)
-        val noteLines = WidgetNoteLayout.lines(height, reserved + followingLines * 16f * scale + (if (followingLines > 0) 4f else 0f), scale)
         val now = AppClock.time()
+        val following = state.following?.takeIf { showFollowing }
+        val status = widgetTimeStatus(state, now)
+        val plan = WidgetNoteLayout.nextLesson(
+            heightDp = height, fontScale = scale,
+            hasStatus = status != null, hasProgress = state.focusIsNow || state.breakFrom != null,
+            // Przy trwającej lekcji nazwisko tylko przy zastępstwie (kluczowa informacja).
+            hasDetail = lesson.detail != null && ((!state.focusIsNow && state.breakFrom == null) || lesson.isSubstitution),
+            hasSchoolNote = lesson.note != null, hasFollowing = following != null, hasUserNote = lesson.userNote != null
+        )
+        val showTimeStatus = plan.timeRow
+        val showDetail = plan.detail
+        val compact = !plan.bigNumber
+        val titleLines = plan.titleLines
+        val followingLines = if (following == null) 0 else plan.followingLines
+        val noteLines = plan.noteLines
         // Bez wiersza czasu (mały widżet) odliczanie trafia do nagłówka - "Za X min" jak na stronie głównej.
         val header = when {
             state.readError -> "BŁĄD ODCZYTU · ZAPISANY PLAN"
@@ -168,13 +172,13 @@ class NextLessonWidget : GlanceAppWidget() {
                 Text("Notatka: $it", style = TextStyle(color = WidgetColors.textPrimary, fontSize = 12.sp), maxLines = noteLines)
             }
             // Czas: w trakcie lekcji i przerwy pasek postępu, tekst ze wspólnej reguły (widgetTimeStatus).
-            val status = if (showTimeStatus) widgetTimeStatus(state, now) else null
+            val shownStatus = status?.takeIf { showTimeStatus }
             val progressFrom = when {
                 state.focusIsNow -> lesson.timeFrom
                 else -> state.breakFrom
             }
             val progressTo = if (state.focusIsNow) lesson.timeTo else lesson.timeFrom
-            if (status != null && progressFrom != null) {
+            if (shownStatus != null && progressFrom != null) {
                 val total = Duration.between(progressFrom, progressTo).seconds.coerceAtLeast(1)
                 val done = Duration.between(progressFrom, now).seconds.coerceIn(0, total)
                 Spacer(GlanceModifier.height(6.dp))
@@ -185,7 +189,7 @@ class NextLessonWidget : GlanceAppWidget() {
                     backgroundColor = WidgetColors.accentContainer
                 )
             }
-            status?.let {
+            shownStatus?.let {
                 Text(it, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)
             }
             // Kolejna lekcja (wąski widżet): dwie linie, gdy jest miejsce, inaczej jedna albo wcale.

@@ -21,6 +21,7 @@ class ElektronApplication : Application(), Configuration.Provider, coil.ImageLoa
     @Inject lateinit var syncScheduler: SyncScheduler
     @Inject lateinit var pushTopics: PushTopics
     @Inject lateinit var widgetUpdater: pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
+    @Inject lateinit var liveLessons: pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler
     @Inject lateinit var transitPreferences: pl.zse.bydgoszcz.elektron.data.repository.TransitPreferencesRepository
     private var nightMode = -1
 
@@ -53,7 +54,11 @@ class ElektronApplication : Application(), Configuration.Provider, coil.ImageLoa
         nightMode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
         // Zmiana symulowanego czasu (tryb dewelopera) - widżety od razu w nowym czasie.
         kotlinx.coroutines.MainScope().launch {
-            pl.zse.bydgoszcz.elektron.domain.util.AppClock.offsetMs.drop(1).collect { runCatching { widgetUpdater.requestUpdate() } }
+            pl.zse.bydgoszcz.elektron.domain.util.AppClock.offsetMs.drop(1).collect {
+                runCatching { widgetUpdater.requestUpdate() }
+                // Powiadomienie na żywo też w symulowanym czasie.
+                runCatching { liveLessons.requestReschedule() }
+            }
         }
         // Przezroczyste widżety biorą kolory treści z jasności tapety - po zmianie tapety od razu
         // (gdy proces żyje; inaczej przy najbliższym odświeżeniu widżetów).

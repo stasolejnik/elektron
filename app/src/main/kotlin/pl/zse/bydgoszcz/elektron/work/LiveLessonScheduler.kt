@@ -26,6 +26,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.LiveLesson
 import pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
+import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -57,14 +58,15 @@ class LiveLessonScheduler @Inject constructor(
         scope.launch { reschedule() }
     }
 
-    suspend fun reschedule(now: LocalDateTime = LocalDateTime.now()) = mutex.withLock {
+    /** [now] - czas aplikacji (także symulowany w trybie dewelopera, [AppClock]). */
+    suspend fun reschedule(now: LocalDateTime = AppClock.now()) = mutex.withLock {
         runCatchingCancellable { rescheduleLocked(now) }
             .onFailure { Log.w(TAG, "Nie udało się przeliczyć powiadomienia na żywo", it) }
         Unit
     }
 
     /** "Ukryj na dziś" albo odrzucenie (Android 14+): do jutra bez powiadomienia. */
-    suspend fun hideToday(now: LocalDateTime = LocalDateTime.now()) {
+    suspend fun hideToday(now: LocalDateTime = AppClock.now()) {
         runCatchingCancellable { settings.setLiveHiddenDay(now.toLocalDate().toEpochDay()) }
             .onFailure { Log.w(TAG, "Nie udało się zapisać ukrycia powiadomienia", it) }
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
@@ -96,7 +98,6 @@ class LiveLessonScheduler @Inject constructor(
     }
 
     private fun post(content: LiveLesson.Content, now: LocalDateTime) {
-        val zone = ZoneId.systemDefault()
         val target = pl.zse.bydgoszcz.elektron.widget.lessonIntent(context, content.target).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -104,7 +105,7 @@ class LiveLessonScheduler @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val hide = broadcast(HIDE_REQUEST, ACTION_HIDE)
         val dismissed = broadcast(DISMISS_REQUEST, ACTION_DISMISSED)
-        val countdownMs = content.countdownTo.atZone(zone).toInstant().toEpochMilli()
+        val countdownMs = realMillis(content.countdownTo)
         val progress = (content.progress(now) * PROGRESS_MAX).toInt()
         // Ekran blokady (gdy system ukrywa poufne treści): bez przedmiotów, sal i notatek.
         val public = NotificationCompat.Builder(context, LocalNotificationSink.CHANNEL_LIVE)
@@ -154,7 +155,7 @@ class LiveLessonScheduler @Inject constructor(
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         val pi = broadcast(request, action)
         if (at == null) { am.cancel(pi); return }
-        val ms = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() + 1_000L
+        val ms = realMillis(at) + 1_000L
         if (!wakeUp) { am.set(AlarmManager.RTC, ms, pi); return }
         try {
             if (LessonReminderScheduler.canUseExactAlarms(context)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi)
@@ -163,6 +164,13 @@ class LiveLessonScheduler @Inject constructor(
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi)
         }
     }
+
+    /**
+     * Chwila czasu aplikacji jako prawdziwy czas telefonu: alarmy i chronometr działają w czasie
+     * systemu, a przy symulacji (tryb dewelopera) czas aplikacji jest przesunięty o [AppClock.offsetMs].
+     */
+    private fun realMillis(at: LocalDateTime): Long =
+        at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - AppClock.offsetMs.value
 
     private fun cancelAlarms() {
         val am = context.getSystemService(AlarmManager::class.java) ?: return

@@ -118,4 +118,22 @@ class LiveLessonSchedulerTest {
         scheduler.reschedule(day.atTime(9, 40))
         assertNull(live())
     }
+
+    @Test fun simulatedTimeDrivesContentWhileAlarmsUseRealTime() = runBlocking {
+        settings.liveFlow.value = true
+        val zone = java.time.ZoneId.systemDefault()
+        val simulated = day.atTime(8, 10).atZone(zone).toInstant().toEpochMilli()
+        val offset = simulated - System.currentTimeMillis()
+        pl.zse.bydgoszcz.elektron.domain.util.AppClock.restore(offset)
+        try {
+            scheduler.reschedule()                 // czas aplikacji (symulowany)
+            val n = requireNotNull(live())
+            assertEquals("Lekcja: mat · s. 105", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+            // Chronometr i alarm w czasie telefonu: koniec lekcji za ok. 35 min od teraz.
+            val left = n.`when` - System.currentTimeMillis()
+            assertTrue("odliczanie ok. 35 min, było ${left / 60000} min", left in 34 * 60_000L..36 * 60_000L)
+            val alarm = requireNotNull(alarms.peekNextScheduledAlarm())
+            assertTrue(alarm.triggerAtTime - System.currentTimeMillis() in 0..36 * 60_000L)
+        } finally { pl.zse.bydgoszcz.elektron.domain.util.AppClock.restore(0L) }
+    }
 }

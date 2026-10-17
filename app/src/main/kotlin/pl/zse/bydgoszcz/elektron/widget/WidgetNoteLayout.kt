@@ -6,20 +6,41 @@ internal object WidgetNoteLayout {
     fun lines(heightDp: Float, reservedDp: Float, fontScale: Float = 1f): Int =
         ((heightDp - reservedDp) / (18f * fontScale.coerceAtLeast(1f))).toInt().coerceIn(0, 2000)
 
+    /** Co zmieści się w widżecie Następna lekcja (pod nagłówkiem, tytułem i godzinami). */
+    data class NextLessonPlan(
+        val timeRow: Boolean, val followingLines: Int, val detail: Boolean,
+        val titleLines: Int, val noteLines: Int, val bigNumber: Boolean
+    )
+
     /**
-     * Linie kolejnej lekcji pod lekcją główną widżetu Następna lekcja: 2 (nazwa, potem godziny i sala),
-     * 1 (skrót w jednej linii) albo 0 - przy najmniejszym rozmiarze bez miejsca znika.
-     * Liczone przed notatką: notatka dostaje to, co zostanie.
+     * Przydział wysokości widżetu Następna lekcja według faktycznych wysokości linii (rozmiar czcionki
+     * x [fontScale]), po kolei od najważniejszego: kolejna lekcja (1 linia), czas z paskiem, nauczyciel,
+     * druga linia kolejnej lekcji, druga linia tytułu, notatka, duży numer lekcji. Dawniej stałe progi
+     * (150/180/210 dp x skala) zostawiały w średnim widżecie dużą pustą przerwę.
      */
-    fun followingLines(heightDp: Float, reservedDp: Float, fontScale: Float = 1f): Int {
-        val line = 16f * fontScale.coerceAtLeast(1f)
-        val free = heightDp - reservedDp - 4f
-        return when {
-            free >= 2 * line + 8f -> 2
-            free >= line -> 1
-            else -> 0
-        }
+    fun nextLesson(
+        heightDp: Float, fontScale: Float, hasStatus: Boolean, hasProgress: Boolean, hasDetail: Boolean,
+        hasSchoolNote: Boolean, hasFollowing: Boolean, hasUserNote: Boolean
+    ): NextLessonPlan {
+        val scale = fontScale.coerceAtLeast(1f)
+        fun line(sp: Float) = sp * LINE_HEIGHT * scale
+        var free = heightDp - PADDING_DP - maxOf(16f, line(11f)) - line(15f) - 2f - line(12f) -
+            (if (hasSchoolNote) line(12f) else 0f) - SAFETY_DP
+        fun take(dp: Float): Boolean = (free >= dp).also { if (it) free -= dp }
+        // Kolejna lekcja przed paskiem: bez wiersza czasu odliczanie i tak jest w nagłówku.
+        var followingLines = if (hasFollowing && take(4f + line(11f))) 1 else 0
+        val timeRow = hasStatus && take((if (hasProgress) 10f else 0f) + line(11f))
+        val detail = hasDetail && take(line(12f))
+        if (followingLines == 1 && take(line(12f))) followingLines = 2
+        val titleLines = if (take(line(15f))) 2 else 1
+        val noteLines = if (hasUserNote) (free / line(12f)).toInt().coerceAtLeast(0).also { free -= it * line(12f) } else 0
+        val bigNumber = take(line(30f))
+        return NextLessonPlan(timeRow, followingLines, detail, titleLines, noteLines, bigNumber)
     }
+
+    private const val LINE_HEIGHT = 1.2f
+    private const val PADDING_DP = 28f
+    private const val SAFETY_DP = 2f
 
     // Dziś zawsze od bieżącej lekcji, także w dzień z notatką (dawniej notatka do dowolnej
     // lekcji pokazywała minione i spychała trwającą poza mały widżet). Notatki minionych
