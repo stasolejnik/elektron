@@ -47,8 +47,9 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   wybór własnych grup zajęciowych oraz udostępnianie dnia lub tygodnia.
 - **Notatki do lekcji:** przytrzymaj przyszłą lekcję, aby dodać notatkę. Możesz ustawić
   przypomnienie przed lekcją albo dzień wcześniej. Notatki są też widoczne w widżetach.
-- **Zastępstwa:** zmiany dotyczące Twojej klasy i grup, przejście do lekcji w planie
-  oraz udostępnianie pojedynczego zastępstwa lub całej widocznej listy.
+- **Zastępstwa:** zmiany dotyczące Twojej klasy i grup, informacje szkoły dopisane pod datą
+  (np. o oddawaniu krwi), przejście do lekcji w planie oraz udostępnianie pojedynczego
+  zastępstwa lub całej widocznej listy.
 - **Ogłoszenia:** wyszukiwanie, czytanie treści w aplikacji i ulubione z zapisem do odczytu
   bez internetu.
 - **Odjazdy ze szkoły:** połączenia do wybranego przystanku, linia, kierunek, godziny

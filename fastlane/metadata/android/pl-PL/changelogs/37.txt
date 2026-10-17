@@ -1,6 +1,5 @@
 Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia) - w dni lekcyjne widać, co trwa, ile zostało i co dalej.
-Widżet Następna lekcja: „Za X min” w każdym rozmiarze i kolejna lekcja pod spodem.
+Nowość: informacje szkoły ze strony zastępstw (np. o oddawaniu krwi) w zakładce Zastępstwa i na stronie głównej.
+Widżet Następna lekcja: „Za X min” w każdym rozmiarze i kolejna lekcja.
 Lekcje, z których klasa jest zwolniona, nie są pokazywane jako trwające.
-Zmiana samych uwag w zastępstwie aktualizuje powiadomienie.
-Plan dnia: przy zastępstwie najpierw informacja od szkoły.
-Poprawki planu tygodniowego, przypomnień i ogłoszeń offline.
+Poprawki zastępstw, planu i przypomnień.

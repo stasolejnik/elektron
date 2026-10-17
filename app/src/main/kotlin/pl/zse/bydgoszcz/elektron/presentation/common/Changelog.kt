@@ -7,6 +7,7 @@ object Changelog {
     val entries: List<Entry> = listOf(
         Entry(37, "1.0.1", listOf(
             "Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia) - w dni lekcyjne widać, co trwa, ile zostało i co dalej",
+            "Nowość: informacje szkoły ze strony zastępstw (np. o oddawaniu krwi) w zakładce Zastępstwa i na stronie głównej",
             "Widżet Następna lekcja: „Za X min” w każdym rozmiarze i kolejna lekcja pod spodem",
             "Widżet Plan dnia odlicza czas do najbliższej lekcji",
             "Zmiana samych uwag w zastępstwie aktualizuje powiadomienie",
