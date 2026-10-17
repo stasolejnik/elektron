@@ -99,7 +99,7 @@ class LiveLessonTest {
         assertTrue(during.lines.contains("Zastępstwo: M.Zelek · s. 211 · za ostatnią lekcję"))
         // Przed nią (w trakcie 1. lekcji) - "dalej" z zastępcą zamiast nauczyciela planu.
         val before = at("08:30", withSub)!!
-        assertEquals("Dalej: 2. fiz · s. 211 · M.Zelek", before.text)
+        assertEquals("Dalej: 2. fiz · M.Zelek · s. 211", before.text)
         assertTrue(before.lines.contains("Dalej zastępstwo: M.Zelek · s. 211 · za ostatnią lekcję"))
         // Informacja szkoły bez zastępcy (np. zajęcia w auli) - w treści.
         val info = plan.map { if (it.number == 2) it.copy(substitution = sub(2, "Zajęcia w auli")) else it }

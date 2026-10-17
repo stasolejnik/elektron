@@ -159,12 +159,17 @@ object LiveLesson {
     private fun headline(l: Lesson, styles: Map<String, SubjectStyle>): String =
         listOfNotNull(subject(l, styles), room(l)?.let { "s. $it" }).joinToString(" · ")
 
-    /** "4. Fizyka · s. 12 · J. Kowalski"; przy zastępstwie zamiast nauczyciela - zastępca. */
+    /**
+     * "4. Fizyka · s. 12 · J. Kowalski"; przy zastępstwie najpierw zastępca (albo informacja szkoły),
+     * potem sala - jak wszędzie poza widokiem Dzień.
+     */
     private fun describe(l: Lesson, styles: Map<String, SubjectStyle>, withSubject: Boolean = true): String {
         val sub = l.substitution
         val who = if (sub != null) sub.substituteTeacher?.trim()?.takeIf { it.isNotEmpty() } ?: SubstitutionDisplay.info(sub)
             else l.groups.firstOrNull()?.let { it.teacherFullName ?: it.teacherCode ?: JointGroups.describe(it.classRef, l.className) }
-        val parts = listOfNotNull(if (withSubject) "${l.number}. ${subject(l, styles)}" else null, room(l)?.let { "s. $it" }, who)
+        val roomText = room(l)?.let { "s. $it" }
+        val parts = listOfNotNull(if (withSubject) "${l.number}. ${subject(l, styles)}" else null,
+            *(if (sub != null) arrayOf(who, roomText) else arrayOf(roomText, who)))
         return parts.joinToString(" · ")
     }
 
