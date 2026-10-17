@@ -126,7 +126,7 @@ class ElektronAppViewModel @Inject constructor(
         settings.groupsConfiguredFor
     ) { theme, dynamic, classId, lastSeen, groupsFor ->
         val entriesToShow = if (lastSeen in 1 until currentVersionCode) {
-            Changelog.newerThan(lastSeen)
+            Changelog.newerThan(lastSeen, BuildConfig.VERSION_NAME)
         } else emptyList()
         AppState(themeMode = theme, dynamicColor = dynamic, selectedClassId = classId,
             groupsConfiguredFor = groupsFor, isReady = true, changelogToShow = entriesToShow)

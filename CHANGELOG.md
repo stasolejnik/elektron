@@ -4,6 +4,18 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.1] - 2026-10-17 (37)
+
+Stabilna wersja z poprawkami do 1.0.0. Zawiera wszystkie zmiany z 1.0.1-beta1 (niżej) oraz nowości poniżej.
+Krótki opis do wydania na GitHubie: [release-notes/1.0.1.md](release-notes/1.0.1.md).
+
+- Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia, domyślnie wyłączone). W dni lekcyjne od 15 min przed pierwszą lekcją do końca ostatniej: trwająca lekcja, przerwa albo okienko z odliczaniem (chronometr powiadomienia), co dalej z salą i nauczycielem, zastępstwa (najpierw nauczyciel), podgląd notatki i pasek postępu. Ciche, stałe ID, bez usługi pierwszoplanowej - alarmy jak przy przypomnieniach o lekcjach, treść zmienia się tylko na granicach lekcji, po synchronizacji, zmianie notatki i ustawień. Pasek postępu odświeżany alarmem bez budzenia telefonu. „Ukryj na dziś” i odrzucenie (Android 14+) ukrywają je do jutra. Na Androidzie 16 prośba o „Live Update” bez zmiany compileSdk/targetSdk. Na ekranie blokady wersja bez szczegółów. Prośba o zgodę na powiadomienia przy włączaniu.
+- Widżet Następna lekcja: „Za X min”, „Zostało X min” i „Lekcja za X min” według tej samej reguły co strona główna (LessonClock) w każdym rozmiarze - w małym widżecie w nagłówku. Pod lekcją kolejna lekcja (dwie linie, jedna albo wcale, zależnie od miejsca); lekcje, z których klasa jest zwolniona, pomijane. Odświeżanie bez zmian (granice lekcji i przerw).
+- Widżet Plan dnia: przy podświetlonej lekcji „lekcja za X min” w przerwie i „za X min” przed lekcją.
+- Widok Dzień w planie: lekcja, z której klasa jest zwolniona, nie ma już ramki, paska i „zostało X min” trwającej lekcji (także kafelek w planie tygodniowym).
+- Plan tygodniowy: przewijanie dalekich tygodni (dalej niż 4 tygodnie) nie pobiera planu w kółko - zapis tygodnia +5 nie kasuje już zapisanego tygodnia +4 przy tym samym planie.
+- „Co nowego” w wersji stabilnej bez osobnych wpisów wersji testowych.
+
 ## [1.0.1-beta1] - 2026-10-11 (36)
 
 Wersja testowa (kanał „Beta”). Szczegóły: [release-notes/1.0.1-beta1.md](release-notes/1.0.1-beta1.md).

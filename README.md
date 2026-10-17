@@ -11,7 +11,7 @@
 [![Licencja: GPL v3+](https://img.shields.io/badge/licencja-GPL--3.0--or--later-blue)](LICENSE)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
-[**Pobierz aplikację (.apk)**](https://github.com/stasolejnik/elektron/releases/download/v1.0.0/eLektron-1.0.0.apk)
+[**Pobierz aplikację (.apk)**](https://github.com/stasolejnik/elektron/releases/download/v1.0.1/eLektron-1.0.1.apk)
 
 </div>
 
@@ -57,7 +57,7 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   późniejsze odjazdy i opcjonalne połączenia z przesiadką.
 - **Strona główna:** trwająca lub najbliższa lekcja, przerwa i nadchodzące zmiany.
 - **Powiadomienia:** nowe zastępstwa i ogłoszenia, przypomnienia o lekcjach i notatkach,
-  ciche godziny.
+  ciche godziny oraz powiadomienie na żywo w dni lekcyjne (co trwa, ile zostało, co dalej).
 - **Szybki dostęp:** widżety Następna lekcja, Plan dnia i Zastępstwa, kafelek szybkich
   ustawień oraz skróty po przytrzymaniu ikony aplikacji.
 - **Wygląd:** własne nazwy i kolory przedmiotów, jasny lub ciemny motyw, kolor akcentu,
@@ -75,7 +75,7 @@ Sekcje w zakładce **Ustawienia**, w kolejności z aplikacji.
 | Sekcja | Co ustawisz |
 |---|---|
 | **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały. Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
-| **Powiadomienia** | Nowe zastępstwa i nowe ogłoszenia (ogłoszenia domyślnie wyłączone). **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. |
+| **Powiadomienia** | Nowe zastępstwa i nowe ogłoszenia (ogłoszenia domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: trwająca lekcja albo przerwa z odliczaniem, co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. |
 | **Przypomnienia o lekcjach** | Przypomnienie przed lekcją (domyślnie wyłączone) i ile minut wcześniej. Punktualne przypomnienia wymagają zgody na alarmy o czasie. |
 | **Notatki do lekcji** | Lista wszystkich notatek oraz przypomnienia o nich: dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
 | **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Odjazdy. Karty widoczne na stronie głównej. |
@@ -94,7 +94,7 @@ i - przy włączonej zakładce - Odjazdy.
 
 ## Instalacja i aktualizacje
 
-1. Pobierz [**eLektron-1.0.0.apk**](https://github.com/stasolejnik/elektron/releases/download/v1.0.0/eLektron-1.0.0.apk) (wszystkie wersje: [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)).
+1. Pobierz [**eLektron-1.0.1.apk**](https://github.com/stasolejnik/elektron/releases/download/v1.0.1/eLektron-1.0.1.apk) (wszystkie wersje: [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)).
 2. Otwórz pobrany plik na telefonie.
 3. Jeśli Android poprosi o zgodę na instalację z przeglądarki lub menedżera plików,
    zezwól na instalowanie z tego źródła.

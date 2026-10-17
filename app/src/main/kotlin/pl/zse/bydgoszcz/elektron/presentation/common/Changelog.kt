@@ -5,6 +5,20 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(37, "1.0.1", listOf(
+            "Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia) - w dni lekcyjne widać, co trwa, ile zostało i co dalej",
+            "Widżet Następna lekcja: „Za X min” w każdym rozmiarze i kolejna lekcja pod spodem",
+            "Widżet Plan dnia odlicza czas do najbliższej lekcji",
+            "Zmiana samych uwag w zastępstwie aktualizuje powiadomienie",
+            "Powiadomienia o zastępstwach działają także, gdy części wpisów na stronie szkoły nie da się odczytać",
+            "Plan dnia: przy zastępstwie najpierw informacja od szkoły, pod nią nauczyciel",
+            "Lekcje, z których klasa jest zwolniona, nie są pokazywane jako trwające ani następne",
+            "Plan tygodniowy pokazuje treść zastępstwa i pozwala przejść gestem z pustego tygodnia",
+            "Przeglądanie dalekich tygodni planu nie pobiera ich w kółko od nowa",
+            "Widżet Plan dnia: dotknij „za Tobą”, aby zobaczyć wcześniejsze lekcje",
+            "Odjazdy: kolejne połączenia pojawiają się płynnie",
+            "Ogłoszenia bez internetu: tylko wpisy zapisane do czytania offline"
+        )),
         Entry(36, "1.0.1-beta1", listOf(
             "Zmiana samych uwag w zastępstwie (np. „za ostatnią lekcję”) aktualizuje powiadomienie",
             "Wczytanie starszych ogłoszeń nie wywołuje już powiadomień o dawnych wpisach",
@@ -350,6 +364,15 @@ object Changelog {
     )
 
     fun forVersion(code: Int): Entry? = entries.firstOrNull { it.versionCode == code }
-    fun newerThan(sinceCode: Int): List<Entry> =
-        entries.filter { it.versionCode > sinceCode }.sortedByDescending { it.versionCode }
+    /**
+     * Wpisy nowsze niż [sinceCode]. W wersji stabilnej ([currentName] bez "-betaN"/"-rcN") bez wpisów
+     * wersji testowych: wpis stabilny je obejmuje, a osoba z 1.0.0 nie widzi osobnej listy "1.0.1-beta1".
+     */
+    fun newerThan(sinceCode: Int, currentName: String? = null): List<Entry> =
+        entries.filter { it.versionCode > sinceCode }
+            .filter { currentName == null || isTestVersion(currentName) || !isTestVersion(it.versionName) }
+            .sortedByDescending { it.versionCode }
+
+    private val TEST_VERSION = Regex("-(alpha|beta|rc)\\d", RegexOption.IGNORE_CASE)
+    fun isTestVersion(name: String): Boolean = TEST_VERSION.containsMatchIn(name)
 }
