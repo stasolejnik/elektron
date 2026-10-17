@@ -212,7 +212,7 @@ private fun DayGridColumn(
             LessonTile(
                 lesson = lesson,
                 lengthMin = length,
-                ongoing = nowMinute != null && nowTime >= lesson.timeFrom && nowTime < lesson.timeTo,
+                ongoing = nowMinute != null && pl.zse.bydgoszcz.elektron.domain.model.LessonClock.isOngoing(lesson, nowTime),
                 modifier = Modifier.offset(y = from * PER_MINUTE).height(length * PER_MINUTE).fillMaxWidth(),
                 hasNote = notes.containsKey(LessonNote.key(lesson)),
                 onLongClick = if (LessonNote.canEdit(lesson, AppClock.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,

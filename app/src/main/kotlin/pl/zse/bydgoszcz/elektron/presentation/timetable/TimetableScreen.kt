@@ -571,7 +571,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
     // Trwająca lekcja (tylko dzisiejsze karty mają zegar): obramowanie, "zostało X min"
     // i pasek postępu - jak na stronie głównej i w widżecie.
     val now = if (lesson.date == AppClock.today()) rememberNow().value.toLocalTime() else null
-    val ongoing = now != null && now >= lesson.timeFrom && now < lesson.timeTo
+    val ongoing = now != null && LessonClock.isOngoing(lesson, now)
     val accent = MaterialTheme.colorScheme.primary
     // Wyróżnienia (obramowanie, pasek postępu, "zostało", plakietki, notatka) w kolorze karty:
     // na pomarańczowej karcie zastępstwa akcent aplikacji (np. turkus) gryzł się z tłem.

@@ -71,4 +71,12 @@ class LessonClockTest {
             lesson(2, "08:55", "09:40"))
         assertEquals(2, (LessonClock.status(late, at("07:50")) as LessonClock.Before).next.number)
     }
+
+    @Test fun freedLessonIsNotOngoingInPlanCard() {
+        val normal = lesson(2, "08:55", "09:40")
+        val freed = normal.copy(substitution = Substitution("f2", day, 2, "1D", null, "Uczniowie zwolnieni do domu", null, null, "X"))
+        assertEquals(true, LessonClock.isOngoing(normal, LocalTime.parse("09:00")))
+        assertEquals(false, LessonClock.isOngoing(freed, LocalTime.parse("09:00")))
+        assertEquals(false, LessonClock.isOngoing(normal, LocalTime.parse("09:40")))
+    }
 }

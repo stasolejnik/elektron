@@ -51,6 +51,13 @@ object LessonClock {
         return if (later != null) Before(later, null) else Nothing
     }
 
+    /**
+     * Czy [lesson] trwa o [time] dla ucznia (dzień sprawdza wołający). Zwolniona lekcja nie trwa -
+     * jak w [status]; dawniej karta w widoku Dzień dostawała ramkę i "zostało X min".
+     */
+    fun isOngoing(lesson: Lesson, time: LocalTime): Boolean =
+        time >= lesson.timeFrom && time < lesson.timeTo && SubstitutionDisplay.takesPlace(lesson)
+
     /** Pozostałe minuty zaokrąglone w górę: przy 30 s do końca - "1 min", nie "0 min". */
     fun minutesCeil(from: LocalTime, to: LocalTime): Long {
         val s = Duration.between(from, to).seconds

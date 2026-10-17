@@ -129,16 +129,34 @@ class TimetableRepositoryImpl @Inject constructor(
                 val keptGroups = groups.filter { it.lessonId in keptIds }
                 // Transakcja: lekcje + grupy zapisywane atomowo, UI nigdy nie zobaczy
                 // lekcji bez grup. Grupy kasują się kaskadowo (FK CASCADE).
+                // Porównanie tylko na zapisywanych tygodniach: tydzień pominięty w tym zapisie (np. +4 przy
+                // oglądaniu +5) nie jest "zmianą planu". Dawniej był wtedy kasowany, a powrót na niego
+                // pobierał plan od nowa i kasował +5 - przy przewijaniu dalekich tygodni w kółko.
+                val weekStarts = weekOffsets.map { monday.plusWeeks(it).toEpochDay() }
+                fun written(day: Long) = day >= fromDay && weekStarts.any { day in it..it + 6 }
+                fun inBaseWeeks(day: Long) = day < monday.plusWeeks(WEEKS_AHEAD.toLong()).toEpochDay()
                 db.withTransaction {
-                    val oldLessons = lessonDao.getForRange(classId, fromDay, toDay)
+                    val oldLessons = lessonDao.getForRange(classId, fromDay, toDay).filter { written(it.dateEpochDay) }
                     val oldGroups = if (oldLessons.isEmpty()) emptyList() else
                         lessonGroupDao.getForLessons(oldLessons.map { it.id })
-                    if (oldLessons.toSet() != keptLessons.toSet() || oldGroups.toSet() != keptGroups.toSet()) {
+                    val keptDays = keptLessons.associate { it.id to it.dateEpochDay }
+                    val oldDays = oldLessons.associate { it.id to it.dateEpochDay }
+                    fun <T> base(items: Collection<T>, day: (T) -> Long?) = items.filterTo(HashSet()) { day(it)?.let(::inBaseWeeks) == true }
+                    val templateChanged = base(oldLessons) { it.dateEpochDay } != base(keptLessons) { it.dateEpochDay } ||
+                        base(oldGroups) { oldDays[it.lessonId] } != base(keptGroups) { keptDays[it.lessonId] }
+                    if (templateChanged) {
                         // Także tygodnie dalej niż zapisywany zakres (np. obejrzany tydzień +5 przy starym
                         // planie): inaczej zostawały ze starym planem, a obecność lekcji blokowała pobranie.
                         lessonDao.deleteForRange(classId, fromDay, Long.MAX_VALUE)
                         lessonDao.upsertAll(keptLessons)
                         lessonGroupDao.upsertAll(keptGroups)
+                    } else if (oldLessons.toSet() != keptLessons.toSet() || oldGroups.toSet() != keptGroups.toSet()) {
+                        // Ten sam szablon, brakował tylko oglądany daleki tydzień - dopisujemy go.
+                        val extra = keptLessons.filter { !inBaseWeeks(it.dateEpochDay) }
+                        val extraIds = extra.mapTo(HashSet()) { it.id }
+                        weekStarts.filter { !inBaseWeeks(it) }.forEach { lessonDao.deleteForRange(classId, maxOf(it, fromDay), it + 6) }
+                        lessonDao.upsertAll(extra)
+                        lessonGroupDao.upsertAll(keptGroups.filter { it.lessonId in extraIds })
                     }
                 }
                 // Dawniej stare tygodnie zostawały w bazie na zawsze (tysiące wierszy po roku).

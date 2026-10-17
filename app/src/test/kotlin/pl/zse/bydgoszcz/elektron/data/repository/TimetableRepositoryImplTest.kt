@@ -96,6 +96,28 @@ class TimetableRepositoryImplTest {
     }
 
     @Test
+    fun viewingFarWeeksKeepsOtherFarWeeksOfTheSamePlan() = runTest {
+        // Tydzień +4, potem +5: dawniej zapis +5 kasował +4 (powrót = ponowne pobranie i skasowanie +5).
+        val week4 = monday.plusWeeks(4)
+        val week5 = monday.plusWeeks(5)
+        repo.syncTimetable("o3", week4)
+        repo.syncTimetable("o3", week5)
+        assertTrue(repo.hasLessons("o3", week4, week4.plusDays(4)))
+        assertTrue(repo.hasLessons("o3", week5, week5.plusDays(4)))
+        assertEquals("mat", repo.getLessonsOnce("o3", week5, week5).single().groups.single().subject)
+    }
+
+    @Test
+    fun changedPlanStillDropsStoredFarWeeks() = runTest {
+        // Nowy szablon: daleki tydzień ze starym planem znika (pobierze się przy obejrzeniu).
+        val week5 = monday.plusWeeks(5)
+        repoWithPlan("stary", null).syncTimetable("o3", week5)
+        repoWithPlan("nowy", null).syncTimetable("o3", monday)
+        assertFalse(repo.hasLessons("o3", week5, week5.plusDays(4)))
+        assertEquals("nowy", subjectOn(monday))
+    }
+
+    @Test
     fun refreshOnPastWeekKeepsItsSavedPlan() = runTest {
         // Zapisany wcześniej plan minionego tygodnia (z tamtego czasu) zostaje nietknięty.
         repoWithPlan("stary", null).syncTimetable("o3", monday)
