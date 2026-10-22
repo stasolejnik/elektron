@@ -10,7 +10,8 @@ object Changelog {
             "Odliczanie na pasku stanu (Android 16+) - Ustawienia podpowiedzą, gdy system ma je wyłączone",
             "Powiadomienie na żywo nie znika po „Wyczyść wszystko”",
             "Widżety pokazują ten sam pozostały czas co strona główna",
-            "Kilka grup jednego przedmiotu naraz (np. obie grupy językowe)",
+            "Czas do końca lekcji na stronie głównej i w widżecie Plan dnia (Ustawienia → Strona główna)",
+            "Kilka grup jednego przedmiotu naraz - przycisk „Wybierz kilka grup” przy przedmiotach z trzema grupami i więcej",
             "Informacje szkoły bez osobnych wpisów „Publikacja / Aktualizacja”, z obrazkami ze strony szkoły"
         )),
         Entry(37, "1.0.1", listOf(

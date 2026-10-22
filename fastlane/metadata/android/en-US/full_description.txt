@@ -10,7 +10,7 @@ Unofficial app for students of the Zespół Szkół Elektronicznych (school of e
 <li>Notes for upcoming lessons with a reminder the day before or before the lesson</li>
 <li>Lesson reminders with the room number</li>
 <li>School news read in the app, with photos, search and favourites available offline</li>
-<li>Home screen with the current or next lesson, breaks and substitutions</li>
+<li>Home screen with the current or next lesson, breaks, substitutions and time left until lessons end</li>
 <li>Widgets: Next lesson, Day plan, Substitutions, plus a quick settings tile</li>
 <li>Departures from school: next public transport connections to a chosen stop, without GPS (optional)</li>
 <li>Custom subject names and colours, light and dark theme, accent colour, wallpaper colours, app icon choice</li>

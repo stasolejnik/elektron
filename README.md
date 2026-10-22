@@ -75,11 +75,11 @@ Sekcje w zakładce **Ustawienia**, w kolejności z aplikacji.
 
 | Sekcja | Co ustawisz |
 |---|---|
-| **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały; przy jednym przedmiocie można zaznaczyć kilka grup. Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
+| **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały; przy przedmiotach z trzema grupami i więcej można wybrać kilka („Wybierz kilka grup”). Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
 | **Powiadomienia** | Nowe zastępstwa i nowe ogłoszenia (ogłoszenia domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. |
 | **Przypomnienia o lekcjach** | Przypomnienie przed lekcją (domyślnie wyłączone) i ile minut wcześniej. Punktualne przypomnienia wymagają zgody na alarmy o czasie. |
 | **Notatki do lekcji** | Lista wszystkich notatek oraz przypomnienia o nich: dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
-| **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Odjazdy. Karty widoczne na stronie głównej. |
+| **Strona główna** | **Czas do końca lekcji** (domyślnie wyłączony) - karta na stronie głównej i linia w widżecie Plan dnia. **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Odjazdy. Karty widoczne na stronie głównej. |
 | **Odjazdy** | Zakładka Odjazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), przystanek docelowy („Dokąd”), przystanek początkowy („Odjazd z”) i połączenia z przesiadką. |
 | **Wygląd** | Motyw jasny, ciemny albo jak w systemie, kolor akcentu, kolory z tapety (Android 12+) i **ikona aplikacji**: domyślna albo logo na białym tle. Po zmianie ikony aplikacja się zamyka. |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, pokazywanie sali i nauczyciela. |

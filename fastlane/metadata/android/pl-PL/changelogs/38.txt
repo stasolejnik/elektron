@@ -1,5 +1,6 @@
-Kilka grup jednego przedmiotu naraz (np. obie grupy językowe).
-Powiadomienie na żywo: zawsze aktualny pasek i pozostały czas, mały napis z końcem lekcji całego dnia, nie znika po „Wyczyść wszystko”.
-Odliczanie na pasku stanu w Androidzie 16+ - Ustawienia podpowiedzą, gdy jest wyłączone.
+Nowość: czas do końca lekcji na stronie głównej i w widżecie Plan dnia (Ustawienia → Strona główna).
+Kilka grup jednego przedmiotu („Wybierz kilka grup” przy trzech grupach i więcej).
+Powiadomienie na żywo: zawsze aktualny pasek i pozostały czas, nie znika po „Wyczyść wszystko”.
+Odliczanie na pasku stanu w Androidzie 16+.
 Widżety pokazują ten sam czas co aplikacja.
-Informacje szkoły bez osobnych wpisów „Publikacja / Aktualizacja”, z obrazkami.
+Informacje szkoły bez wpisów „Publikacja / Aktualizacja”, z obrazkami.
