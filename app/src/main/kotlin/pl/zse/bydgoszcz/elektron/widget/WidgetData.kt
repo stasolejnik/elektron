@@ -153,6 +153,7 @@ object WidgetTargets {
 object WidgetDataLoader {
 
     private val PL = Locale("pl", "PL")
+    private val subsLog = pl.zse.bydgoszcz.elektron.domain.util.LogOnChange()
 
     fun entryPoint(context: Context): WidgetEntryPoint =
         EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
@@ -304,7 +305,8 @@ object WidgetDataLoader {
                 )
             }.toList()
         // Diagnostyka (raport "Zgłoś problem"): czy widżet miał wiersze i jakie cele.
-        Log.i("SubstitutionsWidget", "Stan: ${subs.size} zastępstw: ${subs.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}")
+        val summary = "${subs.size} zastępstw: ${subs.joinToString { "${it.target.date}/${it.target.lessonNumber}" }}"
+        if (subsLog.changed(summary)) Log.i("SubstitutionsWidget", "Stan: $summary")
         val lastSuccess = runCatchingCancellable {
             ep.syncCoordinator().observeSourceLastSuccess(pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS).first()
         }.getOrNull()?.let { LocalDateTime.ofInstant(it, java.time.ZoneId.systemDefault()) }

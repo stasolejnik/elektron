@@ -53,6 +53,7 @@ class LiveLessonScheduler @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
+    private val stateLog = pl.zse.bydgoszcz.elektron.domain.util.LogOnChange()
 
     fun requestReschedule() {
         scope.launch { reschedule() }
@@ -96,7 +97,9 @@ class LiveLessonScheduler @Inject constructor(
         setAlarm(BOUNDARY_REQUEST, ACTION_BOUNDARY, next, wakeUp = true)
         val progressAt = content?.let { minOf(next ?: it.windowEnd, now.plusMinutes(PROGRESS_MINUTES)) }
         setAlarm(PROGRESS_REQUEST, ACTION_PROGRESS, progressAt?.takeIf { next == null || it < next }, wakeUp = false)
-        // Diagnostyka ("Zgłoś problem"): co pokazano i kiedy następna zmiana.
+        // Diagnostyka ("Zgłoś problem"): co pokazano i kiedy następna zmiana - tylko przy zmianie stanu,
+        // nie przy każdym odświeżeniu paska co minutę.
+        if (stateLog.changed(listOf(content?.phase, content?.countdownTo, hidden, next, AppClock.simulated)))
         Log.i(TAG, "Teraz ${now.withNano(0)}${if (AppClock.simulated) " (symulacja)" else ""}: " +
             (content?.let { "${it.phase}, do ${it.countdownTo.toLocalTime()}" } ?: if (hidden) "ukryte na dziś" else "bez powiadomienia") +
             ", następna zmiana ${next?.withNano(0) ?: "brak"}, dokładne alarmy: ${LessonReminderScheduler.canUseExactAlarms(context)}" +

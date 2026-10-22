@@ -100,7 +100,8 @@ class WidgetUpdater @Inject constructor(
                 runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK_TICK) }
                 prefs.edit().putBoolean(KEY_LEGACY_CANCELLED, true).apply()
             }
-            Log.i(TAG, "Odświeżenie widżetów: ${at.toLocalTime().withNano(0)} (za ${delay.toMinutes()} min)")
+            // Odświeżenia co minutę (lekcja, przerwa) bez wpisu - w raporcie tylko dzwonki i dłuższe odstępy.
+            if (delay.toMinutes() >= 2) Log.i(TAG, "Odświeżenie widżetów: ${at.toLocalTime().withNano(0)} (za ${delay.toMinutes()} min)")
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             Log.w(TAG, "Nie udało się zaplanować odświeżenia widżetów", e)
