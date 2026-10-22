@@ -114,8 +114,8 @@ sealed interface WidgetState {
         /** Kiedy stan widżetu się zmieni (dzwonek / północ). */
         val nextChangeAt: LocalDateTime,
         /**
-         * Kiedy odświeżyć widżet: przy zmianie stanu, a w trakcie lekcji i na godzinę przed
-         * zmianą co 5 min (pasek postępu i "Zostało X min" pozostają aktualne).
+         * Kiedy odświeżyć widżet: przy zmianie stanu, a w trakcie lekcji, przerwy i 30 min przed
+         * lekcją co minutę (pasek postępu i "Zostało X min" pozostają aktualne).
          */
         val refreshAt: LocalDateTime,
         val readError: Boolean = false,
@@ -229,10 +229,11 @@ object WidgetDataLoader {
             else -> day.atTime(focusLesson.timeFrom)              // początek najbliższej
         }
 
-        // Co 5 min tylko wtedy, gdy widżet pokazuje coś zmieniającego się z minuty na minutę:
+        // Co minutę tylko wtedy, gdy widżet pokazuje coś zmieniającego się z minuty na minutę:
         // trwająca lekcja / przerwa (pasek, "Zostało X min") i ostatnie 30 min przed lekcją ("Za X min").
-        // Dawniej co 5 min przez całą godzinę przed każdą zmianą - także przed północą
-        // i 30 min przed odliczaniem, budząc telefon bez zmiany na ekranie.
+        // Alarm bez budzenia telefonu (WidgetUpdater): przy wygaszonym ekranie nic się nie dzieje, a po jego
+        // włączeniu widżet ma ten sam czas co strona główna. Dawniej co 5 min - "Zostało" i pasek
+        // rozjeżdżały się nawet o 4 min z powiadomieniem na żywo.
         // Przerwa tylko przy krótkiej luce (LessonClock) - okienko to nie przerwa.
         val previous = dayLessons.subList(0, focusIndex).lastOrNull(takesPlace)
         val breakFrom = if (isToday && !focusIsNow && previous != null)
@@ -241,8 +242,8 @@ object WidgetDataLoader {
             } else null
         val countdownFrom = day.atTime(focusLesson.timeFrom).minusMinutes(LessonClock.COUNTDOWN_MINUTES)
         val refreshAt = when {
-            focusIsNow || breakFrom != null -> minOf(nextChangeAt, nowDt.plusMinutes(5))
-            isToday && nowDt >= countdownFrom -> minOf(nextChangeAt, nowDt.plusMinutes(5))
+            focusIsNow || breakFrom != null -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
+            isToday && nowDt >= countdownFrom -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
             isToday -> minOf(nextChangeAt, countdownFrom)
             else -> nextChangeAt
         }
@@ -411,6 +412,9 @@ internal fun retainWidgetData(previous: WidgetState, fresh: WidgetState): Widget
 
 internal fun retainSubsWidgetData(previous: SubsWidgetState, fresh: SubsWidgetState): SubsWidgetState =
     if (fresh == SubsWidgetState.Failed && previous is SubsWidgetState.Ready) previous.copy(readError = true) else fresh
+
+/** Odświeżenie widżetów planu w trakcie lekcji, przerwy i odliczania przed lekcją. */
+internal const val LIVE_REFRESH_MINUTES = 1L
 
 /** Ponowienie odczytu po błędzie - bez tego widżet czekał na 30-minutowe zabezpieczenie systemu albo synchronizację. */
 internal const val WIDGET_RETRY_MINUTES = 15L

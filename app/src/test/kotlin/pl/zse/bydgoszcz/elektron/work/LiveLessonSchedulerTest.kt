@@ -95,6 +95,12 @@ class LiveLessonSchedulerTest {
         assertEquals(NotificationManager.IMPORTANCE_LOW, manager.getNotificationChannel(LocalNotificationSink.CHANNEL_LIVE).importance)
         assertNull(manager.getNotificationChannel(LocalNotificationSink.CHANNEL_LIVE).sound)
         assertNotNull("alarm na najbliższy dzwonek", alarms.peekNextScheduledAlarm())
+        // "Wyczyść wszystko" go nie usuwa; mały napis o końcu dnia (plan do 09:40).
+        assertTrue(n.flags and Notification.FLAG_NO_CLEAR != 0)
+        assertEquals("Koniec lekcji o 09:40 · jeszcze 1 h 30 min", n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
+        // Pasek i napis odświeżane co minutę alarmem bez budzenia telefonu.
+        val progress = alarms.scheduledAlarms.single { it.type == AlarmManager.RTC }
+        assertEquals(day.atTime(8, 11).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() + 1_000L, progress.triggerAtTime)
     }
 
     @Test fun hideTodayRemovesUntilTomorrowAndDisablingCancels() = runBlocking {

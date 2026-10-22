@@ -99,7 +99,8 @@ class LiveLessonScheduler @Inject constructor(
         // Diagnostyka ("Zgłoś problem"): co pokazano i kiedy następna zmiana.
         Log.i(TAG, "Teraz ${now.withNano(0)}${if (AppClock.simulated) " (symulacja)" else ""}: " +
             (content?.let { "${it.phase}, do ${it.countdownTo.toLocalTime()}" } ?: if (hidden) "ukryte na dziś" else "bez powiadomienia") +
-            ", następna zmiana ${next?.withNano(0) ?: "brak"}, dokładne alarmy: ${LessonReminderScheduler.canUseExactAlarms(context)}")
+            ", następna zmiana ${next?.withNano(0) ?: "brak"}, dokładne alarmy: ${LessonReminderScheduler.canUseExactAlarms(context)}" +
+            (canPostPromoted(context)?.let { ", Live Updates: ${if (it) "tak" else "wyłączone w systemie"}" } ?: ""))
     }
 
     private fun post(content: LiveLesson.Content, now: LocalDateTime) {
@@ -128,6 +129,8 @@ class LiveLessonScheduler @Inject constructor(
             .setWhen(countdownMs)
             .setShowWhen(true)
             .setProgress(PROGRESS_MAX, progress, false)
+            // Mały napis: kiedy koniec lekcji całego dnia i ile jeszcze (odświeżany co minutę przy włączonym ekranie).
+            .setSubText(LiveLesson.dayLeft(content, now))
             .setContentIntent(open)
             .setDeleteIntent(dismissed)
             .addAction(0, "Ukryj na dziś", hide)
@@ -147,6 +150,9 @@ class LiveLessonScheduler @Inject constructor(
                 extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
             }
             .build()
+        // "Wyczyść wszystko" nie usuwa powiadomienia (dawniej znikało i ukrywało się do jutra);
+        // pojedyncze odsunięcie na Androidzie 14+ nadal działa i ukrywa je do jutra.
+        n.flags = n.flags or android.app.Notification.FLAG_NO_CLEAR
         try { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, n) }
         catch (e: SecurityException) { Log.w(TAG, "Brak uprawnień do powiadomień", e) }
     }
@@ -192,7 +198,8 @@ class LiveLessonScheduler @Inject constructor(
         private const val TAG = "LiveLesson"
         const val NOTIFICATION_ID = 0x4C495645
         private const val PROGRESS_MAX = 1000
-        private const val PROGRESS_MINUTES = 5L
+        /** Pasek postępu i napis o końcu dnia: co minutę, alarmem bez budzenia (tylko przy działającym telefonie). */
+        private const val PROGRESS_MINUTES = 1L
         private const val BOUNDARY_REQUEST = 4201
         private const val PROGRESS_REQUEST = 4202
         private const val HIDE_REQUEST = 4203
@@ -212,6 +219,23 @@ class LiveLessonScheduler @Inject constructor(
             LiveLesson.Phase.BREAK to "Do lekcji",
             LiveLesson.Phase.GAP to "Do lekcji"
         )
+
+        /**
+         * Android 16+: czy system pozwala promować powiadomienia eLektronu (Live Updates - odliczanie
+         * na pasku stanu). Użytkownik może to wyłączyć w ustawieniach aplikacji; null - starszy Android.
+         * Przez refleksję: NotificationManager.canPostPromotedNotifications() jest od API 36.
+         */
+        fun canPostPromoted(context: Context): Boolean? {
+            if (Build.VERSION.SDK_INT < 36) return null
+            val nm = context.getSystemService(NotificationManager::class.java) ?: return null
+            return runCatching { nm.javaClass.getMethod("canPostPromotedNotifications").invoke(nm) as Boolean }.getOrNull()
+        }
+
+        /** Ustawienia Live Updates dla eLektronu (Android 16+), a gdy ich brak - ustawienia powiadomień. */
+        fun promotedSettingsIntent(context: Context): Intent =
+            Intent("android.settings.MANAGE_APP_PROMOTED_NOTIFICATIONS")
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
         /** Zgoda na powiadomienia i włączony kanał "Na żywo". */
         fun canPost(context: Context): Boolean {

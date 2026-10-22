@@ -151,6 +151,22 @@ object LiveLesson {
         )
     }
 
+    /**
+     * Mały napis: koniec lekcji całego dnia i ile jeszcze, np. "Koniec lekcji o 14:25 · jeszcze 2 h 10 min"
+     * (minuty w górę, jak w LessonClock). Przy ostatniej lekcji - tylko godzina końca.
+     */
+    fun dayLeft(content: Content, now: LocalDateTime): String {
+        val end = content.windowEnd
+        val minutes = LessonClock.minutesCeil(now.toLocalTime(), end.toLocalTime()).takeIf { now.toLocalDate() == end.toLocalDate() } ?: 0
+        val left = when {
+            minutes <= 0 -> null
+            minutes < 60 -> "$minutes min"
+            minutes % 60 == 0L -> "${minutes / 60} h"
+            else -> "${minutes / 60} h ${minutes % 60} min"
+        }
+        return "Koniec lekcji o ${end.toLocalTime()}" + (left?.takeIf { content.countdownTo != end }?.let { " · jeszcze $it" } ?: "")
+    }
+
     /** Krótko do zwiniętej treści: "8. wf · s. Hala3". */
     private fun short(l: Lesson, styles: Map<String, SubjectStyle>): String =
         listOfNotNull("${l.number}. ${subject(l, styles)}", room(l)?.let { "s. $it" }).joinToString(" · ")

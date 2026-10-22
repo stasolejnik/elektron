@@ -160,4 +160,26 @@ class LiveLessonTest {
         assertEquals("Do okienka", c.title)
         assertEquals(day.atTime(9, 40), c.countdownTo)
     }
+
+    @Test fun smallTextSaysWhenTheSchoolDayEnds() {
+        // Plan kończy się o 11:30.
+        assertEquals("Koniec lekcji o 11:30 · jeszcze 3 h 30 min", LiveLesson.dayLeft(at("08:00")!!, day.atTime(8, 0)))
+        assertEquals("Koniec lekcji o 11:30 · jeszcze 2 h", LiveLesson.dayLeft(at("09:30")!!, day.atTime(9, 30)))
+        assertEquals("Koniec lekcji o 11:30 · jeszcze 1 h 30 min", LiveLesson.dayLeft(at("10:00")!!, day.atTime(10, 0)))
+        assertEquals("Koniec lekcji o 11:30 · jeszcze 50 min", LiveLesson.dayLeft(at("10:40")!!, day.atTime(10, 40)))
+        // Ostatnia lekcja - odliczanie i tak pokazuje koniec, bez powtórzenia.
+        assertEquals("Koniec lekcji o 11:30", LiveLesson.dayLeft(at("11:10")!!, day.atTime(11, 10)))
+    }
+
+    @Test fun progressIsRightInEveryPhaseIncludingLateFirstLesson() {
+        // Przerwa 08:45-08:55: w połowie - pół paska (dawniej pasek stał na wartości z początku przerwy).
+        assertEquals(0.5f, at("08:50")!!.progress(day.atTime(8, 50)), 0.01f)
+        // Okienko 09:40-10:45.
+        assertEquals(0.5f, at("10:12:30")!!.progress(day.atTime(10, 12, 30)), 0.01f)
+        // Pierwsza lekcja później niż zwykle (1. lekcja zwolniona): kwadrans przed 2. lekcją, w połowie.
+        val late = plan.map { if (it.number == 1) it.copy(substitution = sub(1, "Uczniowie przychodzą później")) else it }
+        val c = at("08:47:30", late)!!
+        assertEquals(day.atTime(8, 40), c.progressFrom)
+        assertEquals(0.5f, c.progress(day.atTime(8, 47, 30)), 0.01f)
+    }
 }

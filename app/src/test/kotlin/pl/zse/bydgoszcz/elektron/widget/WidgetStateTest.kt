@@ -39,7 +39,7 @@ class WidgetStateTest {
         assertTrue(st.focusIsNow)
         assertNull(st.breakFrom)
         assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 30)), st.nextChangeAt)
-        assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 5)), st.refreshAt)   // co 5 min w trakcie lekcji
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 1)), st.refreshAt)   // co minutę w trakcie lekcji
     }
 
     @Test
@@ -48,15 +48,16 @@ class WidgetStateTest {
         assertEquals(5, st.focus.number)
         assertFalse(st.focusIsNow)
         assertEquals(LocalTime.of(11, 30), st.breakFrom)
-        assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 40)), st.refreshAt)  // dzwonek wcześniej niż +5 min
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 36)), st.refreshAt)  // co minutę w przerwie
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 40)), (at(friday, "11:39:30") as WidgetState.Ready).refreshAt)  // dzwonek wcześniej niż +1 min
     }
 
     @Test
     fun widgetWakesOnlyWhenTheDisplayChanges() {
         // Przed pierwszą lekcją: następne odświeżenie dopiero na początku odliczania (30 min przed),
-        // potem co 5 min.
+        // potem co minutę.
         assertEquals(LocalDateTime.of(friday, LocalTime.of(9, 20)), (at(friday, "09:00") as WidgetState.Ready).refreshAt)
-        assertEquals(LocalDateTime.of(friday, LocalTime.of(9, 30)), (at(friday, "09:25") as WidgetState.Ready).refreshAt)
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(9, 26)), (at(friday, "09:25") as WidgetState.Ready).refreshAt)
         // Wieczorem (widżet pokazuje następny dzień) - jedno odświeżenie o północy, nie co 5 min.
         assertEquals(LocalDateTime.of(friday.plusDays(1), LocalTime.of(0, 1)), (at(friday, "23:30") as WidgetState.Ready).refreshAt)
         // Okienko (długa luka) przed lekcją - bez wybudzeń do początku odliczania.
