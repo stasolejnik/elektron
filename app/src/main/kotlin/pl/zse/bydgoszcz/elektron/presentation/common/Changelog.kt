@@ -5,6 +5,14 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(38, "1.0.2", listOf(
+            "Powiadomienie na żywo: pasek i pozostały czas zawsze aktualne, mały napis z końcem lekcji całego dnia",
+            "Odliczanie na pasku stanu (Android 16+) - Ustawienia podpowiedzą, gdy system ma je wyłączone",
+            "Powiadomienie na żywo nie znika po „Wyczyść wszystko”",
+            "Widżety pokazują ten sam pozostały czas co strona główna",
+            "Kilka grup jednego przedmiotu naraz (np. obie grupy językowe)",
+            "Informacje szkoły bez osobnych wpisów „Publikacja / Aktualizacja”, z obrazkami ze strony szkoły"
+        )),
         Entry(37, "1.0.1", listOf(
             "Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia) - w dni lekcyjne odliczanie do przerwy albo do lekcji, co trwa i co dalej",
             "Nowość: informacje szkoły ze strony zastępstw (np. o oddawaniu krwi) w zakładce Zastępstwa i na stronie głównej",

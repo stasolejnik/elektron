@@ -4,6 +4,17 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [1.0.2] - 2026-10-22 (38)
+
+Krótki opis do wydania na GitHubie: [release-notes/1.0.2.md](release-notes/1.0.2.md).
+
+- Powiadomienie na żywo: pasek postępu i nowy mały napis z końcem lekcji całego dnia („Koniec lekcji o 14:25 · jeszcze 2 h 10 min”) odświeżane co minutę alarmem bez budzenia telefonu - aktualne zawsze, gdy ekran jest włączony. Dawniej co 5 min, więc w krótkiej przerwie i przed pierwszą lekcją pasek stał daleko w tyle (np. 5% przy połowie przerwy).
+- Powiadomienie na żywo na pasku stanu (Live Updates, Android 16+): gdy system ma je wyłączone dla eLektronu, Ustawienia → Powiadomienia mówią o tym i prowadzą do ustawienia. Odliczanie na pasku stanu pokazuje system z chronometru powiadomienia.
+- Powiadomienie na żywo nie znika po „Wyczyść wszystko” (FLAG_NO_CLEAR); pojedyncze odsunięcie (Android 14+) nadal ukrywa je do jutra. Raport „Zgłoś problem” zapisuje ukrycia i stan Live Updates.
+- Widżety: w trakcie lekcji, przerwy i 30 min przed lekcją odświeżane co minutę (alarm bez budzenia) - „Zostało X min” i pasek zgodne ze stroną główną i powiadomieniem, a nie spóźnione do 5 min.
+- Grupy: przy jednym przedmiocie można zaznaczyć kilka grup (np. obie grupy językowe). Plan, widżety, powiadomienia, przypomnienia i zastępstwa pokazują wszystkie wybrane. Zaznaczenie wszystkich albo żadnej wraca do „Wszystkie”; dotychczasowe wybory bez zmian.
+- Informacje szkoły: linie „Publikacja / Opublikowano / Aktualizacja: …” ze strony zastępstw nie są już osobną informacją - ostatnia jest małym podpisem przy dniu w zakładce Zastępstwa. Obrazki ze strony szkoły (np. skrócony plan zajęć) widać w karcie po rozwinięciu. Migracja bazy 4 → 5; informacje zapisane przez 1.0.1 tracą linie publikacji przy odczycie. Testy na pięciu prawdziwych stronach z archiwum watchera.
+
 ## [1.0.1] - 2026-10-17 (37)
 
 Stabilna wersja z poprawkami do 1.0.0. Zawiera wszystkie zmiany z 1.0.1-beta1 (niżej) oraz nowości poniżej.
@@ -465,6 +476,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[1.0.2]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.2
 [1.0.1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.1
 [1.0.1-beta1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.1-beta1
 [1.0.0]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.0

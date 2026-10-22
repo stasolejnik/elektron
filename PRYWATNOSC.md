@@ -55,6 +55,7 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   instalację zawsze zatwierdzasz sam. GitHub widzi przy tym adres IP i wersję aplikacji; nie są
   wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
+- **Obrazki w informacjach szkoły:** gdy szkoła doda obrazek do informacji na stronie zastępstw (np. skrócony plan zajęć), aplikacja pobiera go po rozwinięciu karty, wyłącznie z serwerów szkoły.
 - **Zdjęcia w ogłoszeniach:** po otwarciu ogłoszenia pobierane są zdjęcia umieszczone w jego treści, wyłącznie z serwerów szkoły (obrazy z innych stron nie są pobierane - zostaje opis i link). Zdjęcia korzystają z pamięci podręcznej. Pełny tekst jest pobierany ze strony ogłoszenia przy pierwszym otwarciu (i ponownie, gdy zapisała go starsza wersja aplikacji).
 
 - **BUSearch (odjazdy ze szkoły):** po otwarciu wyboru przystanku aplikacja

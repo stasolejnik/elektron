@@ -1,0 +1,5 @@
+Several groups of one subject at once (e.g. both language groups).
+Live notification: progress bar and time left always current, a small line with when lessons end, no longer removed by "Clear all".
+Status bar countdown on Android 16+ - Settings point to it when it is turned off.
+Widgets show the same time left as the app.
+School notices without separate "published / updated" entries, with images.
