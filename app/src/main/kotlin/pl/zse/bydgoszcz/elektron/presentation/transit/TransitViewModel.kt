@@ -68,6 +68,10 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     init {
         viewModelScope.launch {
             settings.filter { it.ready }.map { requestKey(it.preferences) }.distinctUntilChanged().collect { key ->
+                // Wartość już nieaktualna (obserwator działający na innym wątku obsłużył ją po nowszej, np.
+                // w testach z dispatcherem Unconfined): nie przerywamy pracy dla bieżącego wyboru - inaczej
+                // trwające zapytanie było przerywane i wysyłane od nowa (dodatkowe zapytanie do planera).
+                if (key != requestKey(settings.value.preferences)) return@collect
                 if (journeys.value?.let { Triple(it.destinationKey, it.originKey, it.allowTransfers) } != key) journeys.value = null
                 // The screen can start the new request before this observer receives settings.
                 // Cancel only work belonging to the old selection.

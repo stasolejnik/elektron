@@ -13,6 +13,8 @@ Krótki opis do wydania na GitHubie: [release-notes/1.0.2.md](release-notes/1.0.
 - Powiadomienie na żywo nie znika po „Wyczyść wszystko” (FLAG_NO_CLEAR); pojedyncze odsunięcie (Android 14+) nadal ukrywa je do jutra. Raport „Zgłoś problem” zapisuje ukrycia i stan Live Updates.
 - Widżety: w trakcie lekcji, przerwy i 30 min przed lekcją odświeżane co minutę (alarm bez budzenia) - „Zostało X min” i pasek zgodne ze stroną główną i powiadomieniem, a nie spóźnione do 5 min.
 - Grupy: przy jednym przedmiocie można zaznaczyć kilka grup (np. obie grupy językowe). Plan, widżety, powiadomienia, przypomnienia i zastępstwa pokazują wszystkie wybrane. Zaznaczenie wszystkich albo żadnej wraca do „Wszystkie”; dotychczasowe wybory bez zmian.
+- Raport „Zgłoś problem”: odświeżenia co minutę zapisują się w logu tylko przy zmianie stanu - nie wypychają z raportu (ostatnie 150 linii) błędów synchronizacji ani ukryć powiadomienia.
+- Odjazdy: nieaktualna wartość ustawień obsłużona po nowszej nie przerywa trwającego zapytania (usuwa sporadyczny błąd testu TransitViewModelTest - dodatkowe zapytanie do planera).
 - Informacje szkoły: linie „Publikacja / Opublikowano / Aktualizacja: …” ze strony zastępstw nie są już osobną informacją - ostatnia jest małym podpisem przy dniu w zakładce Zastępstwa. Obrazki ze strony szkoły (np. skrócony plan zajęć) widać w karcie po rozwinięciu. Migracja bazy 4 → 5; informacje zapisane przez 1.0.1 tracą linie publikacji przy odczycie. Testy na pięciu prawdziwych stronach z archiwum watchera.
 
 ## [1.0.1] - 2026-10-17 (37)
