@@ -15,6 +15,7 @@ import pl.zse.bydgoszcz.elektron.data.local.SchoolNoticeEntity
 import pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto
 import pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsPage
 import pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsSource
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -43,21 +44,21 @@ class SchoolNoticesRepositoryTest {
 
     @Test fun noticeIsStoredPerDayEvenWithoutEntriesAndDisappearsWhenRemoved() = runTest {
         page = SubstitutionsPage(setOf(tomorrow.format(fmt), dayAfter.format(fmt)), listOf(dto(tomorrow)),
-            notices = mapOf(tomorrow.format(fmt) to "Apel o 8:00\nW auli", dayAfter.format(fmt) to "Dzień sportu"))
+            notices = mapOf(tomorrow.format(fmt) to SchoolNotice("Apel o 8:00\nW auli"), dayAfter.format(fmt) to SchoolNotice("Dzień sportu")))
         repo.syncAll()
-        assertEquals(mapOf(tomorrow to "Apel o 8:00\nW auli", dayAfter to "Dzień sportu"), repo.observeNotices(LocalDate.now()).first())
+        assertEquals(mapOf(tomorrow to SchoolNotice("Apel o 8:00\nW auli"), dayAfter to SchoolNotice("Dzień sportu")), repo.observeNotices(LocalDate.now()).first())
         // Szkoła usunęła tekst z jutra; pojutrze bez zmian.
-        page = page.copy(notices = mapOf(dayAfter.format(fmt) to "Dzień sportu"))
+        page = page.copy(notices = mapOf(dayAfter.format(fmt) to SchoolNotice("Dzień sportu")))
         repo.syncAll()
-        assertEquals(mapOf(dayAfter to "Dzień sportu"), repo.observeNotices(LocalDate.now()).first())
+        assertEquals(mapOf(dayAfter to SchoolNotice("Dzień sportu")), repo.observeNotices(LocalDate.now()).first())
     }
 
     @Test fun failedOrEmptyPageKeepsNoticesForOffline() = runTest {
-        page = SubstitutionsPage(setOf(tomorrow.format(fmt)), emptyList(), notices = mapOf(tomorrow.format(fmt) to "Apel"))
+        page = SubstitutionsPage(setOf(tomorrow.format(fmt)), emptyList(), notices = mapOf(tomorrow.format(fmt) to SchoolNotice("Apel")))
         repo.syncAll()
         page = SubstitutionsPage(emptySet(), emptyList())          // nierozpoznana / pusta odpowiedź
         repo.syncAll()
-        assertEquals(mapOf(tomorrow to "Apel"), repo.observeNotices(LocalDate.now()).first())
+        assertEquals(mapOf(tomorrow to SchoolNotice("Apel")), repo.observeNotices(LocalDate.now()).first())
     }
 
     @Test fun oldNoticesAreCleanedWithSubstitutions() = runTest {
@@ -66,5 +67,16 @@ class SchoolNoticesRepositoryTest {
         page = SubstitutionsPage(setOf(tomorrow.format(fmt)), listOf(dto(tomorrow)))
         repo.syncAll()
         assertTrue(repo.observeNotices(old).first().isEmpty())
+    }
+
+    @Test fun imagesAndUpdateLabelAreStoredAndPublicationLinesFromOldSavesAreHidden() = runTest {
+        page = SubstitutionsPage(setOf(tomorrow.format(fmt)), emptyList(), notices = mapOf(tomorrow.format(fmt) to
+            SchoolNotice("Skrócony plan zajęć:", listOf("https://zastepstwa.zse.bydgoszcz.pl/plan.jpg"), "Publikacja godz. 16:10")))
+        repo.syncAll()
+        assertEquals(SchoolNotice("Skrócony plan zajęć:", listOf("https://zastepstwa.zse.bydgoszcz.pl/plan.jpg"), "Publikacja godz. 16:10"),
+            repo.observeNotices(LocalDate.now()).first()[tomorrow])
+        // Zapis z 1.0.1: linia publikacji w treści - przy odczycie znika.
+        db.schoolNoticeDao().upsert(SchoolNoticeEntity(dayAfter.toEpochDay(), "Apel\nPublikacja: niedziela, godz. 13:17"))
+        assertEquals("Apel", repo.observeNotices(LocalDate.now()).first()[dayAfter]?.text)
     }
 }

@@ -29,6 +29,6 @@ data class SubstitutionsPage(
     val incompleteDates: Set<String> = emptySet(),
     /** Wpisy bez klasy (zajęcia łączone kilku klas) - klasę ustala repozytorium z planu. */
     val classless: List<SubstitutionDto> = emptyList(),
-    /** Informacje szkoły pod datami ("dd.mm.rrrr" -> tekst, podział na linie zachowany). */
-    val notices: Map<String, String> = emptyMap()
+    /** Informacje szkoły pod datami ("dd.mm.rrrr" -> informacja). */
+    val notices: Map<String, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice> = emptyMap()
 )

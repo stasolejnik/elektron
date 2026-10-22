@@ -90,7 +90,7 @@ class DashboardViewModel @Inject constructor(
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true,
         /** Informacja szkoły dla pokazywanego dnia (dzień, tekst); null - brak, bez pustego miejsca. */
-        val schoolNotice: Pair<LocalDate, String>? = null,
+        val schoolNotice: Pair<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice>? = null,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -119,7 +119,7 @@ class DashboardViewModel @Inject constructor(
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true,
-        val notices: Map<LocalDate, String> = emptyMap()
+        val notices: Map<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice> = emptyMap()
     )
 
     private val refreshing = MutableStateFlow(false)

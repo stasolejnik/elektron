@@ -13,26 +13,26 @@ class SchoolNoticesTest {
     private fun lesson(date: LocalDate, from: String, to: String) =
         Lesson("$date-$from", "o3", "1D", date, DayOfWeek.PIATEK, 1, LocalTime.parse(from), LocalTime.parse(to), emptyList(), null, null)
     private val lessons = listOf(lesson(friday, "08:00", "08:45"), lesson(friday, "08:55", "09:40"))
-    private val notices = mapOf(friday to "Oddawanie krwi", monday to "Apel")
+    private val notices = mapOf(friday to SchoolNotice("Oddawanie krwi"), monday to SchoolNotice("Apel"))
 
     @Test fun duringLessonDaysShowsToday() {
-        assertEquals(friday to "Oddawanie krwi", SchoolNotices.forDashboard(notices, lessons, friday.atTime(9, 0), monday))
+        assertEquals(friday to SchoolNotice("Oddawanie krwi"), SchoolNotices.forDashboard(notices, lessons, friday.atTime(9, 0), monday))
     }
 
     @Test fun afterLessonsShowsNextLessonDay() {
-        assertEquals(monday to "Apel", SchoolNotices.forDashboard(notices, lessons, friday.atTime(10, 0), monday))
-        assertNull(SchoolNotices.forDashboard(mapOf(friday to "x"), lessons, friday.atTime(10, 0), monday))
+        assertEquals(monday to SchoolNotice("Apel"), SchoolNotices.forDashboard(notices, lessons, friday.atTime(10, 0), monday))
+        assertNull(SchoolNotices.forDashboard(mapOf(friday to SchoolNotice("x")), lessons, friday.atTime(10, 0), monday))
     }
 
     @Test fun dayWithoutLessonsShowsTodayThenNext() {
-        assertEquals(monday to "Apel", SchoolNotices.forDashboard(notices, lessons, saturday.atTime(10, 0), monday))
-        assertEquals(saturday to "Dzień otwarty", SchoolNotices.forDashboard(notices + (saturday to "Dzień otwarty"), lessons, saturday.atTime(10, 0), monday))
+        assertEquals(monday to SchoolNotice("Apel"), SchoolNotices.forDashboard(notices, lessons, saturday.atTime(10, 0), monday))
+        assertEquals(saturday to SchoolNotice("Dzień otwarty"), SchoolNotices.forDashboard(notices + (saturday to SchoolNotice("Dzień otwarty")), lessons, saturday.atTime(10, 0), monday))
     }
 
     @Test fun freedLastLessonsEndTheDayEarlier() {
         val freed = lessons.mapIndexed { i, l -> if (i == 1) l.copy(substitution = Substitution("s", friday, 2, "1D", null,
             "Uczniowie zwolnieni do domu", null, null, "X")) else l }
-        assertEquals(monday to "Apel", SchoolNotices.forDashboard(notices, freed, friday.atTime(9, 0), monday))
+        assertEquals(monday to SchoolNotice("Apel"), SchoolNotices.forDashboard(notices, freed, friday.atTime(9, 0), monday))
     }
 
     @Test fun nothingWithoutNotices() {

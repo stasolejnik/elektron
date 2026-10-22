@@ -70,14 +70,16 @@ class SubstitutionsRepositoryImpl @Inject constructor(
                 // (dawniej był usuwany - uczeń tracił prawdziwe zastępstwa, także w kopii offline).
                 val byDay = entities.groupBy { it.dateEpochDay }
                 // Informacja szkoły: dzień ze strony dostaje jej obecny tekst - usunięty ze strony znika.
-                val notices = page.notices.mapNotNull { (raw, text) ->
-                    runCatching { LocalDate.parse(raw, PL_DATE) }.getOrNull()?.toEpochDay()?.let { it to text }
+                val notices = page.notices.mapNotNull { (raw, notice) ->
+                    runCatching { LocalDate.parse(raw, PL_DATE) }.getOrNull()?.toEpochDay()?.let { day ->
+                        day to pl.zse.bydgoszcz.elektron.data.local.SchoolNoticeEntity(day, notice.text, notice.images.joinToString("\n"), notice.updated)
+                    }
                 }.toMap()
                 val noticeDao = db.schoolNoticeDao()
                 for (day in pageDays + notices.keys) {
-                    val text = notices[day]
-                    if (text == null) { if (noticeDao.get(day) != null) noticeDao.deleteForDay(day) }
-                    else if (noticeDao.get(day)?.text != text) noticeDao.upsert(pl.zse.bydgoszcz.elektron.data.local.SchoolNoticeEntity(day, text))
+                    val fresh = notices[day]
+                    if (fresh == null) { if (noticeDao.get(day) != null) noticeDao.deleteForDay(day) }
+                    else if (noticeDao.get(day) != fresh) noticeDao.upsert(fresh)
                 }
                 for (day in pageDays) {
                     val old = dao.getForRange(day, day)
@@ -141,9 +143,15 @@ class SubstitutionsRepositoryImpl @Inject constructor(
 
     override suspend fun deleteSimulated(): Int = withContext(Dispatchers.IO) { dao.deleteDevEntries() }
 
-    override fun observeNotices(day: LocalDate): Flow<Map<LocalDate, String>> =
+    override fun observeNotices(day: LocalDate): Flow<Map<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice>> =
         db.schoolNoticeDao().observeFrom(day.toEpochDay())
-            .map { list -> list.associate { LocalDate.ofEpochDay(it.dateEpochDay) to it.text } }
+            .map { list -> list.associate { e ->
+                LocalDate.ofEpochDay(e.dateEpochDay) to pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice(
+                    // Zapis z 1.0.1 mógł zawierać linie publikacji w treści - czyszczone przy odczycie.
+                    e.text.lines().filterNot(pl.zse.bydgoszcz.elektron.data.remote.parser.ZastepstwaParser::isPublicationLine)
+                        .joinToString("\n").trim(),
+                    e.images.lines().filter { it.isNotBlank() }, e.updated)
+            } }
             .distinctUntilChanged()
 
     override fun observeForDay(day: LocalDate): Flow<List<Substitution>> =

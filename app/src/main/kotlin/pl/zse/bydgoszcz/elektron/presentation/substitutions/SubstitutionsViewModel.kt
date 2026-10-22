@@ -80,7 +80,7 @@ class SubstitutionsViewModel @Inject constructor(
     /** [label]: "Dziś · 28 września" — liczone tu, żeby po północy zmieniło się samo. */
     data class DayGroup(val date: LocalDate, val label: String, val items: List<Substitution>,
         /** Informacja szkoły pod datą na stronie zastępstw; dzień z samą informacją też jest na liście. */
-        val notice: String? = null)
+        val notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice? = null)
 
     /** Lista + czy schowano dzisiejsze zastępstwa (lekcje już się skończyły). */
     private data class Content(
@@ -133,7 +133,7 @@ class SubstitutionsViewModel @Inject constructor(
         val (over, shown) = relevant.partition { SubstitutionRelevance.isOver(it, now, ends) }
         Content(
             days = shown.groupBy { it.date }.toSortedMap().let { byDay ->
-                (byDay.keys + notices.keys.filter { it >= today }).toSortedSet().map { d ->
+                (byDay.keys + notices.filter { (d, n) -> d >= today && n.hasContent }.keys).toSortedSet().map { d ->
                     DayGroup(d, dayLabel(d, today), byDay[d].orEmpty().sortedWith(compareBy({ it.lessonNumber })), notices[d])
                 }
             },

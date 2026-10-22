@@ -4,7 +4,10 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,18 +37,22 @@ import androidx.compose.ui.unit.dp
  * "Pokaż więcej / Zwiń" tylko wtedy, gdy tekst się nie mieści. Zwykły tekst do zaznaczenia (linki
  * i numery bez specjalnej obsługi). TalkBack czyta całą treść także w zwiniętej karcie - skrót jest
  * tylko wizualny. Długie słowa bez spacji łamane są w środku, zamiast wychodzić poza kartę.
+ * Obrazki ze strony szkoły (np. skrócony plan zajęć) - po rozwinięciu albo od razu, gdy nie ma tekstu;
+ * dotknięcie otwiera obrazek w pełnym rozmiarze.
  * [key] - przy zmianie (inny dzień albo tekst) karta zaczyna zwinięta.
  */
 @Composable
-fun SchoolNoticeCard(text: String, collapsedLines: Int, key: String, modifier: Modifier = Modifier, compact: Boolean = false,
-    title: String = "Informacja szkoły") {
+fun SchoolNoticeCard(notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice, collapsedLines: Int, key: String,
+    modifier: Modifier = Modifier, compact: Boolean = false, title: String = "Informacja szkoły") {
+    val text = notice.text
+    val context = androidx.compose.ui.platform.LocalContext.current
     var expanded by rememberSaveable(key) { mutableStateOf(false) }
     var overflows by rememberSaveable(key) { mutableStateOf(false) }
     val onColor = MaterialTheme.colorScheme.onSecondaryContainer
     ElektronCard(modifier = modifier, containerColor = MaterialTheme.colorScheme.secondaryContainer) {
         // Ikona w wierszu tytułu, treść na całą szerokość karty (dawniej wcięta pod ikoną i większa).
         Column(
-            Modifier.padding(start = 16.dp, end = 16.dp, top = if (compact) 12.dp else 14.dp, bottom = if (overflows || expanded) 2.dp else if (compact) 12.dp else 14.dp)
+            Modifier.padding(start = 16.dp, end = 16.dp, top = if (compact) 12.dp else 14.dp, bottom = if (overflows || expanded || (notice.images.isNotEmpty() && text.isNotBlank())) 2.dp else if (compact) 12.dp else 14.dp)
                 .animateContentSize(tween(durationMillis = 180, easing = FastOutSlowInEasing))
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -53,7 +60,7 @@ fun SchoolNoticeCard(text: String, collapsedLines: Int, key: String, modifier: M
                 Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
                     color = onColor, modifier = Modifier.semantics { heading() })
             }
-            SelectionContainer {
+            if (text.isNotBlank()) SelectionContainer {
                 Text(
                     text,
                     style = MaterialTheme.typography.bodyMedium.copy(lineBreak = LineBreak.Paragraph),
@@ -64,7 +71,20 @@ fun SchoolNoticeCard(text: String, collapsedLines: Int, key: String, modifier: M
                     modifier = Modifier.padding(top = 6.dp)
                 )
             }
-            if (overflows || expanded) {
+            if (notice.images.isNotEmpty() && (expanded || text.isBlank())) {
+                notice.images.forEach { url ->
+                    coil.compose.AsyncImage(
+                        model = url,
+                        contentDescription = "Obrazek z informacji szkoły. Otwórz w pełnym rozmiarze",
+                        contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                        modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                            .clickable { SafeUrls.open(context, url) }
+                    )
+                }
+            }
+            val more = overflows || (notice.images.isNotEmpty() && text.isNotBlank())
+            if (more || expanded) {
                 TextButton(onClick = { expanded = !expanded }, modifier = Modifier.align(Alignment.End)) {
                     Text(if (expanded) "Zwiń" else "Pokaż więcej")
                 }

@@ -139,10 +139,10 @@ fun DashboardScreen(
                     }
 
                     // Informacja szkoły (np. o oddawaniu krwi) dla pokazywanego dnia - tylko gdy jest.
-                    state.schoolNotice?.let { (day, text) ->
+                    state.schoolNotice?.let { (day, notice) ->
                         item(key = "school_notice") {
-                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(text, collapsedLines = 2,
-                                key = "$day|${text.hashCode()}", compact = true,
+                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 2,
+                                key = "$day|${notice.hashCode()}", compact = true,
                                 title = "Informacja szkoły · " + noticeDayLabel(day, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()))
                         }
                     }

@@ -173,7 +173,14 @@ fun SubstitutionsScreen(
                             modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 2.dp)
                         )
                     }
-                    group.notice?.let { notice ->
+                    // Kiedy szkoła ostatnio zmieniała stronę dla tego dnia - mały podpis, nie osobna informacja.
+                    group.notice?.updated?.let { updated ->
+                        item(key = "updated_${group.date}") {
+                            Text(updated, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
+                        }
+                    }
+                    group.notice?.takeIf { it.hasContent }?.let { notice ->
                         item(key = "notice_${group.date}") {
                             pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 3,
                                 key = "${group.date}|${notice.hashCode()}")

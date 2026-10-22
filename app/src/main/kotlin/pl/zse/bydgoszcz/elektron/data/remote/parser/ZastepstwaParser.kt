@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.data.remote.parser
 
+import pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice
+
 import android.util.Log
 import org.jsoup.nodes.Document
 import pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto
@@ -50,26 +52,52 @@ object ZastepstwaParser {
     /**
      * Informacja szkoły dopisana pod datą (np. o oddawaniu krwi): tekst w tej samej komórce co
      * "Zastępstwa w dniu dd.mm.rrrr dzień", po <BR><BR>, kolejne linie rozdzielone <BR>.
-     * Osobno dla każdego dnia ("dd.mm.rrrr" -> tekst); dzień bez informacji nie ma wpisu. Podział na
+     * Osobno dla każdego dnia ("dd.mm.rrrr" -> informacja); dzień bez niczego nie ma wpisu. Podział na
      * linie zostaje, puste linie na początku i końcu znikają (w środku najwyżej jedna).
+     *
+     * Linie publikacji ("Publikacja: niedziela, godz. 13:17", "Opublikowano: …", "Aktualizacja 19:11")
+     * nie są treścią - dawniej pokazywały się jako osobna "informacja szkoły". Ostatnia z nich trafia do
+     * [SchoolNotice.updated]. Obrazki z serwerów szkoły (np. skrócony plan zajęć) - [SchoolNotice.images].
      * Bez nazw klas CSS - te Optivum nadaje przy każdym eksporcie od nowa.
      */
-    fun notices(doc: Document): Map<String, String> {
-        val out = linkedMapOf<String, String>()
+    fun notices(doc: Document): Map<String, SchoolNotice> {
+        val out = linkedMapOf<String, SchoolNotice>()
         for (row in doc.select("table tr")) {
             val cells = row.select("> td, > th")
             if (cells.size != 1) continue
             val date = DATE_RE.find(cells[0].text())?.groupValues?.get(1) ?: continue
             val lines = cellLines(cells[0])
             val header = lines.indexOfFirst { DATE_RE.containsMatchIn(it) }
-            val body = lines.drop(header + 1)
+            val after = lines.drop(header + 1)
+            val meta = after.filter(::isPublicationLine)
+            val body = after.filterNot(::isPublicationLine)
                 .fold(mutableListOf<String>()) { acc, line -> if (!(line.isEmpty() && acc.lastOrNull()?.isEmpty() != false)) acc += line; acc }
                 .dropLastWhile { it.isEmpty() }
-            if (body.isEmpty()) continue
-            val text = body.joinToString("\n")
-            out[date] = out[date]?.let { "$it\n$text" } ?: text
+            val images = cells[0].select("img[src]").mapNotNull { schoolImage(it.absUrl("src").ifBlank { it.attr("src") }) }.distinct()
+            if (body.isEmpty() && images.isEmpty() && meta.isEmpty()) continue
+            val notice = SchoolNotice(body.joinToString("\n"), images, meta.lastOrNull()?.trimEnd('.', ',', ';'))
+            out[date] = out[date]?.let { SchoolNotice(listOf(it.text, notice.text).filter(String::isNotBlank).joinToString("\n"),
+                (it.images + notice.images).distinct(), notice.updated ?: it.updated) } ?: notice
         }
         return out
+    }
+
+    /** "Publikacja: niedziela, godz. 13:17", "Publikacja godz. 16:10", "Opublikowano: …", "Aktualizacja 19:11". */
+    // Cała linia to słowo kluczowe, opcjonalnie dzień tygodnia albo data, "godz." i godzina - nic więcej.
+    // "Aktualizacja planu: od 14:00 lekcje skrócone" to już treść, nie znacznik publikacji.
+    private val PUBLICATION_RE = Regex(
+        "^(publikacja|opublikowan[oy]|aktualizacja|zaktualizowan[oy])\\s*:?\\s*" +
+            "(\\p{L}+\\s*,?\\s*)?(\\d{1,2}\\.\\d{1,2}(\\.\\d{2,4})?\\s*,?\\s*)?(godz\\.?\\s*)?\\d{1,2}[:.]\\d{2}\\s*[.,;]?$",
+        RegexOption.IGNORE_CASE)
+    internal fun isPublicationLine(line: String): Boolean = PUBLICATION_RE.matches(line.trim())
+
+    /** Obrazek tylko z serwerów szkoły, przez https (jak miniatury ogłoszeń); inny adres - pomijany. */
+    private fun schoolImage(url: String): String? {
+        val uri = runCatching { java.net.URI(url.trim()) }.getOrNull() ?: return null
+        val host = uri.host?.lowercase() ?: return null
+        if (uri.scheme?.lowercase() !in setOf("http", "https")) return null
+        if (host != "zse.bydgoszcz.pl" && !host.endsWith(".zse.bydgoszcz.pl")) return null
+        return url.trim().replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "https://")
     }
 
     /** Linie tekstu komórki: <br> i bloki (p, div) dzielą linie, reszta tekstu sklejana spacjami. */

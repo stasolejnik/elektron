@@ -83,7 +83,11 @@ data class SubstitutionEntity(
 @Entity(tableName = "school_notices")
 data class SchoolNoticeEntity(
     @PrimaryKey val dateEpochDay: Long,
-    val text: String
+    val text: String,
+    /** Adresy obrazków (z serwerów szkoły), każdy w osobnej linii; "" - brak. */
+    @androidx.room.ColumnInfo(defaultValue = "") val images: String = "",
+    /** Ostatnia linia "Publikacja / Aktualizacja: …" tego dnia. */
+    val updated: String? = null
 )
 
 @Entity(tableName = "announcements", indices = [Index("publishedAtEpochSeconds")])

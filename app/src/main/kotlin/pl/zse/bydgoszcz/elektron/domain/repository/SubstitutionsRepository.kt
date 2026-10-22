@@ -17,7 +17,7 @@ interface SubstitutionsRepository {
      * Informacje szkoły ze strony zastępstw (dzień -> tekst, podział na linie zachowany) od [day].
      * Działa offline z ostatnio pobranej strony.
      */
-    fun observeNotices(day: LocalDate): Flow<Map<LocalDate, String>> = kotlinx.coroutines.flow.flowOf(emptyMap())
+    fun observeNotices(day: LocalDate): Flow<Map<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice>> = kotlinx.coroutines.flow.flowOf(emptyMap())
     /** Zapis pojedynczego wpisu (np. z pusha FCM). */
     suspend fun upsertOne(sub: Substitution)
 }
