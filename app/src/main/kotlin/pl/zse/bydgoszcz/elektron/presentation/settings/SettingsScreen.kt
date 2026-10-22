@@ -207,6 +207,9 @@ fun SettingsScreen(
                     SwitchRow("Zastępstwa", state.showSubstitutions) { viewModel.setShowSubstitutions(it) }
                     RowDivider()
                     SwitchRow("Najnowsze ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
+                    RowDivider()
+                    SwitchRow("Czas do końca lekcji", state.showDayEnd,
+                        supporting = "Ile godzin i minut zostało do końca lekcji dzisiaj - na stronie głównej i w widżecie Plan dnia") { viewModel.setShowDayEnd(it) }
                 }
             }
 

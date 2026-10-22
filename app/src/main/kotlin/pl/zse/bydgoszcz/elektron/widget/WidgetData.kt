@@ -129,7 +129,9 @@ sealed interface WidgetState {
          * Lekcja po [focus], która się odbywa (zwolnione pomijane, jak w LessonClock); null - brak.
          * Dawniej po prostu następny wiersz, także zwolniony.
          */
-        val followingIndex: Int? = null
+        val followingIndex: Int? = null,
+        /** Do końca lekcji dzisiaj (gdy włączone w Ustawieniach): koniec ostatniej lekcji, która się odbywa. */
+        val dayEnd: LocalTime? = null
     ) : WidgetState {
         val focus: WidgetLesson get() = lessons[focusIndex]
         val following: WidgetLesson? get() = followingIndex?.let(lessons::getOrNull)
@@ -187,7 +189,8 @@ object WidgetDataLoader {
         val styles = runCatchingCancellable { ep.settings().subjectStyles.first() }.getOrDefault(emptyMap())
         val look = runCatchingCancellable { ep.settings().widgetLook.first() }.getOrDefault(WidgetLook())
         val notes = runCatchingCancellable { ep.lessonNotes().notes.first() }.getOrDefault(emptyList())
-        return buildState(lessons, nowDt, styles, look, notes)
+        val dayEnd = runCatchingCancellable { ep.settings().showDayEnd.first() }.getOrDefault(false)
+        return buildState(lessons, nowDt, styles, look, notes, dayEnd)
     }
 
     /**
@@ -201,7 +204,8 @@ object WidgetDataLoader {
         nowDt: LocalDateTime,
         styles: Map<String, SubjectStyle> = emptyMap(),
         look: WidgetLook = WidgetLook(),
-        notes: List<LessonNote> = emptyList()
+        notes: List<LessonNote> = emptyList(),
+        showDayEnd: Boolean = false
     ): WidgetState {
         val today = nowDt.toLocalDate()
         val now = nowDt.toLocalTime()
@@ -242,9 +246,12 @@ object WidgetDataLoader {
                 it <= now && Duration.between(it, focusLesson.timeFrom).toMinutes() <= LessonClock.BREAK_MAX_MINUTES
             } else null
         val countdownFrom = day.atTime(focusLesson.timeFrom).minusMinutes(LessonClock.COUNTDOWN_MINUTES)
+        val dayEnd = if (showDayEnd) pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.of(lessons, nowDt)?.end else null
         val refreshAt = when {
             focusIsNow || breakFrom != null -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
             isToday && nowDt >= countdownFrom -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
+            // "Do końca lekcji" zmienia się co minutę przez cały dzień lekcji, także w okienku.
+            dayEnd != null -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
             isToday -> minOf(nextChangeAt, countdownFrom)
             else -> nextChangeAt
         }
@@ -261,7 +268,8 @@ object WidgetDataLoader {
             nextChangeAt = nextChangeAt,
             refreshAt = refreshAt,
             firstNotPastIndex = if (isToday) dayLessons.indexOfFirst { it.timeTo > now }.let { if (it < 0) focusIndex else minOf(it, focusIndex) } else 0,
-            followingIndex = (focusIndex + 1 until dayLessons.size).firstOrNull { takesPlace(dayLessons[it]) }
+            followingIndex = (focusIndex + 1 until dayLessons.size).firstOrNull { takesPlace(dayLessons[it]) },
+            dayEnd = dayEnd
         )
     }
 
@@ -377,6 +385,13 @@ internal fun widgetTimeStatus(state: WidgetState.Ready, now: LocalTime): String?
             "Za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min"
         else -> null
     }
+}
+
+/** "Do końca lekcji: 2 h 10 min · do 14:25" w chwili [now]; null - wyłączone albo po lekcjach. */
+internal fun widgetDayEnd(state: WidgetState.Ready, now: LocalTime): String? {
+    val end = state.dayEnd ?: return null
+    if (!state.isToday || now >= end) return null
+    return "Do końca lekcji: ${pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.format(LessonClock.minutesCeil(now, end))} · do $end"
 }
 
 /**

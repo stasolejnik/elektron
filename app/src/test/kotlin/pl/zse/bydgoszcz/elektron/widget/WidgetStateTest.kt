@@ -324,4 +324,26 @@ class WidgetStateTest {
         // Większa czcionka - mniej mieści się w tej samej wysokości.
         assertTrue(plan(160f, scale = 2f).followingLines <= plan(160f).followingLines)
     }
+
+    @Test
+    fun dayEndLineWhenEnabled() {
+        // Piątek: lekcje 3-5 do 12:25.
+        val off = WidgetDataLoader.buildState(week, LocalDateTime.of(friday, LocalTime.of(10, 15))) as WidgetState.Ready
+        assertNull(widgetDayEnd(off, LocalTime.of(10, 15)))
+        val on = WidgetDataLoader.buildState(week, LocalDateTime.of(friday, LocalTime.of(10, 15)), showDayEnd = true) as WidgetState.Ready
+        assertEquals("Do końca lekcji: 2 h 10 min · do 12:25", widgetDayEnd(on, LocalTime.of(10, 15)))
+        assertEquals("Do końca lekcji: 45 min · do 12:25", widgetDayEnd(on, LocalTime.of(11, 40)))
+        assertNull(widgetDayEnd(on, LocalTime.of(12, 25)))
+        // Po lekcjach widżet pokazuje poniedziałek - bez linii.
+        val evening = WidgetDataLoader.buildState(week, LocalDateTime.of(friday, LocalTime.of(15, 0)), showDayEnd = true) as WidgetState.Ready
+        assertNull(widgetDayEnd(evening, LocalTime.of(15, 0)))
+    }
+
+    @Test
+    fun dayEndRefreshesEveryMinuteEvenInAWindow() {
+        val gapDay = listOf(lesson(friday, 1, "08:00", "08:45"), lesson(friday, 4, "10:45", "11:30"))
+        val at = LocalDateTime.of(friday, LocalTime.of(9, 0))
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(10, 15)), (WidgetDataLoader.buildState(gapDay, at) as WidgetState.Ready).refreshAt)
+        assertEquals(at.plusMinutes(1), (WidgetDataLoader.buildState(gapDay, at, showDayEnd = true) as WidgetState.Ready).refreshAt)
+    }
 }

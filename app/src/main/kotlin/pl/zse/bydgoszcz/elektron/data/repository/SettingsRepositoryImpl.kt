@@ -96,6 +96,7 @@ class SettingsRepositoryImpl internal constructor(
         val UPDATE_CHANNEL = stringPreferencesKey("update_channel")
         val GROUPS_CONFIGURED_FOR = stringPreferencesKey("groups_configured_for")
         val LIVE_ENABLED = booleanPreferencesKey("live_notifications")
+        val SHOW_DAY_END = booleanPreferencesKey("show_day_end")
         val LIVE_HIDDEN_DAY = longPreferencesKey("live_hidden_day")
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
     }
@@ -246,6 +247,11 @@ class SettingsRepositoryImpl internal constructor(
         prefs.map { UpdateChannel.fromKey(it[Keys.UPDATE_CHANNEL]) }.distinctUntilChanged()
     override suspend fun setUpdateChannel(channel: UpdateChannel) {
         safeEdit { it[Keys.UPDATE_CHANNEL] = channel.key }
+    }
+
+    override val showDayEnd: Flow<Boolean> = prefs.map { it[Keys.SHOW_DAY_END] ?: false }.distinctUntilChanged()
+    override suspend fun setShowDayEnd(enabled: Boolean) {
+        safeEdit { it[Keys.SHOW_DAY_END] = enabled }
     }
 
     override val liveNotifications: Flow<Boolean> = prefs.map { it[Keys.LIVE_ENABLED] ?: false }.distinctUntilChanged()

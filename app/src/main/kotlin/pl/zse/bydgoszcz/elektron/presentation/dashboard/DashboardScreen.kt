@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -166,6 +167,9 @@ fun DashboardScreen(
                             else NextLessonCard(state) { onOpenTimetable(state.nextLesson?.date) }
                         }
                     }
+
+                    // Do końca lekcji dzisiaj (Ustawienia -> Strona główna) - tylko gdy włączone i dziś są jeszcze lekcje.
+                    state.dayEnd?.let { info -> item(key = "day_end") { DayEndCard(info) } }
 
                     // Jak wyżej: karta Odjazdów tylko wtedy, gdy ma się pojawić (inaczej pusty odstęp).
                     if (state.showDeparture && transitSettings.ready && !transitSettings.failed && transitSettings.preferences.showOnDashboard) {
@@ -388,6 +392,38 @@ private fun NextLessonCard(state: DashboardViewModel.State, onClick: () -> Unit)
                     }
                 }
             }
+        }
+    }
+}
+
+/** "Do końca lekcji: 2 h 10 min", godzina końca i pasek całego dnia szkolnego. */
+@Composable
+private fun DayEndCard(info: pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.Info) {
+    val colors = MaterialTheme.colorScheme
+    ElektronCard(modifier = Modifier.semantics(mergeDescendants = true) {
+        contentDescription = "Do końca lekcji ${info.left}, koniec o ${info.end}"
+    }) {
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Schedule, contentDescription = null, tint = colors.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Do końca lekcji", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+                    Text(info.left, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = colors.onSurface)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("koniec", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                    Text("${info.end}", style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            LinearProgressIndicator(
+                progress = { info.progress },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                color = colors.primary,
+                trackColor = colors.primary.copy(alpha = 0.15f),
+                drawStopIndicator = {}
+            )
         }
     }
 }

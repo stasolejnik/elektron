@@ -105,6 +105,11 @@ class DayPlanWidget : GlanceAppWidget() {
                     Text(it, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
                 }
             }
+            // Do końca lekcji dzisiaj (Ustawienia -> Strona główna): mała linia w kolorze akcentu pod nagłówkiem.
+            widgetDayEnd(state, AppClock.time())?.let {
+                Text(it, style = TextStyle(color = WidgetColors.accent, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1,
+                    modifier = GlanceModifier.padding(top = 2.dp))
+            }
             // Dziś: lista zaczyna się od bieżącej lekcji, minione są schowane (licznik w nagłówku) -
             // mały widżet od razu pokazuje to, co ważne. Dotknięcie licznika pokazuje wcześniejsze
             // lekcje u góry listy. Launcher nie pozwala ustawić przewinięcia listy w widżecie, więc

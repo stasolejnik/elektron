@@ -64,6 +64,10 @@ interface SettingsRepository {
     val timetableLook: Flow<TimetableLook>
     suspend fun setTimetableLook(look: TimetableLook)
 
+    /** Czas do końca lekcji dzisiaj na stronie głównej i w widżecie Plan dnia (domyślnie wyłączony). */
+    val showDayEnd: Flow<Boolean> get() = flowOf(false)
+    suspend fun setShowDayEnd(enabled: Boolean) {}
+
     /** Powiadomienie na żywo w dni lekcyjne (domyślnie wyłączone). */
     val liveNotifications: Flow<Boolean> get() = flowOf(false)
     suspend fun setLiveNotifications(enabled: Boolean) {}

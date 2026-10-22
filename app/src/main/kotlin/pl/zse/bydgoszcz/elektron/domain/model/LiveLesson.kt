@@ -158,12 +158,7 @@ object LiveLesson {
     fun dayLeft(content: Content, now: LocalDateTime): String {
         val end = content.windowEnd
         val minutes = LessonClock.minutesCeil(now.toLocalTime(), end.toLocalTime()).takeIf { now.toLocalDate() == end.toLocalDate() } ?: 0
-        val left = when {
-            minutes <= 0 -> null
-            minutes < 60 -> "$minutes min"
-            minutes % 60 == 0L -> "${minutes / 60} h"
-            else -> "${minutes / 60} h ${minutes % 60} min"
-        }
+        val left = if (minutes <= 0) null else SchoolDayEnd.format(minutes)
         return "Koniec lekcji o ${end.toLocalTime()}" + (left?.takeIf { content.countdownTo != end }?.let { " · jeszcze $it" } ?: "")
     }
 

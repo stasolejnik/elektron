@@ -218,8 +218,8 @@ private fun SubjectList(
                 ReligionCard(attending) { attend -> religion.forEach { onChoice(it.base, if (attend) null else LessonGroups.NONE) } }
             }
             item(key = "each_title") { SectionLabel("Dostosuj osobno") }
-            item(key = "each_hint") {
-                Text("Możesz zaznaczyć kilka grup jednego przedmiotu, jeśli chodzisz do każdej z nich.",
+            if (customizable.any { it.labels.size >= 3 }) item(key = "each_hint") {
+                Text("Przy przedmiotach z trzema grupami i więcej możesz wybrać kilka - przycisk „Wybierz kilka grup”.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
             }
@@ -263,6 +263,10 @@ private fun SubjectCard(
                     )
                 }
             } else {
+                // Tryb kilku grup: włączony przyciskiem albo gdy zapisany wybór ma już kilka grup.
+                var several by androidx.compose.runtime.saveable.rememberSaveable(subject.base) {
+                    mutableStateOf(selection?.let(LessonGroups::labelsOf).orEmpty().size > 1)
+                }
                 Text(personal.subjectName(subject.base) ?: subject.base, style = MaterialTheme.typography.titleMedium)
                 Text(
                     when (selection) {
@@ -278,15 +282,27 @@ private fun SubjectCard(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // "Wszystkie" = chodzisz na wszystkie grupy (np. 1/2 i 2/2) — wszystkie widoczne.
                     ChoiceChip("Wszystkie", selection == null) { onChoice(null) }
-                    // Kilka grup naraz (np. chodzisz do obu grup językowych): każda zaznacza się osobno.
+                    // Dotknięcie grupy przełącza na nią (jak dotąd). Kilka grup naraz - osobnym trybem, tylko
+                    // przy co najmniej 3 grupach: przy dwóch obie znaczą to samo co "Wszystkie".
                     val chosen = selection?.let(LessonGroups::labelsOf).orEmpty()
                     subject.labels.forEach { label ->
                         ChoiceChip(LessonGroups.displayLabel(label), label in chosen) {
-                            onChoice(LessonGroups.toggleLabel(selection?.takeIf { it != LessonGroups.NONE }, label, subject.labels))
+                            onChoice(if (several) LessonGroups.toggleLabel(selection?.takeIf { it != LessonGroups.NONE }, label, subject.labels)
+                                else if (selection == label) null else label)
                         }
                     }
                     ChoiceChip("Nie chodzę", selection == LessonGroups.NONE) {
                         onChoice(if (selection == LessonGroups.NONE) null else LessonGroups.NONE)
+                    }
+                }
+                if (subject.labels.size >= 3) {
+                    TextButton(onClick = {
+                        // Wyjście z trybu kilku grup zostawia jedną (pierwszą z wybranych).
+                        if (several && LessonGroups.labelsOf(selection ?: "").size > 1)
+                            onChoice(subject.labels.firstOrNull { it in LessonGroups.labelsOf(selection!!) })
+                        several = !several
+                    }) {
+                        Text(if (several) "Wybieraj jedną grupę" else "Wybierz kilka grup")
                     }
                 }
             }

@@ -182,6 +182,7 @@ class SettingsViewModel @Inject constructor(
         val accent: AccentSetting = AccentSetting(),
         val updateChannel: UpdateChannel = UpdateChannel.STABLE,
         val liveNotifications: Boolean = false,
+        val showDayEnd: Boolean = false,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -198,7 +199,8 @@ class SettingsViewModel @Inject constructor(
         settings.widgetLook,
         settings.accent,
         settings.updateChannel,
-        settings.liveNotifications
+        settings.liveNotifications,
+        settings.showDayEnd
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -219,7 +221,8 @@ class SettingsViewModel @Inject constructor(
             widgetLook = values[13] as WidgetLook,
             accent = values[14] as AccentSetting,
             updateChannel = values[15] as UpdateChannel,
-            liveNotifications = values[16] as Boolean
+            liveNotifications = values[16] as Boolean,
+            showDayEnd = values[17] as Boolean
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -312,6 +315,10 @@ class SettingsViewModel @Inject constructor(
     fun setShowNextLesson(b: Boolean) = writeSetting { settings.setShowNextLesson(b) }
     fun setShowSubstitutions(b: Boolean) = writeSetting { settings.setShowSubstitutions(b) }
     fun setShowAnnouncements(b: Boolean) = writeSetting { settings.setShowAnnouncements(b) }
+    fun setShowDayEnd(b: Boolean) = writeSetting {
+        settings.setShowDayEnd(b)
+        widgetUpdater.requestUpdate()   // widżet Plan dnia od razu z linią albo bez
+    }
 
     companion object { private const val TAG = "SettingsViewModel" }
 }
