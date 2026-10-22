@@ -41,6 +41,33 @@ object LessonGroups {
         return ParsedSubject(s, null)
     }
 
+    /**
+     * Wybór grup przedmiotu: jedna etykieta ("2/3") albo kilka po przecinku ("1/2,2/2" - uczeń chodzi
+     * na obie grupy). Etykiety Optivum nie zawierają przecinka, więc dawne wybory jednej grupy działają
+     * bez zmian. [NONE] - nie chodzę.
+     */
+    fun labelsOf(choice: String): Set<String> =
+        if (choice == NONE) emptySet() else choice.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+
+    /**
+     * Zaznaczenie / odznaczenie grupy [label] przy wyborze [choice] (null - wszystkie grupy). Odznaczenie
+     * ostatniej albo zaznaczenie wszystkich [all] wraca do "wszystkie" (null).
+     */
+    fun toggleLabel(choice: String?, label: String, all: List<String>): String? {
+        val current = choice?.let(::labelsOf).orEmpty()
+        val next = if (label in current) current - label else current + label
+        if (next.isEmpty() || next.containsAll(all)) return null
+        return all.filter { it in next }.joinToString(",")
+    }
+
+    /** Opis wyboru: "Grupa 1", "Grupa 1 i 2", "j1, j2". */
+    fun describeChoice(choice: String): String {
+        val labels = labelsOf(choice).sortedWith(compareBy({ labelNumber(it) ?: Int.MAX_VALUE }, { it }))
+        if (labels.size <= 1) return labels.firstOrNull()?.let(::displayLabel).orEmpty()
+        return if (labels.all { '/' in it }) "Grupy " + labels.map { it.substringBefore('/') }.let { it.dropLast(1).joinToString(", ") + " i " + it.last() }
+        else labels.joinToString(", ")
+    }
+
     /** Numer grupy z etykiety: "2/3" -> 2, "j2" -> 2 (do dopasowania zastępstw "2D(2)"). */
     fun labelNumber(label: String): Int? =
         if ('/' in label) label.substringBefore('/').toIntOrNull()
@@ -157,14 +184,15 @@ object LessonGroups {
     fun staleSelections(lessons: List<Lesson>, selections: Map<String, String>): Set<String> {
         if (selections.isEmpty()) return emptySet()
         val labels = detect(lessons).associate { it.base.lowercase() to it.labels.toSet() }
-        return selections.filter { (base, choice) -> choice != NONE && labels[base.lowercase()]?.let { choice !in it } == true }.keys
+        // Kilka grup: nieaktualny dopiero wtedy, gdy żadnej z wybranych nie ma już w planie.
+        return selections.filter { (base, choice) -> choice != NONE && labels[base.lowercase()]?.let { known -> labelsOf(choice).none { it in known } } == true }.keys
     }
 
     private fun groupVisible(g: LessonGroup, selections: Map<String, String>): Boolean {
         val p = parse(g.subject) ?: return true
         val label = p.label ?: return true          // lekcja bez podziału — zawsze
         val choice = selections[p.base] ?: return true  // nie wybrano — pokazuj wszystko
-        return choice == label
+        return label in labelsOf(choice)
     }
 
     /**

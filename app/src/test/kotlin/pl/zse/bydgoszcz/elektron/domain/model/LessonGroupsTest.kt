@@ -151,4 +151,40 @@ class LessonGroupsTest {
         assertFalse(LessonGroups.isReligion("wf"))
         assertFalse(LessonGroups.isReligion("j.angielski"))
     }
+
+    @Test fun severalGroupsOfOneSubjectAreShownTogether() {
+        fun lesson(n: Int, vararg subjects: String) = Lesson("l$n", "o3", "1D", java.time.LocalDate.of(2026, 10, 19), DayOfWeek.PONIEDZIALEK, n,
+            java.time.LocalTime.of(8, 0).plusHours(n.toLong()), java.time.LocalTime.of(8, 45).plusHours(n.toLong()),
+            subjects.map { LessonGroup(it, null, null, null, null, null, null, null) }, null, null)
+        val plan = listOf(lesson(1, "ang-1/3", "niem-1/3"), lesson(2, "ang-2/3"), lesson(3, "ang-3/3"))
+        val both = mapOf("ang" to "1/3,2/3")
+        val shown = LessonGroups.filter(plan, both)
+        assertEquals(listOf(1, 2), shown.map { it.number })
+        assertEquals(listOf("ang-1/3", "niem-1/3"), shown.first().groups.map { it.subject })
+        // Zastępstwo dla grupy 2 dotyczy ucznia z grupami 1 i 2, dla grupy 3 - nie.
+        val sub2 = Substitution("s2", plan[1].date, 2, "1D", 2, "105", "X", null, "Y")
+        val sub3 = Substitution("s3", plan[2].date, 3, "1D", 3, "105", "X", null, "Y")
+        assertTrue(LessonGroups.substitutionRelevant(sub2, plan, both))
+        assertFalse(LessonGroups.substitutionRelevant(sub3, plan, both))
+    }
+
+    @Test fun togglingGroupsAndDescribingTheChoice() {
+        val all = listOf("1/3", "2/3", "3/3")
+        assertEquals("1/3", LessonGroups.toggleLabel(null, "1/3", all))
+        assertEquals("1/3,2/3", LessonGroups.toggleLabel("1/3", "2/3", all))
+        assertEquals("1/3,2/3", LessonGroups.toggleLabel("2/3", "1/3", all))      // stała kolejność
+        assertEquals(null, LessonGroups.toggleLabel("1/3,2/3", "3/3", all))       // wszystkie = bez wyboru
+        assertEquals(null, LessonGroups.toggleLabel("1/3", "1/3", all))           // ostatnia odznaczona
+        assertEquals("Grupa 2", LessonGroups.describeChoice("2/3"))
+        assertEquals("Grupy 1 i 2", LessonGroups.describeChoice("1/3,2/3"))
+        assertEquals("j1, j2", LessonGroups.describeChoice("j1,j2"))
+    }
+
+    @Test fun severalGroupsAreStaleOnlyWhenNoneIsLeft() {
+        fun l(subject: String) = Lesson("x", "o3", "1D", java.time.LocalDate.of(2026, 10, 19), DayOfWeek.PONIEDZIALEK, 1,
+            java.time.LocalTime.of(8, 0), java.time.LocalTime.of(8, 45), listOf(LessonGroup(subject, null, null, null, null, null, null, null)), null, null)
+        val plan = listOf(l("ang-1/2"), l("ang-2/2"))
+        assertTrue(LessonGroups.staleSelections(plan, mapOf("ang" to "1/2,3/3")).isEmpty())
+        assertEquals(setOf("ang"), LessonGroups.staleSelections(plan, mapOf("ang" to "1/3,3/3")))
+    }
 }

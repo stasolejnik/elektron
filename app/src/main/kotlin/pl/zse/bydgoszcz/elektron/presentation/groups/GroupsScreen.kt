@@ -218,6 +218,11 @@ private fun SubjectList(
                 ReligionCard(attending) { attend -> religion.forEach { onChoice(it.base, if (attend) null else LessonGroups.NONE) } }
             }
             item(key = "each_title") { SectionLabel("Dostosuj osobno") }
+            item(key = "each_hint") {
+                Text("Możesz zaznaczyć kilka grup jednego przedmiotu, jeśli chodzisz do każdej z nich.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+            }
         }
         items(customizable, key = { it.base }) { subject ->
             SubjectCard(subject, state.selections[subject.base]) { onChoice(subject.base, it) }
@@ -263,7 +268,8 @@ private fun SubjectCard(
                     when (selection) {
                         null -> "Widoczne wszystkie grupy"
                         LessonGroups.NONE -> "Nie chodzisz na te zajęcia"
-                        else -> "Twoja grupa: ${LessonGroups.displayLabel(selection)}"
+                        else -> if (LessonGroups.labelsOf(selection).size > 1) "Twoje grupy: ${LessonGroups.describeChoice(selection)}"
+                            else "Twoja grupa: ${LessonGroups.describeChoice(selection)}"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -272,9 +278,11 @@ private fun SubjectCard(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // "Wszystkie" = chodzisz na wszystkie grupy (np. 1/2 i 2/2) — wszystkie widoczne.
                     ChoiceChip("Wszystkie", selection == null) { onChoice(null) }
+                    // Kilka grup naraz (np. chodzisz do obu grup językowych): każda zaznacza się osobno.
+                    val chosen = selection?.let(LessonGroups::labelsOf).orEmpty()
                     subject.labels.forEach { label ->
-                        ChoiceChip(LessonGroups.displayLabel(label), selection == label) {
-                            onChoice(if (selection == label) null else label)
+                        ChoiceChip(LessonGroups.displayLabel(label), label in chosen) {
+                            onChoice(LessonGroups.toggleLabel(selection?.takeIf { it != LessonGroups.NONE }, label, subject.labels))
                         }
                     }
                     ChoiceChip("Nie chodzę", selection == LessonGroups.NONE) {
