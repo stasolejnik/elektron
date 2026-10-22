@@ -3,9 +3,10 @@ Nieoficjalna aplikacja dla uczniów Zespołu Szkół Elektronicznych w Bydgoszcz
 <b>Funkcje</b>
 <ul>
 <li>Plan lekcji dnia i tygodnia z naniesionymi zastępstwami; trwająca lekcja z czasem do dzwonka</li>
-<li>Grupy zajęciowe: widzisz tylko swoje lekcje (języki, zajęcia praktyczne, WF, religia)</li>
-<li>Zastępstwa dla Twojej klasy i grupy, z rozpoznawaniem zwolnień z lekcji</li>
+<li>Grupy zajęciowe: widzisz tylko swoje lekcje (języki, zajęcia praktyczne, WF, religia), także kilka grup jednego przedmiotu</li>
+<li>Zastępstwa dla Twojej klasy i grupy, z rozpoznawaniem zwolnień z lekcji, oraz informacje szkoły dopisane pod datą (np. o oddawaniu krwi)</li>
 <li>Powiadomienia o nowych zastępstwach (dzień, lekcja, przedmiot i nauczyciel) i ogłoszeniach, ciche godziny</li>
+<li>Powiadomienie na żywo w dni lekcyjne: odliczanie do przerwy albo lekcji, co trwa i co dalej, koniec lekcji (opcjonalne)</li>
 <li>Notatki do przyszłych lekcji z przypomnieniem dzień wcześniej albo przed lekcją</li>
 <li>Przypomnienia przed lekcją z numerem sali</li>
 <li>Ogłoszenia szkoły czytane w aplikacji, ze zdjęciami, wyszukiwaniem i ulubionymi dostępnymi offline</li>

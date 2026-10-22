@@ -3,9 +3,10 @@ Unofficial app for students of the Zespół Szkół Elektronicznych (school of e
 <b>Features</b>
 <ul>
 <li>Daily and weekly timetable with substitutions applied; the current lesson shows the time left</li>
-<li>Class groups: only the lessons you attend (languages, workshops, PE, religion)</li>
-<li>Substitutions for your class and group, including cancelled lessons</li>
+<li>Class groups: only the lessons you attend (languages, workshops, PE, religion), including several groups of one subject</li>
+<li>Substitutions for your class and group, including cancelled lessons, plus notices the school adds under a date (e.g. blood donation)</li>
 <li>Notifications about new substitutions (day, lesson, subject and teacher) and news, quiet hours</li>
+<li>Live notification on school days: countdown to the break or the next lesson, what is on now and next, when lessons end (optional)</li>
 <li>Notes for upcoming lessons with a reminder the day before or before the lesson</li>
 <li>Lesson reminders with the room number</li>
 <li>School news read in the app, with photos, search and favourites available offline</li>
