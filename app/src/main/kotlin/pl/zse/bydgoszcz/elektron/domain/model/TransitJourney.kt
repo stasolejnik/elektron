@@ -23,20 +23,51 @@ object SchoolTransit {
 data class TransitRide(val line: String, val direction: String, val fromId: String, val fromName: String,
     val toId: String, val toName: String, val departureMs: Long, val arrivalMs: Long)
 
-data class TransitJourney(val rides: List<TransitRide>, val walkMinutes: Int, val distanceMeters: Double, val walkAvailable: Boolean = true, val walkPending: Boolean = false) {
+/**
+ * Połączenie. Ze szkoły: [walkMinutes] to dojście ze szkoły do pierwszego przystanku.
+ * Do szkoły: dojście z ostatniego przystanku do szkoły, a [schoolArrivalMs] - kiedy będziesz w szkole.
+ */
+data class TransitJourney(val rides: List<TransitRide>, val walkMinutes: Int, val distanceMeters: Double, val walkAvailable: Boolean = true, val walkPending: Boolean = false,
+    val schoolArrivalMs: Long? = null) {
     val departureMs get() = rides.first().departureMs
     val arrivalMs get() = rides.last().arrivalMs
     val transfers get() = rides.size - 1
     // One departure can appear in several direct/transfer variants from the planner.
     val key = rides.first().let { "${it.line}:${it.fromId}:${it.departureMs}" }
     fun reachable(nowMs: Long) = departureMs >= nowMs + (walkMinutes + SchoolTransit.BUFFER_MINUTES) * 60_000L
+    /** Ze szkoły: kiedy najpóźniej wyjść, żeby spokojnie zdążyć (dojście i zapas); [departure] - odjazd z opóźnieniem. */
+    fun leaveSchoolMs(departure: Long = departureMs) = departure - (walkMinutes + SchoolTransit.BUFFER_MINUTES) * 60_000L
 }
 
 object TransitJourneys {
     // For already ranked repository results: filtering preserves arrival order without sorting again.
-    fun upcoming(ranked: List<TransitJourney>, nowMs: Long, preferredOrigin: TransitDestination? = null, allowTransfers: Boolean = true): List<TransitJourney> =
-        ranked.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) &&
+    // [live] - opóźnienia: spóźniony kurs zostaje na liście do faktycznego odjazdu.
+    fun upcoming(ranked: List<TransitJourney>, nowMs: Long, preferredOrigin: TransitDestination? = null, allowTransfers: Boolean = true,
+        live: Map<String, LiveStatus> = emptyMap()): List<TransitJourney> =
+        ranked.filter { TransitLive.expected(it, live) > nowMs && (allowTransfers || it.transfers == 0) &&
             (preferredOrigin == null || it.rides.first().fromId in preferredOrigin.stopIds) }
+
+    /** Do szkoły: kolejne odjazdy z Twojego przystanku, przy tej samej godzinie najpierw szybszy. */
+    fun rankToSchool(journeys: List<TransitJourney>, nowMs: Long, allowTransfers: Boolean = true): List<TransitJourney> =
+        journeys.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) }
+            .groupBy { it.key }.values.map { variants ->
+                variants.minWith(compareBy<TransitJourney> { it.schoolArrivalMs ?: it.arrivalMs }.thenBy { it.transfers })
+            }.sortedWith(compareBy<TransitJourney> { it.departureMs }.thenBy { it.schoolArrivalMs ?: it.arrivalMs }
+                .thenBy { it.rides.first().line })
+
+    /**
+     * Do szkoły: ostatni kurs, którym zdążysz na lekcję (najpóźniejszy odjazd z dotarciem do szkoły
+     * przed jej początkiem). null - żaden z listy nie zdąży albo brak lekcji.
+     */
+    fun lastOnTime(journeys: List<TransitJourney>, lessonStartMs: Long?, live: Map<String, LiveStatus> = emptyMap()): TransitJourney? {
+        lessonStartMs ?: return null
+        return journeys.filter { trip -> trip.schoolArrivalMs?.let { it + delayMs(trip, live) <= lessonStartMs } == true }
+            .maxByOrNull { TransitLive.expected(it, live) }
+    }
+
+    /** Przesunięcie dotarcia o opóźnienie pierwszego kursu (przybliżenie - autobus nadrabia rzadko). */
+    fun delayMs(trip: TransitJourney, live: Map<String, LiveStatus>): Long =
+        live[trip.key]?.let { it.expectedMs - trip.departureMs } ?: 0L
 
     /** Keep a departure visible until it leaves, even after the walking deadline passes. */
     fun rank(journeys: List<TransitJourney>, nowMs: Long, preferredOrigin: TransitDestination? = null, allowTransfers: Boolean = true): List<TransitJourney> {

@@ -23,7 +23,7 @@ fun TransitVisibilitySection(viewModel: TransitViewModel) {
     val state by viewModel.settings.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val error by viewModel.settingsError.collectAsStateWithLifecycle()
-    // Zakładka Odjazdy ma własny przełącznik w sekcji Odjazdy.
+    // Zakładka Przejazdy ma własny przełącznik w sekcji Przejazdy.
     GroupedSection("Pasek nawigacji", icon = androidx.compose.material.icons.Icons.Outlined.SpaceDashboard,
         footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność. Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów.") {
         bottomDestinationsForTransit(true).filter { it.route != "settings" && it.route != "transit" }.forEachIndexed { index, destination ->
@@ -79,7 +79,7 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
     }
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(modifier = Modifier.fillMaxSize().imePadding(), topBar = {
-            TopAppBar(title = { Text(if (origin) "Przystanek początkowy" else "Przystanek docelowy") }, navigationIcon = {
+            TopAppBar(title = { Text(if (origin) "Przystanek przy szkole" else "Twój przystanek") }, navigationIcon = {
                 IconButton(onClick = onDismiss, enabled = !saving) { Icon(Icons.Filled.Close, "Zamknij wybór przystanku") }
             })
         }) { padding ->
@@ -110,8 +110,8 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                 writeError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
                 if (!loading && mapStops.isEmpty() && recent.isEmpty() && error == null) Text("Nie znaleziono przystanku. Spróbuj krótszej nazwy.", Modifier.padding(vertical = 16.dp))
                 if (mapMode) {
-                    Text(if (origin) "Przystanek początkowy: tylko przystanki do 1 km od szkoły (stąd planer szuka odjazdów). Dotknij znacznika, aby go wybrać."
-                        else "Dotknij znacznika, aby wybrać przystanek. Przesuń mapę, aby zobaczyć dalsze. Mapa działa bez GPS.",
+                    Text(if (origin) "Przystanek przy szkole: tylko przystanki do 1 km od szkoły (stąd planer szuka powrotu). Dotknij znacznika, aby go wybrać."
+                        else "Wybierz przystanek, z którego dojeżdżasz do szkoły i do którego wracasz (np. przy domu). Dotknij znacznika; przesuń mapę, aby zobaczyć dalsze. Mapa działa bez GPS.",
                         style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
                     Box(Modifier.weight(1f)) {
                         TransitMap(mapStops, if (origin) settings.preferences.preferredOrigin else settings.preferences.destination, saving, choose)

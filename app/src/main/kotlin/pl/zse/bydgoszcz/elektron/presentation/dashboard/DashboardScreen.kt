@@ -92,6 +92,7 @@ fun DashboardScreen(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
+    val transitDirection by transitViewModel.commute.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -171,10 +172,11 @@ fun DashboardScreen(
                     // Do końca lekcji dzisiaj (Ustawienia -> Strona główna) - tylko gdy włączone i dziś są jeszcze lekcje.
                     state.dayEnd?.let { info -> item(key = "day_end") { DayEndCard(info) } }
 
-                    // Jak wyżej: karta Odjazdów tylko wtedy, gdy ma się pojawić (inaczej pusty odstęp).
-                    if (state.showDeparture && transitSettings.ready && !transitSettings.failed && transitSettings.preferences.showOnDashboard) {
+                    // Jak wyżej: karta Przejazdów tylko wtedy, gdy ma się pojawić (inaczej pusty odstęp).
+                    if (state.departureDirection != null && state.departureDirection == transitDirection.direction &&
+                        transitSettings.ready && !transitSettings.failed && transitSettings.preferences.showOnDashboard) {
                         item(key = "departure") {
-                            DashboardDeparture(transitViewModel, eligible = true, onOpenTransit)
+                            DashboardDeparture(transitViewModel, state.departureDirection, onOpenTransit)
                         }
                     }
                     if (state.showSubstitutions) {

@@ -3,6 +3,7 @@ package pl.zse.bydgoszcz.elektron.data.repository
 import org.json.JSONArray
 import org.json.JSONObject
 import pl.zse.bydgoszcz.elektron.domain.model.TransitDestination
+import pl.zse.bydgoszcz.elektron.domain.model.TransitDirection
 import pl.zse.bydgoszcz.elektron.domain.model.TransitJourney
 import pl.zse.bydgoszcz.elektron.domain.model.TransitRide
 
@@ -11,7 +12,8 @@ import pl.zse.bydgoszcz.elektron.domain.model.TransitRide
  * Odczyt jest niezaufany: błędny lub obcy plik = brak zapisu, nigdy wyjątek dla UI.
  */
 internal object TransitResultCodec {
-    private const val VERSION = 1
+    // 2: kierunek (do szkoły / ze szkoły) i dotarcie do szkoły; zapis w wersji 1 jest pomijany.
+    private const val VERSION = 2
     private const val MAX_JOURNEYS = 300
 
     fun encode(result: TransitJourneyRepository.Result): String = JSONObject()
@@ -25,6 +27,8 @@ internal object TransitResultCodec {
         .put("journeys", JSONArray().apply { result.journeys.take(MAX_JOURNEYS).forEach { put(journey(it)) } })
         .put("boarding", JSONArray().apply { result.boardingStops.forEach { put(stop(it)) } })
         .put("cursors", result.platformCursors?.let { cursors -> JSONObject().apply { cursors.forEach { (k, v) -> put(k, v) } } } ?: JSONObject.NULL)
+        .put("direction", result.direction.name)
+        .put("searchFrom", result.searchFromMs ?: JSONObject.NULL)
         .toString()
 
     fun decode(text: String): TransitJourneyRepository.Result? = runCatching {
@@ -44,12 +48,15 @@ internal object TransitResultCodec {
             platformCursors = if (o.isNull("cursors")) null else o.getJSONObject("cursors").let { c ->
                 c.keys().asSequence().associateWith { c.getLong(it) }
             },
-            partialFailure = o.getBoolean("partial")
+            partialFailure = o.getBoolean("partial"),
+            direction = TransitDirection.valueOf(o.getString("direction")),
+            searchFromMs = if (o.isNull("searchFrom")) null else o.getLong("searchFrom")
         )
     }.getOrNull()
 
     private fun journey(j: TransitJourney) = JSONObject()
         .put("walk", j.walkMinutes).put("distance", j.distanceMeters).put("walkAvailable", j.walkAvailable)
+        .put("atSchool", j.schoolArrivalMs ?: JSONObject.NULL)
         .put("rides", JSONArray().apply { j.rides.forEach { r ->
             put(JSONObject().put("line", r.line).put("direction", r.direction).put("fromId", r.fromId).put("fromName", r.fromName)
                 .put("toId", r.toId).put("toName", r.toName).put("departure", r.departureMs).put("arrival", r.arrivalMs))
@@ -67,7 +74,8 @@ internal object TransitResultCodec {
             distanceMeters = o.getDouble("distance").also { require(it.isFinite() && it in 0.0..10_000.0) },
             walkAvailable = o.getBoolean("walkAvailable"),
             // Dojście bez trasy ulicami jest dociągane po odczycie, jak przy świeżym wyniku.
-            walkPending = !o.getBoolean("walkAvailable")
+            walkPending = !o.getBoolean("walkAvailable"),
+            schoolArrivalMs = if (o.isNull("atSchool")) null else o.getLong("atSchool")
         )
     }
 

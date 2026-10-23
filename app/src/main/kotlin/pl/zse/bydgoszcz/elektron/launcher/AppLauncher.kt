@@ -75,6 +75,7 @@ object AppIcons {
  */
 object AppShortcuts {
     private const val TAG = "AppShortcuts"
+    // Identyfikator z czasów nazwy "Odjazdy" - przypięte skróty zostają ważne.
     private const val TRANSIT_ID = "odjazdy"
     @Volatile private var transitTab = false
 
@@ -89,7 +90,7 @@ object AppShortcuts {
         val items = buildList {
             add(Triple("plan", "timetable", "Plan lekcji"))
             add(Triple("zastepstwa", "substitutions", "Zastępstwa"))
-            if (transitTab) add(Triple(TRANSIT_ID, "transit", "Odjazdy"))
+            if (transitTab) add(Triple(TRANSIT_ID, "transit", "Przejazdy"))
             add(Triple("ogloszenia", "announcements", "Ogłoszenia"))
             add(Triple("start", "dashboard", "Strona główna"))
         }
@@ -107,7 +108,7 @@ object AppShortcuts {
         runCatching {
             // Skrót Odjazdów przypięty na ekranie głównym: nieaktywny, gdy zakładka wyłączona.
             if (transitTab) manager.enableShortcuts(listOf(TRANSIT_ID))
-            else manager.disableShortcuts(listOf(TRANSIT_ID), "Zakładka Odjazdy jest wyłączona")
+            else manager.disableShortcuts(listOf(TRANSIT_ID), "Zakładka Przejazdy jest wyłączona")
             // Bez zmian - bez zapisu: Android ogranicza liczbę zapisów skrótów z tła (start procesu
             // przez synchronizację w tle zdarza się wiele razy dziennie).
             val signature = { list: List<ShortcutInfo> -> list.sortedBy { it.rank }.map { "${it.id}|${it.activity}|${it.shortLabel}" } }

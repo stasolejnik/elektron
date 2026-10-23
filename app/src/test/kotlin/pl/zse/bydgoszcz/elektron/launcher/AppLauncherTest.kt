@@ -35,7 +35,7 @@ class AppLauncherTest {
         assertEquals(listOf("Plan lekcji", "Zastępstwa", "Ogłoszenia", "Strona główna"),
             shortcuts.sortedBy { it.rank }.map { it.shortLabel.toString() })
         AppShortcuts.update(context, transitTabVisible = true)
-        assertEquals(listOf("Plan lekcji", "Zastępstwa", "Odjazdy", "Ogłoszenia", "Strona główna"),
+        assertEquals(listOf("Plan lekcji", "Zastępstwa", "Przejazdy", "Ogłoszenia", "Strona główna"),
             shortcuts.sortedBy { it.rank }.map { it.shortLabel.toString() })
         assertEquals("transit", shortcuts.single { it.id == "odjazdy" }.intent?.getStringExtra(AppShortcuts.EXTRA_SHORTCUT))
     }

@@ -71,7 +71,7 @@ val bottomDestinations = listOf(
 
 fun bottomDestinationsForTransit(enabled: Boolean, order: List<String> = emptyList()): List<BottomDestination> {
     val all = bottomDestinations.toMutableList().apply {
-        if (enabled) add(3, BottomDestination(ElektronRoutes.TRANSIT, "Odjazdy", Icons.Outlined.DirectionsTransit, Icons.Filled.DirectionsTransit))
+        if (enabled) add(3, BottomDestination(ElektronRoutes.TRANSIT, "Przejazdy", Icons.Outlined.DirectionsTransit, Icons.Filled.DirectionsTransit))
     }.associateBy { it.route }
     return NavigationOrder.normalize(order).mapNotNull(all::get)
 }

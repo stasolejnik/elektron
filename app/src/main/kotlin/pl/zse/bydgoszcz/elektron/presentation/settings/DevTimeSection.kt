@@ -36,7 +36,7 @@ internal fun DevTimeRows(offset: Long, onSimulate: (LocalDateTime) -> Unit, onRe
     // Wiersze w sekcji "Tryb dewelopera" (bez osobnej sekcji).
     ValueRow(if (simulated) "Symulowany czas" else "Symulacja czasu",
         now.format(DateTimeFormatter.ofPattern("EEE d.MM, HH:mm", Locale("pl", "PL"))),
-        supporting = if (simulated) "Plan, zastępstwa, Start, Odjazdy i widżety w tym czasie" else "Dotknij, aby wybrać dzień i godzinę",
+        supporting = if (simulated) "Plan, zastępstwa, Start, Przejazdy i widżety w tym czasie" else "Dotknij, aby wybrać dzień i godzinę",
         onClick = { pickingDate = true })
     if (simulated) {
         RowDivider()

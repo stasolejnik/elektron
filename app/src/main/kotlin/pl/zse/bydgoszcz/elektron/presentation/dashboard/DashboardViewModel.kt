@@ -85,7 +85,8 @@ class DashboardViewModel @Inject constructor(
         val latestAnnouncements: List<Announcement> = emptyList(),
         val isRefreshing: Boolean = false,
         val lastSyncAt: Instant? = null,
-        val showDeparture: Boolean = false,
+        /** Karta Przejazdów: dojazd rano, powrót po lekcjach; null - nie teraz. */
+        val departureDirection: pl.zse.bydgoszcz.elektron.domain.model.TransitDirection? = null,
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true,
@@ -268,7 +269,7 @@ class DashboardViewModel @Inject constructor(
             latestAnnouncements = c.anns.take(3),
             isRefreshing = c.refresh,
             lastSyncAt = c.lastSync,
-            showDeparture = pl.zse.bydgoszcz.elektron.domain.model.DashboardDepartures.isTime(lessons.map { lesson ->
+            departureDirection = pl.zse.bydgoszcz.elektron.domain.model.TransitCommute.dashboardDirection(lessons.map { lesson ->
                 val sub = c.subs.firstOrNull { it.date == lesson.date && it.lessonNumber == lesson.number &&
                     c.classShort != null && SubstitutionRelevance.matchesClass(it, c.classShort) &&
                     LessonGroups.substitutionRelevant(it, c.lessons, c.groups) }
