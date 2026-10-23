@@ -128,10 +128,15 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
             // Kierunek i lekcja docelowa zmieniają się z czasem także bez otwartej zakładki: dawniej
             // przeliczane tylko przy odświeżeniu zakładki, więc karta na stronie głównej (pokazywana,
             // gdy kierunek się zgadza) po południu albo po zmianie symulowanego czasu się nie pojawiała.
+            // Tylko gdy ktoś go obserwuje (ekran na pierwszym planie) - bez budzenia aplikacji w tle co minutę.
             viewModelScope.launch {
-                while (true) {
-                    kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L + 50L)
+                _commute.subscriptionCount.map { it > 0 }.distinctUntilChanged().collectLatest { watched ->
+                    if (!watched) return@collectLatest
                     updateCommute()
+                    while (true) {
+                        kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L + 50L)
+                        updateCommute()
+                    }
                 }
             }
         }
@@ -255,7 +260,11 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         if (AppClock.simulated) { live.value = emptyMap(); return }
         val result = journeys.value?.takeIf(::matchesCurrent) ?: run { live.value = emptyMap(); return }
         val now = AppClock.millis()
-        val boards = TransitLive.boards(result.journeys, now)
+        // Tylko kursy pokazywane na ekranie (przystanek, przesiadki, dojście przy "Szkoła").
+        val prefs = settings.value.preferences
+        val shown = TransitJourneys.upcoming(result.journeys, now, if (result.direction == TransitDirection.TO_SCHOOL) null else prefs.preferredOrigin,
+            prefs.allowTransfers, live.value).let { if (prefs.preferredOrigin == null) TransitJourneys.walkable(it, now, live.value) else it }
+        val boards = TransitLive.boards(shown, now)
         val fetched = kotlinx.coroutines.coroutineScope {
             boards.map { board -> async { board to runCatchingCancellable { repository.departures(board.first, board.second) }.getOrNull() } }
                 .map { it.await() }

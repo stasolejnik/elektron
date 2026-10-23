@@ -341,12 +341,15 @@ class TransitViewModelTest {
             assertEquals(3, vm.journeys.value!!.journeys.size)
             assertEquals(3, plans.get())
             vm.journeys.first { it?.journeys?.firstOrNull()?.walkMinutes == 8 }
+            // Wszystkie dojścia uzupełnione - dalsze zadanie dojścia nie podmieni wyniku w trakcie testu.
+            vm.journeys.first { result -> result != null && result.complete && result.journeys.none { it.walkPending } }
             assertTrue(vm.journeys.value!!.journeys.first().departureMs - System.currentTimeMillis() < 120_000L)
             val consumer = Any()
             vm.startJourneySession(consumer, 3)
             repeat(5) { vm.refreshJourneys(3) }
             assertEquals(3, plans.get())
-            vm.journeys.value = vm.journeys.value!!.copy(fetchedAt = System.currentTimeMillis() - pl.zse.bydgoszcz.elektron.data.repository.TransitJourneyRepository.Result.REUSE_MS - 1_000L)
+            // preset: dociąganie dojścia mogło nadpisać wstawiony wynik świeżym fetchedAt (wyścig w teście).
+            preset(vm, vm.journeys.value!!.copy(fetchedAt = System.currentTimeMillis() - pl.zse.bydgoszcz.elektron.data.repository.TransitJourneyRepository.Result.REUSE_MS - 1_000L))
             vm.refreshJourneys(3)
             vm.journeyLoading.first { !it }
             assertEquals(3, vm.journeys.value!!.journeys.size)

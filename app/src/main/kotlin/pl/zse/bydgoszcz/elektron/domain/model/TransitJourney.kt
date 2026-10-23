@@ -73,6 +73,22 @@ object TransitJourneys {
             .maxByOrNull { TransitLive.expected(it, live) }
     }
 
+    /** Zapas, z jakim dojazd ma być w szkole przed lekcją - od tego kursu zaczyna się lista. */
+    const val SCHOOL_MARGIN_MINUTES = 10L
+
+    /**
+     * Do szkoły: od którego kursu (indeks w liście po odjeździe) zacząć - ostatni, który dociera
+     * co najmniej [SCHOOL_MARGIN_MINUTES] przed lekcją; gdy żaden - ostatni na czas; gdy i takiego
+     * nie ma albo brak lekcji - pierwszy. Wcześniejsze kursy są nad nim, po "Pokaż wcześniejsze".
+     */
+    fun anchorToSchool(journeys: List<TransitJourney>, lessonStartMs: Long?, live: Map<String, LiveStatus> = emptyMap()): Int {
+        lessonStartMs ?: return 0
+        fun at(trip: TransitJourney) = (trip.schoolArrivalMs ?: trip.arrivalMs) + delayMs(trip, live)
+        val margin = journeys.indexOfLast { at(it) <= lessonStartMs - SCHOOL_MARGIN_MINUTES * 60_000L }
+        if (margin >= 0) return margin
+        return journeys.indexOfLast { at(it) <= lessonStartMs }.coerceAtLeast(0)
+    }
+
     /** Przesunięcie dotarcia o opóźnienie pierwszego kursu (przybliżenie - autobus nadrabia rzadko). */
     fun delayMs(trip: TransitJourney, live: Map<String, LiveStatus>): Long =
         live[trip.key]?.let { it.expectedMs - trip.departureMs } ?: 0L

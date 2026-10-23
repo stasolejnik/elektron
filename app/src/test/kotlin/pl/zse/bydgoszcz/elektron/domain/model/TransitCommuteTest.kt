@@ -132,4 +132,18 @@ class TransitCommuteTest {
         val tuesday = lesson(1, "08:00", "08:45", friday.plusDays(4))
         assertEquals(tuesday, TransitCommute.target(listOf(tuesday), at("15:00", friday))!!.lesson)
     }
+
+    @Test fun toSchoolListStartsWithTheRideTenMinutesEarly() {
+        val lesson = base + 60 * 60_000L
+        fun trip(depMin: Long, atMin: Long) = TransitJourney(listOf(ride("8", base + depMin * 60_000L)), 3, 300.0, schoolArrivalMs = base + atMin * 60_000L)
+        val trips = listOf(trip(0, 20), trip(15, 35), trip(30, 48), trip(35, 53), trip(45, 63))
+        // Ostatni z co najmniej 10 min zapasu: przyjazd 48 (lekcja 60).
+        assertEquals(2, TransitJourneys.anchorToSchool(trips, lesson))
+        // Opóźnienie 4 min - ten już bez zapasu, start od wcześniejszego.
+        assertEquals(1, TransitJourneys.anchorToSchool(trips, lesson, mapOf(trips[2].key to LiveStatus(4, trips[2].departureMs + 4 * 60_000L))))
+        // Żaden z zapasem - ostatni na czas; żaden na czas albo bez lekcji - pierwszy.
+        assertEquals(0, TransitJourneys.anchorToSchool(listOf(trip(45, 63)), lesson))
+        assertEquals(0, TransitJourneys.anchorToSchool(trips, null))
+        assertEquals(1, TransitJourneys.anchorToSchool(listOf(trip(30, 52), trip(40, 55), trip(45, 63)), lesson))
+    }
 }

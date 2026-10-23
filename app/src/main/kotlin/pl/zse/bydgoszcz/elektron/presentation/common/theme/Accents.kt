@@ -87,8 +87,12 @@ object Looks {
         )
     }
 
-    fun scheme(dark: Boolean, accent: AccentSetting, look: pl.zse.bydgoszcz.elektron.domain.model.LookSetting): ColorScheme =
-        if (dark) Accents.apply(apply(DarkColors, pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.dark(look)), Accents.dark(accent))
-        else Accents.apply(apply(LightColors, pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.light(look)), Accents.light(accent))
+    fun scheme(dark: Boolean, accent: AccentSetting, look: pl.zse.bydgoszcz.elektron.domain.model.LookSetting): ColorScheme {
+        val base = if (dark) DarkColors else LightColors
+        // Klasyczny = dotychczasowa paleta bez zmian (także secondary i kolory odwrócone).
+        val tinted = if (look.look == pl.zse.bydgoszcz.elektron.domain.model.BaseLook.CLASSIC) base
+            else apply(base, if (dark) pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.dark(look) else pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.light(look))
+        return Accents.apply(tinted, if (dark) Accents.dark(accent) else Accents.light(accent))
+    }
 }
 

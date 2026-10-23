@@ -266,6 +266,9 @@ internal object TransitJourneyParser {
     /** Wybrany przystanek przy szkole może być dowolnie daleko (np. pętla, z której jest więcej kursów). */
     const val MAX_CHOSEN_ORIGIN_METERS = 50_000.0
 
+    /** Wysiadka najdalej tyle od wybranego przystanku przy szkole (sąsiednie stanowisko, przejście). */
+    const val NEAR_TARGET_METERS = 400.0
+
     /** Ostatni przystanek dojazdu najdalej tyle od szkoły (planer dochodzi pieszo do 900 m). */
     const val MAX_SCHOOL_STOP_METERS = 1200.0
 
@@ -324,9 +327,16 @@ internal object TransitJourneyParser {
             require(rides.size in 1..(if (allowTransfers) 2 else 1))
             require(rides.first().fromId in home.stopIds)
             if (target != null) {
-                require(reached)
-                return@runCatching TransitJourney(rides, targetWalkMinutes, SchoolTransit.distance(target.latitude, target.longitude),
-                    walkAvailable = true, walkPending = false, schoolArrivalMs = rides.last().arrivalMs + targetWalkMinutes * 60_000L)
+                // Planer bywa, że kończy na sąsiednim stanowisku i dochodzi pieszo - też się liczy (z dojściem).
+                val extraWalk = if (reached) 0 else {
+                    val end = platforms[rides.last().toId] ?: return@runCatching null
+                    val gap = SchoolTransit.distanceBetween(end.latitude, end.longitude, target.latitude, target.longitude)
+                    require(gap <= NEAR_TARGET_METERS)
+                    SchoolTransit.walkMinutes(gap)
+                }
+                val walk = targetWalkMinutes + extraWalk
+                return@runCatching TransitJourney(rides, walk, SchoolTransit.distance(target.latitude, target.longitude),
+                    walkAvailable = true, walkPending = false, schoolArrivalMs = rides.last().arrivalMs + walk * 60_000L)
             }
             val last = platforms[rides.last().toId] ?: return@runCatching null
             val distance = SchoolTransit.distance(last.latitude, last.longitude)

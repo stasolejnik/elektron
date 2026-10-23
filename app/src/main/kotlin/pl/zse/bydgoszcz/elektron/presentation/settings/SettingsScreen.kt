@@ -163,7 +163,7 @@ fun SettingsScreen(
     // Otwarta kategoria (null - lista kategorii). Wstecz wraca do listy - tylko na widocznej zakładce,
     // inaczej przechwytywałoby cofanie na sąsiedniej (pager trzyma ją w pamięci).
     var page by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<SettingsPage?>(null) }
-    if (page == SettingsPage.DEV && !devMode) page = null
+    LaunchedEffect(devMode) { if (page == SettingsPage.DEV && !devMode) page = null }
     val visible = pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible.current
     androidx.activity.compose.BackHandler(enabled = page != null && visible) { page = null }
 

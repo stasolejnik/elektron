@@ -72,6 +72,20 @@ class TransitToSchoolTest {
         }
     }
 
+    @Test fun rideEndingNextToTheChosenStopCountsWithTheExtraWalk() {
+        val end = platforms.getValue("24")
+        // Wybrany przystanek ok. 100 m od stanowiska, na którym planer kończy przejazd.
+        val stop = TransitDestination("Obok", listOf("9999"), end.latitude + 0.0009, end.longitude)
+        val trips = TransitJourneyParser.parseToSchool(JSONObject(resource("planner_to_school.json")), home, platforms, searchedAt,
+            allowTransfers = false, target = stop, targetWalkMinutes = 5)
+        assertTrue(trips.isNotEmpty())
+        trips.forEach { assertEquals(5 + SchoolTransit.walkMinutes(SchoolTransit.distanceBetween(end.latitude, end.longitude, stop.latitude, stop.longitude)), it.walkMinutes) }
+        // Daleko od wybranego przystanku - odrzucone.
+        val far = TransitDestination("Daleko", listOf("9998"), end.latitude + 0.02, end.longitude)
+        assertTrue(TransitJourneyParser.parseToSchool(JSONObject(resource("planner_to_school.json")), home, platforms, searchedAt,
+            allowTransfers = false, target = far).isEmpty())
+    }
+
     @Test fun findToSchoolAsksOncePerPageFromTheHomeStopToTheSchool() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Context>()
         val directory = File(app.cacheDir, "to-school-${System.nanoTime()}").apply { mkdirs() }

@@ -26,7 +26,15 @@ class TransitSchoolDay @Inject constructor(
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
     // Także po zmianie symulowanego czasu (tryb dewelopera) - plan od nowego "dziś", nie z chwili startu.
-    val lessons: Flow<List<Lesson>> = combine(settings.selectedClassId, AppClock.offsetMs) { classId, _ -> classId to AppClock.today() }
+    // ...i po północy (proces z otwartą aplikacją żyje nieraz dniami - dawniej zakres tygodnia z dnia startu).
+    private val midnight = kotlinx.coroutines.flow.flow {
+        while (true) {
+            emit(Unit)
+            val now = AppClock.now()
+            kotlinx.coroutines.delay(java.time.Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay()).toMillis() + 1_000L)
+        }
+    }
+    val lessons: Flow<List<Lesson>> = combine(settings.selectedClassId, AppClock.offsetMs, midnight) { classId, _, _ -> classId to AppClock.today() }
         .distinctUntilChanged().flatMapLatest { (classId, today) ->
         if (classId == null) flowOf(emptyList())
         else {

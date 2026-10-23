@@ -41,7 +41,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val transitTime = DateTimeFormatter.ofPattern("HH:mm")
-private val transitZone = ZoneId.of("Europe/Warsaw")
+private val transitZone get() = ZoneId.systemDefault()
 internal fun formatTransitTime(timeMs: Long, referenceMs: Long = AppClock.millis()): String {
     val time = Instant.ofEpochMilli(timeMs).atZone(transitZone)
     val today = Instant.ofEpochMilli(referenceMs).atZone(transitZone).toLocalDate()
@@ -67,6 +67,8 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     // Przystanek przy szkole liczy się w obu kierunkach (do szkoły - gdzie wysiadasz).
     val originKey = state.preferences.preferredOrigin?.key
     var visibleCount by rememberSaveable(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableIntStateOf(3) }
+    // Do szkoły: ile wcześniejszych kursów pokazać nad tym z zapasem ok. 10 min ("Pokaż wcześniejsze").
+    var earlierCount by rememberSaveable(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableIntStateOf(0) }
     val error by viewModel.journeyError.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val settingsError by viewModel.settingsError.collectAsStateWithLifecycle()
@@ -97,13 +99,21 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     }
     // Po odrzuceniu kursów, na które nie da się dojść, lista bywa krótsza niż żądana - dociągamy
     // kolejne okno planera sami (z limitem, żeby nie pytać w kółko), zamiast pokazywać jeden kurs.
-    LaunchedEffect(visible, matching, journeys.size, visibleCount, loading, moreLoading) {
-        val data = matching ?: return@LaunchedEffect
-        if (visible && !loading && !moreLoading && data.complete && journeys.size < visibleCount && data.nextWhenMs != null && data.journeys.size < 30)
-            viewModel.loadJourneys(more = true, minimumCount = data.journeys.size + 3)
-    }
     val targetMs = if (toSchool) commute.targetMs else null
     val lastOnTime = remember(journeys, targetMs, live) { TransitJourneys.lastOnTime(journeys, targetMs, live) }
+    // Do szkoły lista zaczyna się od kursu, który jest w szkole ok. 10 min przed lekcją.
+    val anchor = remember(journeys, targetMs, live) { if (toSchool) TransitJourneys.anchorToSchool(journeys, targetMs, live) else 0 }
+    val firstShown = (anchor - earlierCount).coerceAtLeast(0)
+    val shown = journeys.subList(firstShown, minOf(journeys.size, anchor + visibleCount).coerceAtLeast(firstShown))
+    // Dociąganie kolejnego okna planera (z limitem, żeby nie pytać w kółko): po odrzuceniu kursów, na które
+    // nie da się dojść, lista bywa krótsza niż żądana, a do szkoły - musi sięgać do godziny lekcji.
+    val coversLesson = !toSchool || targetMs == null || journeys.any { (it.schoolArrivalMs ?: it.arrivalMs) > targetMs }
+    LaunchedEffect(visible, matching, journeys.size, visibleCount, anchor, coversLesson, loading, moreLoading) {
+        val data = matching ?: return@LaunchedEffect
+        if (visible && !loading && !moreLoading && data.complete && data.nextWhenMs != null && data.journeys.size < 40 &&
+            (journeys.size < anchor + visibleCount || !coversLesson))
+            viewModel.loadJourneys(more = true, minimumCount = data.journeys.size + 3)
+    }
     val editable = state.ready && !state.failed && !saving
     val canRefresh = !loading && !moreLoading && editable && state.preferences.destination != null
     // Planer bywa wolny (każde stanowisko to osobne zapytanie) - po kilku sekundach wyjaśnienie zamiast samego paska.
@@ -136,16 +146,20 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
         containerColor = MaterialTheme.colorScheme.background) { padding ->
         // "Pokaż więcej" także gestem: przeciągnięcie w górę na końcu listy (jak przejście do
         // następnego dnia w planie) - nowym ruchem, nie rozpędem przewijania listy.
-        val canShowMore = journeys.size > visibleCount || matching?.nextWhenMs != null
+        val canShowMore = journeys.size > anchor + visibleCount || matching?.nextWhenMs != null
         val showMore: () -> Unit = {
-            visibleCount = minOf(visibleCount, journeys.size) + 3
-            if (journeys.size < visibleCount && matching?.nextWhenMs != null) viewModel.loadJourneys(more = true, minimumCount = visibleCount)
+            visibleCount = minOf(visibleCount, journeys.size - anchor) + 3
+            if (journeys.size < anchor + visibleCount && matching?.nextWhenMs != null) viewModel.loadJourneys(more = true, minimumCount = anchor + visibleCount)
         }
+        val canShowEarlier = firstShown > 0
+        val showEarlier: () -> Unit = { earlierCount = anchor - firstShown + 3 }
+        val pullDownAction by rememberUpdatedState(if (canShowEarlier) showEarlier else null)
         val pullAction by rememberUpdatedState(if (canShowMore && !loading && !moreLoading) showMore else null)
         val density = androidx.compose.ui.platform.LocalDensity.current
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         val pullThreshold = with(density) { 56.dp.toPx() }
-        LazyColumn(Modifier.fillMaxSize().padding(padding).pullUpAtEnd(listState, pullThreshold) { pullAction?.invoke() },
+        LazyColumn(Modifier.fillMaxSize().padding(padding).pullUpAtEnd(listState, pullThreshold) { pullAction?.invoke() }
+            .pullDownAtStart(listState, pullThreshold) { pullDownAction?.invoke() },
             state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "direction") {
@@ -163,9 +177,6 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                     onClear = if (schoolName != null) ({ viewModel.selectOrigin(null) }) else null,
                     clearLabel = "Wróć do najbliższych przystanków szkoły", placeholderIsValue = true)
                 RouteCard(from = if (toSchool) home else school, to = if (toSchool) school else home, enabled = editable)
-            }
-            if (toSchool && state.preferences.destination != null) item(key = "target") {
-                TargetLine(commute.target, nowMs, journeys, targetMs, live)
             }
             matching?.let { data -> item(key = "checked") {
                 Text("Sprawdzono ${formatTransitTime(data.fetchedAt, nowMs)}" + (if (state.preferences.allowTransfers) " · z przesiadkami" else "") +
@@ -198,13 +209,19 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
             }
             // Animacje: kolejne odjazdy ("Pokaż więcej", wyniki cząstkowe) pojawiają się płynnie,
             // a przycisk zjeżdża w dół zamiast przeskakiwać.
-            itemsIndexed(journeys.take(visibleCount), key = { _, trip -> trip.key }) { index, trip ->
+            // Wcześniejsze kursy - mniej widoczny napis (także gestem: przeciągnięcie w dół na górze listy).
+            if (canShowEarlier) item(key = "earlier") {
+                TextButton(onClick = showEarlier, modifier = Modifier.fillMaxWidth().animateItem()) {
+                    Text("Pokaż wcześniejsze", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            itemsIndexed(shown, key = { _, trip -> trip.key }) { index, trip ->
                 Box(Modifier.animateItem()) {
                     val label = if (trip === lastOnTime && index > 0) "Ostatni, którym zdążysz" else ""
                     JourneyCard(trip, nowMs, label, live = live[trip.key], lessonStartMs = targetMs)
                 }
             }
-            if (journeys.size > visibleCount || matching?.nextWhenMs != null) item(key = "more") {
+            if (canShowMore) item(key = "more") {
                 TextButton(onClick = showMore, enabled = !loading && !moreLoading, modifier = Modifier.fillMaxWidth().animateItem()) {
                     AnimatedVisibility(visible = moreLoading) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -238,50 +255,6 @@ private fun DirectionSwitch(direction: TransitDirection, auto: TransitDirection,
         if (direction != auto) Text("Wybrane ręcznie. Automatycznie: do połowy dnia lekcji do szkoły, potem ze szkoły.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
     }
-}
-
-/** Do szkoły: na którą lekcję i ile kursów z listy jeszcze zdąży - jedna zwarta linia. */
-@Composable
-private fun TargetLine(target: pl.zse.bydgoszcz.elektron.domain.model.TransitCommute.Target?, nowMs: Long,
-    journeys: List<TransitJourney>, targetMs: Long?, live: Map<String, LiveStatus>) {
-    val colors = MaterialTheme.colorScheme
-    val text = if (target == null || targetMs == null) "Brak lekcji w najbliższych dniach"
-    else {
-        val onTime = journeys.count { trip -> trip.schoolArrivalMs?.let { it + TransitJourneys.delayMs(trip, live) <= targetMs } == true &&
-            TransitLive.expected(trip, live) > nowMs }
-        "Na ${target.lesson.number}. lekcję ${lessonWhen(target.start, nowMs)}" +
-            if (journeys.isNotEmpty()) " · zdążysz ${onTime.kursy()}" else ""
-    }
-    Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.School, null, tint = colors.primary, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(text, style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
-    }
-}
-
-/** "o 8:55", "jutro o 8:55", "w poniedziałek (26.10) o 8:55" - dzień przed godziną, z przyimkiem. */
-internal fun lessonWhen(start: java.time.LocalDateTime, nowMs: Long): String {
-    val today = Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-    val time = "o " + start.format(transitTime)
-    return when (start.toLocalDate()) {
-        today -> time
-        today.plusDays(1) -> "jutro $time"
-        else -> {
-            val day = when (start.dayOfWeek) {
-                java.time.DayOfWeek.MONDAY -> "w poniedziałek"; java.time.DayOfWeek.TUESDAY -> "we wtorek"
-                java.time.DayOfWeek.WEDNESDAY -> "w środę"; java.time.DayOfWeek.THURSDAY -> "w czwartek"
-                java.time.DayOfWeek.FRIDAY -> "w piątek"; java.time.DayOfWeek.SATURDAY -> "w sobotę"
-                else -> "w niedzielę"
-            }
-            "$day (${start.format(DateTimeFormatter.ofPattern("d.MM"))}) $time"
-        }
-    }
-}
-
-private fun Int.kursy() = when (this) {
-    0 -> "żadnym z listy"
-    1 -> "1 kursem"
-    else -> "$this kursami"
 }
 
 /** Punkt trasy: etykieta, nazwa (null - [placeholder]), wybór i usunięcie. */
@@ -445,6 +418,26 @@ private fun Modifier.pullUpAtEnd(state: androidx.compose.foundation.lazy.LazyLis
                 if (!change.pressed) break
                 if (state.canScrollForward) continue
                 pulled += change.previousPosition.y - change.position.y
+                if (pulled >= thresholdPx) { onPull(); break }
+            }
+        }
+    }
+
+/**
+ * Przeciągnięcie w dół na górze listy pokazuje wcześniejsze kursy - odpowiednik [pullUpAtEnd]:
+ * tylko gest zaczęty, gdy lista jest na samej górze.
+ */
+private fun Modifier.pullDownAtStart(state: androidx.compose.foundation.lazy.LazyListState, thresholdPx: Float, onPull: () -> Unit) =
+    pointerInput(state, thresholdPx) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (state.canScrollBackward) return@awaitEachGesture
+            var pulled = 0f
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                if (state.canScrollBackward) break
+                pulled += change.position.y - change.previousPosition.y
                 if (pulled >= thresholdPx) { onPull(); break }
             }
         }

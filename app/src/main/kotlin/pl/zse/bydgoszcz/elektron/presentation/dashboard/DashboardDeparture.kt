@@ -77,10 +77,9 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
     val trip = remember(matching, now, originKey, prefs.allowTransfers, live, targetMs) {
         val upcoming = TransitJourneys.upcoming(matching?.journeys.orEmpty(), now, if (toSchool) null else prefs.preferredOrigin, prefs.allowTransfers, live)
             .let { if (prefs.preferredOrigin == null) TransitJourneys.walkable(it, now, live) else it }
-        // Do szkoły: najbliższy kurs, który zdąży na lekcję (gdy żaden - najbliższy w ogóle).
-        (if (targetMs != null) upcoming.filter { t -> t.schoolArrivalMs?.let { it + TransitJourneys.delayMs(t, live) <= targetMs } == true }
-            .minByOrNull { TransitLive.expected(it, live) } else null)
-            ?: upcoming.minByOrNull { TransitLive.expected(it, live) }
+        // Do szkoły: kurs, który jest w szkole ok. 10 min przed lekcją (jak pierwszy w zakładce); ze szkoły - najbliższy.
+        if (toSchool) upcoming.getOrNull(TransitJourneys.anchorToSchool(upcoming, targetMs, live))
+        else upcoming.minByOrNull { TransitLive.expected(it, live) }
     }
     Column {
         when {
