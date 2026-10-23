@@ -183,6 +183,10 @@ class SettingsViewModel @Inject constructor(
         val updateChannel: UpdateChannel = UpdateChannel.STABLE,
         val liveNotifications: Boolean = false,
         val showDayEnd: Boolean = false,
+        val baseLook: pl.zse.bydgoszcz.elektron.domain.model.LookSetting = pl.zse.bydgoszcz.elektron.domain.model.LookSetting(),
+        val notifyUpdates: Boolean = false,
+        /** Ile przedmiotów ma wybraną grupę (Ustawienia: kafelek "Grupy"). */
+        val groupChoices: Int = 0,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -200,7 +204,10 @@ class SettingsViewModel @Inject constructor(
         settings.accent,
         settings.updateChannel,
         settings.liveNotifications,
-        settings.showDayEnd
+        settings.showDayEnd,
+        settings.look,
+        settings.notifyUpdates,
+        settings.activeGroupSelections
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -222,7 +229,10 @@ class SettingsViewModel @Inject constructor(
             accent = values[14] as AccentSetting,
             updateChannel = values[15] as UpdateChannel,
             liveNotifications = values[16] as Boolean,
-            showDayEnd = values[17] as Boolean
+            showDayEnd = values[17] as Boolean,
+            baseLook = values[18] as pl.zse.bydgoszcz.elektron.domain.model.LookSetting,
+            notifyUpdates = values[19] as Boolean,
+            groupChoices = (values[20] as Map<String, String>).size
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -287,6 +297,16 @@ class SettingsViewModel @Inject constructor(
     fun setAccent(value: AccentSetting) = writeSetting {
         settings.setAccent(value)
         widgetUpdater.requestUpdate()   // widżety w nowym kolorze
+    }
+
+    fun setLook(value: pl.zse.bydgoszcz.elektron.domain.model.LookSetting) = writeSetting {
+        settings.setLook(value)
+        widgetUpdater.requestUpdate()   // tło widżetów w nowym wyglądzie
+    }
+
+    /** Powiadomienia o nowej wersji (sprawdzane w tle przy synchronizacji, GitHub najwyżej co 12 h). */
+    fun setNotifyUpdates(enabled: Boolean) = writeSetting {
+        settings.setNotifyUpdates(enabled)
     }
 
     fun setWidgetLook(value: WidgetLook) = writeSetting {

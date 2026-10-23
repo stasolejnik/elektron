@@ -93,13 +93,18 @@ private val REMINDER_OPTIONS = listOf(
     ReminderMode.EVERY to "Przed każdą lekcją"
 )
 
+/** Nazwa ekranu startowego; Przejazdy przy wyłączonej zakładce - aplikacja otworzy stronę główną. */
+internal fun startScreenLabel(current: StartScreen, transitTab: Boolean): String {
+    val options = START_OPTIONS + if (transitTab) listOf(StartScreen.TRANSIT to "Przejazdy") else emptyList()
+    return if (current == StartScreen.TRANSIT && !transitTab) "Strona główna" else options.firstOrNull { it.first == current }?.second ?: "Automatycznie"
+}
+
 /** Strona główna: ekran startowy aplikacji i karty widoczne na Starcie. */
 @Composable
 internal fun HomeSection(current: StartScreen, transitTab: Boolean, onChange: (StartScreen) -> Unit, cards: @Composable () -> Unit) {
     var choosing by remember { mutableStateOf(false) }
-    val options = START_OPTIONS + if (transitTab) listOf(StartScreen.TRANSIT to "Odjazdy") else emptyList()
-    // Odjazdy wybrane, a zakładka wyłączona - aplikacja otworzy stronę główną.
-    val shown = if (current == StartScreen.TRANSIT && !transitTab) "Strona główna" else options.firstOrNull { it.first == current }?.second ?: "Automatycznie"
+    val options = START_OPTIONS + if (transitTab) listOf(StartScreen.TRANSIT to "Przejazdy") else emptyList()
+    val shown = startScreenLabel(current, transitTab)
     GroupedSection("Strona główna", icon = Icons.Outlined.Home) {
         ValueRow("Ekran startowy", shown,
             supporting = if (current == StartScreen.SMART) "W godzinach lekcji plan, poza nimi strona główna" else null) { choosing = true }
@@ -125,20 +130,22 @@ internal fun TransitSection(
 ) {
     val prefs = settings.preferences
     val ready = settings.ready && !settings.failed && !saving
-    GroupedSection("Odjazdy", icon = Icons.Outlined.DirectionsBus,
-        footer = if (prefs.showOnDashboard) "Karta pojawia się od początku ostatniej lekcji do godziny po zajęciach." else null) {
-        SwitchRow("Zakładka Odjazdy", prefs.visible, enabled = ready, supporting = "Na dolnym pasku", onChange = onTab)
+    GroupedSection("Przejazdy", icon = Icons.Outlined.DirectionsBus,
+        footer = "Autobusy i tramwaje Bydgoszczy (BUSearch): rano dojazd z Twojego przystanku do szkoły na pierwszą lekcję, " +
+            "od połowy dnia lekcji powrót ze szkoły. Kierunek zmienisz też ręcznie w zakładce. Opóźnienia na żywo, gdy pojazd jest śledzony." +
+            if (prefs.showOnDashboard) " Karta na stronie głównej: od 2 godzin przed lekcjami do ich początku i od ostatniej lekcji do godziny po zajęciach." else "") {
+        SwitchRow("Zakładka Przejazdy", prefs.visible, enabled = ready, supporting = "Na dolnym pasku", onChange = onTab)
         RowDivider()
-        SwitchRow("Karta na stronie głównej", prefs.showOnDashboard, enabled = ready, supporting = "Najbliższe połączenie po lekcjach", onChange = onCard)
+        SwitchRow("Karta na stronie głównej", prefs.showOnDashboard, enabled = ready, supporting = "Najbliższy dojazd rano i powrót po lekcjach", onChange = onCard)
         if (prefs.visible || prefs.showOnDashboard) {
             RowDivider()
-            ValueRow("Dokąd", prefs.destination?.name ?: "Wybierz", enabled = ready) { onPick(false) }
+            ValueRow("Twój przystanek", prefs.destination?.name ?: "Wybierz", enabled = ready) { onPick(false) }
             RowDivider()
-            ValueRow("Odjazd z", prefs.preferredOrigin?.name ?: "Najbliższy", enabled = ready) { onPick(true) }
+            ValueRow("Przystanek przy szkole", prefs.preferredOrigin?.name ?: "Najbliższy", enabled = ready) { onPick(true) }
             RowDivider()
             SwitchRow("Połączenia z przesiadką", prefs.allowTransfers, enabled = ready, onChange = onTransfers)
         }
-        if (settings.failed) Text("Nie udało się odczytać ustawień Odjazdów.", modifier = Modifier.padding(16.dp),
+        if (settings.failed) Text("Nie udało się odczytać ustawień Przejazdów.", modifier = Modifier.padding(16.dp),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         error?.let { Text(it, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
     }
@@ -234,7 +241,7 @@ internal fun BackgroundSection() {
     var unrestricted by remember { mutableStateOf(BackgroundWork.isUnrestricted(ctx)) }
     OnResume { unrestricted = BackgroundWork.isUnrestricted(ctx) }
     GroupedSection(
-        "Działanie w tle",
+        "Praca w tle",
         icon = Icons.Outlined.BatteryChargingFull,
         footer = if (unrestricted) null
         else "Telefon może usypiać aplikację w tle - widżety przestają się wtedy odświeżać, " +
@@ -338,65 +345,6 @@ internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit)
         SwitchRow("Pokazuj salę", current.showRoom) { onChange(current.copy(showRoom = it)) }
         RowDivider()
         SwitchRow("Pokazuj nauczyciela", current.showTeacher) { onChange(current.copy(showTeacher = it)) }
-    }
-}
-
-/**
- * Karta klasy na górze Ustawień: od niej zależy wszystko inne. Wybór klasy w oknie (bez
- * przewijanej listy wewnątrz Ustawień), zmiana dopiero po potwierdzeniu.
- */
-@Composable
-internal fun ClassCard(classes: List<SchoolClass>, selectedId: String?, onSelect: (String) -> Unit, onOpenGroups: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    var choosing by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    val current = classes.firstOrNull { it.id == selectedId }
-    GroupedSection(null) {
-        Row(
-            Modifier.fillMaxWidth().pressable(enabled = classes.isNotEmpty(), onClickLabel = "Zmień klasę") { choosing = true }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(52.dp).clip(CircleShape).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
-                Text(current?.shortName ?: "?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                    color = colors.onPrimaryContainer, maxLines = 1)
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(current?.let { "Klasa ${it.shortName}" } ?: "Wybierz klasę", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    when {
-                        classes.isEmpty() -> "Brak listy klas - pociągnij w dół na stronie głównej"
-                        current != null && current.fullName != current.shortName -> current.fullName
-                        else -> "Plan, zastępstwa i powiadomienia tej klasy"
-                    },
-                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2
-                )
-            }
-            if (classes.isNotEmpty()) Text("Zmień", style = MaterialTheme.typography.labelLarge, color = colors.primary)
-        }
-        RowDivider()
-        ActionRow("Grupy zajęciowe", supporting = "Tylko Twoje lekcje w planie i na stronie głównej", trailingChevron = true, onClick = onOpenGroups)
-    }
-    // Zmiana klasy pobiera dane od nowa i otwiera krok grup bez cofania - jedno przypadkowe
-    // dotknięcie na liście było dawniej od razu zmianą klasy.
-    // Id, nie obiekt - okno potwierdzenia przetrwa obrót ekranu.
-    var pendingId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
-    val pending = classes.firstOrNull { it.id == pendingId }
-    if (choosing) {
-        ChoiceDialog("Twoja klasa", classes.map { it.id to it.fullName }, selectedId ?: "",
-            onSelect = { id ->
-                choosing = false
-                if (id != selectedId) pendingId = id
-            }, onDismiss = { choosing = false })
-    }
-    pending?.let { target ->
-        AlertDialog(
-            onDismissRequest = { pendingId = null },
-            title = { Text("Zmienić klasę na ${target.fullName}?") },
-            text = { Text("Aplikacja pobierze plan i zastępstwa tej klasy i poprosi o wybór grup. Grupy obecnej klasy zostaną zapamiętane.") },
-            confirmButton = { TextButton(onClick = { pendingId = null; onSelect(target.id) }) { Text("Zmień klasę") } },
-            dismissButton = { TextButton(onClick = { pendingId = null }) { Text("Anuluj") } }
-        )
     }
 }
 

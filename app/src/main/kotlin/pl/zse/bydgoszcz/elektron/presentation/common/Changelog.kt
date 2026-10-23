@@ -6,6 +6,11 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(38, "1.0.2", listOf(
+            "Przejazdy (dawniej Odjazdy): rano dojazd na najbliższą lekcję - ile zapasu i ostatni kurs, którym zdążysz; od połowy dnia lekcji powrót ze szkoły z godziną wyjścia",
+            "Przejazdy: opóźnienia na żywo („+3 min”, „2 min wcześniej”), gdy pojazd jest śledzony",
+            "Nowe Ustawienia: na górze klasa i grupy, pod nimi kategorie z własnymi stronami",
+            "Własny wygląd aplikacji: gotowe (Grafit, Ciepły, Morski, Leśny) albo własny odcień tła i kart, z podglądem",
+            "Powiadomienie o nowej wersji (wersja z GitHuba, Ustawienia → Aktualizacje)",
             "Powiadomienie na żywo: pasek i pozostały czas zawsze aktualne, mały napis z końcem lekcji całego dnia",
             "Odliczanie na pasku stanu (Android 16+) - Ustawienia podpowiedzą, gdy system ma je wyłączone",
             "Powiadomienie na żywo nie znika po „Wyczyść wszystko”",

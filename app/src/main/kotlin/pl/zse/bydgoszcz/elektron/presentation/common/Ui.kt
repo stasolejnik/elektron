@@ -109,6 +109,9 @@ fun SectionTitle(title: String, icon: ImageVector? = null, modifier: Modifier = 
     }
 }
 
+/** Tytuł strony kategorii Ustawień - sekcja o tym tytule nie powtarza go w nagłówku. */
+val LocalSectionPageTitle = androidx.compose.runtime.staticCompositionLocalOf<String?> { null }
+
 /**
  * Grupowana sekcja w stylu Ustawień iOS: nagłówek (z ikoną w kolorze akcentu) NAD kartą,
  * zawartość w karcie, opcjonalna stopka pod kartą.
@@ -121,7 +124,8 @@ fun GroupedSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxWidth()) {
-        if (title != null) {
+        // Na stronie kategorii Ustawień o tym samym tytule nagłówek sekcji byłby powtórzeniem.
+        if (title != null && title != LocalSectionPageTitle.current) {
             Row(
                 Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).semantics(mergeDescendants = true) { heading() },
                 verticalAlignment = Alignment.CenterVertically
@@ -156,10 +160,12 @@ fun GroupedSection(
 fun LargeTitleBar(
     title: String,
     scrollBehavior: TopAppBarScrollBehavior,
+    navigationIcon: @Composable () -> Unit = {},
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
 ) {
     LargeTopAppBar(
         title = { Text(title, modifier = Modifier.semantics { heading() }) },
+        navigationIcon = navigationIcon,
         actions = actions,
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.largeTopAppBarColors(

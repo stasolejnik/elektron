@@ -2,6 +2,7 @@ package pl.zse.bydgoszcz.elektron.presentation.common.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import pl.zse.bydgoszcz.elektron.domain.model.AccentMath
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
@@ -60,3 +61,34 @@ object Accents {
         surfaceTint = tones.primary
     )
 }
+
+/** Główny wygląd (BaseLooks) na schemacie Material: tła, karty, linie, drugorzędny tekst. */
+object Looks {
+    fun apply(base: ColorScheme, tones: pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.Tones): ColorScheme {
+        val card = Color(tones.card)
+        return base.copy(
+            background = Color(tones.background),
+            surface = Color(tones.background),
+            onBackground = Color(tones.onSurface),
+            onSurface = Color(tones.onSurface),
+            surfaceVariant = Color(tones.surfaceVariant),
+            onSurfaceVariant = Color(tones.onSurfaceVariant),
+            surfaceContainerLowest = if (base.background.luminance() < 0.5f) Color(tones.background) else card,
+            surfaceContainerLow = card,
+            surfaceContainer = Color(tones.cardMuted),
+            surfaceContainerHigh = card,
+            surfaceContainerHighest = card,
+            outline = Color(tones.outline),
+            outlineVariant = Color(tones.outlineVariant),
+            // Zwykłe (niezaznaczone) przyciski tonalne - lekko w kolorze wyglądu.
+            secondary = Color(tones.onSurfaceVariant),
+            inverseSurface = Color(tones.onSurface),
+            inverseOnSurface = Color(tones.background)
+        )
+    }
+
+    fun scheme(dark: Boolean, accent: AccentSetting, look: pl.zse.bydgoszcz.elektron.domain.model.LookSetting): ColorScheme =
+        if (dark) Accents.apply(apply(DarkColors, pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.dark(look)), Accents.dark(accent))
+        else Accents.apply(apply(LightColors, pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.light(look)), Accents.light(accent))
+}
+

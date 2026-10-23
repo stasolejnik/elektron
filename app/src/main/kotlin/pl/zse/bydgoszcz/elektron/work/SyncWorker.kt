@@ -22,7 +22,8 @@ class SyncWorker @AssistedInject constructor(
     @Assisted ctx: Context,
     @Assisted params: WorkerParameters,
     private val coordinator: SyncCoordinator,
-    private val notificationsRepo: NotificationsRepository
+    private val notificationsRepo: NotificationsRepository,
+    private val updateNotifier: UpdateNotifier
 ) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
@@ -40,6 +41,9 @@ class SyncWorker @AssistedInject constructor(
                 return if (runAttemptCount >= MAX_RETRY_ATTEMPTS) Result.failure() else Result.retry()
             }
             notificationsRepo.pruneHistory()
+            // Nowa wersja (gdy włączone powiadomienia o aktualizacjach) - GitHub najwyżej co 12 h.
+            pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { updateNotifier.checkInBackground() }
+                .onFailure { Log.w(TAG, "Nie udało się sprawdzić aktualizacji w tle", it) }
             return Result.success()
         } catch (e: CancellationException) {
             throw e

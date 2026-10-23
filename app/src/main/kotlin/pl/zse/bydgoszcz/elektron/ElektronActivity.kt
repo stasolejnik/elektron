@@ -107,7 +107,7 @@ class ElektronActivity : ComponentActivity() {
                 onDispose { }
             }
 
-            ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor, accent = state.accent) {
+            ElektronTheme(darkTheme = dark, dynamicColor = state.dynamicColor, accent = state.accent, look = state.look) {
                 CompositionLocalProvider(LocalPersonalization provides (personalization ?: Personalization())) {
                     // Po kolei: najpierw raport awarii i "Co nowego", dopiero potem prośba
                     // o powiadomienia (dawniej dwa okna naraz po aktualizacji).
@@ -224,7 +224,7 @@ class ElektronActivity : ComponentActivity() {
             "substitutions" -> "substitutions"
             "announcements" -> "announcements"
             "timetable" -> "timetable"
-            "transit" -> "transit" // skrót tylko z włączoną zakładką Odjazdy
+            "transit" -> "transit" // skrót tylko z włączoną zakładką Przejazdy
             "dashboard" -> "dashboard" // widżety i skrót
             else -> null
         }

@@ -88,10 +88,30 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.DirectionsBus
+import androidx.compose.material.icons.outlined.SpaceDashboard
+import androidx.compose.material.icons.outlined.Widgets
+import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.togetherWith
 
 private const val REPO_URL = "https://github.com/stasolejnik/elektron"
 private const val PRIVACY_URL = "https://github.com/stasolejnik/elektron/blob/main/PRYWATNOSC.md"
 private const val LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html"
+
+/** Kategorie Ustawień - każda ma własną stronę. Kolejność: co dostajesz, co widzisz, sprawy techniczne. */
+internal enum class SettingsPage(val title: String) {
+    NOTIFICATIONS("Powiadomienia"), HOME("Strona główna"), LOOK("Wygląd"), PLAN("Plan lekcji"),
+    TRANSIT("Przejazdy"), BAR("Pasek nawigacji"), WIDGETS("Widżety"),
+    BACKGROUND("Praca w tle"), UPDATES("Aktualizacje"), DATA("Dane"), ABOUT("O aplikacji"), DEV("Tryb dewelopera")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,11 +123,8 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
-    val transitSaving by transitViewModel.saving.collectAsStateWithLifecycle()
-    val transitError by transitViewModel.settingsError.collectAsStateWithLifecycle()
     var transitPicker by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
     if (transitPicker != 0) pl.zse.bydgoszcz.elektron.presentation.transit.StopPicker(transitViewModel, origin = transitPicker == 2) { transitPicker = 0 }
-    val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     // Tryb dewelopera.
     val devMode by viewModel.devMode.collectAsStateWithLifecycle()
     val notesViewModel: pl.zse.bydgoszcz.elektron.presentation.timetable.LessonNotesViewModel = hiltViewModel()
@@ -129,29 +146,6 @@ fun SettingsScreen(
     LaunchedEffect(devMessage) {
         devMessage?.let { showToast(it); viewModel.consumeDevMessage() }
     }
-    var logoTaps by remember { mutableIntStateOf(0) }
-    var lastLogoTap by remember { mutableLongStateOf(0L) }
-    val onLogoTap: () -> Unit = {
-        val t = SystemClock.uptimeMillis()
-        logoTaps = if (t - lastLogoTap < 700) logoTaps + 1 else 1
-        lastLogoTap = t
-        if (!devMode && logoTaps >= 5) {
-            viewModel.setDevMode(true)
-            logoTaps = 0
-            showToast("Tryb dewelopera włączony.")
-        }
-    }
-    var confirmCrash by remember { mutableStateOf(false) }
-    if (confirmCrash) {
-        AlertDialog(
-            onDismissRequest = { confirmCrash = false },
-            title = { Text("Symulować awarię?") },
-            text = { Text("Aplikacja zamknie się z błędem. Po ponownym uruchomieniu pojawi się okno raportu (kopiowanie logów, e-mail, GitHub).") },
-            confirmButton = { TextButton(onClick = { confirmCrash = false; viewModel.devCrash() }) { Text("Zamknij z błędem") } },
-            dismissButton = { TextButton(onClick = { confirmCrash = false }) { Text("Anuluj") } }
-        )
-    }
-
     val feedbackReport by viewModel.feedbackReport.collectAsStateWithLifecycle()
     feedbackReport?.let { report ->
         ReportDialog(
@@ -165,247 +159,237 @@ fun SettingsScreen(
             onDismiss = viewModel::closeFeedback
         )
     }
-    val linkColor = MaterialTheme.colorScheme.primary
-    val ctx = LocalContext.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
+    // Otwarta kategoria (null - lista kategorii). Wstecz wraca do listy - tylko na widocznej zakładce,
+    // inaczej przechwytywałoby cofanie na sąsiedniej (pager trzyma ją w pamięci).
+    var page by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    if (page == SettingsPage.DEV && !devMode) page = null
+    val visible = pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible.current
+    androidx.activity.compose.BackHandler(enabled = page != null && visible) { page = null }
+
+    androidx.compose.animation.AnimatedContent(
+        targetState = page,
+        transitionSpec = {
+            val forward = targetState != null
+            (androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(260)) { if (forward) it / 3 else -it / 3 } +
+                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200))) togetherWith
+                (androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(260)) { if (forward) -it / 3 else it / 3 } +
+                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160)))
+        },
+        label = "settings-page"
+    ) { current ->
+        if (current == null) SettingsHome(state, transitSettings.preferences, devMode, viewModel::setClass, onOpenGroups) { page = it }
+        else SettingsSubpage(current.title, onBack = { page = null }) {
+            when (current) {
+                SettingsPage.NOTIFICATIONS -> {
+                    item(key = "notifications") {
+                        NotificationsSection(state.notifSubs, state.notifAnn, state.quiet,
+                            onSubs = viewModel::setNotifSubs, onAnnouncements = viewModel::setNotifAnn, onQuiet = viewModel::setQuietHours,
+                            live = state.liveNotifications, onLive = { viewModel.setLiveNotifications(it) },
+                            onLiveResume = { viewModel.refreshLiveNotifications() })
+                    }
+                    item(key = "reminders") {
+                        val reminderStatus by viewModel.reminderStatus.collectAsStateWithLifecycle()
+                        RemindersSection(state.reminder, reminderStatus, viewModel::refreshReminderStatus) { viewModel.setReminder(it) }
+                    }
+                    item(key = "notes") {
+                        NoteRemindersSection(notesState.enabled, notesState.ready && !notesState.error, notesState.timing, notesViewModel::setReminderTiming, notesViewModel::refreshReminders, notesViewModel::setReminders) { showNotes = true }
+                    }
+                }
+                SettingsPage.HOME -> item(key = "home") {
+                    HomeSection(state.startScreen, transitTab = transitSettings.preferences.visible, onChange = viewModel::setStartScreen) {
+                        SwitchRow("Następna lekcja", state.showNextLesson) { viewModel.setShowNextLesson(it) }
+                        RowDivider()
+                        SwitchRow("Czas do końca lekcji", state.showDayEnd,
+                            supporting = "Ile godzin i minut zostało do końca lekcji dzisiaj - na stronie głównej i w widżecie Plan dnia") { viewModel.setShowDayEnd(it) }
+                        RowDivider()
+                        SwitchRow("Zastępstwa", state.showSubstitutions) { viewModel.setShowSubstitutions(it) }
+                        RowDivider()
+                        SwitchRow("Najnowsze ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
+                        RowDivider()
+                        SwitchRow("Przejazdy", transitSettings.preferences.showOnDashboard,
+                            enabled = transitSettings.ready && !transitSettings.failed,
+                            supporting = "Dojazd rano i powrót po lekcjach (Ustawienia -> Przejazdy)") { transitViewModel.setShowOnDashboard(it) }
+                    }
+                }
+                SettingsPage.LOOK -> {
+                    item(key = "preview") {
+                        val wallpaper = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                        ThemePreviewPair(state.accent, state.baseLook, dynamic = wallpaper)
+                    }
+                    item(key = "look") {
+                        GroupedSection("Wygląd", icon = Icons.Outlined.Palette,
+                            footer = "Kolor akcentu i wygląd dotyczą też widżetów. Własny wygląd: odcień i intensywność tła i kart.") {
+                            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                val options = listOf(ThemeMode.SYSTEM to "Auto", ThemeMode.LIGHT to "Jasny", ThemeMode.DARK to "Ciemny")
+                                options.forEachIndexed { i, (mode, label) ->
+                                    SegmentedButton(
+                                        selected = state.themeMode == mode,
+                                        onClick = { viewModel.setTheme(mode) },
+                                        shape = SegmentedButtonDefaults.itemShape(i, options.size),
+                                        icon = {}
+                                    ) { Text(label) }
+                                }
+                            }
+                            // Kolory akcentu i wyglądy zawsze widoczne. Przy kolorach z tapety żaden nie jest
+                            // zaznaczony, a wybór wyłącza kolory z tapety.
+                            RowDivider()
+                            val wallpaper = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                            AccentPicker(state.accent, wallpaperActive = wallpaper) {
+                                viewModel.setAccent(it)
+                                if (wallpaper) viewModel.setDynamicColor(false)
+                            }
+                            RowDivider()
+                            LookPicker(state.baseLook, state.accent, wallpaperActive = wallpaper) {
+                                viewModel.setLook(it)
+                                if (wallpaper) viewModel.setDynamicColor(false)
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                RowDivider()
+                                SwitchRow("Kolory z tapety", state.dynamicColor, supporting = "Material You zamiast koloru akcentu i wyglądu") { viewModel.setDynamicColor(it) }
+                            }
+                        }
+                    }
+                    item(key = "icon") { GroupedSection("Ikona aplikacji") { AppIconRow() } }
+                }
+                SettingsPage.PLAN -> item(key = "plan") {
+                    val look = state.look
+                    GroupedSection("Plan lekcji", icon = Icons.Outlined.CalendarMonth) {
+                        ActionRow("Nazwy i kolory przedmiotów", trailingChevron = true, onClick = onOpenSubjects)
+                        RowDivider()
+                        SwitchRow("Pokazuj salę", look.showRoom) { viewModel.setTimetableLook(look.copy(showRoom = it)) }
+                        RowDivider()
+                        SwitchRow("Pokazuj nauczyciela", look.showTeacher) { viewModel.setTimetableLook(look.copy(showTeacher = it)) }
+                    }
+                }
+                SettingsPage.TRANSIT -> item(key = "transit") {
+                    val transitSaving by transitViewModel.saving.collectAsStateWithLifecycle()
+                    val transitError by transitViewModel.settingsError.collectAsStateWithLifecycle()
+                    TransitSection(transitSettings, transitSaving, transitError,
+                        onTab = { transitViewModel.setTabVisible("transit", it) },
+                        onCard = transitViewModel::setShowOnDashboard,
+                        onTransfers = transitViewModel::setAllowTransfers,
+                        onPick = { origin -> transitViewModel.query.value = ""; transitPicker = if (origin) 2 else 1 })
+                }
+                SettingsPage.BAR -> item(key = "bar") { pl.zse.bydgoszcz.elektron.presentation.transit.TransitVisibilitySection(transitViewModel) }
+                SettingsPage.WIDGETS -> item(key = "widgets") { WidgetsSection(state.widgetLook) { viewModel.setWidgetLook(it) } }
+                SettingsPage.BACKGROUND -> item(key = "background") { BackgroundSection() }
+                SettingsPage.UPDATES -> item(key = "updates") { UpdatesSection(state, viewModel) }
+                SettingsPage.DATA -> item(key = "data") { DataSection(viewModel) }
+                SettingsPage.ABOUT -> item(key = "about") { AboutSection(viewModel, devMode, showToast) }
+                SettingsPage.DEV -> item(key = "dev") { DevSection(viewModel) }
+            }
+        }
+    }
+}
+
+/** Strona kategorii: duży tytuł ze strzałką wstecz i lista sekcji. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsSubpage(title: String, onBack: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            LargeTitleBar(title = title, scrollBehavior = scrollBehavior, navigationIcon = {
+                androidx.compose.material3.IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wróć do ustawień")
+                }
+            })
+        }
+    ) { padding ->
+        androidx.compose.runtime.CompositionLocalProvider(pl.zse.bydgoszcz.elektron.presentation.common.LocalSectionPageTitle provides title) {
+            LazyColumn(
+                Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp),
+                content = content
+            )
+        }
+    }
+}
+
+/** Lista kategorii: na górze klasa i grupy (od nich zależy wszystko inne), pod nimi kategorie ze stanem. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SettingsHome(
+    state: SettingsViewModel.State,
+    transit: pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences,
+    devMode: Boolean,
+    onSelectClass: (String) -> Unit,
+    onOpenGroups: () -> Unit,
+    onOpen: (SettingsPage) -> Unit
+) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val ctx = LocalContext.current
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { LargeTitleBar(title = "Ustawienia", scrollBehavior = scrollBehavior) }
     ) { padding ->
-        // Kolejność: kim jesteś (klasa), co i kiedy dostajesz (powiadomienia, przypomnienia),
-        // co widzisz (strona główna, Odjazdy, wygląd, plan, pasek, widżety), a na końcu sprawy
-        // techniczne (praca w tle, aktualizacje, dane, informacje).
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).revealWhen(state.ready),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            item(key = "class") { ClassCard(state.classes, state.selectedClassId, onSelect = viewModel::setClass, onOpenGroups = onOpenGroups) }
-
-            item(key = "notifications") {
-                NotificationsSection(state.notifSubs, state.notifAnn, state.quiet,
-                    onSubs = viewModel::setNotifSubs, onAnnouncements = viewModel::setNotifAnn, onQuiet = viewModel::setQuietHours,
-                    live = state.liveNotifications, onLive = { viewModel.setLiveNotifications(it) },
-                    onLiveResume = { viewModel.refreshLiveNotifications() })
-            }
-
-            item(key = "reminders") {
-                val reminderStatus by viewModel.reminderStatus.collectAsStateWithLifecycle()
-                RemindersSection(state.reminder, reminderStatus, viewModel::refreshReminderStatus) { viewModel.setReminder(it) }
-            }
-
-            item(key = "notes") {
-                NoteRemindersSection(notesState.enabled, notesState.ready && !notesState.error, notesState.timing, notesViewModel::setReminderTiming, notesViewModel::refreshReminders, notesViewModel::setReminders) { showNotes = true }
-            }
-
-            item(key = "home") {
-                HomeSection(state.startScreen, transitTab = transitSettings.preferences.visible, onChange = viewModel::setStartScreen) {
-                    SwitchRow("Następna lekcja", state.showNextLesson) { viewModel.setShowNextLesson(it) }
-                    RowDivider()
-                    SwitchRow("Zastępstwa", state.showSubstitutions) { viewModel.setShowSubstitutions(it) }
-                    RowDivider()
-                    SwitchRow("Najnowsze ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
-                    RowDivider()
-                    SwitchRow("Czas do końca lekcji", state.showDayEnd,
-                        supporting = "Ile godzin i minut zostało do końca lekcji dzisiaj - na stronie głównej i w widżecie Plan dnia") { viewModel.setShowDayEnd(it) }
+            item(key = "you") {
+                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ClassTile(state.classes, state.selectedClassId, onSelectClass, Modifier.weight(1f).fillMaxHeight())
+                    GroupsTile(state.groupChoices, enabled = state.selectedClassId != null, onOpenGroups, Modifier.weight(1f).fillMaxHeight())
                 }
             }
-
-            item(key = "transit") {
-                TransitSection(transitSettings, transitSaving, transitError,
-                    onTab = { transitViewModel.setTabVisible("transit", it) },
-                    onCard = transitViewModel::setShowOnDashboard,
-                    onTransfers = transitViewModel::setAllowTransfers,
-                    onPick = { origin -> transitViewModel.query.value = ""; transitPicker = if (origin) 2 else 1 })
-            }
-
-            item(key = "look") {
-                GroupedSection("Wygląd", icon = Icons.Outlined.Palette) {
-                    SingleChoiceSegmentedButtonRow(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        val options = listOf(ThemeMode.SYSTEM to "Auto", ThemeMode.LIGHT to "Jasny", ThemeMode.DARK to "Ciemny")
-                        options.forEachIndexed { i, (mode, label) ->
-                            SegmentedButton(
-                                selected = state.themeMode == mode,
-                                onClick = { viewModel.setTheme(mode) },
-                                shape = SegmentedButtonDefaults.itemShape(i, options.size),
-                                icon = {}
-                            ) { Text(label) }
-                        }
-                    }
-                    // Kolory akcentu zawsze widoczne. Przy kolorach z tapety żaden nie jest zaznaczony,
-                    // a wybór koloru wyłącza kolory z tapety (dawniej wybór się chował).
-                    RowDivider()
+            item(key = "main") {
+                GroupedSection(null) {
+                    val notifications = listOfNotNull(
+                        "zastępstwa".takeIf { state.notifSubs }, "ogłoszenia".takeIf { state.notifAnn },
+                        "na żywo".takeIf { state.liveNotifications },
+                        "przypomnienia".takeIf { state.reminder.mode != pl.zse.bydgoszcz.elektron.domain.model.ReminderMode.OFF })
+                    CategoryRow(Icons.Outlined.Notifications, CategoryColors.RED, "Powiadomienia",
+                        notifications.joinToString(", ").replaceFirstChar { it.uppercase() }.ifEmpty { "Wyłączone" }) { onOpen(SettingsPage.NOTIFICATIONS) }
+                    CategoryDivider()
+                    CategoryRow(Icons.Outlined.Home, CategoryColors.BLUE, "Strona główna",
+                        "Start: " + startScreenLabel(state.startScreen, transit.visible).lowercase()) { onOpen(SettingsPage.HOME) }
+                    CategoryDivider()
                     val wallpaper = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    AccentPicker(state.accent, wallpaperActive = wallpaper) {
-                        viewModel.setAccent(it)
-                        if (wallpaper) viewModel.setDynamicColor(false)
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        RowDivider()
-                        SwitchRow("Kolory z tapety", state.dynamicColor, supporting = "Material You zamiast koloru akcentu") { viewModel.setDynamicColor(it) }
-                    }
-                    RowDivider()
-                    AppIconRow()
+                    val theme = when (state.themeMode) { ThemeMode.SYSTEM -> "Auto"; ThemeMode.LIGHT -> "Jasny"; ThemeMode.DARK -> "Ciemny" }
+                    CategoryRow(Icons.Outlined.Palette, CategoryColors.PURPLE, "Wygląd",
+                        if (wallpaper) "$theme · kolory z tapety"
+                        else "$theme · ${ACCENT_LABELS[state.accent.color].orEmpty().lowercase()} · ${LOOK_LABELS[state.baseLook.look].orEmpty().lowercase()}") { onOpen(SettingsPage.LOOK) }
+                    CategoryDivider()
+                    CategoryRow(Icons.Outlined.CalendarMonth, CategoryColors.ORANGE, "Plan lekcji", "Nazwy i kolory przedmiotów, sala, nauczyciel") { onOpen(SettingsPage.PLAN) }
+                    CategoryDivider()
+                    CategoryRow(Icons.Outlined.DirectionsBus, CategoryColors.GREEN, "Przejazdy",
+                        if (transit.visible || transit.showOnDashboard) transit.destination?.name ?: "Wybierz swój przystanek" else "Wyłączone") { onOpen(SettingsPage.TRANSIT) }
+                    CategoryDivider()
+                    CategoryRow(Icons.Outlined.SpaceDashboard, CategoryColors.INDIGO, "Pasek nawigacji", "Widoczne zakładki i kolejność") { onOpen(SettingsPage.BAR) }
+                    CategoryDivider()
+                    CategoryRow(Icons.Outlined.Widgets, CategoryColors.TEAL, "Widżety",
+                        "Przezroczystość ${100 - state.widgetLook.opacity}%") { onOpen(SettingsPage.WIDGETS) }
                 }
             }
-
-            item(key = "plan") {
-                val look = state.look
-                GroupedSection("Plan lekcji", icon = Icons.Outlined.CalendarMonth) {
-                    ActionRow("Nazwy i kolory przedmiotów", trailingChevron = true, onClick = onOpenSubjects)
-                    RowDivider()
-                    SwitchRow("Pokazuj salę", look.showRoom) { viewModel.setTimetableLook(look.copy(showRoom = it)) }
-                    RowDivider()
-                    SwitchRow("Pokazuj nauczyciela", look.showTeacher) { viewModel.setTimetableLook(look.copy(showTeacher = it)) }
-                }
-            }
-
-            item(key = "bar") { pl.zse.bydgoszcz.elektron.presentation.transit.TransitVisibilitySection(transitViewModel) }
-
-            item(key = "widgets") { WidgetsSection(state.widgetLook) { viewModel.setWidgetLook(it) } }
-
-            item(key = "background") { BackgroundSection() }
-
-            // Aktualizacje (GitHub Releases); nie w wersji F-Droid.
-            if (BuildConfig.UPDATE_CHECK) {
-                item(key = "updates") {
-                    var choosingChannel by remember { mutableStateOf(false) }
-                    GroupedSection("Aktualizacje", icon = Icons.Outlined.SystemUpdate,
-                        footer = if (state.updateChannel == UpdateChannel.BETA)
-                            "Wersje beta są testowe i mogą zawierać błędy. Gdy ukaże się wersja stabilna, też ją dostaniesz."
-                        else null) {
-                        ValueRow("Kanał", state.updateChannel.label) { choosingChannel = true }
-                        RowDivider()
-                        ActionRow("Sprawdź aktualizacje", enabled = updateStatus != SettingsViewModel.UpdateStatus.Checking) { viewModel.checkForUpdates() }
-                        when (val st = updateStatus) {
-                            SettingsViewModel.UpdateStatus.Idle -> Unit
-                            SettingsViewModel.UpdateStatus.Checking -> UpdateNote("Sprawdzam…")
-                            SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
-                            SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
-                            is SettingsViewModel.UpdateStatus.Available -> {
-                                UpdateNote("Dostępna wersja ${st.update.versionName}.")
-                                Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
-                                    UpdateActions(st.update, onLater = null)
-                                }
-                            }
-                        }
+            item(key = "system") {
+                GroupedSection(null) {
+                    var unrestricted by remember { mutableStateOf(pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork.isUnrestricted(ctx)) }
+                    OnResume { unrestricted = pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork.isUnrestricted(ctx) }
+                    CategoryRow(Icons.Outlined.BatteryChargingFull, CategoryColors.GRAY, "Praca w tle",
+                        if (unrestricted) "Bez ograniczeń" else "Telefon może usypiać aplikację", warning = !unrestricted) { onOpen(SettingsPage.BACKGROUND) }
+                    if (BuildConfig.UPDATE_CHECK) {
+                        CategoryDivider()
+                        CategoryRow(Icons.Outlined.SystemUpdate, CategoryColors.GREEN, "Aktualizacje",
+                            state.updateChannel.label + if (state.notifyUpdates) " · z powiadomieniami" else "") { onOpen(SettingsPage.UPDATES) }
                     }
-                    if (choosingChannel) {
-                        ChoiceDialog("Kanał aktualizacji",
-                            listOf(UpdateChannel.STABLE to "Stabilne (zalecane)", UpdateChannel.BETA to "Beta - wersje testowe i stabilne"),
-                            state.updateChannel,
-                            onSelect = { viewModel.setUpdateChannel(it); choosingChannel = false },
-                            onDismiss = { choosingChannel = false })
+                    CategoryDivider()
+                    CategoryRow(Icons.Outlined.Storage, CategoryColors.GRAY, "Dane", "Wyczyść dane podręczne") { onOpen(SettingsPage.DATA) }
+                    CategoryDivider()
+                    CategoryRow(Icons.Outlined.Info, CategoryColors.ACCENT, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME} · zgłoś problem") { onOpen(SettingsPage.ABOUT) }
+                    if (devMode) {
+                        CategoryDivider()
+                        CategoryRow(Icons.Outlined.Code, CategoryColors.GRAY, "Tryb dewelopera", "Symulacje i czas") { onOpen(SettingsPage.DEV) }
                     }
                 }
             }
-
-            item(key = "data") {
-                var confirmReset by remember { mutableStateOf(false) }
-                GroupedSection("Dane", icon = Icons.Outlined.Storage,
-                    footer = "Pobiera plan, zastępstwa i ogłoszenia od nowa. Klasa, grupy, notatki i ustawienia zostają.") {
-                    ActionRow("Wyczyść dane podręczne", destructive = true) { confirmReset = true }
-                }
-                if (confirmReset) {
-                    AlertDialog(
-                        onDismissRequest = { confirmReset = false },
-                        title = { Text("Wyczyścić dane podręczne?") },
-                        text = { Text("Lokalna kopia planu, zastępstw i ogłoszeń zostanie usunięta i pobrana od nowa ze strony szkoły.") },
-                        confirmButton = {
-                            TextButton(onClick = { viewModel.resetCache(); confirmReset = false }) {
-                                Text("Wyczyść", color = MaterialTheme.colorScheme.error)
-                            }
-                        },
-                        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Anuluj") } }
-                    )
-                }
-            }
-
-            item(key = "about") {
-                GroupedSection("O aplikacji", icon = Icons.Outlined.Info) {
-                    Column(
-                        Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_logo),
-                            contentDescription = null,
-                            modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = onLogoTap
-                                )
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Text("eLektron", style = MaterialTheme.typography.titleLarge)
-                        Text("Wersja ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text(aboutText(linkColor),
-                        Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center)
-                    RowDivider()
-                    // Raport z logami: kopiowanie, e-mail do dewelopera albo zgłoszenie na GitHubie.
-                    ActionRow("Zgłoś problem", trailingChevron = true) { viewModel.openFeedback() }
-                    RowDivider()
-                    ActionRow("Napisz do autora", supporting = CrashReport.CONTACT_EMAIL, trailingIcon = true) {
-                        if (!openContactEmail(ctx)) SafeUrls.open(ctx, REPO_URL)
-                    }
-                    RowDivider()
-                    ActionRow("Kod źródłowy na GitHubie", trailingIcon = true) {
-                        SafeUrls.open(ctx, REPO_URL)
-                    }
-                    RowDivider()
-                    ActionRow("Polityka prywatności", trailingIcon = true) {
-                        SafeUrls.open(ctx, PRIVACY_URL)
-                    }
-                }
-            }
-
-            if (devMode) {
-                item(key = "dev") {
-                    val devDialog by viewModel.devDialog.collectAsStateWithLifecycle()
-                    DevSimulationDialogs(devDialog,
-                        onSubstitution = viewModel::devSimulateSubstitution,
-                        onAnnouncement = viewModel::devSimulateAnnouncement,
-                        onCustomSubstitution = { viewModel.devDialog.value = SettingsViewModel.DevDialog.CustomSubstitution },
-                        onCustomAnnouncement = { viewModel.devDialog.value = SettingsViewModel.DevDialog.CustomAnnouncement },
-                        onDismiss = { viewModel.devDialog.value = null })
-                    val offset by viewModel.simulatedOffset.collectAsStateWithLifecycle()
-                    GroupedSection(
-                        "Tryb dewelopera",
-                        icon = Icons.Outlined.Code,
-                        footer = "Symulacje są widoczne tylko na tym telefonie. Zastępstwo (własne albo wzorowane na zapisanym, " +
-                            "także minionym) trafia na najbliższą lekcję - do planu, zastępstw, strony głównej i widżetów - " +
-                            "i wysyła powiadomienie; tak samo ogłoszenie. Znikają po „Usuń symulacje” albo przy synchronizacji. " +
-                            "Symulowany czas dalej płynie; synchronizacja, przypomnienia i powiadomienia zostają w prawdziwym czasie."
-                    ) {
-                        DevTimeRows(offset, onSimulate = viewModel::simulateTime, onReset = viewModel::resetSimulatedTime)
-                        RowDivider()
-                        ActionRow("Symuluj zastępstwo…", trailingChevron = true) { viewModel.devOpenSubstitution() }
-                        RowDivider()
-                        ActionRow("Symuluj ogłoszenie…", trailingChevron = true) { viewModel.devOpenAnnouncement() }
-                        RowDivider()
-                        ActionRow("Usuń symulacje") { viewModel.devClearSimulations() }
-                        RowDivider()
-                        ActionRow("Odśwież widżety") { viewModel.devRefreshWidgets() }
-                        RowDivider()
-                        ActionRow("Raport błędu (bez awarii)") { viewModel.openFeedback() }
-                        RowDivider()
-                        ActionRow("Symuluj awarię aplikacji", destructive = true) { confirmCrash = true }
-                        RowDivider()
-                        ActionRow("Wyłącz tryb dewelopera") { viewModel.setDevMode(false) }
-                    }
-                }
-            }
-
             // Licencja: plakietka GPLv3 (dotknięcie otwiera tekst licencji).
             item(key = "license") {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -417,6 +401,298 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+/** Kolory kafelków kategorii (jak w Ustawieniach iOS) - stałe, rozpoznawalne niezależnie od akcentu. */
+private object CategoryColors {
+    val RED = Color(0xFFE5484D)
+    val BLUE = Color(0xFF2F7DEB)
+    val PURPLE = Color(0xFF8E4EC6)
+    val ORANGE = Color(0xFFE5841F)
+    val GREEN = Color(0xFF2F9E5B)
+    val INDIGO = Color(0xFF5B5BD6)
+    val TEAL = Color(0xFF12A594)
+    val GRAY = Color(0xFF7C7C85)
+    val ACCENT = Color.Unspecified
+}
+
+@Composable
+private fun CategoryRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tile: Color, title: String, summary: String,
+    warning: Boolean = false, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().pressable(onClickLabel = "Otwórz: $title", onClick = onClick)
+            .heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(if (tile == Color.Unspecified) colors.primary else tile),
+            contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = if (tile == Color.Unspecified) colors.onPrimary else Color.White, modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.onSurface)
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                fontWeight = if (warning) FontWeight.SemiBold else null,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(22.dp))
+    }
+}
+
+/** Linia między kategoriami - od tekstu, nie od kafelka ikony (jak w iOS). */
+@Composable
+private fun CategoryDivider() {
+    HorizontalDivider(Modifier.padding(start = 62.dp), color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/**
+ * Kafelek klasy: od niej zależy wszystko inne. Wybór w oknie, zmiana dopiero po potwierdzeniu
+ * (zmiana klasy pobiera dane od nowa i otwiera krok grup).
+ */
+@Composable
+private fun ClassTile(classes: List<pl.zse.bydgoszcz.elektron.domain.model.SchoolClass>, selectedId: String?, onSelect: (String) -> Unit, modifier: Modifier) {
+    val colors = MaterialTheme.colorScheme
+    var choosing by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val current = classes.firstOrNull { it.id == selectedId }
+    pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard(modifier = modifier,
+        onClick = if (classes.isNotEmpty()) ({ choosing = true }) else null, onClickLabel = "Zmień klasę") {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
+                Text(current?.shortName ?: "?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    color = colors.onPrimaryContainer, maxLines = 1)
+            }
+            Column {
+                Text("Twoja klasa", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                Text(current?.fullName ?: "Wybierz klasę", style = MaterialTheme.typography.titleMedium, color = colors.onSurface, maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(if (classes.isEmpty()) "Brak listy klas - pociągnij w dół na stronie głównej" else "Dotknij, aby zmienić",
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2)
+            }
+        }
+    }
+    // Id, nie obiekt - okno potwierdzenia przetrwa obrót ekranu.
+    var pendingId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val pending = classes.firstOrNull { it.id == pendingId }
+    if (choosing) {
+        ChoiceDialog("Twoja klasa", classes.map { it.id to it.fullName }, selectedId ?: "",
+            onSelect = { id -> choosing = false; if (id != selectedId) pendingId = id },
+            onDismiss = { choosing = false })
+    }
+    pending?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingId = null },
+            title = { Text("Zmienić klasę na ${target.fullName}?") },
+            text = { Text("Aplikacja pobierze plan i zastępstwa tej klasy i poprosi o wybór grup. Grupy obecnej klasy zostaną zapamiętane.") },
+            confirmButton = { TextButton(onClick = { pendingId = null; onSelect(target.id) }) { Text("Zmień klasę") } },
+            dismissButton = { TextButton(onClick = { pendingId = null }) { Text("Anuluj") } }
+        )
+    }
+}
+
+/** Kafelek grup: ile przedmiotów ma wybraną grupę; otwiera "Twoje grupy". */
+@Composable
+private fun GroupsTile(choices: Int, enabled: Boolean, onOpen: () -> Unit, modifier: Modifier) {
+    val colors = MaterialTheme.colorScheme
+    pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard(modifier = modifier,
+        onClick = if (enabled) onOpen else null, onClickLabel = "Otwórz grupy zajęciowe") {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(colors.secondaryContainer), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Groups, contentDescription = null, tint = colors.onSecondaryContainer, modifier = Modifier.size(26.dp))
+            }
+            Column {
+                Text("Twoje grupy", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                Text(when {
+                    !enabled -> "Najpierw klasa"
+                    choices == 0 -> "Wszystkie lekcje"
+                    else -> przedmiotow(choices)
+                }, style = MaterialTheme.typography.titleMedium, color = colors.onSurface, maxLines = 2)
+                Text(if (choices == 0) "Dotknij, aby widzieć tylko swoje lekcje" else "Dotknij, aby zmienić",
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2)
+            }
+        }
+    }
+}
+
+private fun przedmiotow(n: Int): String {
+    val word = when {
+        n == 1 -> "przedmiot"
+        n % 10 in 2..4 && n % 100 !in 12..14 -> "przedmioty"
+        else -> "przedmiotów"
+    }
+    return "$n $word"
+}
+
+@Composable
+private fun UpdatesSection(state: SettingsViewModel.State, viewModel: SettingsViewModel) {
+    val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
+    var choosingChannel by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    var denied by remember { mutableStateOf(false) }
+    val permission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted -> denied = !granted; if (granted) viewModel.setNotifyUpdates(true) }
+    GroupedSection("Aktualizacje", icon = Icons.Outlined.SystemUpdate,
+        footer = if (state.updateChannel == UpdateChannel.BETA)
+            "Wersje beta są testowe i mogą zawierać błędy. Gdy ukaże się wersja stabilna, też ją dostaniesz."
+        else null) {
+        ValueRow("Kanał", state.updateChannel.label) { choosingChannel = true }
+        RowDivider()
+        SwitchRow("Powiadamiaj o nowej wersji", state.notifyUpdates,
+            supporting = "Sprawdzanie w tle najwyżej co 12 godzin, jedno powiadomienie na wersję") { enable ->
+            val needsPermission = enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (needsPermission) permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) else viewModel.setNotifyUpdates(enable)
+        }
+        if (denied) Text("Bez zgody na powiadomienia o nowej wersji dowiesz się z baneru na stronie głównej.",
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        RowDivider()
+        ActionRow("Sprawdź aktualizacje", enabled = updateStatus != SettingsViewModel.UpdateStatus.Checking) { viewModel.checkForUpdates() }
+        when (val st = updateStatus) {
+            SettingsViewModel.UpdateStatus.Idle -> Unit
+            SettingsViewModel.UpdateStatus.Checking -> UpdateNote("Sprawdzam…")
+            SettingsViewModel.UpdateStatus.UpToDate -> UpdateNote("Masz najnowszą wersję (${BuildConfig.VERSION_NAME}).")
+            SettingsViewModel.UpdateStatus.Failed -> UpdateNote("Nie udało się sprawdzić - brak połączenia z GitHubem.")
+            is SettingsViewModel.UpdateStatus.Available -> {
+                UpdateNote("Dostępna wersja ${st.update.versionName}.")
+                Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                    UpdateActions(st.update, onLater = null)
+                }
+            }
+        }
+    }
+    if (choosingChannel) {
+        ChoiceDialog("Kanał aktualizacji",
+            listOf(UpdateChannel.STABLE to "Stabilne (zalecane)", UpdateChannel.BETA to "Beta - wersje testowe i stabilne"),
+            state.updateChannel,
+            onSelect = { viewModel.setUpdateChannel(it); choosingChannel = false },
+            onDismiss = { choosingChannel = false })
+    }
+}
+
+@Composable
+private fun DataSection(viewModel: SettingsViewModel) {
+    var confirmReset by remember { mutableStateOf(false) }
+    GroupedSection("Dane", icon = Icons.Outlined.Storage,
+        footer = "Pobiera plan, zastępstwa i ogłoszenia od nowa. Klasa, grupy, notatki i ustawienia zostają.") {
+        ActionRow("Wyczyść dane podręczne", destructive = true) { confirmReset = true }
+    }
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text("Wyczyścić dane podręczne?") },
+            text = { Text("Lokalna kopia planu, zastępstw i ogłoszeń zostanie usunięta i pobrana od nowa ze strony szkoły.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.resetCache(); confirmReset = false }) {
+                    Text("Wyczyść", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Anuluj") } }
+        )
+    }
+}
+
+@Composable
+private fun AboutSection(viewModel: SettingsViewModel, devMode: Boolean, showToast: (String) -> Unit) {
+    val ctx = LocalContext.current
+    val linkColor = MaterialTheme.colorScheme.primary
+    var logoTaps by remember { mutableIntStateOf(0) }
+    var lastLogoTap by remember { mutableLongStateOf(0L) }
+    val onLogoTap: () -> Unit = {
+        val t = SystemClock.uptimeMillis()
+        logoTaps = if (t - lastLogoTap < 700) logoTaps + 1 else 1
+        lastLogoTap = t
+        if (!devMode && logoTaps >= 5) {
+            viewModel.setDevMode(true)
+            logoTaps = 0
+            showToast("Tryb dewelopera włączony.")
+        }
+    }
+    GroupedSection("O aplikacji", icon = Icons.Outlined.Info) {
+        Column(
+            Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_logo),
+                contentDescription = null,
+                modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onLogoTap
+                    )
+            )
+            Spacer(Modifier.height(10.dp))
+            Text("eLektron", style = MaterialTheme.typography.titleLarge)
+            Text("Wersja ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text(aboutText(linkColor),
+            Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center)
+        RowDivider()
+        // Raport z logami: kopiowanie, e-mail do dewelopera albo zgłoszenie na GitHubie.
+        ActionRow("Zgłoś problem", trailingChevron = true) { viewModel.openFeedback() }
+        RowDivider()
+        ActionRow("Napisz do autora", supporting = CrashReport.CONTACT_EMAIL, trailingIcon = true) {
+            if (!openContactEmail(ctx)) SafeUrls.open(ctx, REPO_URL)
+        }
+        RowDivider()
+        ActionRow("Kod źródłowy na GitHubie", trailingIcon = true) { SafeUrls.open(ctx, REPO_URL) }
+        RowDivider()
+        ActionRow("Polityka prywatności", trailingIcon = true) { SafeUrls.open(ctx, PRIVACY_URL) }
+    }
+}
+
+@Composable
+private fun DevSection(viewModel: SettingsViewModel) {
+    var confirmCrash by remember { mutableStateOf(false) }
+    if (confirmCrash) {
+        AlertDialog(
+            onDismissRequest = { confirmCrash = false },
+            title = { Text("Symulować awarię?") },
+            text = { Text("Aplikacja zamknie się z błędem. Po ponownym uruchomieniu pojawi się okno raportu (kopiowanie logów, e-mail, GitHub).") },
+            confirmButton = { TextButton(onClick = { confirmCrash = false; viewModel.devCrash() }) { Text("Zamknij z błędem") } },
+            dismissButton = { TextButton(onClick = { confirmCrash = false }) { Text("Anuluj") } }
+        )
+    }
+    val devDialog by viewModel.devDialog.collectAsStateWithLifecycle()
+    DevSimulationDialogs(devDialog,
+        onSubstitution = viewModel::devSimulateSubstitution,
+        onAnnouncement = viewModel::devSimulateAnnouncement,
+        onCustomSubstitution = { viewModel.devDialog.value = SettingsViewModel.DevDialog.CustomSubstitution },
+        onCustomAnnouncement = { viewModel.devDialog.value = SettingsViewModel.DevDialog.CustomAnnouncement },
+        onDismiss = { viewModel.devDialog.value = null })
+    val offset by viewModel.simulatedOffset.collectAsStateWithLifecycle()
+    GroupedSection(
+        "Tryb dewelopera",
+        icon = Icons.Outlined.Code,
+        footer = "Symulacje są widoczne tylko na tym telefonie. Zastępstwo (własne albo wzorowane na zapisanym, " +
+            "także minionym) trafia na najbliższą lekcję - do planu, zastępstw, strony głównej i widżetów - " +
+            "i wysyła powiadomienie; tak samo ogłoszenie. Znikają po „Usuń symulacje” albo przy synchronizacji. " +
+            "Symulowany czas dalej płynie; synchronizacja, przypomnienia i powiadomienia zostają w prawdziwym czasie."
+    ) {
+        DevTimeRows(offset, onSimulate = viewModel::simulateTime, onReset = viewModel::resetSimulatedTime)
+        RowDivider()
+        ActionRow("Symuluj zastępstwo…", trailingChevron = true) { viewModel.devOpenSubstitution() }
+        RowDivider()
+        ActionRow("Symuluj ogłoszenie…", trailingChevron = true) { viewModel.devOpenAnnouncement() }
+        RowDivider()
+        ActionRow("Usuń symulacje") { viewModel.devClearSimulations() }
+        RowDivider()
+        ActionRow("Odśwież widżety") { viewModel.devRefreshWidgets() }
+        RowDivider()
+        ActionRow("Raport błędu (bez awarii)") { viewModel.openFeedback() }
+        RowDivider()
+        ActionRow("Symuluj awarię aplikacji", destructive = true) { confirmCrash = true }
+        RowDivider()
+        ActionRow("Wyłącz tryb dewelopera") { viewModel.setDevMode(false) }
     }
 }
 

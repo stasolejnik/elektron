@@ -32,14 +32,15 @@ fun ElektronTheme(
     dynamicColor: Boolean = false,
     /** Kolor akcentu (Ustawienia -> Wygląd); nie dotyczy kolorów z tapety. */
     accent: AccentSetting = AccentSetting(),
+    /** Główny wygląd (Ustawienia -> Wygląd); nie dotyczy kolorów z tapety. */
+    look: pl.zse.bydgoszcz.elektron.domain.model.LookSetting = pl.zse.bydgoszcz.elektron.domain.model.LookSetting(),
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val scheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        darkTheme -> remember(accent) { Accents.apply(DarkColors, Accents.dark(accent)) }
-        else -> remember(accent) { Accents.apply(LightColors, Accents.light(accent)) }
+        else -> remember(darkTheme, accent, look) { Looks.scheme(darkTheme, accent, look) }
     }
     MaterialTheme(
         colorScheme = scheme,

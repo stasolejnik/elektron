@@ -61,8 +61,12 @@ object WidgetPalettes {
         mode: ThemeMode,
         dynamic: Boolean,
         opacity: Int = 100,
-        accent: AccentSetting = AccentSetting()
+        accent: AccentSetting = AccentSetting(),
+        look: pl.zse.bydgoszcz.elektron.domain.model.LookSetting = pl.zse.bydgoszcz.elektron.domain.model.LookSetting()
     ): WidgetPalette {
+        // Główny wygląd aplikacji: tło widżetu jak karty, drugorzędny tekst jak w aplikacji.
+        val dayLook = pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.light(look)
+        val nightLook = pl.zse.bydgoszcz.elektron.domain.model.BaseLooks.dark(look)
         val dayAccent = Accents.light(accent)
         val nightAccent = Accents.dark(accent)
         val bgAlpha = opacity.coerceIn(0, 100) / 100f
@@ -86,9 +90,9 @@ object WidgetPalettes {
             colorRole(Color(brandDay), Color(brandNight), alpha, fromScheme)
 
         return WidgetPalette(
-            background = role(0xFFFFFFFF, 0xFF1C1C1E, bgAlpha) { it.surface },
-            textPrimary = role(0xFF000000, 0xFFFFFFFF) { it.onSurface },
-            textSecondary = role(0xFF6C6C70, 0xFF8E8E93) { it.onSurfaceVariant },
+            background = role(dayLook.card, nightLook.card, bgAlpha) { it.surface },
+            textPrimary = role(dayLook.onSurface, nightLook.onSurface) { it.onSurface },
+            textSecondary = role(dayLook.onSurfaceVariant, nightLook.onSurfaceVariant) { it.onSurfaceVariant },
             textFaded = role(0xFF8E8E93, 0xFF6E6E73) { it.outline },
             // Akcent z Ustawień -> Wygląd (ten sam co w aplikacji).
             accent = colorRole(dayAccent.primary, nightAccent.primary) { it.primary },

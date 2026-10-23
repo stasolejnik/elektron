@@ -48,6 +48,7 @@ class ElektronAppViewModel @Inject constructor(
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
         val dynamicColor: Boolean = false,
         val accent: AccentSetting = AccentSetting(),
+        val look: pl.zse.bydgoszcz.elektron.domain.model.LookSetting = pl.zse.bydgoszcz.elektron.domain.model.LookSetting(),
         val selectedClassId: String? = null,
         /** Klasa, dla której przeszedł krok wyboru grup — różna od selectedClassId => pokaż krok. */
         val groupsConfiguredFor: String? = null,
@@ -132,9 +133,10 @@ class ElektronAppViewModel @Inject constructor(
             groupsConfiguredFor = groupsFor, isReady = true, changelogToShow = entriesToShow)
     },
         startRoute,
-        settings.accent
-    ) { app, route, accent ->
-        val withAccent = app.copy(accent = accent)
+        settings.accent,
+        settings.look
+    ) { app, route, accent, look ->
+        val withAccent = app.copy(accent = accent, look = look)
         if (route == null) withAccent.copy(isReady = false) else withAccent.copy(startRoute = route)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppState(isReady = false))
 

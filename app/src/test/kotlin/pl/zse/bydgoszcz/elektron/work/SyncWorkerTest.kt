@@ -108,7 +108,7 @@ class SyncWorkerTest {
         notificationsRepo = t.notificationsRepo
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                SyncWorker(appContext, workerParameters, t.coordinator, t.notificationsRepo)
+                SyncWorker(appContext, workerParameters, t.coordinator, t.notificationsRepo, UpdateNotifier(appContext, settings, NoUpdates))
         }
         val worker = TestListenableWorkerBuilder<SyncWorker>(context).setWorkerFactory(factory)
             .setInputData(androidx.work.workDataOf("background" to background)).build()
@@ -171,4 +171,10 @@ class SyncWorkerTest {
         // Wszystko świeże, w nocy nic nie jest do sprawdzenia: sukces, nie ponowienia co 30 s.
         assertEquals(ListenableWorker.Result.success(), runWorker(background = true, time = java.time.LocalTime.of(23, 30)))
     }
+}
+
+private object NoUpdates : pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository {
+    override val availableUpdate = kotlinx.coroutines.flow.flowOf<pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate?>(null)
+    override suspend fun check(force: Boolean) = Result.success<pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate?>(null)
+    override suspend fun dismiss(versionName: String) = Unit
 }

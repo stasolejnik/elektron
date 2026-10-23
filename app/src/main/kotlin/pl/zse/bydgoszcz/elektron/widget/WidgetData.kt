@@ -167,12 +167,13 @@ object WidgetDataLoader {
         val dynamic = runCatchingCancellable { ep.settings().dynamicColor.first() }.getOrDefault(false)
         val opacity = runCatchingCancellable { ep.settings().widgetLook.first().opacity }.getOrDefault(100)
         val accent = runCatchingCancellable { ep.settings().accent.first() }.getOrDefault(AccentSetting())
+        val look = runCatchingCancellable { ep.settings().look.first() }.getOrDefault(pl.zse.bydgoszcz.elektron.domain.model.LookSetting())
         // Odczyt kolorów tapety to wywołanie usługi systemowej - poza wątkiem głównym i z limitem czasu.
         val wallpaper = if (mode == ThemeMode.SYSTEM && opacity < WidgetWallpaper.OPACITY)
             kotlinx.coroutines.withTimeoutOrNull(1_000) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { WidgetWallpaper.supportsDarkText(context) }
             } else null
-        return WidgetPalettes.create(context, WidgetWallpaper.effectiveMode(mode, opacity, wallpaper), dynamic, opacity, accent)
+        return WidgetPalettes.create(context, WidgetWallpaper.effectiveMode(mode, opacity, wallpaper), dynamic, opacity, accent, look)
     }
 
     suspend fun load(context: Context): WidgetState = runCatchingCancellable { loadChecked(context) }

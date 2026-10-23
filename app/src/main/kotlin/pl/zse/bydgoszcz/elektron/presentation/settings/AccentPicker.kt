@@ -52,7 +52,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.presentation.common.theme.AccentTones
 import pl.zse.bydgoszcz.elektron.presentation.common.theme.Accents
 
-private val ACCENT_LABELS = mapOf(
+internal val ACCENT_LABELS = mapOf(
     AccentColor.BLUE to "Niebieski",
     AccentColor.PURPLE to "Fioletowy",
     AccentColor.PINK to "Różowy",
@@ -62,7 +62,7 @@ private val ACCENT_LABELS = mapOf(
 )
 
 /** Koło barw do kółka "własny kolor" i paska odcienia. */
-private val RAINBOW = listOf(0f, 60f, 120f, 180f, 240f, 300f, 360f).map { Color(AccentMath.fromHsl(it, 0.85f, 0.55f)) }
+internal val RAINBOW = listOf(0f, 60f, 120f, 180f, 240f, 300f, 360f).map { Color(AccentMath.fromHsl(it, 0.85f, 0.55f)) }
 
 /**
  * Kółka palet akcentu pod Auto/Jasny/Ciemny: pięć popularnych kolorów w kolejności koła barw
@@ -209,7 +209,7 @@ private fun Preview(tones: AccentTones) {
 /** Suwak z gradientem jako torem (odcień, nasycenie) i okrągłym uchwytem w wybranym kolorze. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GradientSlider(value: Float, onValueChange: (Float) -> Unit, brush: Brush, thumb: Color, label: String) {
+internal fun GradientSlider(value: Float, onValueChange: (Float) -> Unit, brush: Brush, thumb: Color, label: String) {
     val outline = MaterialTheme.colorScheme.outlineVariant
     Slider(
         value = value,

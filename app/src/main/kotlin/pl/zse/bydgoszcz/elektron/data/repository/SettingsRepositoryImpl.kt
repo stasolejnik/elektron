@@ -1,6 +1,7 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import pl.zse.bydgoszcz.elektron.domain.model.AccentSetting
 import pl.zse.bydgoszcz.elektron.domain.model.AccentColor
 import java.time.LocalTime
@@ -85,6 +86,9 @@ class SettingsRepositoryImpl internal constructor(
         val QUIET_TO = intPreferencesKey("quiet_to_min")
         val ACCENT = stringPreferencesKey("accent_color")
         val ACCENT_CUSTOM = longPreferencesKey("accent_custom")
+        val LOOK = stringPreferencesKey("base_look")
+        val LOOK_HUE = floatPreferencesKey("base_look_hue")
+        val LOOK_TINT = floatPreferencesKey("base_look_tint")
         val WIDGET_OPACITY = intPreferencesKey("widget_opacity")
         val WIDGET_TEACHER = booleanPreferencesKey("widget_show_teacher")
         val WIDGET_ROOM = booleanPreferencesKey("widget_show_room")
@@ -97,6 +101,7 @@ class SettingsRepositoryImpl internal constructor(
         val GROUPS_CONFIGURED_FOR = stringPreferencesKey("groups_configured_for")
         val LIVE_ENABLED = booleanPreferencesKey("live_notifications")
         val SHOW_DAY_END = booleanPreferencesKey("show_day_end")
+        val NOTIFY_UPDATES = booleanPreferencesKey("notify_updates")
         val LIVE_HIDDEN_DAY = longPreferencesKey("live_hidden_day")
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
     }
@@ -201,6 +206,19 @@ class SettingsRepositoryImpl internal constructor(
         }
     }
 
+    override val look: Flow<pl.zse.bydgoszcz.elektron.domain.model.LookSetting> = prefs.map {
+        pl.zse.bydgoszcz.elektron.domain.model.LookSetting(pl.zse.bydgoszcz.elektron.domain.model.BaseLook.fromKey(it[Keys.LOOK]),
+            (it[Keys.LOOK_HUE] ?: pl.zse.bydgoszcz.elektron.domain.model.LookSetting.DEFAULT_HUE).coerceIn(0f, 360f),
+            (it[Keys.LOOK_TINT] ?: pl.zse.bydgoszcz.elektron.domain.model.LookSetting.DEFAULT_TINT).coerceIn(0f, 1f))
+    }.distinctUntilChanged()
+    override suspend fun setLook(value: pl.zse.bydgoszcz.elektron.domain.model.LookSetting) {
+        safeEdit {
+            it[Keys.LOOK] = value.look.key
+            it[Keys.LOOK_HUE] = value.hue
+            it[Keys.LOOK_TINT] = value.tint
+        }
+    }
+
     override val widgetLook: Flow<WidgetLook> = prefs.map {
         WidgetLook(
             opacity = (it[Keys.WIDGET_OPACITY] ?: 100).coerceIn(0, 100),
@@ -247,6 +265,11 @@ class SettingsRepositoryImpl internal constructor(
         prefs.map { UpdateChannel.fromKey(it[Keys.UPDATE_CHANNEL]) }.distinctUntilChanged()
     override suspend fun setUpdateChannel(channel: UpdateChannel) {
         safeEdit { it[Keys.UPDATE_CHANNEL] = channel.key }
+    }
+
+    override val notifyUpdates: Flow<Boolean> = prefs.map { it[Keys.NOTIFY_UPDATES] ?: false }.distinctUntilChanged()
+    override suspend fun setNotifyUpdates(enabled: Boolean) {
+        safeEdit { it[Keys.NOTIFY_UPDATES] = enabled }
     }
 
     override val showDayEnd: Flow<Boolean> = prefs.map { it[Keys.SHOW_DAY_END] ?: false }.distinctUntilChanged()

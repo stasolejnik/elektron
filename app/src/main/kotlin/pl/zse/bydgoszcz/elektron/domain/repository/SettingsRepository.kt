@@ -54,6 +54,10 @@ interface SettingsRepository {
     val accent: Flow<AccentSetting>
     suspend fun setAccent(value: AccentSetting)
 
+    /** Główny wygląd (tła i karty) - Ustawienia -> Wygląd; domyślnie klasyczny. */
+    val look: Flow<pl.zse.bydgoszcz.elektron.domain.model.LookSetting> get() = flowOf(pl.zse.bydgoszcz.elektron.domain.model.LookSetting())
+    suspend fun setLook(value: pl.zse.bydgoszcz.elektron.domain.model.LookSetting) {}
+
     val widgetLook: Flow<WidgetLook>
     suspend fun setWidgetLook(value: WidgetLook)
 
@@ -74,6 +78,10 @@ interface SettingsRepository {
     /** Dzień (epochDay), w którym użytkownik ukrył albo odrzucił powiadomienie na żywo; null - żaden. */
     val liveHiddenDay: Flow<Long?> get() = flowOf(null)
     suspend fun setLiveHiddenDay(epochDay: Long?) {}
+
+    /** Powiadomienie o nowej wersji (tylko wersja z GitHuba, sprawdzanie w tle); domyślnie wyłączone. */
+    val notifyUpdates: Flow<Boolean> get() = flowOf(false)
+    suspend fun setNotifyUpdates(enabled: Boolean) {}
 
     /** Kanał aktualizacji z GitHuba; domyślnie stabilny. */
     val updateChannel: Flow<UpdateChannel> get() = flowOf(UpdateChannel.STABLE)
