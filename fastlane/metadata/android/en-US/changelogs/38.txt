@@ -1,6 +1,6 @@
-New: time left until the end of lessons on the home screen and the Day plan widget (Settings → Home).
-Several groups of one subject ("choose several groups" for subjects with three or more).
-Live notification: progress bar and time left always current, not removed by "Clear all".
-Status bar countdown on Android 16+.
-Widgets show the same time left as the app.
+Commute (formerly Departures): to your lesson in the morning with time to spare, home after lessons, live delays.
+New Settings with categories, custom look of backgrounds and cards with preview.
+Time left until lessons end on the home screen and the Day plan widget.
+Several groups of one subject.
+Live notification: current progress and time, status bar countdown (Android 16+).
 School notices without "published / updated" entries, with images.

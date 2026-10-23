@@ -12,8 +12,8 @@ Unofficial app for students of the Zespół Szkół Elektronicznych (school of e
 <li>School news read in the app, with photos, search and favourites available offline</li>
 <li>Home screen with the current or next lesson, breaks, substitutions and time left until lessons end</li>
 <li>Widgets: Next lesson, Day plan, Substitutions, plus a quick settings tile</li>
-<li>Departures from school: next public transport connections to a chosen stop, without GPS (optional)</li>
-<li>Custom subject names and colours, light and dark theme, accent colour, wallpaper colours, app icon choice</li>
+<li>Commute: in the morning buses and trams to your next lesson (time to spare, last one that makes it), after lessons the way home (when to leave), live delays, without GPS (optional)</li>
+<li>Custom subject names and colours, light and dark theme, accent colour, ready-made or custom look with preview, wallpaper colours, app icon choice</li>
 </ul>
 
 The app's interface is in Polish. Not affiliated with the school or VULCAN. Inspired by Atom (iOS) by Kacper Górka. Free software under GNU GPL v3 or later.

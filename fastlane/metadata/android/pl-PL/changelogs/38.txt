@@ -1,6 +1,6 @@
-Nowość: czas do końca lekcji na stronie głównej i w widżecie Plan dnia (Ustawienia → Strona główna).
-Kilka grup jednego przedmiotu („Wybierz kilka grup” przy trzech grupach i więcej).
-Powiadomienie na żywo: zawsze aktualny pasek i pozostały czas, nie znika po „Wyczyść wszystko”.
-Odliczanie na pasku stanu w Androidzie 16+.
-Widżety pokazują ten sam czas co aplikacja.
+Przejazdy (dawniej Odjazdy): rano dojazd na lekcję z zapasem czasu, po lekcjach powrót, opóźnienia na żywo.
+Nowe Ustawienia z kategoriami, własny wygląd tła i kart z podglądem.
+Czas do końca lekcji na stronie głównej i w widżecie Plan dnia.
+Kilka grup jednego przedmiotu.
+Powiadomienie na żywo: aktualny pasek i czas, odliczanie na pasku stanu (Android 16+).
 Informacje szkoły bez wpisów „Publikacja / Aktualizacja”, z obrazkami.

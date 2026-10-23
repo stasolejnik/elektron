@@ -12,8 +12,8 @@ Nieoficjalna aplikacja dla uczniów Zespołu Szkół Elektronicznych w Bydgoszcz
 <li>Ogłoszenia szkoły czytane w aplikacji, ze zdjęciami, wyszukiwaniem i ulubionymi dostępnymi offline</li>
 <li>Strona główna z trwającą lub najbliższą lekcją, przerwą, zastępstwami i czasem do końca lekcji</li>
 <li>Widżety: Następna lekcja, Plan dnia, Zastępstwa oraz kafelek w szybkich ustawieniach</li>
-<li>Odjazdy ze szkoły: najbliższe połączenia komunikacji miejskiej do wybranego przystanku, bez GPS (opcjonalne)</li>
-<li>Własne nazwy i kolory przedmiotów, jasny i ciemny motyw, kolor akcentu, kolory z tapety, wybór ikony</li>
+<li>Przejazdy: rano dojazd na lekcję (ile zapasu, ostatni kurs, którym zdążysz), po lekcjach powrót ze szkoły (kiedy wyjść), opóźnienia na żywo, bez GPS (opcjonalne)</li>
+<li>Własne nazwy i kolory przedmiotów, jasny i ciemny motyw, kolor akcentu, gotowy albo własny wygląd z podglądem, kolory z tapety, wybór ikony</li>
 </ul>
 
 Aplikacja nie jest powiązana ze szkołą ani z firmą VULCAN. Inspirowana aplikacją Atom (iOS) Kacpra Górki. Wolne oprogramowanie na licencji GNU GPL v3 lub nowszej.

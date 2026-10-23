@@ -14,7 +14,7 @@ Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane pr
 ## Dane zapisane na telefonie
 
 - **Ustawienia:** wybrana klasa, grupy zajęciowe, motyw, ustawienia powiadomień, układ dolnego
-  paska, ekran startowy oraz ustawienia Odjazdów (przystanki i widoczność karty na stronie głównej).
+  paska, ekran startowy oraz ustawienia Przejazdów (przystanki i widoczność karty na stronie głównej).
 - **Kopia danych ze strony szkoły:** plan lekcji, zastępstwa i ogłoszenia (żeby aplikacja
   działała bez internetu).
 - **Ulubione ogłoszenia:** wybrane wpisy i pobrana treść artykułów, przechowywane lokalnie również po czyszczeniu danych podręcznych.
@@ -53,29 +53,37 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   też wersje testowe). Po naciśnięciu **Aktualizuj** pobiera z GitHuba plik APK nowej
   wersji (zapisywany tymczasowo w pamięci podręcznej aplikacji) i otwiera instalator systemu -
   instalację zawsze zatwierdzasz sam. GitHub widzi przy tym adres IP i wersję aplikacji; nie są
-  wysyłane żadne inne dane. Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
+  wysyłane żadne inne dane. Po włączeniu **Powiadamiaj o nowej wersji** (domyślnie wyłączone)
+  to samo sprawdzenie odbywa się także w tle, przy synchronizacji, najwyżej co 12 godzin.
+  Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
 - **Obrazki w informacjach szkoły:** gdy szkoła doda obrazek do informacji na stronie zastępstw (np. skrócony plan zajęć), aplikacja pobiera go po rozwinięciu karty, wyłącznie z serwerów szkoły.
 - **Zdjęcia w ogłoszeniach:** po otwarciu ogłoszenia pobierane są zdjęcia umieszczone w jego treści, wyłącznie z serwerów szkoły (obrazy z innych stron nie są pobierane - zostaje opis i link). Zdjęcia korzystają z pamięci podręcznej. Pełny tekst jest pobierany ze strony ogłoszenia przy pierwszym otwarciu (i ponownie, gdy zapisała go starsza wersja aplikacji).
 
-- **BUSearch (odjazdy ze szkoły):** po otwarciu wyboru przystanku aplikacja
+- **BUSearch (Przejazdy - dojazd do szkoły i powrót):** po otwarciu wyboru przystanku aplikacja
   pobiera publiczny katalog z api.busearch.pl. Katalog jest zapisywany w pamięci podręcznej;
   wyszukiwanie nazw i wybór celu odbywają się lokalnie. Przy samym wyborze celu nie są
   przesyłane wpisywane frazy, wybrany przystanek ani lokalizacja telefonu. Serwer widzi adres IP i wersję aplikacji.
-  Po otwarciu zakładki Odjazdy, ręcznym odświeżeniu lub oglądaniu kafelka odjazdu na
-  stronie głównej wysyła do planera BUSearch identyfikatory stanowisk przystanków
-  w promieniu 1 km od szkoły albo stanowisk wybranego przystanku początkowego,
-  współrzędne przystanku docelowego i czas rozpoczęcia podróży.
-  Dzięki temu pobiera połączenia i godziny odjazdów. Cel podróży jest więc przekazywany
-  dostawcy tylko przy wyszukiwaniu połączeń. Preferowany przystanek początkowy jest wtedy
-  również przekazywany planerowi. Historia pięciu ostatnich celów i pięciu ostatnich
-  przystanków początkowych jest zapisywana wyłącznie lokalnie wraz z ustawieniami; może
+  Po otwarciu zakładki Przejazdy, ręcznym odświeżeniu lub oglądaniu karty na
+  stronie głównej wysyła do planera BUSearch:
+  - w drodze ze szkoły: identyfikatory stanowisk przystanków w promieniu 1 km od szkoły
+    albo stanowisk wybranego przystanku przy szkole, współrzędne Twojego przystanku i czas
+    rozpoczęcia podróży;
+  - w drodze do szkoły: współrzędne Twojego przystanku (środek przystanku, nie lokalizację
+    telefonu), stały punkt szkoły i czas rozpoczęcia podróży (teraz albo do 90 minut przed
+    najbliższą lekcją - godzina lekcji wynika z planu, ale plan ani klasa nie są wysyłane).
+
+  Dla kursów odjeżdżających w ciągu około 30 minut aplikacja pobiera też co minutę tablicę
+  odjazdów stanowiska i linii (numer stanowiska i linii), żeby pokazać opóźnienie na żywo.
+  Twój przystanek jest więc przekazywany dostawcy tylko przy wyszukiwaniu połączeń. Historia
+  pięciu ostatnich Twoich przystanków i pięciu ostatnich przystanków przy szkole jest
+  zapisywana wyłącznie lokalnie wraz z ustawieniami; może
   wejść do systemowej kopii zapasowej Androida. Ostatni wynik wyszukiwania połączeń (linie,
   godziny i przystanki) jest zapisywany w pamięci podręcznej aplikacji, poza kopią zapasową,
   żeby po ponownym otwarciu był widoczny od razu; nowe sprawdzenie odbywa się najwyżej co
-  10 minut, gdy karta lub zakładka jest na ekranie. Funkcja nie korzysta z GPS ani cyklicznych
-  połączeń w tle.
-- **Trasy piesze (FOSSGIS / OpenStreetMap):** przy sprawdzaniu odjazdów aplikacja może
+  10 minut (opóźnienia co minutę), gdy karta lub zakładka jest na ekranie. Funkcja nie korzysta
+  z GPS ani cyklicznych połączeń w tle.
+- **Trasy piesze (FOSSGIS / OpenStreetMap):** przy sprawdzaniu powrotu ze szkoły aplikacja może
   wysłać do routing.openstreetmap.de stały punkt szkoły i współrzędne przystanków początkowych,
   aby obliczyć dojście ulicami i ścieżkami. Serwer widzi IP i wersję aplikacji; nie otrzymuje
   GPS telefonu, celu podróży, klasy ani notatek. Wyniki są zapisywane lokalnie na 7 dni.
@@ -96,7 +104,7 @@ Udostępnianie zastępstw przekazuje wybrane informacje do aplikacji wskazanej p
 
 ## Uprawnienia
 
-- **Internet i stan sieci:** pobieranie danych ze stron szkoły, powiadomień push i odjazdów;
+- **Internet i stan sieci:** pobieranie danych ze stron szkoły, powiadomień push i przejazdów;
   synchronizacja w tle czeka na połączenie.
 - **Powiadomienia:** informowanie o nowych zastępstwach i ogłoszeniach oraz przypomnienia
   (możesz je wyłączyć w ustawieniach aplikacji albo telefonu).
