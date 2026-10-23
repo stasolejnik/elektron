@@ -266,6 +266,9 @@ internal object TransitJourneyParser {
     /** Wybrany przystanek przy szkole może być dowolnie daleko (np. pętla, z której jest więcej kursów). */
     const val MAX_CHOSEN_ORIGIN_METERS = 50_000.0
 
+    /** Odjazd do szkoły najdalej tyle od środka Twojego przystanku. */
+    const val NEAR_HOME_METERS = 250.0
+
     /** Wysiadka najdalej tyle od wybranego przystanku przy szkole (sąsiednie stanowisko, przejście). */
     const val NEAR_TARGET_METERS = 400.0
 
@@ -325,7 +328,10 @@ internal object TransitJourneyParser {
                 if (reached) break
             }
             require(rides.size in 1..(if (allowTransfers) 2 else 1))
-            require(rides.first().fromId in home.stopIds)
+            // Twój przystanek albo przystanek tuż obok (planer startuje ze środka przystanku i bywa, że wybiera
+            // sąsiednie stanowisko po drugiej stronie ulicy) - karta i tak pokazuje, skąd odjeżdża kurs.
+            require(rides.first().fromId in home.stopIds || platforms[rides.first().fromId]?.let {
+                SchoolTransit.distanceBetween(it.latitude, it.longitude, home.latitude, home.longitude) <= NEAR_HOME_METERS } == true)
             if (target != null) {
                 // Planer bywa, że kończy na sąsiednim stanowisku i dochodzi pieszo - też się liczy (z dojściem).
                 val extraWalk = if (reached) 0 else {

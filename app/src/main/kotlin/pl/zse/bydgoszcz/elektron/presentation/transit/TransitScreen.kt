@@ -108,11 +108,19 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     // Dociąganie kolejnego okna planera (z limitem, żeby nie pytać w kółko): po odrzuceniu kursów, na które
     // nie da się dojść, lista bywa krótsza niż żądana, a do szkoły - musi sięgać do godziny lekcji.
     val coversLesson = !toSchool || targetMs == null || journeys.any { (it.schoolArrivalMs ?: it.arrivalMs) > targetMs }
+    // Najwyżej kilka dociągnięć na wybór i tylko, gdy poprzednie coś dodało - dawniej przy stronach planera
+    // bez pasującego kursu zakładka pytała bez końca, aż planer odmawiał ("Nie udało się sprawdzić połączeń").
+    var autoLoads by remember(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableStateOf(0 to -1) }
     LaunchedEffect(visible, matching, journeys.size, visibleCount, anchor, coversLesson, loading, moreLoading) {
         val data = matching ?: return@LaunchedEffect
+        val beyondLesson = toSchool && targetMs != null && (data.nextWhenMs ?: 0L) > targetMs + TransitViewModel.LESSON_HORIZON_MS
+        val (count, lastRaw) = autoLoads
         if (visible && !loading && !moreLoading && data.complete && data.nextWhenMs != null && data.journeys.size < 40 &&
-            (journeys.size < anchor + visibleCount || !coversLesson))
+            count < 4 && data.journeys.size != lastRaw && !beyondLesson &&
+            (journeys.size < anchor + visibleCount || !coversLesson)) {
+            autoLoads = (count + 1) to data.journeys.size
             viewModel.loadJourneys(more = true, minimumCount = data.journeys.size + 3)
+        }
     }
     val editable = state.ready && !state.failed && !saving
     val canRefresh = !loading && !moreLoading && editable && state.preferences.destination != null

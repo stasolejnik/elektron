@@ -366,6 +366,10 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                         loadWalking(published)
                         val next = published.nextWhenMs
                         if (published.journeys.size >= journeyMinimumCount || next == null || (cursor != null && next <= cursor!!)) return@runCatchingCancellable
+                        // Do szkoły: dalej niż pół godziny po lekcji szukać nie ma po co - dawniej strony bez pasującego
+                        // kursu (np. inny przystanek w odpowiedzi planera) ciągnęły szukanie godzinami do przodu.
+                        val lessonMs = commuteNow.targetMs
+                        if (toSchool && lessonMs != null && next > lessonMs + LESSON_HORIZON_MS) return@runCatchingCancellable
                         merge = true
                         cursor = next
                         cursors = published.platformCursors
@@ -472,5 +476,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
 
     companion object {
         const val LIVE_REFRESH_MS = 60_000L
+        /** Do szkoły: najdalej tyle po początku lekcji sięga szukanie kolejnych stron planera. */
+        const val LESSON_HORIZON_MS = 30 * 60_000L
     }
 }

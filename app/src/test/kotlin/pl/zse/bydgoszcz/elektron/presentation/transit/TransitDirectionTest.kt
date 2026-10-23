@@ -152,6 +152,58 @@ class TransitDirectionTest {
         }
     }
 
+    @Test fun pagesWithoutMatchingRidesStopShortlyAfterTheLesson() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val directory = File(app.cacheDir, "transit-pages-${System.nanoTime()}").apply { mkdirs() }
+        val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "s.preferences_pb") }))
+        val day = LocalDate.of(2026, 10, 26)
+        val db = inMemoryDb()
+        db.lessonDao().upsertAll(listOf(LessonEntity("o3|${day.toEpochDay()}|1", "o3", "1D", day.toEpochDay(), 1, 1, "08:00", "08:45", null)))
+        val timetable = TimetableRepositoryImpl(object : TimetableSource {
+            override suspend fun fetchSidebar() = error("offline")
+            override suspend fun fetchTimetable(classId: String) = error("offline")
+        }, db.schoolClassDao(), db.teacherDao(), db.roomDao(), db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+        val settings = FakeSettings().apply { classIdFlow.value = "o3" }
+        val home = TransitDestination("Dom", listOf("41"), 53.108, 18.045)
+        val plans = java.util.concurrent.atomic.AtomicInteger()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            val json = if (request.url.encodedPath.endsWith("/stops"))
+                """[{"id":41,"nazwa":"Dom","lat":53.108,"lon":18.045},{"id":77,"nazwa":"Daleko","lat":53.2,"lon":18.2},{"id":11,"nazwa":"Szkoła","lat":53.1225,"lon":18.0264}]"""
+            else {
+                plans.incrementAndGet()
+                val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
+                val w = JSONObject(buffer.readUtf8()).getLong("whenMs")
+                // Każda strona: kurs z innego przystanku (odrzucany) i następne okno za 20 min.
+                """{"ok":true,"nastepneWhenMs":${w + 20 * 60_000L},"polaczenia":[{"przyjazdMs":${w + 20 * 60_000L},"odcinki":[{"rodzaj":"przejazd","linia":"8","cel":"X","zPrzystanku":{"id":77,"nazwa":"Daleko"},"doPrzystanku":{"id":11,"nazwa":"Szkoła"},"odjazdMs":${w + 60_000L},"przyjazdMs":${w + 15 * 60_000L}}]}]}"""
+            }
+            okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
+        }.build()
+        val catalog = TransitStopCatalog(object : ContextWrapper(app) { override fun getCacheDir() = directory }, client)
+        AppClock.simulate(day.minusDays(2).atTime(20, 0))   // sobota wieczorem, lekcja w poniedziałek o 8:00
+        val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog), TransitSchoolDay(settings, timetable), null)
+        val owner = ViewModelStore().apply { put("transit", vm) }
+        try {
+            prefs.select(home); prefs.setEnabled(true)
+            vm.settings.first { it.ready && it.preferences.destination?.key == home.key }
+            withContext(Dispatchers.IO) { withTimeout(10_000) { vm.commute.first { it.target != null } } }
+            vm.setDirection(TransitDirection.TO_SCHOOL)
+            vm.startJourneySession(Any(), 3)
+            withContext(Dispatchers.IO) { withTimeout(20_000) { vm.journeyLoading.first { !it } } }
+            // Od 6:30 co 20 min do 8:30 (pół godziny po lekcji) - a nie 12 stron, godzinami do przodu.
+            assertTrue("zapytań: ${plans.get()}", plans.get() in 1..7)
+            assertNull(vm.journeyError.value)
+            assertTrue(vm.journeys.value!!.journeys.isEmpty())
+        } finally {
+            AppClock.reset()
+            owner.clear(); ioScope.cancel(); ioScope.coroutineContext[Job]!!.join()
+            client.dispatcher.executorService.shutdown()
+            db.close(); Dispatchers.resetMain(); directory.deleteRecursively()
+        }
+    }
+
     @Test fun liveDelaysComeFromTheStopBoardForSoonDepartures() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val app = ApplicationProvider.getApplicationContext<Context>()
