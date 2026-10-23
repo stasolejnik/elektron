@@ -60,7 +60,7 @@ import pl.zse.bydgoszcz.elektron.presentation.common.pressable
 @Composable
 fun SubjectsScreen(onClose: () -> Unit, viewModel: SubjectsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val saveError by viewModel.saveError.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
@@ -69,20 +69,14 @@ fun SubjectsScreen(onClose: () -> Unit, viewModel: SubjectsViewModel = hiltViewM
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            LargeTopAppBar(
-                title = { Text("Przedmioty") },
+            pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar(
+                title = "Przedmioty",
+                scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wstecz")
                     }
-                },
-                collapsedHeight = 56.dp,
-                expandedHeight = 108.dp,
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                }
             )
         }
     ) { padding ->

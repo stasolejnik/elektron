@@ -83,7 +83,7 @@ fun SubstitutionsScreen(
     val ready by viewModel.ready.collectAsStateWithLifecycle()
     val otherGroups by viewModel.otherGroups.collectAsStateWithLifecycle()
     val showOtherGroups by viewModel.showOtherGroups.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val context = LocalContext.current
     val personal = LocalPersonalization.current
     fun share(items: List<Substitution>) {

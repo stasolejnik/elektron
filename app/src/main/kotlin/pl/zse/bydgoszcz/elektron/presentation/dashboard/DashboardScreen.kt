@@ -93,7 +93,7 @@ fun DashboardScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
     val transitDirection by transitViewModel.commute.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

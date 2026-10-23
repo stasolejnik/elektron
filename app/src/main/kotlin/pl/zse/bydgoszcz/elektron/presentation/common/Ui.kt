@@ -152,28 +152,30 @@ fun GroupedSection(
 }
 
 /**
- * Duży tytuł jak w iOS — zwija się do małego paska przy przewijaniu.
- * Ekran musi podpiąć scrollBehavior.nestedScrollConnection do Scaffolda.
+ * Duży tytuł ekranu - stały, w jednym miejscu (bez zwijania do małego paska: przewijanie najpierw
+ * zwijało pasek, a dopiero potem ruszało treść, przez co trudno się przewijało). Ekrany podają
+ * TopAppBarDefaults.pinnedScrollBehavior() - nie zabiera przewijania treści.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LargeTitleBar(
     title: String,
-    scrollBehavior: TopAppBarScrollBehavior,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
 ) {
-    LargeTopAppBar(
-        title = { Text(title, modifier = Modifier.semantics { heading() }) },
+    androidx.compose.material3.TopAppBar(
+        title = {
+            Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+        },
         navigationIcon = navigationIcon,
         actions = actions,
-        // Niżej niż domyślne 152 dp: nad tytułem był pusty pas i treść zaczynała się w połowie ekranu.
-        collapsedHeight = 56.dp,
-        expandedHeight = 108.dp,
+        expandedHeight = 64.dp,
         scrollBehavior = scrollBehavior,
-        colors = TopAppBarDefaults.largeTopAppBarColors(
+        colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.background,
-            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+            scrolledContainerColor = MaterialTheme.colorScheme.background
         )
     )
 }

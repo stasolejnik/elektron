@@ -286,7 +286,7 @@ fun SettingsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsSubpage(title: String, onBack: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
@@ -322,7 +322,7 @@ internal fun SettingsHome(
     barState: androidx.compose.material3.TopAppBarState = androidx.compose.material3.rememberTopAppBarState(),
     onOpen: (SettingsPage) -> Unit
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(barState)
     val ctx = LocalContext.current
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

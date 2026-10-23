@@ -78,7 +78,7 @@ fun GroupsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val saveError by viewModel.saveError.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     LaunchedEffect(state.classId) { viewModel.startEditing(state.classId) }
     var confirmDiscard by remember { mutableStateOf(false) }
     val leave: () -> Unit = { if (state.hasChanges) { confirmDiscard = true } else { viewModel.cancel(onClose) } }
@@ -99,22 +99,16 @@ fun GroupsScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            LargeTopAppBar(
-                title = { Text("Twoje grupy") },
+            pl.zse.bydgoszcz.elektron.presentation.common.LargeTitleBar(
+                title = "Twoje grupy",
+                scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     if (!asSetupStep) {
                         IconButton(onClick = leave) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wstecz")
                         }
                     }
-                },
-                collapsedHeight = 56.dp,
-                expandedHeight = 108.dp,
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                }
             )
         },
         bottomBar = {
