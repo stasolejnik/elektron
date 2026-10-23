@@ -1,5 +1,5 @@
 Commute (formerly Departures): to your lesson in the morning with time to spare, home after lessons, live delays.
-New Settings with categories, custom look of backgrounds and cards with preview.
+New Settings with categories, custom background colour.
 Time left until lessons end on the home screen and the Day plan widget.
 Several groups of one subject.
 Live notification: current progress and time, status bar countdown (Android 16+).

@@ -70,8 +70,9 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
     albo stanowisk wybranego przystanku przy szkole, współrzędne Twojego przystanku i czas
     rozpoczęcia podróży;
   - w drodze do szkoły: współrzędne Twojego przystanku (środek przystanku, nie lokalizację
-    telefonu), stały punkt szkoły i czas rozpoczęcia podróży (teraz albo do 90 minut przed
-    najbliższą lekcją - godzina lekcji wynika z planu, ale plan ani klasa nie są wysyłane).
+    telefonu), stały punkt szkoły albo współrzędne wybranego przystanku przy szkole i czas
+    rozpoczęcia podróży (teraz albo do 90 minut przed najbliższą lekcją - godzina lekcji wynika
+    z planu, ale plan ani klasa nie są wysyłane).
 
   Dla kursów odjeżdżających w ciągu około 30 minut aplikacja pobiera też co minutę tablicę
   odjazdów stanowiska i linii (numer stanowiska i linii), żeby pokazać opóźnienie na żywo.

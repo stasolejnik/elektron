@@ -63,7 +63,7 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 - **Szybki dostęp:** widżety Następna lekcja, Plan dnia i Zastępstwa, kafelek szybkich
   ustawień oraz skróty po przytrzymaniu ikony aplikacji.
 - **Wygląd:** własne nazwy i kolory przedmiotów, jasny lub ciemny motyw, kolor akcentu,
-  główny wygląd (gotowy albo własny z podglądem), kolory z tapety na Androidzie 12 lub
+  kolor tła (gotowy albo własny), kolory z tapety na Androidzie 12 lub
   nowszym i wybór ikony aplikacji.
 
 Przejazdy są domyślnie wyłączone - włączysz je w **Ustawieniach → Przejazdy** (zakładka i karta
@@ -74,23 +74,23 @@ o 12:00). Sprawdzanie połączeń wymaga internetu; funkcja nie korzysta z lokal
 
 ## Ustawienia
 
-Na górze zakładki **Ustawienia** są kafelki **Klasa** i **Grupy**, pod nimi kategorie - każda
-otwiera własną stronę. Kolejność jak w aplikacji.
+Na górze zakładki **Ustawienia** jest karta klasy i grup, pod nią kategorie - każda otwiera
+własną stronę, a po powrocie lista jest przewinięta tam, gdzie była. Kolejność jak w aplikacji.
 
 | Kategoria | Co ustawisz |
 |---|---|
-| **Klasa** i **Grupy** (kafelki na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały; przy przedmiotach z trzema grupami i więcej można wybrać kilka („Wybierz kilka grup”). Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
+| **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały; przy przedmiotach z trzema grupami i więcej można wybrać kilka („Wybierz kilka grup”). Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
 | **Powiadomienia** | Nowe zastępstwa i nowe ogłoszenia (ogłoszenia domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. **Przypomnienia o lekcjach** (domyślnie wyłączone; punktualne wymagają zgody na alarmy o czasie) oraz **notatki do lekcji**: lista notatek i przypomnienia dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
 | **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Przejazdy. Karty na stronie głównej, w tym **Czas do końca lekcji** (domyślnie wyłączony, także linia w widżecie Plan dnia) i **Przejazdy**. |
-| **Wygląd** | Podgląd aplikacji w jasnym i ciemnym motywie, motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **wygląd** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i intensywność tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: domyślna albo logo na białym tle. Po zmianie ikony aplikacja się zamyka. |
+| **Wygląd** | Motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **kolor tła** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i nasycenie tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: domyślna albo logo na białym tle. Po zmianie ikony aplikacja się zamyka. |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, pokazywanie sali i nauczyciela. |
-| **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie najbliższy z odjazdem) i połączenia z przesiadką. |
+| **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie „Szkoła” - najbliższe przystanki; można wybrać dowolny, lista od najbliższego szkoły) i połączenia z przesiadką. |
 | **Pasek nawigacji** | Które zakładki są na dolnym pasku i w jakiej kolejności (przytrzymaj i przeciągnij). |
 | **Widżety** | Przezroczystość tła oraz sala i nauczyciel w widżetach. W motywie Auto przy dużej przezroczystości kolor tekstu dopasowuje się do tapety. |
 | **Praca w tle** | Stan optymalizacji baterii i poradnik dla Twojego telefonu - przydatne, gdy powiadomienia lub widżety się spóźniają. |
 | **Aktualizacje** | Wersja z GitHuba: **kanał** „Stabilne” (domyślnie) albo „Beta” (także wersje testowe), **powiadomienia o nowej wersji** (domyślnie wyłączone) i ręczne sprawdzenie aktualizacji. |
 | **Dane** | Wyczyszczenie danych podręcznych - plan, zastępstwa i ogłoszenia pobiorą się od nowa; ustawienia, notatki i ulubione zostają. |
-| **O aplikacji** | Wersja, zgłaszanie problemów z raportem, kontakt, kod źródłowy i polityka prywatności. |
+| **O aplikacji** | Wersja, zgłaszanie problemów z raportem, kontakt, kod źródłowy, polityka prywatności i licencja GPL v3. |
 
 Skróty po przytrzymaniu ikony aplikacji: Plan lekcji, Zastępstwa, Ogłoszenia, Strona główna
 i - przy włączonej zakładce - Przejazdy.

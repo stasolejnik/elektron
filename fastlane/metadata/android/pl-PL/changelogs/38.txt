@@ -1,5 +1,5 @@
 Przejazdy (dawniej Odjazdy): rano dojazd na lekcję z zapasem czasu, po lekcjach powrót, opóźnienia na żywo.
-Nowe Ustawienia z kategoriami, własny wygląd tła i kart z podglądem.
+Nowe Ustawienia z kategoriami, własny kolor tła.
 Czas do końca lekcji na stronie głównej i w widżecie Plan dnia.
 Kilka grup jednego przedmiotu.
 Powiadomienie na żywo: aktualny pasek i czas, odliczanie na pasku stanu (Android 16+).
