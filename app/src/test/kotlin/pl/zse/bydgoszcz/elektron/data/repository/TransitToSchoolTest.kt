@@ -46,6 +46,16 @@ class TransitToSchoolTest {
         assertEquals(ranked.map { it.key }.distinct(), ranked.map { it.key })
     }
 
+    @Test fun lessonDaysAheadKeepsRidesFoundForThatDay() {
+        // Piątek wieczorem, dojazd na poniedziałek: szukanie od poniedziałku, a "teraz" to piątek (ponad 36 h wcześniej).
+        val friday = searchedAt - 60 * 60 * 60_000L
+        val parsed = TransitJourneyParser.parseToSchool(JSONObject(resource("planner_to_school.json")), home, platforms, friday,
+            allowTransfers = true, searchFromMs = searchedAt)
+        assertEquals(4, parsed.size)
+        assertTrue(TransitJourneyParser.parseToSchool(JSONObject(resource("planner_to_school.json")), home, platforms, friday,
+            allowTransfers = true).isEmpty())
+    }
+
     @Test fun chosenSchoolStopEndsTheRideThereAndAddsTheWalk() {
         val stop = TransitDestination("Rondo Fordońskie", listOf("23"), 53.1213, 18.0322)
         val trips = TransitJourneyParser.parseToSchool(JSONObject(resource("planner_to_school.json")), home, platforms, searchedAt,

@@ -47,6 +47,14 @@ object TransitJourneys {
         ranked.filter { TransitLive.expected(it, live) > nowMs && (allowTransfers || it.transfers == 0) &&
             (preferredOrigin == null || it.rides.first().fromId in preferredOrigin.stopIds) }
 
+    /**
+     * Ze szkoły przy "Szkoła" (najbliższe przystanki, bez wybranego): tylko kursy, na które da się
+     * dojść przed odjazdem (z opóźnieniem na żywo). Dawniej lista zaczynała się od "za 1 min" z dojściem
+     * 17 min na dalszy przystanek. Przy wybranym przystanku kurs zostaje do odjazdu ("Pospiesz się").
+     */
+    fun walkable(journeys: List<TransitJourney>, nowMs: Long, live: Map<String, LiveStatus> = emptyMap()): List<TransitJourney> =
+        journeys.filter { it.schoolArrivalMs != null || TransitLive.expected(it, live) - it.walkMinutes * 60_000L >= nowMs }
+
     /** Do szkoły: kolejne odjazdy z Twojego przystanku, przy tej samej godzinie najpierw szybszy. */
     fun rankToSchool(journeys: List<TransitJourney>, nowMs: Long, allowTransfers: Boolean = true): List<TransitJourney> =
         journeys.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) }

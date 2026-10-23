@@ -16,7 +16,7 @@ object TransitCommute {
     const val LEAD_MINUTES = 90L
 
     /** Docelowa lekcja do dojazdu - tylko w najbliższych dniach (plan obejmuje tydzień). */
-    private const val TARGET_DAYS = 4L
+    private const val TARGET_DAYS = 7L
 
     data class Target(val lesson: Lesson, val start: LocalDateTime)
 

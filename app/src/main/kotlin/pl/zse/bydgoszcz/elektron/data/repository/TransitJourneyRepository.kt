@@ -180,7 +180,8 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
             if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
             JSONObject(source.readUtf8())
         }
-        val journeys = TransitJourneyParser.parseToSchool(response, home, platforms, minOf(now, whenMs), allowTransfers, schoolStop, targetWalk)
+        val journeys = TransitJourneyParser.parseToSchool(response, home, platforms, minOf(now, whenMs), allowTransfers, schoolStop, targetWalk,
+            searchFromMs = whenMs)
         val cursor = response.optLong("nastepneWhenMs", 0).takeIf { it > whenMs && it <= whenMs + 24 * 60 * 60_000L }
         val at = AppClock.millis()
         Result(home.key, TransitJourneys.rankToSchool(journeys, at, allowTransfers), at, schoolStop?.key, cursor, allowTransfers,
@@ -273,7 +274,10 @@ internal object TransitJourneyParser {
      * pod szkołą. Dotarcie do szkoły - koniec ostatniego (pieszego) odcinka, liczony przez planer.
      */
     fun parseToSchool(response: JSONObject, home: TransitDestination, platforms: Map<String, TransitDestination>, nowMs: Long,
-        allowTransfers: Boolean = true, target: TransitDestination? = null, targetWalkMinutes: Int = 0): List<TransitJourney> {
+        allowTransfers: Boolean = true, target: TransitDestination? = null, targetWalkMinutes: Int = 0,
+        /** Od kiedy szukano - przy lekcji za kilka dni (piątek wieczorem -> poniedziałek) dawniej limit 36 h od teraz odrzucał wszystko. */
+        searchFromMs: Long = nowMs): List<TransitJourney> {
+        val horizon = maxOf(nowMs, searchFromMs) + 36 * 60 * 60_000L
         require(response.getBoolean("ok")) { "Planer nie zwrócił poprawnych danych" }
         val options = response.getJSONArray("polaczenia")
         require(options.length() <= 200)
@@ -310,7 +314,7 @@ internal object TransitJourneyParser {
                     }
                     if (toId in target.stopIds) { reached = true; toName = target.name }
                 }
-                require(departure >= nowMs && arrival >= departure && arrival <= nowMs + 36 * 60 * 60_000L)
+                require(departure >= nowMs && arrival >= departure && arrival <= horizon)
                 val line = leg.getString("linia"); val direction = leg.getString("cel")
                 require(line.isNotBlank() && line.length <= 32 && direction.isNotBlank() && direction.length <= 200)
                 rides.lastOrNull()?.let { require(departure >= it.arrivalMs + 60_000L) }

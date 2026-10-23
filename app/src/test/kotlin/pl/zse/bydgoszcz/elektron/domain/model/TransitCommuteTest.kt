@@ -114,4 +114,22 @@ class TransitCommuteTest {
         assertEquals(base - 7 * 60_000L, trip.leaveSchoolMs())
         assertEquals(base - 4 * 60_000L, trip.leaveSchoolMs(base + 3 * 60_000L))
     }
+
+    @Test fun fromSchoolWithoutChosenStopShowsOnlyRidesYouCanWalkTo() {
+        val near = TransitJourney(listOf(ride("10", base + 4 * 60_000L)), 3, 200.0)
+        val far = TransitJourney(listOf(ride("5", base + 60_000L, from = "99")), 17, 1000.0)
+        val farLater = TransitJourney(listOf(ride("5", base + 20 * 60_000L, from = "99")), 17, 1000.0)
+        assertEquals(listOf(near, farLater), TransitJourneys.walkable(listOf(near, far, farLater), base))
+        // Opóźniony o 20 min - już da się dojść.
+        assertEquals(listOf(far), TransitJourneys.walkable(listOf(far), base, mapOf(far.key to LiveStatus(20, far.departureMs + 20 * 60_000L))))
+        // Do szkoły - bez filtra dojścia (dojście jest na końcu).
+        val toSchool = far.copy(schoolArrivalMs = base + 30 * 60_000L)
+        assertEquals(listOf(toSchool), TransitJourneys.walkable(listOf(toSchool), base))
+    }
+
+    @Test fun targetSurvivesALongWeekend() {
+        val friday = LocalDate.of(2026, 10, 23)
+        val tuesday = lesson(1, "08:00", "08:45", friday.plusDays(4))
+        assertEquals(tuesday, TransitCommute.target(listOf(tuesday), at("15:00", friday))!!.lesson)
+    }
 }

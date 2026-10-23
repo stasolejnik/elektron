@@ -93,6 +93,14 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     val journeys = remember(matching, nowMs, originKey, state.preferences.allowTransfers, live) {
         TransitJourneys.upcoming(matching?.journeys.orEmpty(), nowMs, if (toSchool) null else state.preferences.preferredOrigin,
             state.preferences.allowTransfers, live)
+            .let { if (state.preferences.preferredOrigin == null) TransitJourneys.walkable(it, nowMs, live) else it }
+    }
+    // Po odrzuceniu kursów, na które nie da się dojść, lista bywa krótsza niż żądana - dociągamy
+    // kolejne okno planera sami (z limitem, żeby nie pytać w kółko), zamiast pokazywać jeden kurs.
+    LaunchedEffect(visible, matching, journeys.size, visibleCount, loading, moreLoading) {
+        val data = matching ?: return@LaunchedEffect
+        if (visible && !loading && !moreLoading && data.complete && journeys.size < visibleCount && data.nextWhenMs != null && data.journeys.size < 30)
+            viewModel.loadJourneys(more = true, minimumCount = data.journeys.size + 3)
     }
     val targetMs = if (toSchool) commute.targetMs else null
     val lastOnTime = remember(journeys, targetMs, live) { TransitJourneys.lastOnTime(journeys, targetMs, live) }
@@ -241,13 +249,32 @@ private fun TargetLine(target: pl.zse.bydgoszcz.elektron.domain.model.TransitCom
     else {
         val onTime = journeys.count { trip -> trip.schoolArrivalMs?.let { it + TransitJourneys.delayMs(trip, live) <= targetMs } == true &&
             TransitLive.expected(trip, live) > nowMs }
-        "Na ${target.lesson.number}. lekcję o ${formatTransitTime(targetMs, nowMs)}" +
+        "Na ${target.lesson.number}. lekcję ${lessonWhen(target.start, nowMs)}" +
             if (journeys.isNotEmpty()) " · zdążysz ${onTime.kursy()}" else ""
     }
     Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Outlined.School, null, tint = colors.primary, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(text, style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+    }
+}
+
+/** "o 8:55", "jutro o 8:55", "w poniedziałek (26.10) o 8:55" - dzień przed godziną, z przyimkiem. */
+internal fun lessonWhen(start: java.time.LocalDateTime, nowMs: Long): String {
+    val today = Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+    val time = "o " + start.format(transitTime)
+    return when (start.toLocalDate()) {
+        today -> time
+        today.plusDays(1) -> "jutro $time"
+        else -> {
+            val day = when (start.dayOfWeek) {
+                java.time.DayOfWeek.MONDAY -> "w poniedziałek"; java.time.DayOfWeek.TUESDAY -> "we wtorek"
+                java.time.DayOfWeek.WEDNESDAY -> "w środę"; java.time.DayOfWeek.THURSDAY -> "w czwartek"
+                java.time.DayOfWeek.FRIDAY -> "w piątek"; java.time.DayOfWeek.SATURDAY -> "w sobotę"
+                else -> "w niedzielę"
+            }
+            "$day (${start.format(DateTimeFormatter.ofPattern("d.MM"))}) $time"
+        }
     }
 }
 
