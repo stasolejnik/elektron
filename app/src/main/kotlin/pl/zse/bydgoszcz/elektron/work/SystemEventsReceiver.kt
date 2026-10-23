@@ -23,7 +23,7 @@ interface SystemEventsEntryPoint {
 
 /**
  * Restart telefonu, aktualizacja aplikacji (także z przycisku "Aktualizuj"), zmiana czasu lub
- * strefy: Android kasuje alarmy / zmienia się "teraz" - od razu ustawiamy przypomnienie
+ * strefy, zgoda na dokładne alarmy: Android kasuje alarmy / zmienia się "teraz" - od razu ustawiamy przypomnienie
  * o najbliższej lekcji i odświeżamy widżety. Dawniej dopiero przy najbliższym syncu (do 15 min),
  * więc przypomnienie tuż po aktualizacji mogło przepaść.
  */
@@ -65,7 +65,8 @@ class SystemEventsReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_TIME_CHANGED,
-            Intent.ACTION_TIMEZONE_CHANGED
+            Intent.ACTION_TIMEZONE_CHANGED,
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"
         )
     }
 }

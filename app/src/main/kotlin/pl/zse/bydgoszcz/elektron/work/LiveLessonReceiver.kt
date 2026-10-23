@@ -29,10 +29,11 @@ class LiveLessonReceiver : BroadcastReceiver() {
                 // goAsync daje ok. 10 s.
                 withTimeoutOrNull(8_000) {
                     when (intent.action) {
-                        LiveLessonScheduler.ACTION_HIDE, LiveLessonScheduler.ACTION_DISMISSED -> {
-                            android.util.Log.i("LiveLesson", if (intent.action == LiveLessonScheduler.ACTION_HIDE) "Ukryj na dziś" else "Odsunięte - ukryte do jutra")
+                        LiveLessonScheduler.ACTION_HIDE -> {
+                            android.util.Log.i("LiveLesson", "Ukryj na dziś")
                             scheduler.hideToday()
                         }
+                        LiveLessonScheduler.ACTION_DISMISSED -> scheduler.dismissed()
                         else -> scheduler.reschedule()
                     }
                 }

@@ -74,6 +74,27 @@ class LiveLessonScheduler @Inject constructor(
         reschedule(now)
     }
 
+    /**
+     * Powiadomienie zniknęło bez "Ukryj na dziś": odsunięcie przez użytkownika (Android 14+) ukrywa je
+     * do jutra. System wysyła ten sam sygnał po upływie czasu ([NotificationCompat.Builder.setTimeoutAfter],
+     * po końcu lekcji) - wtedy nic nie ukrywamy, inaczej lekcja dopisana później tego dnia (zastępstwo)
+     * nie miałaby już powiadomienia.
+     */
+    suspend fun dismissed(now: LocalDateTime = AppClock.now()) {
+        val showing = runCatchingCancellable { mutex.withLock { contentAt(now) } != null }.getOrDefault(true)
+        if (showing) { Log.i(TAG, "Odsunięte - ukryte do jutra"); hideToday(now) }
+        else { Log.i(TAG, "Wygasło po lekcjach"); reschedule(now) }
+    }
+
+    private suspend fun lessonsFor(classId: String, today: java.time.LocalDate) =
+        LessonGroups.filter(timetableRepo.getLessonsOnce(classId, today, today.plusDays(7)), settings.groupSelections(classId).first())
+
+    /** Co powiadomienie pokazuje teraz (bez ukrycia na dziś); null - poza oknem lekcji. */
+    private suspend fun contentAt(now: LocalDateTime): LiveLesson.Content? {
+        val classId = settings.selectedClassId.first() ?: return null
+        return LiveLesson.content(lessonsFor(classId, now.toLocalDate()), now)
+    }
+
     private suspend fun rescheduleLocked(now: LocalDateTime) {
         val classId = settings.selectedClassId.first()
         if (!settings.liveNotifications.first() || classId == null || !canPost(context)) {
@@ -83,8 +104,7 @@ class LiveLessonScheduler @Inject constructor(
             return
         }
         val today = now.toLocalDate()
-        val lessons = LessonGroups.filter(timetableRepo.getLessonsOnce(classId, today, today.plusDays(7)),
-            settings.groupSelections(classId).first())
+        val lessons = lessonsFor(classId, today)
         val hidden = settings.liveHiddenDay.first() == today.toEpochDay()
         val styles = runCatchingCancellable { settings.subjectStyles.first() }.getOrDefault(emptyMap())
         val noteMap = runCatchingCancellable { notes.notes.first() }.getOrDefault(emptyList()).associateBy { it.key }

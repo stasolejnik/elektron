@@ -120,6 +120,19 @@ class LiveLessonSchedulerTest {
         assertNull(alarms.peekNextScheduledAlarm())
     }
 
+    @Test fun swipeHidesUntilTomorrowButExpiryAfterLessonsDoesNot() = runBlocking {
+        settings.liveFlow.value = true
+        scheduler.reschedule(day.atTime(8, 10))
+        // Odsunięcie w trakcie lekcji - do jutra.
+        scheduler.dismissed(day.atTime(8, 12))
+        assertNull(live())
+        assertEquals(day.toEpochDay(), settings.liveHiddenFlow.value)
+        // Wygaśnięcie (setTimeoutAfter) po ostatniej lekcji wysyła ten sam sygnał - bez ukrywania.
+        settings.liveHiddenFlow.value = null
+        scheduler.dismissed(day.atTime(9, 41))
+        assertNull(settings.liveHiddenFlow.value)
+    }
+
     @Test fun afterLessonsNothingIsShown() = runBlocking {
         settings.liveFlow.value = true
         scheduler.reschedule(day.atTime(9, 40))
