@@ -51,7 +51,7 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
     }
     val visible = LocalScreenVisible.current
     val owner = LocalLifecycleOwner.current
-    val originKey = if (toSchool) null else prefs.preferredOrigin?.key
+    val originKey = prefs.preferredOrigin?.key
     DisposableEffect(viewModel, visible, direction, prefs.destination.key, originKey, prefs.allowTransfers, owner) {
         val consumer = Any()
         val observer = LifecycleEventObserver { _, event ->

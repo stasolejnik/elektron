@@ -116,6 +116,42 @@ class TransitDirectionTest {
         }
     }
 
+    @Test fun simulatedTimeChangeUpdatesDirectionWithoutOpeningTheTab() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val directory = File(app.cacheDir, "transit-sim-${System.nanoTime()}").apply { mkdirs() }
+        val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "s.preferences_pb") }))
+        val day = LocalDate.of(2026, 10, 26)
+        val db = inMemoryDb()
+        db.lessonDao().upsertAll(listOf(
+            LessonEntity("o3|${day.toEpochDay()}|2", "o3", "1D", day.toEpochDay(), 1, 2, "08:55", "09:40", null),
+            LessonEntity("o3|${day.toEpochDay()}|6", "o3", "1D", day.toEpochDay(), 1, 6, "12:45", "13:30", null)))
+        val timetable = TimetableRepositoryImpl(object : TimetableSource {
+            override suspend fun fetchSidebar() = error("offline")
+            override suspend fun fetchTimetable(classId: String) = error("offline")
+        }, db.schoolClassDao(), db.teacherDao(), db.roomDao(), db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+        val settings = FakeSettings().apply { classIdFlow.value = "o3" }
+        val client = OkHttpClient.Builder().addInterceptor { error("bez sieci") }.build()
+        val catalog = TransitStopCatalog(object : ContextWrapper(app) { override fun getCacheDir() = directory }, client)
+        // Aplikacja działa w prawdziwym czasie (inny dzień), dopiero potem tryb dewelopera zmienia czas.
+        val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog), TransitSchoolDay(settings, timetable), null)
+        val owner = ViewModelStore().apply { put("transit", vm) }
+        try {
+            AppClock.simulate(day.atTime(7, 30))
+            val morning = withContext(Dispatchers.IO) { withTimeout(10_000) { vm.commute.first { it.target?.lesson?.date == day } } }
+            assertEquals(TransitDirection.TO_SCHOOL, morning.direction)
+            assertEquals(2, morning.target!!.lesson.number)
+            // Połowa dnia: 8:55-13:30 -> 11:12:30.
+            AppClock.simulate(day.atTime(11, 20))
+            assertEquals(TransitDirection.FROM_SCHOOL, vm.commute.value.direction)
+        } finally {
+            AppClock.reset()
+            owner.clear(); ioScope.cancel(); ioScope.coroutineContext[Job]!!.join()
+            db.close(); Dispatchers.resetMain(); directory.deleteRecursively()
+        }
+    }
+
     @Test fun liveDelaysComeFromTheStopBoardForSoonDepartures() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val app = ApplicationProvider.getApplicationContext<Context>()

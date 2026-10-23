@@ -46,6 +46,22 @@ class TransitToSchoolTest {
         assertEquals(ranked.map { it.key }.distinct(), ranked.map { it.key })
     }
 
+    @Test fun chosenSchoolStopEndsTheRideThereAndAddsTheWalk() {
+        val stop = TransitDestination("Rondo Fordońskie", listOf("23"), 53.1213, 18.0322)
+        val trips = TransitJourneyParser.parseToSchool(JSONObject(resource("planner_to_school.json")), home, platforms, searchedAt,
+            allowTransfers = true, target = stop, targetWalkMinutes = 7)
+        // Oba kursy linii 8 jadą przez Rondo Fordońskie - wysiadka tam, nie na końcu przejazdu.
+        assertEquals(2, trips.size)
+        trips.forEach { trip ->
+            val ride = trip.rides.single()
+            assertEquals("8", ride.line)
+            assertEquals("23", ride.toId)
+            assertEquals("Rondo Fordońskie", ride.toName)
+            assertEquals(ride.arrivalMs + 7 * 60_000L, trip.schoolArrivalMs)
+            assertEquals(7, trip.walkMinutes)
+        }
+    }
+
     @Test fun findToSchoolAsksOncePerPageFromTheHomeStopToTheSchool() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Context>()
         val directory = File(app.cacheDir, "to-school-${System.nanoTime()}").apply { mkdirs() }

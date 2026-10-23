@@ -88,7 +88,8 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val matchingStops = filteredStops.map { all -> all.map { it.stop }.sortedBy { it.name } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val originStops = filteredStops.map { all -> all.filter { it.distance <= 1000 }.map { it.stop } }
+    // Bez limitu odległości (dawniej 1 km) - od najbliższego szkoły.
+    val originStops = filteredStops.map { all -> all.map { it.stop } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val results = matchingStops.map { it.take(80) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val settingsError = MutableStateFlow<String?>(null)
@@ -110,9 +111,9 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     private var walkingKey: RequestKey? = null
     /** Co jest szukane: kierunek, Twój przystanek, przystanek przy szkole (tylko ze szkoły), przesiadki. */
     private data class RequestKey(val direction: TransitDirection, val destination: String?, val origin: String?, val transfers: Boolean)
-    /** Przystanek przy szkole liczy się tylko w drodze ze szkoły. */
-    private fun originFor(prefs: TransitPreferences, direction: TransitDirection = _commute.value.direction) =
-        if (direction == TransitDirection.TO_SCHOOL) null else prefs.preferredOrigin
+    /** Przystanek przy szkole (null - "Szkoła": najbliższe przystanki) - w obu kierunkach. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun originFor(prefs: TransitPreferences, direction: TransitDirection = _commute.value.direction) = prefs.preferredOrigin
     private fun requestKey(prefs: TransitPreferences, direction: TransitDirection = _commute.value.direction) = prefs.takeIf { it.canLoadJourneys }?.let {
         RequestKey(direction, it.destination?.key, originFor(it, direction)?.key, it.allowTransfers)
     }
@@ -124,6 +125,24 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     init {
         schoolDay?.let { source ->
             viewModelScope.launch { source.lessons.collect { schoolLessons = it; updateCommute() } }
+            // Kierunek i lekcja docelowa zmieniają się z czasem także bez otwartej zakładki: dawniej
+            // przeliczane tylko przy odświeżeniu zakładki, więc karta na stronie głównej (pokazywana,
+            // gdy kierunek się zgadza) po południu albo po zmianie symulowanego czasu się nie pojawiała.
+            viewModelScope.launch {
+                while (true) {
+                    kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L + 50L)
+                    updateCommute()
+                }
+            }
+        }
+        // Zmiana symulowanego czasu (tryb dewelopera): wyniki z innej chwili są nieaktualne.
+        viewModelScope.launch {
+            AppClock.offsetMs.drop(1).collect {
+                updateCommute()
+                cancelJourneys(); journeys.value = null; live.value = emptyMap(); journeyError.value = null
+                automaticRetryKey = null
+                if (journeyConsumers.isNotEmpty()) refreshJourneys(journeyMinimumCount)
+            }
         }
         viewModelScope.launch {
             combine(settings.filter { it.ready }, _commute.map { it.direction }) { s, direction -> requestKey(s.preferences, direction) }
@@ -198,7 +217,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
             if (prefs.destination == null && prefs.preferredOrigin == null) return@launch
             val fresh = runCatchingCancellable { catalog.load() }.getOrNull()?.takeUnless { it.stale } ?: return@launch
             val destination = pl.zse.bydgoszcz.elektron.domain.model.TransitStops.refreshed(prefs.destination, fresh.stops)
-            val origin = pl.zse.bydgoszcz.elektron.domain.model.TransitStops.refreshed(prefs.preferredOrigin, fresh.stops, maxFromSchoolMeters = 1000.0)
+            val origin = pl.zse.bydgoszcz.elektron.domain.model.TransitStops.refreshed(prefs.preferredOrigin, fresh.stops)
             val replacements = listOfNotNull(destination?.let { prefs.destination!!.key to it }, origin?.let { prefs.preferredOrigin!!.key to it }).toMap()
             if (replacements.isNotEmpty()) {
                 android.util.Log.i("Transit", "Zapisany przystanek ma nowe numery stanowisk - aktualizuję")
@@ -317,7 +336,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                                 if (journeyJob === thisJob && nothingShown && matches(partial, current)) journeys.value = partial
                             }
                         }
-                        val result = if (toSchool) journeyRepository.findToSchool(destination, fromMs!!, cursor, prefs.allowTransfers)
+                        val result = if (toSchool) journeyRepository.findToSchool(destination, fromMs!!, cursor, prefs.allowTransfers, origin)
                             else journeyRepository.find(destination, origin, cursor, prefs.allowTransfers, cursors, onPartial)
                         val current = settings.value.preferences
                         if (!matches(result, current)) return@runCatchingCancellable

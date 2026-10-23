@@ -64,7 +64,8 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     val moreLoading by viewModel.moreLoading.collectAsStateWithLifecycle()
     var picker by rememberSaveable { mutableIntStateOf(0) }
     val toSchool = commute.toSchool
-    val originKey = if (toSchool) null else state.preferences.preferredOrigin?.key
+    // Przystanek przy szkole liczy się w obu kierunkach (do szkoły - gdzie wysiadasz).
+    val originKey = state.preferences.preferredOrigin?.key
     var visibleCount by rememberSaveable(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableIntStateOf(3) }
     val error by viewModel.journeyError.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
@@ -143,23 +144,17 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                 DirectionSwitch(commute.direction, auto = commute.auto, enabled = !saving) { viewModel.setDirection(it) }
             }
             item(key = "route") {
-                val home = state.preferences.destination?.name
-                val schoolStop = state.preferences.preferredOrigin?.name
-                RouteCard(
-                    fromLabel = "Skąd",
-                    from = if (toSchool) home else schoolStop,
-                    fromPlaceholder = if (toSchool) "Wybierz swój przystanek" else "Przystanek najbliżej szkoły z odjazdem",
-                    toLabel = "Dokąd",
-                    to = if (toSchool) "Szkoła (Karłowicza 20)" else home,
-                    toPlaceholder = "Wybierz swój przystanek",
-                    enabled = editable,
-                    onFrom = { viewModel.query.value = ""; picker = if (toSchool) 1 else 2 },
-                    onClearFrom = if (toSchool) (if (home != null) viewModel::clear else null)
-                        else if (schoolStop != null) ({ viewModel.selectOrigin(null) }) else null,
-                    clearFromLabel = if (toSchool) "Usuń swój przystanek" else "Wróć do przystanku najbliżej szkoły",
-                    onTo = if (toSchool) null else ({ viewModel.query.value = ""; picker = 1 }),
-                    onClearTo = if (!toSchool && home != null) viewModel::clear else null
-                )
+                val homeName = state.preferences.destination?.name
+                val schoolName = state.preferences.preferredOrigin?.name
+                // Twój przystanek i przystanek przy szkole ("Szkoła" - najbliższe przystanki); kolejność wg kierunku.
+                val home = RouteStop("Twój przystanek", homeName, "Wybierz swój przystanek",
+                    onClick = { viewModel.query.value = ""; picker = 1 },
+                    onClear = if (homeName != null) viewModel::clear else null, clearLabel = "Usuń swój przystanek")
+                val school = RouteStop("Szkoła", schoolName, "Szkoła",
+                    onClick = { viewModel.query.value = ""; picker = 2 },
+                    onClear = if (schoolName != null) ({ viewModel.selectOrigin(null) }) else null,
+                    clearLabel = "Wróć do najbliższych przystanków szkoły", placeholderIsValue = true)
+                RouteCard(from = if (toSchool) home else school, to = if (toSchool) school else home, enabled = editable)
             }
             if (toSchool && state.preferences.destination != null) item(key = "target") {
                 TargetLine(commute.target, nowMs, journeys, targetMs, live)
@@ -197,8 +192,7 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
             // a przycisk zjeżdża w dół zamiast przeskakiwać.
             itemsIndexed(journeys.take(visibleCount), key = { _, trip -> trip.key }) { index, trip ->
                 Box(Modifier.animateItem()) {
-                    val label = listOfNotNull(if (index == 0) "Najbliższy" else null,
-                        if (trip === lastOnTime) "Ostatni, którym zdążysz" else null).joinToString(" · ")
+                    val label = if (trip === lastOnTime && index > 0) "Ostatni, którym zdążysz" else ""
                     JourneyCard(trip, nowMs, label, live = live[trip.key], lessonStartMs = targetMs)
                 }
             }
@@ -238,83 +232,69 @@ private fun DirectionSwitch(direction: TransitDirection, auto: TransitDirection,
     }
 }
 
-/** Do szkoły: na którą lekcję i ile kursów jeszcze zdąży. */
+/** Do szkoły: na którą lekcję i ile kursów z listy jeszcze zdąży - jedna zwarta linia. */
 @Composable
 private fun TargetLine(target: pl.zse.bydgoszcz.elektron.domain.model.TransitCommute.Target?, nowMs: Long,
     journeys: List<TransitJourney>, targetMs: Long?, live: Map<String, LiveStatus>) {
     val colors = MaterialTheme.colorScheme
-    Surface(color = colors.primaryContainer, shape = MaterialTheme.shapes.medium) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.School, null, tint = colors.onPrimaryContainer, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                if (target == null || targetMs == null) {
-                    Text("Brak lekcji w najbliższych dniach", style = MaterialTheme.typography.titleSmall, color = colors.onPrimaryContainer)
-                    Text("Pokazuję najbliższe kursy pod szkołę.", style = MaterialTheme.typography.bodySmall, color = colors.onPrimaryContainer)
-                } else {
-                    Text("Na ${target.lesson.number}. lekcję o ${formatTransitTime(targetMs, nowMs)}",
-                        style = MaterialTheme.typography.titleSmall, color = colors.onPrimaryContainer)
-                    val onTime = journeys.count { trip -> trip.schoolArrivalMs?.let { it + TransitJourneys.delayMs(trip, live) <= targetMs } == true &&
-                        TransitLive.expected(trip, live) > nowMs }
-                    val wait = TransitTimes.until(targetMs, nowMs)
-                    Text("Lekcja $wait" + if (journeys.isNotEmpty()) " · zdążysz ${onTime.kursy()}" else "",
-                        style = MaterialTheme.typography.bodySmall, color = colors.onPrimaryContainer)
-                }
-            }
-        }
+    val text = if (target == null || targetMs == null) "Brak lekcji w najbliższych dniach"
+    else {
+        val onTime = journeys.count { trip -> trip.schoolArrivalMs?.let { it + TransitJourneys.delayMs(trip, live) <= targetMs } == true &&
+            TransitLive.expected(trip, live) > nowMs }
+        "Na ${target.lesson.number}. lekcję o ${formatTransitTime(targetMs, nowMs)}" +
+            if (journeys.isNotEmpty()) " · zdążysz ${onTime.kursy()}" else ""
+    }
+    Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.School, null, tint = colors.primary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
     }
 }
 
-private fun Int.kursy() = when {
-    this == 1 -> "1 kursem z listy"
-    else -> "$this kursami z listy"
+private fun Int.kursy() = when (this) {
+    0 -> "żadnym z listy"
+    1 -> "1 kursem"
+    else -> "$this kursami"
 }
 
-/**
- * Trasa jak w planerach: skąd i dokąd w dwóch wierszach. Do szkoły cel jest stały (szkoła),
- * ze szkoły - start to przystanek przy szkole (automatycznie najbliższy z odjazdem).
- */
+/** Punkt trasy: etykieta, nazwa (null - [placeholder]), wybór i usunięcie. */
+private class RouteStop(val label: String, val name: String?, val placeholder: String, val onClick: () -> Unit,
+    val onClear: (() -> Unit)?, val clearLabel: String, val placeholderIsValue: Boolean = false)
+
+/** Trasa jak w planerach: skąd i dokąd w dwóch wierszach; oba punkty można zmienić. */
 @Composable
-private fun RouteCard(
-    fromLabel: String, from: String?, fromPlaceholder: String,
-    toLabel: String, to: String?, toPlaceholder: String, enabled: Boolean,
-    onFrom: () -> Unit, onClearFrom: (() -> Unit)?, clearFromLabel: String,
-    onTo: (() -> Unit)?, onClearTo: (() -> Unit)?
-) {
+private fun RouteCard(from: RouteStop, to: RouteStop, enabled: Boolean) {
     val colors = MaterialTheme.colorScheme
     ElektronCard {
         Column(Modifier.padding(vertical = 4.dp)) {
-            RoutePoint(label = fromLabel, value = from ?: fromPlaceholder,
-                placeholder = from == null, enabled = enabled, onClick = onFrom,
-                trailing = onClearFrom?.let { clear -> { IconButton(onClick = clear, enabled = enabled) { Icon(Icons.Filled.Close, clearFromLabel) } } })
+            RoutePoint("Skąd", from, enabled)
             HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = colors.outlineVariant)
-            RoutePoint(label = toLabel, value = to ?: toPlaceholder,
-                placeholder = to == null, enabled = enabled && onTo != null, onClick = onTo ?: {},
-                trailing = onClearTo?.let { clear -> { IconButton(onClick = clear, enabled = enabled) { Icon(Icons.Filled.Close, "Usuń swój przystanek") } } })
+            RoutePoint("Dokąd", to, enabled)
         }
     }
 }
 
 @Composable
-private fun RoutePoint(label: String, value: String, placeholder: Boolean, enabled: Boolean,
-    onClick: () -> Unit, trailing: (@Composable () -> Unit)?) {
+private fun RoutePoint(label: String, stop: RouteStop, enabled: Boolean) {
     val colors = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().pressable(enabled = enabled, onClickLabel = "Zmień: $label", onClick = onClick)
-        .heightIn(min = 56.dp).padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp),
+    val placeholder = stop.name == null && !stop.placeholderIsValue
+    Row(Modifier.fillMaxWidth().pressable(enabled = enabled, onClickLabel = "Zmień: ${stop.label}", onClick = stop.onClick)
+        .heightIn(min = 56.dp).padding(start = 16.dp, end = if (stop.onClear != null) 4.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1,
+            Text(stop.name ?: stop.placeholder, style = MaterialTheme.typography.titleMedium, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 color = if (placeholder) colors.onSurfaceVariant else colors.onSurface)
         }
-        trailing?.invoke()
+        stop.onClear?.let { clear -> IconButton(onClick = clear, enabled = enabled) { Icon(Icons.Filled.Close, stop.clearLabel) } }
     }
 }
 
 /**
- * Połączenie: linia i kierunek, przystanek, a po prawej duże "za ile" i godzina odjazdu (z opóźnieniem
- * na żywo, gdy jest). Ze szkoły - kiedy wyjść; do szkoły - kiedy będziesz w szkole i ile zapasu.
+ * Połączenie w trzech wierszach: linia i przystanek, na którym wysiadasz (z "za ile"), skąd
+ * odjeżdża (z godziną i opóźnieniem na żywo) oraz jedna najważniejsza informacja - do szkoły:
+ * kiedy będziesz w szkole i ile zapasu, ze szkoły: kiedy wyjść.
  */
 @Composable
 internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onClick: (() -> Unit)? = null,
@@ -324,30 +304,27 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onCli
     val toSchool = trip.schoolArrivalMs != null
     val departure = live?.expectedMs ?: trip.departureMs
     val shift = departure - trip.departureMs
-    ElektronCard(onClick = onClick) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    ElektronCard(onClick = onClick) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (label.isNotBlank()) Text(label, style = MaterialTheme.typography.labelMedium, color = colors.primary)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (label.isNotBlank()) Text(label, style = MaterialTheme.typography.labelMedium, color = colors.primary)
-                RideDirection(first.line, first.direction)
-                Text(first.fromName, style = MaterialTheme.typography.bodyLarge, color = colors.onSurface)
-                if (!toSchool) LeaveLine(trip, departure, nowMs)
-            }
+            Box(Modifier.weight(1f)) { RideTo(first.line, first.toName) }
             Spacer(Modifier.width(12.dp))
-            // Najważniejsze "za ile" - duże; dokładna godzina pod spodem.
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(TransitTimes.until(departure, nowMs), style = MaterialTheme.typography.headlineSmall, color = colors.primary, maxLines = 1)
-                Text(formatTransitTime(departure, nowMs), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant, maxLines = 1)
-                live?.let { LiveChip(it) }
-            }
+            Text(TransitTimes.until(departure, nowMs), style = MaterialTheme.typography.titleLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = colors.primary, maxLines = 1)
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("z ${first.fromName}", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
+                modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            live?.let { LiveChip(it); Spacer(Modifier.width(6.dp)) }
+            Text(formatTransitTime(departure, nowMs), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1)
+        }
+        // Przesiadka pod odjazdem - godziny po kolei.
         if (trip.transfers > 0) {
             val second = trip.rides[1]
-            HorizontalDivider(color = colors.outlineVariant)
-            Text("Przesiadka: ${first.toName}" + if (first.toName != second.fromName) " → ${second.fromName}" else "",
-                style = MaterialTheme.typography.bodyMedium, color = colors.onSurface)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { RideDirection(second.line, second.direction) }
-                Text(formatTransitTime(second.departureMs + shift.coerceAtLeast(0), nowMs), style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
+                Box(Modifier.weight(1f)) { RideTo(second.line, second.toName) }
+                Text(formatTransitTime(second.departureMs + shift.coerceAtLeast(0), nowMs), style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant)
             }
         }
         val atSchool = trip.schoolArrivalMs
@@ -363,12 +340,7 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onCli
             // Bez czerwieni (odstawała od reszty karty): spóźnienie pogrubione w kolorze tekstu.
             Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.onSurface,
                 fontWeight = if (slack != null && slack < 0) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
-            Text("Wysiadasz: ${trip.rides.last().toName}" + if (trip.walkMinutes > 0) " · dojście ok. ${TransitTimes.duration(trip.walkMinutes.toLong())}" else "",
-                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-        } else {
-            Text("Przyjazd ${if (shift != 0L) "ok. " else ""}${formatTransitTime(trip.arrivalMs + shift.coerceAtLeast(0), nowMs)} · ${trip.rides.last().toName}",
-                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-        }
+        } else LeaveLine(trip, departure, nowMs)
     } }
 }
 
@@ -377,7 +349,7 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onCli
 private fun LeaveLine(trip: TransitJourney, departure: Long, nowMs: Long) {
     val colors = MaterialTheme.colorScheme
     if (!trip.walkAvailable) {
-        Text(if (trip.walkPending) "Sprawdzam dojście…" else "Dojście niedostępne", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        Text(if (trip.walkPending) "Sprawdzam dojście…" else "Dojście niedostępne", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
         return
     }
     val walk = "dojście ${TransitTimes.duration(trip.walkMinutes.toLong())}"
@@ -388,8 +360,7 @@ private fun LeaveLine(trip: TransitJourney, departure: Long, nowMs: Long) {
         departure - trip.walkMinutes * 60_000L >= nowMs -> "Pospiesz się · $walk" to true
         else -> "Raczej nie zdążysz · $walk" to false
     }
-    Text(text, style = MaterialTheme.typography.bodySmall,
-        color = if (urgent) colors.onSurface else colors.onSurfaceVariant,
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.onSurface,
         fontWeight = if (urgent) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
 }
 
@@ -397,34 +368,36 @@ private fun LeaveLine(trip: TransitJourney, departure: Long, nowMs: Long) {
 @Composable
 private fun LiveChip(status: LiveStatus) {
     val colors = MaterialTheme.colorScheme
-    val (text, container, content) = when {
-        status.delayMinutes == 0 -> Triple("na czas", colors.primaryContainer, colors.onPrimaryContainer)
-        status.delayMinutes < 0 -> Triple("${-status.delayMinutes} min wcześniej", colors.secondaryContainer, colors.onSecondaryContainer)
-        else -> Triple("+${status.delayMinutes} min", colors.secondaryContainer, colors.onSecondaryContainer)
+    val text = when {
+        status.delayMinutes == 0 -> "na czas"
+        status.delayMinutes < 0 -> "${-status.delayMinutes} min wcześniej"
+        else -> "+${status.delayMinutes} min"
     }
     val description = when {
         status.delayMinutes < 0 -> "Na żywo: odjedzie ${-status.delayMinutes} min przed czasem"
         status.delayMinutes == 0 -> "Na żywo: na czas"
         else -> "Na żywo: opóźnienie ${status.delayMinutes} min"
     }
-    Surface(color = container, shape = MaterialTheme.shapes.extraSmall,
+    Surface(color = colors.secondaryContainer, shape = MaterialTheme.shapes.extraSmall,
         modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description }) {
         Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(content))
+            Box(Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(colors.onSecondaryContainer))
             Spacer(Modifier.width(4.dp))
-            Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1)
+            Text(text, style = MaterialTheme.typography.labelSmall, color = colors.onSecondaryContainer, maxLines = 1)
         }
     }
 }
 
+/** Linia i przystanek, na którym wysiadasz (nie kierunek pojazdu - ten bywa daleko za celem). */
 @Composable
-private fun RideDirection(line: String, direction: String) {
+private fun RideTo(line: String, stop: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small) {
-            Text(line, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+            Text(line, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
         }
-        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
-        Text(direction, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+        Text(stop, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 

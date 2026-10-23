@@ -57,7 +57,7 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
         val words = pl.zse.bydgoszcz.elektron.presentation.announcements.SearchText.normalize(query).split(' ').filter { it.isNotBlank() }
         history.map { available[it.key] ?: it }.filter { stop ->
             val name = pl.zse.bydgoszcz.elektron.presentation.announcements.SearchText.normalize(stop.name)
-            words.all { it in name } && (!origin || pl.zse.bydgoszcz.elektron.domain.model.SchoolTransit.distance(stop.latitude, stop.longitude) <= 1000)
+            words.all { it in name }
         }.take(5)
     }
     val results = mapStops.filterNot { candidate -> recent.any { it.key == candidate.key } }.take(80)
@@ -89,9 +89,9 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                     Tab(selected = mapMode, onClick = { focus.clearFocus(); keyboard?.hide(); mapMode = true }, text = { Text("Mapa") })
                 }
                 if (origin) TextButton(onClick = { viewModel.selectOrigin(null, onDismiss) }, enabled = !saving) {
-                    Text("Automatycznie wybierz najbliższy")
+                    Text("Szkoła - najbliższe przystanki")
                 }
-                if (origin) Text("Przystanki do 1 km od szkoły", style = MaterialTheme.typography.bodySmall)
+                if (origin) Text("Przystanek, z którego wracasz i na którym wysiadasz w drodze do szkoły. Lista od najbliższego szkoły.", style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(value = query, onValueChange = { viewModel.query.value = it.take(200) },
                     label = { Text("Szukaj przystanku") }, placeholder = { Text("Wpisz nazwę, np. Rondo Jagiellonów") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = !saving,
@@ -110,7 +110,7 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                 writeError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
                 if (!loading && mapStops.isEmpty() && recent.isEmpty() && error == null) Text("Nie znaleziono przystanku. Spróbuj krótszej nazwy.", Modifier.padding(vertical = 16.dp))
                 if (mapMode) {
-                    Text(if (origin) "Przystanek przy szkole: tylko przystanki do 1 km od szkoły (stąd planer szuka powrotu). Dotknij znacznika, aby go wybrać."
+                    Text(if (origin) "Dotknij znacznika, aby wybrać przystanek przy szkole. Mapa działa bez GPS."
                         else "Wybierz przystanek, z którego dojeżdżasz do szkoły i do którego wracasz (np. przy domu). Dotknij znacznika; przesuń mapę, aby zobaczyć dalsze. Mapa działa bez GPS.",
                         style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
                     Box(Modifier.weight(1f)) {

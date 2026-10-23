@@ -4,6 +4,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import pl.zse.bydgoszcz.elektron.domain.model.Lesson
@@ -24,10 +25,11 @@ class TransitSchoolDay @Inject constructor(
     private val timetable: TimetableRepository
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
-    val lessons: Flow<List<Lesson>> = settings.selectedClassId.flatMapLatest { classId ->
+    // Także po zmianie symulowanego czasu (tryb dewelopera) - plan od nowego "dziś", nie z chwili startu.
+    val lessons: Flow<List<Lesson>> = combine(settings.selectedClassId, AppClock.offsetMs) { classId, _ -> classId to AppClock.today() }
+        .distinctUntilChanged().flatMapLatest { (classId, today) ->
         if (classId == null) flowOf(emptyList())
         else {
-            val today = AppClock.today()
             combine(timetable.observeLessons(classId, today, today.plusDays(7)), settings.groupSelections(classId)) { lessons, groups ->
                 LessonGroups.filter(lessons, groups)
             }
