@@ -1,6 +1,5 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
-import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -24,13 +23,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -44,7 +40,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -66,65 +61,24 @@ internal val LOOK_LABELS = mapOf(
     BaseLook.CUSTOM to "Własny"
 )
 
-/**
- * Podgląd aplikacji w jasnym i ciemnym motywie obok siebie (Ustawienia -> Wygląd i próbnik
- * własnego wyglądu): tło, karta lekcji z wyróżnieniem w kolorze akcentu i dolny pasek.
- */
+/** Mała próbka w próbniku: tło z kartą lekcji w jasnym i ciemnym motywie. */
 @Composable
-internal fun ThemePreviewPair(accent: AccentSetting, look: LookSetting, dynamic: Boolean = false, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val wallpaper = dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val light = remember(accent, look, wallpaper) {
-        if (wallpaper) dynamicLightColorScheme(context) else Looks.scheme(false, accent, look)
-    }
-    val dark = remember(accent, look, wallpaper) {
-        if (wallpaper) dynamicDarkColorScheme(context) else Looks.scheme(true, accent, look)
-    }
-    Row(modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "Podgląd wyglądu w jasnym i ciemnym motywie" },
-        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        MiniScreen(light, "Jasny", Modifier.weight(1f))
-        MiniScreen(dark, "Ciemny", Modifier.weight(1f))
-    }
-}
-
-/** Miniatura ekranu: nagłówek, karta z trwającą lekcją i następną, dolny pasek z zaznaczoną zakładką. */
-@Composable
-private fun MiniScreen(scheme: ColorScheme, label: String, modifier: Modifier) {
-    val bg by animateColorAsState(scheme.background, label = "bg")
-    val card by animateColorAsState(scheme.surfaceContainerHigh, label = "card")
-    val primary by animateColorAsState(scheme.primary, label = "primary")
-    val container by animateColorAsState(scheme.primaryContainer, label = "container")
-    val bar by animateColorAsState(scheme.surfaceContainer, label = "bar")
-    val shape = RoundedCornerShape(16.dp)
-    Column(modifier.clip(shape).background(bg).border(1.dp, scheme.outlineVariant, shape)) {
-        Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-            Text("Dziś", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = scheme.onBackground)
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(card).padding(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(container).padding(horizontal = 6.dp, vertical = 4.dp),
+private fun LookSample(accent: AccentSetting, look: LookSetting) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        listOf(false, true).forEach { dark ->
+            val scheme = remember(accent, look, dark) { Looks.scheme(dark, accent, look) }
+            val bg by animateColorAsState(scheme.background, label = "bg")
+            val card by animateColorAsState(scheme.surfaceContainerHigh, label = "card")
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(bg).border(1.dp, scheme.outlineVariant, RoundedCornerShape(14.dp)).padding(10.dp)) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(card).padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("3", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = primary)
-                    Spacer(Modifier.width(6.dp))
+                    Text("3", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = scheme.primary)
+                    Spacer(Modifier.width(8.dp))
                     Column {
-                        Text("Matematyka", style = MaterialTheme.typography.labelMedium, color = scheme.onPrimaryContainer, maxLines = 1)
-                        Text("s. 105", style = MaterialTheme.typography.labelSmall, color = scheme.onPrimaryContainer.copy(alpha = 0.75f), maxLines = 1)
+                        Text("Lekcja", style = MaterialTheme.typography.labelMedium, color = scheme.onSurface, maxLines = 1)
+                        Text("s. 105", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
                     }
                 }
-                Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("4", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
-                    Spacer(Modifier.width(6.dp))
-                    Column {
-                        Text("Fizyka", style = MaterialTheme.typography.labelMedium, color = scheme.onSurface, maxLines = 1)
-                        Text("s. 12", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
-                    }
-                }
-            }
-        }
-        Row(Modifier.fillMaxWidth().background(bar).padding(vertical = 7.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            repeat(4) { i ->
-                Box(Modifier.size(width = 14.dp, height = 6.dp).clip(RoundedCornerShape(3.dp))
-                    .background(if (i == 1) primary else scheme.outline))
             }
         }
     }
@@ -139,7 +93,7 @@ internal fun LookPicker(current: LookSetting, accent: AccentSetting, wallpaperAc
     var editing by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Wygląd", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text("Kolor tła", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
             Text(if (wallpaperActive) "Z tapety" else LOOK_LABELS[current.look].orEmpty(), style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -157,7 +111,7 @@ internal fun LookPicker(current: LookSetting, accent: AccentSetting, wallpaperAc
                         .selectable(selected = selected, role = Role.RadioButton) {
                             if (isCustom) editing = true else onChange(current.copy(look = look))
                         }
-                        .semantics { contentDescription = if (isCustom && selected) "Własny wygląd, stuknij, aby zmienić" else LOOK_LABELS[look].orEmpty() },
+                        .semantics { contentDescription = if (isCustom && selected) "Własny kolor tła, stuknij, aby zmienić" else LOOK_LABELS[look].orEmpty() },
                     contentAlignment = Alignment.Center
                 ) {
                     if (!neutral) Canvas(Modifier.fillMaxSize()) {
@@ -178,7 +132,7 @@ internal fun LookPicker(current: LookSetting, accent: AccentSetting, wallpaperAc
     if (editing) CustomLookDialog(current, accent, onSave = { onChange(it); editing = false }, onDismiss = { editing = false })
 }
 
-/** Próbnik własnego wyglądu: odcień i intensywność, z podglądem jasnego i ciemnego motywu. */
+/** Próbnik własnego koloru tła: odcień i nasycenie (jak przy kolorze akcentu), z małą próbką jasnego i ciemnego motywu. */
 @Composable
 private fun CustomLookDialog(initial: LookSetting, accent: AccentSetting, onSave: (LookSetting) -> Unit, onDismiss: () -> Unit) {
     var hue by rememberSaveable { mutableFloatStateOf(initial.hue) }
@@ -186,21 +140,19 @@ private fun CustomLookDialog(initial: LookSetting, accent: AccentSetting, onSave
     val setting = LookSetting(BaseLook.CUSTOM, hue, tint)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Własny wygląd") },
+        title = { Text("Własny kolor tła") },
         text = {
             Column {
-                ThemePreviewPair(accent, setting)
+                LookSample(accent, setting)
                 Spacer(Modifier.height(18.dp))
                 Text("Odcień", style = MaterialTheme.typography.labelLarge)
                 GradientSlider(value = hue / 360f, onValueChange = { hue = it * 360f },
                     brush = Brush.horizontalGradient(RAINBOW), thumb = Color(AccentMath.fromHsl(hue, 0.85f, 0.55f)), label = "Odcień")
                 Spacer(Modifier.height(8.dp))
-                Text("Intensywność", style = MaterialTheme.typography.labelLarge)
+                Text("Nasycenie", style = MaterialTheme.typography.labelLarge)
                 GradientSlider(value = tint, onValueChange = { tint = it },
                     brush = Brush.horizontalGradient(listOf(Color(AccentMath.fromHsl(hue, 0f, 0.85f)), Color(AccentMath.fromHsl(hue, 0.6f, 0.75f)))),
-                    thumb = Color(AccentMath.fromHsl(hue, 0.6f * tint, 0.8f)), label = "Intensywność")
-                Text("Od neutralnej szarości (w ciemnym motywie czerń) do wyraźnego koloru tła i kart. Kolor akcentu zostaje osobno.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    thumb = Color(AccentMath.fromHsl(hue, 0.6f * tint, 0.8f)), label = "Nasycenie")
             }
         },
         confirmButton = { TextButton(onClick = { onSave(setting) }) { Text("Zapisz") } },

@@ -167,6 +167,9 @@ fun LargeTitleBar(
         title = { Text(title, modifier = Modifier.semantics { heading() }) },
         navigationIcon = navigationIcon,
         actions = actions,
+        // Niżej niż domyślne 152 dp: nad tytułem był pusty pas i treść zaczynała się w połowie ekranu.
+        collapsedHeight = 56.dp,
+        expandedHeight = 108.dp,
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.largeTopAppBarColors(
             containerColor = MaterialTheme.colorScheme.background,

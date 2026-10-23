@@ -141,7 +141,7 @@ internal fun TransitSection(
             RowDivider()
             ValueRow("Twój przystanek", prefs.destination?.name ?: "Wybierz", enabled = ready) { onPick(false) }
             RowDivider()
-            ValueRow("Przystanek przy szkole", prefs.preferredOrigin?.name ?: "Najbliższy", enabled = ready) { onPick(true) }
+            ValueRow("Przystanek przy szkole", prefs.preferredOrigin?.name ?: "Szkoła", enabled = ready) { onPick(true) }
             RowDivider()
             SwitchRow("Połączenia z przesiadką", prefs.allowTransfers, enabled = ready, onChange = onTransfers)
         }
@@ -345,6 +345,65 @@ internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit)
         SwitchRow("Pokazuj salę", current.showRoom) { onChange(current.copy(showRoom = it)) }
         RowDivider()
         SwitchRow("Pokazuj nauczyciela", current.showTeacher) { onChange(current.copy(showTeacher = it)) }
+    }
+}
+
+/**
+ * Karta klasy na górze Ustawień: od niej zależy wszystko inne. Wybór klasy w oknie (bez
+ * przewijanej listy wewnątrz Ustawień), zmiana dopiero po potwierdzeniu.
+ */
+@Composable
+internal fun ClassCard(classes: List<SchoolClass>, selectedId: String?, onSelect: (String) -> Unit, onOpenGroups: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    var choosing by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val current = classes.firstOrNull { it.id == selectedId }
+    GroupedSection(null) {
+        Row(
+            Modifier.fillMaxWidth().pressable(enabled = classes.isNotEmpty(), onClickLabel = "Zmień klasę") { choosing = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(52.dp).clip(CircleShape).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
+                Text(current?.shortName ?: "?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    color = colors.onPrimaryContainer, maxLines = 1)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(current?.let { "Klasa ${it.shortName}" } ?: "Wybierz klasę", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    when {
+                        classes.isEmpty() -> "Brak listy klas - pociągnij w dół na stronie głównej"
+                        current != null && current.fullName != current.shortName -> current.fullName
+                        else -> "Plan, zastępstwa i powiadomienia tej klasy"
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2
+                )
+            }
+            if (classes.isNotEmpty()) Text("Zmień", style = MaterialTheme.typography.labelLarge, color = colors.primary)
+        }
+        RowDivider()
+        ActionRow("Grupy zajęciowe", supporting = "Tylko Twoje lekcje w planie i na stronie głównej", trailingChevron = true, onClick = onOpenGroups)
+    }
+    // Zmiana klasy pobiera dane od nowa i otwiera krok grup bez cofania - jedno przypadkowe
+    // dotknięcie na liście było dawniej od razu zmianą klasy.
+    // Id, nie obiekt - okno potwierdzenia przetrwa obrót ekranu.
+    var pendingId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val pending = classes.firstOrNull { it.id == pendingId }
+    if (choosing) {
+        ChoiceDialog("Twoja klasa", classes.map { it.id to it.fullName }, selectedId ?: "",
+            onSelect = { id ->
+                choosing = false
+                if (id != selectedId) pendingId = id
+            }, onDismiss = { choosing = false })
+    }
+    pending?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingId = null },
+            title = { Text("Zmienić klasę na ${target.fullName}?") },
+            text = { Text("Aplikacja pobierze plan i zastępstwa tej klasy i poprosi o wybór grup. Grupy obecnej klasy zostaną zapamiętane.") },
+            confirmButton = { TextButton(onClick = { pendingId = null; onSelect(target.id) }) { Text("Zmień klasę") } },
+            dismissButton = { TextButton(onClick = { pendingId = null }) { Text("Anuluj") } }
+        )
     }
 }
 

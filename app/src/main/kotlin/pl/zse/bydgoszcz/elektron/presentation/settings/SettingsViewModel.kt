@@ -185,8 +185,6 @@ class SettingsViewModel @Inject constructor(
         val showDayEnd: Boolean = false,
         val baseLook: pl.zse.bydgoszcz.elektron.domain.model.LookSetting = pl.zse.bydgoszcz.elektron.domain.model.LookSetting(),
         val notifyUpdates: Boolean = false,
-        /** Ile przedmiotów ma wybraną grupę (Ustawienia: kafelek "Grupy"). */
-        val groupChoices: Int = 0,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -206,8 +204,7 @@ class SettingsViewModel @Inject constructor(
         settings.liveNotifications,
         settings.showDayEnd,
         settings.look,
-        settings.notifyUpdates,
-        settings.activeGroupSelections
+        settings.notifyUpdates
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -231,8 +228,7 @@ class SettingsViewModel @Inject constructor(
             liveNotifications = values[16] as Boolean,
             showDayEnd = values[17] as Boolean,
             baseLook = values[18] as pl.zse.bydgoszcz.elektron.domain.model.LookSetting,
-            notifyUpdates = values[19] as Boolean,
-            groupChoices = (values[20] as Map<String, String>).size
+            notifyUpdates = values[19] as Boolean
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 

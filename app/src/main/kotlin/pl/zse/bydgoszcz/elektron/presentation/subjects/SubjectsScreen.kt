@@ -76,6 +76,8 @@ fun SubjectsScreen(onClose: () -> Unit, viewModel: SubjectsViewModel = hiltViewM
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wstecz")
                     }
                 },
+                collapsedHeight = 56.dp,
+                expandedHeight = 108.dp,
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,

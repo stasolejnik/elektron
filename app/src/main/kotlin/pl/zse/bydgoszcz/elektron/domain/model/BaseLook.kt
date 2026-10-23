@@ -28,7 +28,7 @@ data class LookSetting(
     val look: BaseLook = BaseLook.CLASSIC,
     /** Odcień 0..360. */
     val hue: Float = DEFAULT_HUE,
-    /** Intensywność zabarwienia 0..1 (0 - neutralna szarość, w ciemnym czerń). */
+    /** Nasycenie koloru tła 0..1 (0 - neutralna szarość, w ciemnym czerń). */
     val tint: Float = DEFAULT_TINT
 ) {
     companion object {

@@ -108,6 +108,8 @@ fun GroupsScreen(
                         }
                     }
                 },
+                collapsedHeight = 56.dp,
+                expandedHeight = 108.dp,
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,

@@ -167,6 +167,9 @@ fun SettingsScreen(
     val visible = pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible.current
     androidx.activity.compose.BackHandler(enabled = page != null && visible) { page = null }
 
+    // Lista kategorii pamięta przewinięcie i zwinięty tytuł - po powrocie ze strony kategorii jest tam, gdzie była.
+    val homeList = androidx.compose.foundation.lazy.rememberLazyListState()
+    val homeBar = androidx.compose.material3.rememberTopAppBarState()
     androidx.compose.animation.AnimatedContent(
         targetState = page,
         transitionSpec = {
@@ -178,7 +181,7 @@ fun SettingsScreen(
         },
         label = "settings-page"
     ) { current ->
-        if (current == null) SettingsHome(state, transitSettings.preferences, devMode, viewModel::setClass, onOpenGroups) { page = it }
+        if (current == null) SettingsHome(state, transitSettings.preferences, devMode, viewModel::setClass, onOpenGroups, homeList, homeBar) { page = it }
         else SettingsSubpage(current.title, onBack = { page = null }) {
             when (current) {
                 SettingsPage.NOTIFICATIONS -> {
@@ -213,13 +216,9 @@ fun SettingsScreen(
                     }
                 }
                 SettingsPage.LOOK -> {
-                    item(key = "preview") {
-                        val wallpaper = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                        ThemePreviewPair(state.accent, state.baseLook, dynamic = wallpaper)
-                    }
                     item(key = "look") {
                         GroupedSection("Wygląd", icon = Icons.Outlined.Palette,
-                            footer = "Kolor akcentu i wygląd dotyczą też widżetów. Własny wygląd: odcień i intensywność tła i kart.") {
+                            footer = "Kolor akcentu i kolor tła dotyczą też widżetów. Kolor tła zmienia tło i karty aplikacji.") {
                             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                                 val options = listOf(ThemeMode.SYSTEM to "Auto", ThemeMode.LIGHT to "Jasny", ThemeMode.DARK to "Ciemny")
                                 options.forEachIndexed { i, (mode, label) ->
@@ -246,7 +245,7 @@ fun SettingsScreen(
                             }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 RowDivider()
-                                SwitchRow("Kolory z tapety", state.dynamicColor, supporting = "Material You zamiast koloru akcentu i wyglądu") { viewModel.setDynamicColor(it) }
+                                SwitchRow("Kolory z tapety", state.dynamicColor, supporting = "Material You zamiast koloru akcentu i koloru tła") { viewModel.setDynamicColor(it) }
                             }
                         }
                     }
@@ -319,9 +318,11 @@ internal fun SettingsHome(
     devMode: Boolean,
     onSelectClass: (String) -> Unit,
     onOpenGroups: () -> Unit,
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
+    barState: androidx.compose.material3.TopAppBarState = androidx.compose.material3.rememberTopAppBarState(),
     onOpen: (SettingsPage) -> Unit
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(barState)
     val ctx = LocalContext.current
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -330,42 +331,38 @@ internal fun SettingsHome(
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).revealWhen(state.ready),
+            state = listState,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            item(key = "you") {
-                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ClassTile(state.classes, state.selectedClassId, onSelectClass, Modifier.weight(1f).fillMaxHeight())
-                    GroupsTile(state.groupChoices, enabled = state.selectedClassId != null, onOpenGroups, Modifier.weight(1f).fillMaxHeight())
-                }
-            }
+            // Klasa i grupy osobno, na samej górze - od nich zależy wszystko inne.
+            item(key = "class") { ClassCard(state.classes, state.selectedClassId, onSelect = onSelectClass, onOpenGroups = onOpenGroups) }
             item(key = "main") {
                 GroupedSection(null) {
                     val notifications = listOfNotNull(
                         "zastępstwa".takeIf { state.notifSubs }, "ogłoszenia".takeIf { state.notifAnn },
                         "na żywo".takeIf { state.liveNotifications },
                         "przypomnienia".takeIf { state.reminder.mode != pl.zse.bydgoszcz.elektron.domain.model.ReminderMode.OFF })
-                    CategoryRow(Icons.Outlined.Notifications, CategoryColors.RED, "Powiadomienia",
+                    CategoryRow(Icons.Outlined.Notifications, "Powiadomienia",
                         notifications.joinToString(", ").replaceFirstChar { it.uppercase() }.ifEmpty { "Wyłączone" }) { onOpen(SettingsPage.NOTIFICATIONS) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.Home, CategoryColors.BLUE, "Strona główna",
+                    CategoryRow(Icons.Outlined.Home, "Strona główna",
                         "Start: " + startScreenLabel(state.startScreen, transit.visible).lowercase()) { onOpen(SettingsPage.HOME) }
                     CategoryDivider()
                     val wallpaper = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     val theme = when (state.themeMode) { ThemeMode.SYSTEM -> "Auto"; ThemeMode.LIGHT -> "Jasny"; ThemeMode.DARK -> "Ciemny" }
-                    CategoryRow(Icons.Outlined.Palette, CategoryColors.PURPLE, "Wygląd",
+                    CategoryRow(Icons.Outlined.Palette, "Wygląd",
                         if (wallpaper) "$theme · kolory z tapety"
                         else "$theme · ${ACCENT_LABELS[state.accent.color].orEmpty().lowercase()} · ${LOOK_LABELS[state.baseLook.look].orEmpty().lowercase()}") { onOpen(SettingsPage.LOOK) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.CalendarMonth, CategoryColors.ORANGE, "Plan lekcji", "Nazwy i kolory przedmiotów, sala, nauczyciel") { onOpen(SettingsPage.PLAN) }
+                    CategoryRow(Icons.Outlined.CalendarMonth, "Plan lekcji", "Nazwy i kolory przedmiotów, sala, nauczyciel") { onOpen(SettingsPage.PLAN) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.DirectionsBus, CategoryColors.GREEN, "Przejazdy",
+                    CategoryRow(Icons.Outlined.DirectionsBus, "Przejazdy",
                         if (transit.visible || transit.showOnDashboard) transit.destination?.name ?: "Wybierz swój przystanek" else "Wyłączone") { onOpen(SettingsPage.TRANSIT) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.SpaceDashboard, CategoryColors.INDIGO, "Pasek nawigacji", "Widoczne zakładki i kolejność") { onOpen(SettingsPage.BAR) }
+                    CategoryRow(Icons.Outlined.SpaceDashboard, "Pasek nawigacji", "Widoczne zakładki i kolejność") { onOpen(SettingsPage.BAR) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.Widgets, CategoryColors.TEAL, "Widżety",
+                    CategoryRow(Icons.Outlined.Widgets, "Widżety",
                         "Przezroczystość ${100 - state.widgetLook.opacity}%") { onOpen(SettingsPage.WIDGETS) }
                 }
             }
@@ -373,52 +370,29 @@ internal fun SettingsHome(
                 GroupedSection(null) {
                     var unrestricted by remember { mutableStateOf(pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork.isUnrestricted(ctx)) }
                     OnResume { unrestricted = pl.zse.bydgoszcz.elektron.presentation.common.BackgroundWork.isUnrestricted(ctx) }
-                    CategoryRow(Icons.Outlined.BatteryChargingFull, CategoryColors.GRAY, "Praca w tle",
+                    CategoryRow(Icons.Outlined.BatteryChargingFull, "Praca w tle",
                         if (unrestricted) "Bez ograniczeń" else "Telefon może usypiać aplikację", warning = !unrestricted) { onOpen(SettingsPage.BACKGROUND) }
                     if (BuildConfig.UPDATE_CHECK) {
                         CategoryDivider()
-                        CategoryRow(Icons.Outlined.SystemUpdate, CategoryColors.GREEN, "Aktualizacje",
+                        CategoryRow(Icons.Outlined.SystemUpdate, "Aktualizacje",
                             state.updateChannel.label + if (state.notifyUpdates) " · z powiadomieniami" else "") { onOpen(SettingsPage.UPDATES) }
                     }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.Storage, CategoryColors.GRAY, "Dane", "Wyczyść dane podręczne") { onOpen(SettingsPage.DATA) }
+                    CategoryRow(Icons.Outlined.Storage, "Dane", "Wyczyść dane podręczne") { onOpen(SettingsPage.DATA) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.Info, CategoryColors.ACCENT, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME} · zgłoś problem") { onOpen(SettingsPage.ABOUT) }
+                    CategoryRow(Icons.Outlined.Info, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME} · zgłoś problem") { onOpen(SettingsPage.ABOUT) }
                     if (devMode) {
                         CategoryDivider()
-                        CategoryRow(Icons.Outlined.Code, CategoryColors.GRAY, "Tryb dewelopera", "Symulacje i czas") { onOpen(SettingsPage.DEV) }
+                        CategoryRow(Icons.Outlined.Code, "Tryb dewelopera", "Symulacje i czas") { onOpen(SettingsPage.DEV) }
                     }
-                }
-            }
-            // Licencja: plakietka GPLv3 (dotknięcie otwiera tekst licencji).
-            item(key = "license") {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Image(
-                        painter = painterResource(R.drawable.gpl_v3),
-                        contentDescription = "Licencja GNU GPL w wersji 3 lub nowszej - otwórz tekst licencji",
-                        modifier = Modifier.width(112.dp).pressable { SafeUrls.open(ctx, LICENSE_URL) }
-                    )
                 }
             }
         }
     }
 }
 
-/** Kolory kafelków kategorii (jak w Ustawieniach iOS) - stałe, rozpoznawalne niezależnie od akcentu. */
-private object CategoryColors {
-    val RED = Color(0xFFE5484D)
-    val BLUE = Color(0xFF2F7DEB)
-    val PURPLE = Color(0xFF8E4EC6)
-    val ORANGE = Color(0xFFE5841F)
-    val GREEN = Color(0xFF2F9E5B)
-    val INDIGO = Color(0xFF5B5BD6)
-    val TEAL = Color(0xFF12A594)
-    val GRAY = Color(0xFF7C7C85)
-    val ACCENT = Color.Unspecified
-}
-
 @Composable
-private fun CategoryRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tile: Color, title: String, summary: String,
+private fun CategoryRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, summary: String,
     warning: Boolean = false, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
@@ -426,9 +400,10 @@ private fun CategoryRow(icon: androidx.compose.ui.graphics.vector.ImageVector, t
             .heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(if (tile == Color.Unspecified) colors.primary else tile),
+        // Jeden spokojny kolor (tło wyróżnienia w kolorze akcentu) zamiast osobnej barwy dla każdej kategorii.
+        Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(colors.secondaryContainer),
             contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = if (tile == Color.Unspecified) colors.onPrimary else Color.White, modifier = Modifier.size(19.dp))
+            Icon(icon, contentDescription = null, tint = colors.onSecondaryContainer, modifier = Modifier.size(19.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -445,83 +420,6 @@ private fun CategoryRow(icon: androidx.compose.ui.graphics.vector.ImageVector, t
 @Composable
 private fun CategoryDivider() {
     HorizontalDivider(Modifier.padding(start = 62.dp), color = MaterialTheme.colorScheme.outlineVariant)
-}
-
-/**
- * Kafelek klasy: od niej zależy wszystko inne. Wybór w oknie, zmiana dopiero po potwierdzeniu
- * (zmiana klasy pobiera dane od nowa i otwiera krok grup).
- */
-@Composable
-private fun ClassTile(classes: List<pl.zse.bydgoszcz.elektron.domain.model.SchoolClass>, selectedId: String?, onSelect: (String) -> Unit, modifier: Modifier) {
-    val colors = MaterialTheme.colorScheme
-    var choosing by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    val current = classes.firstOrNull { it.id == selectedId }
-    pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard(modifier = modifier,
-        onClick = if (classes.isNotEmpty()) ({ choosing = true }) else null, onClickLabel = "Zmień klasę") {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
-                Text(current?.shortName ?: "?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                    color = colors.onPrimaryContainer, maxLines = 1)
-            }
-            Column {
-                Text("Twoja klasa", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-                Text(current?.fullName ?: "Wybierz klasę", style = MaterialTheme.typography.titleMedium, color = colors.onSurface, maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                Text(if (classes.isEmpty()) "Brak listy klas - pociągnij w dół na stronie głównej" else "Dotknij, aby zmienić",
-                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2)
-            }
-        }
-    }
-    // Id, nie obiekt - okno potwierdzenia przetrwa obrót ekranu.
-    var pendingId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
-    val pending = classes.firstOrNull { it.id == pendingId }
-    if (choosing) {
-        ChoiceDialog("Twoja klasa", classes.map { it.id to it.fullName }, selectedId ?: "",
-            onSelect = { id -> choosing = false; if (id != selectedId) pendingId = id },
-            onDismiss = { choosing = false })
-    }
-    pending?.let { target ->
-        AlertDialog(
-            onDismissRequest = { pendingId = null },
-            title = { Text("Zmienić klasę na ${target.fullName}?") },
-            text = { Text("Aplikacja pobierze plan i zastępstwa tej klasy i poprosi o wybór grup. Grupy obecnej klasy zostaną zapamiętane.") },
-            confirmButton = { TextButton(onClick = { pendingId = null; onSelect(target.id) }) { Text("Zmień klasę") } },
-            dismissButton = { TextButton(onClick = { pendingId = null }) { Text("Anuluj") } }
-        )
-    }
-}
-
-/** Kafelek grup: ile przedmiotów ma wybraną grupę; otwiera "Twoje grupy". */
-@Composable
-private fun GroupsTile(choices: Int, enabled: Boolean, onOpen: () -> Unit, modifier: Modifier) {
-    val colors = MaterialTheme.colorScheme
-    pl.zse.bydgoszcz.elektron.presentation.common.ElektronCard(modifier = modifier,
-        onClick = if (enabled) onOpen else null, onClickLabel = "Otwórz grupy zajęciowe") {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).background(colors.secondaryContainer), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Groups, contentDescription = null, tint = colors.onSecondaryContainer, modifier = Modifier.size(26.dp))
-            }
-            Column {
-                Text("Twoje grupy", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-                Text(when {
-                    !enabled -> "Najpierw klasa"
-                    choices == 0 -> "Wszystkie lekcje"
-                    else -> przedmiotow(choices)
-                }, style = MaterialTheme.typography.titleMedium, color = colors.onSurface, maxLines = 2)
-                Text(if (choices == 0) "Dotknij, aby widzieć tylko swoje lekcje" else "Dotknij, aby zmienić",
-                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2)
-            }
-        }
-    }
-}
-
-private fun przedmiotow(n: Int): String {
-    val word = when {
-        n == 1 -> "przedmiot"
-        n % 10 in 2..4 && n % 100 !in 12..14 -> "przedmioty"
-        else -> "przedmiotów"
-    }
-    return "$n $word"
 }
 
 @Composable
@@ -647,6 +545,15 @@ private fun AboutSection(viewModel: SettingsViewModel, devMode: Boolean, showToa
         ActionRow("Kod źródłowy na GitHubie", trailingIcon = true) { SafeUrls.open(ctx, REPO_URL) }
         RowDivider()
         ActionRow("Polityka prywatności", trailingIcon = true) { SafeUrls.open(ctx, PRIVACY_URL) }
+        RowDivider()
+        // Licencja: plakietka GPLv3 (dotknięcie otwiera tekst licencji).
+        Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+            Image(
+                painter = painterResource(R.drawable.gpl_v3),
+                contentDescription = "Licencja GNU GPL w wersji 3 lub nowszej - otwórz tekst licencji",
+                modifier = Modifier.width(112.dp).pressable { SafeUrls.open(ctx, LICENSE_URL) }
+            )
+        }
     }
 }
 
