@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -139,12 +140,15 @@ private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, today: LocalDat
             // Kółko tylko przy dzisiejszym dniu - w innym tygodniu żaden dzień nie jest wyróżniony
             // (dawniej kółko dostawał dzień wybrany do przewinięcia, np. środa następnego tygodnia).
             val isToday = day.date == today
+            // Dzień wolny (święto, ferie): nagłówek przygaszony jak lekcje w kolumnie.
+            val off = pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.isDayOff(day.date)
+            val labelColor = if (off) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
             Column(
                 Modifier.weight(1f).semantics(mergeDescendants = true) {},
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(DAY_SHORT[day.dayOfWeek].orEmpty(), style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary)
+                    color = labelColor)
                 Box(
                     Modifier.padding(top = 2.dp).size(32.dp).clip(CircleShape)
                         .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
@@ -154,7 +158,7 @@ private fun WeekHeader(days: List<TimetableViewModel.DayColumn>, today: LocalDat
                         "${day.date.dayOfMonth}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                        color = if (isToday) MaterialTheme.colorScheme.onPrimary else labelColor
                     )
                 }
             }
@@ -192,6 +196,8 @@ private fun DayGridColumn(
     val nowColor = MaterialTheme.colorScheme.primary
     // Dzisiejsza kolumna - delikatne tło w kolorze akcentu.
     val todayTint = if (nowMinute != null) nowColor.copy(alpha = 0.06f) else Color.Transparent
+    // Dzień wolny: zwykły plan ze strony szkoły przygaszony, bez trwającej lekcji.
+    val off = pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.isDayOff(day.date)
     Box(
         modifier.height(totalMin * PER_MINUTE).background(todayTint).drawBehind {
             // Pionowa linia kolumny i poziome linie pełnych godzin.
@@ -212,8 +218,9 @@ private fun DayGridColumn(
             LessonTile(
                 lesson = lesson,
                 lengthMin = length,
-                ongoing = nowMinute != null && pl.zse.bydgoszcz.elektron.domain.model.LessonClock.isOngoing(lesson, nowTime),
-                modifier = Modifier.offset(y = from * PER_MINUTE).height(length * PER_MINUTE).fillMaxWidth(),
+                ongoing = !off && nowMinute != null && pl.zse.bydgoszcz.elektron.domain.model.LessonClock.isOngoing(lesson, nowTime),
+                modifier = Modifier.offset(y = from * PER_MINUTE).height(length * PER_MINUTE).fillMaxWidth()
+                    .then(if (off) Modifier.graphicsLayer { alpha = 0.4f } else Modifier),
                 hasNote = notes.containsKey(LessonNote.key(lesson)),
                 onLongClick = if (LessonNote.canEdit(lesson, AppClock.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                 onClick = { onLessonClick(lesson) }

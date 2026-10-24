@@ -79,6 +79,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -437,6 +439,9 @@ private fun DayPage(
     onLessonClick: (Lesson) -> Unit
 ) {
     val lessons = week?.firstOrNull { it.date == date }?.lessons.orEmpty()
+    val dayOff = pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.dayOff(date)
+        .takeIf { pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.enabled }
+    var showPlan by rememberSaveable(date) { mutableStateOf(false) }
     LazyColumn(
         modifier,
         contentPadding = PaddingValues(12.dp),
@@ -448,8 +453,12 @@ private fun DayPage(
             item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading(loading, pastWeek) }
         } else {
             // Święto, przerwa, ferie albo wakacje: strona szkoły pokazuje wtedy zwykły plan tygodnia.
-            pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.dayOff(date)?.let { reason -> item(key = "day_off") { DayOffCard(reason) } }
-            val isToday = date == AppClock.today()
+            // Karta dnia wolnego zamiast lekcji; zwykły plan dopiero na żądanie, przygaszony i bez odliczania.
+            if (dayOff != null) {
+                item(key = "day_off") { DayOffCard(dayOff, showPlan) { showPlan = !showPlan } }
+                if (!showPlan) return@LazyColumn
+            }
+            val isToday = date == AppClock.today() && dayOff == null
             // Ta sama reguła co strona główna i widżety (LessonClock): "Za X min" tylko przy
             // następnej lekcji w przerwie albo w ostatnich 30 min przed nią. Dawniej każda
             // następna lekcja po wcześniejszej dostawała odliczanie - w trakcie lekcji 3. przy
@@ -463,6 +472,7 @@ private fun DayPage(
                     else -> null
                 }
                 LessonRow(lesson, badge, userNote = notes[LessonNote.key(lesson)],
+                    modifier = if (dayOff != null) Modifier.graphicsLayer { alpha = 0.5f } else Modifier,
                     onLongClick = if (LessonNote.canEdit(lesson, AppClock.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                     onClick = { onLessonClick(lesson) })
             }
@@ -507,17 +517,23 @@ private fun GroupBadge(text: String) {
     }
 }
 
-/** Dzień bez zajęć mimo planu: powód i wyjaśnienie, że lekcje poniżej to zwykły plan tygodnia. */
+/** Dzień bez zajęć mimo planu: powód, a zwykły plan tygodnia ze strony szkoły dopiero po dotknięciu. */
 @Composable
-private fun DayOffCard(reason: String) {
-    Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
-        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Dzień wolny - $reason", style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer)
-            Text("Lekcje poniżej to zwykły plan tygodnia ze strony szkoły - w tym dniu nie ma zajęć, przypomnień ani powiadomienia na żywo.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.padding(top = 4.dp))
+private fun DayOffCard(reason: String, showPlan: Boolean, onTogglePlan: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+        Column(
+            Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp, start = 16.dp, end = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Outlined.EventAvailable, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+            Text("Dzień wolny", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 8.dp).semantics { heading() })
+            Text(reason, style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            TextButton(onClick = onTogglePlan, modifier = Modifier.padding(top = 8.dp)) {
+                Text(if (showPlan) "Ukryj zwykły plan" else "Pokaż zwykły plan")
+            }
         }
     }
 }
