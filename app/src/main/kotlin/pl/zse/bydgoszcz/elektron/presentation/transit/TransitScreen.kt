@@ -110,15 +110,17 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     val coversLesson = !toSchool || targetMs == null || journeys.any { (it.schoolArrivalMs ?: it.arrivalMs) > targetMs }
     // Najwyżej kilka dociągnięć na wybór i tylko, gdy poprzednie coś dodało - dawniej przy stronach planera
     // bez pasującego kursu zakładka pytała bez końca, aż planer odmawiał ("Nie udało się sprawdzić połączeń").
-    var autoLoads by remember(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableStateOf(0 to -1) }
+    // Limit zeruje się z każdym nowym wyszukiwaniem (odświeżenie, wynik po 10 min, zmiana czasu).
+    val generation by viewModel.searchGeneration.collectAsStateWithLifecycle()
+    var autoLoads by remember(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers, generation) {
+        mutableStateOf(TransitAutoLoad.State())
+    }
     LaunchedEffect(visible, matching, journeys.size, visibleCount, anchor, coversLesson, loading, moreLoading) {
         val data = matching ?: return@LaunchedEffect
-        val beyondLesson = toSchool && targetMs != null && (data.nextWhenMs ?: 0L) > targetMs + TransitViewModel.LESSON_HORIZON_MS
-        val (count, lastRaw) = autoLoads
-        if (visible && !loading && !moreLoading && data.complete && data.nextWhenMs != null && data.journeys.size < 40 &&
-            count < 4 && data.journeys.size != lastRaw && !beyondLesson &&
-            (journeys.size < anchor + visibleCount || !coversLesson)) {
-            autoLoads = (count + 1) to data.journeys.size
+        val end = if (toSchool) TransitCommute.searchEndMs(targetMs, data.searchFromMs ?: data.fetchedAt) else null
+        if (visible && !loading && !moreLoading && TransitAutoLoad.shouldLoad(autoLoads, data.complete, data.journeys.size, data.nextWhenMs, end,
+                needMore = journeys.size < anchor + visibleCount || !coversLesson)) {
+            autoLoads = autoLoads.after(data.journeys.size)
             viewModel.loadJourneys(more = true, minimumCount = data.journeys.size + 3)
         }
     }

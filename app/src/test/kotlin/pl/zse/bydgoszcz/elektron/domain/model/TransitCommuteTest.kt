@@ -146,4 +146,28 @@ class TransitCommuteTest {
         assertEquals(0, TransitJourneys.anchorToSchool(trips, null))
         assertEquals(1, TransitJourneys.anchorToSchool(listOf(trip(30, 52), trip(40, 55), trip(45, 63)), lesson))
     }
+
+    @Test fun searchEndsHalfAnHourAfterTheLessonOrThreeHoursWithoutOne() {
+        assertEquals(base + 30 * 60_000L, TransitCommute.searchEndMs(base, base - 90 * 60_000L))
+        // Ferie - bez lekcji: 3 h od początku szukania (dawniej bez limitu, 12 stron naraz).
+        assertEquals(base + 180 * 60_000L, TransitCommute.searchEndMs(null, base))
+    }
+
+    @Test fun autoLoadStopsAfterFourTriesNoProgressOrBeyondTheEnd() {
+        var state = TransitAutoLoad.State()
+        fun ok(raw: Int, next: Long? = base, end: Long? = base + 1, need: Boolean = true, complete: Boolean = true) =
+            TransitAutoLoad.shouldLoad(state, complete, raw, next, end, need)
+        assertTrue(ok(2))
+        state = state.after(2)
+        assertFalse("bez postępu", ok(2))
+        assertTrue(ok(3))
+        assertFalse("nie trzeba", ok(3, need = false))
+        assertFalse("wynik cząstkowy", ok(3, complete = false))
+        assertFalse("koniec stron", ok(3, next = null))
+        assertFalse("za horyzontem", ok(3, end = base - 1))
+        assertTrue("ze szkoły bez horyzontu", ok(3, end = null))
+        repeat(3) { state = state.after(10 + it) }
+        assertFalse("limit 4 dociągnięć", ok(20))
+        assertFalse("limit kursów", TransitAutoLoad.shouldLoad(TransitAutoLoad.State(), true, TransitAutoLoad.MAX_RAW, base, null, true))
+    }
 }

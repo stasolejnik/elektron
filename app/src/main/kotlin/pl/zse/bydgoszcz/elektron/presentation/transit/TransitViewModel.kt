@@ -102,6 +102,8 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     val journeyLoading = MutableStateFlow(false)
     val journeyError = MutableStateFlow<String?>(null)
     val moreLoading = MutableStateFlow(false)
+    /** Rośnie z każdym nowym (nie dociąganym) wyszukiwaniem - patrz TransitAutoLoad. */
+    val searchGeneration = MutableStateFlow(0)
     private var journeyJob: Job? = null
     private var journeyMinimumCount = 1
     private var automaticRetryAt = 0L
@@ -323,6 +325,8 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         journeyKey = key
         journeyMinimumCount = requestedCount
         journeyLoading.value = !more; moreLoading.value = more; journeyError.value = null
+        // Nowe wyszukiwanie (nie dociągnięcie) - zakładka zeruje limit samodzielnych dociągnięć.
+        if (!append) searchGeneration.value++
         journeyJob = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val thisJob = coroutineContext[Job]
             try {
@@ -368,8 +372,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                         if (published.journeys.size >= journeyMinimumCount || next == null || (cursor != null && next <= cursor!!)) return@runCatchingCancellable
                         // Do szkoły: dalej niż pół godziny po lekcji szukać nie ma po co - dawniej strony bez pasującego
                         // kursu (np. inny przystanek w odpowiedzi planera) ciągnęły szukanie godzinami do przodu.
-                        val lessonMs = commuteNow.targetMs
-                        if (toSchool && lessonMs != null && next > lessonMs + LESSON_HORIZON_MS) return@runCatchingCancellable
+                        if (toSchool && next > TransitCommute.searchEndMs(commuteNow.targetMs, fromMs!!)) return@runCatchingCancellable
                         merge = true
                         cursor = next
                         cursors = published.platformCursors
@@ -476,7 +479,5 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
 
     companion object {
         const val LIVE_REFRESH_MS = 60_000L
-        /** Do szkoły: najdalej tyle po początku lekcji sięga szukanie kolejnych stron planera. */
-        const val LESSON_HORIZON_MS = 30 * 60_000L
     }
 }

@@ -46,6 +46,18 @@ object TransitCommute {
             .filter { it.start.isAfter(now) && it.start.isBefore(now.plusDays(TARGET_DAYS)) }
             .minByOrNull { it.start }
 
+    /** Do szkoły: szukanie kolejnych stron planera sięga najdalej tyle po początku lekcji. */
+    const val LESSON_HORIZON_MINUTES = 30L
+    /** ...a bez lekcji w najbliższych dniach (ferie) - tyle od początku szukania. */
+    const val NO_LESSON_HORIZON_MINUTES = 180L
+
+    /**
+     * Do szkoły: dokąd najdalej sięga szukanie (epoch ms). Strony planera bez kursu z Twojego przystanku
+     * dawniej ciągnęły szukanie godzinami do przodu, aż planer odmawiał.
+     */
+    fun searchEndMs(lessonStartMs: Long?, searchFromMs: Long): Long =
+        lessonStartMs?.plus(LESSON_HORIZON_MINUTES * 60_000L) ?: (searchFromMs + NO_LESSON_HORIZON_MINUTES * 60_000L)
+
     /** Początek szukania dojazdu: zwykle teraz; gdy lekcja jest daleko (np. wieczorem na jutro) - [LEAD_MINUTES] przed nią. */
     fun searchFrom(target: LocalDateTime?, now: LocalDateTime): LocalDateTime =
         target?.minusMinutes(LEAD_MINUTES)?.takeIf { it.isAfter(now) } ?: now
@@ -71,6 +83,24 @@ object TransitCommute {
             else -> null
         }
     }
+}
+
+/**
+ * Samodzielne dociąganie kolejnych stron planera przez zakładkę (gdy lista po odrzuceniu kursów
+ * jest za krótka albo do szkoły nie sięga lekcji): najwyżej [MAX_LOADS] razy na wyszukiwanie i tylko,
+ * gdy poprzednie coś dodało. Stan zeruje się z każdym nowym wyszukiwaniem (odświeżenie, zmiana czasu).
+ */
+object TransitAutoLoad {
+    const val MAX_LOADS = 4
+    const val MAX_RAW = 40
+
+    data class State(val loads: Int = 0, val lastRaw: Int = -1) {
+        fun after(raw: Int) = State(loads + 1, raw)
+    }
+
+    fun shouldLoad(state: State, complete: Boolean, raw: Int, nextWhenMs: Long?, searchEndMs: Long?, needMore: Boolean): Boolean =
+        needMore && complete && nextWhenMs != null && raw < MAX_RAW && state.loads < MAX_LOADS && raw != state.lastRaw &&
+            (searchEndMs == null || nextWhenMs <= searchEndMs)
 }
 
 /** Odjazd z tablicy przystanku (BUSearch): opóźnienie na żywo, gdy pojazd jest śledzony. */
