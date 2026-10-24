@@ -22,21 +22,8 @@ class SchoolNoticesMigrationTest {
         val name = "migration-notices.db"
         ctx.deleteDatabase(name)
         try {
-            val schema = JSONObject(javaClass.getResource("/pl.zse.bydgoszcz.elektron.data.local.AppDatabase/3.json")!!.readText())
-                .getJSONObject("database")
-            ctx.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { old ->
-                val entities = schema.getJSONArray("entities")
-                for (i in 0 until entities.length()) {
-                    val entity = entities.getJSONObject(i)
-                    old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", entity.getString("tableName")))
-                    val indices = entity.getJSONArray("indices")
-                    for (j in 0 until indices.length()) old.execSQL(indices.getJSONObject(j).getString("createSql")
-                        .replace("\${TABLE_NAME}", entity.getString("tableName")))
-                }
-                old.execSQL("CREATE TABLE room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)")
-                old.execSQL("INSERT INTO room_master_table VALUES(42, ?)", arrayOf(schema.getString("identityHash")))
-                old.execSQL("INSERT INTO substitutions VALUES ('s1', 20742, 3, '1D', NULL, '105', 'A.Nowak', NULL, 'J.Kowalski', NULL)")
-                old.version = 3
+            oldDatabase(ctx, name, 3) {
+                execSQL("INSERT INTO substitutions VALUES ('s1', 20742, 3, '1D', NULL, '105', 'A.Nowak', NULL, 'J.Kowalski', NULL)")
             }
             val upgraded = Room.databaseBuilder(ctx, AppDatabase::class.java, name)
                 .allowMainThreadQueries().addMigrations(*DatabaseMigrations.ALL).build()
@@ -55,21 +42,8 @@ class SchoolNoticesMigrationTest {
         val name = "migration-notices-4.db"
         ctx.deleteDatabase(name)
         try {
-            val schema = JSONObject(javaClass.getResource("/pl.zse.bydgoszcz.elektron.data.local.AppDatabase/4.json")!!.readText())
-                .getJSONObject("database")
-            ctx.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { old ->
-                val entities = schema.getJSONArray("entities")
-                for (i in 0 until entities.length()) {
-                    val entity = entities.getJSONObject(i)
-                    old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", entity.getString("tableName")))
-                    val indices = entity.getJSONArray("indices")
-                    for (j in 0 until indices.length()) old.execSQL(indices.getJSONObject(j).getString("createSql")
-                        .replace("\${TABLE_NAME}", entity.getString("tableName")))
-                }
-                old.execSQL("CREATE TABLE room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)")
-                old.execSQL("INSERT INTO room_master_table VALUES(42, ?)", arrayOf(schema.getString("identityHash")))
-                old.execSQL("INSERT INTO school_notices VALUES (20742, 'Oddawanie krwi w sali 12')")
-                old.version = 4
+            oldDatabase(ctx, name, 4) {
+                execSQL("INSERT INTO school_notices VALUES (20742, 'Oddawanie krwi w sali 12')")
             }
             val upgraded = Room.databaseBuilder(ctx, AppDatabase::class.java, name)
                 .allowMainThreadQueries().addMigrations(*DatabaseMigrations.ALL).build()
@@ -80,5 +54,28 @@ class SchoolNoticesMigrationTest {
                 assertEquals(null, notice.updated)
             } finally { upgraded.close() }
         } finally { ctx.deleteDatabase(name) }
+    }
+
+    /**
+     * Baza aplikacji w dawnej wersji [version] wprost ze schematu (app/schemas), z wpisem Rooma
+     * o tej wersji - jak u użytkownika przed aktualizacją. [fill] dopisuje dane.
+     */
+    private fun oldDatabase(ctx: Context, name: String, version: Int, fill: android.database.sqlite.SQLiteDatabase.() -> Unit) {
+        val schema = JSONObject(javaClass.getResource("/pl.zse.bydgoszcz.elektron.data.local.AppDatabase/$version.json")!!.readText())
+            .getJSONObject("database")
+        ctx.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { old ->
+            val entities = schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val entity = entities.getJSONObject(i)
+                old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", entity.getString("tableName")))
+                val indices = entity.getJSONArray("indices")
+                for (j in 0 until indices.length()) old.execSQL(indices.getJSONObject(j).getString("createSql")
+                    .replace("\${TABLE_NAME}", entity.getString("tableName")))
+            }
+            old.execSQL("CREATE TABLE room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)")
+            old.execSQL("INSERT INTO room_master_table VALUES(42, ?)", arrayOf(schema.getString("identityHash")))
+            old.fill()
+            old.version = version
+        }
     }
 }

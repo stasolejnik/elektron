@@ -146,7 +146,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         viewModelScope.launch {
             AppClock.offsetMs.drop(1).collect {
                 updateCommute()
-                cancelJourneys(); journeys.value = null; live.value = emptyMap(); journeyError.value = null
+                cancelJourneys(); journeys.value = null; liveTracker?.clear(); journeyError.value = null
                 automaticRetryKey = null
                 if (journeyConsumers.isNotEmpty()) refreshJourneys(journeyMinimumCount)
             }
@@ -158,7 +158,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                 // w testach z dispatcherem Unconfined): nie przerywamy pracy dla bieżącego wyboru - inaczej
                 // trwające zapytanie było przerywane i wysyłane od nowa (dodatkowe zapytanie do planera).
                 if (key != requestKey(settings.value.preferences)) return@collect
-                if (journeys.value?.let(::keyOf) != key) { journeys.value = null; live.value = emptyMap() }
+                if (journeys.value?.let(::keyOf) != key) { journeys.value = null; liveTracker?.clear() }
                 // The screen can start the new request before this observer receives settings.
                 // Cancel only work belonging to the old selection.
                 if (journeyKey != key) cancelJourneyRequest()
@@ -239,55 +239,17 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         if (journeys.value == null && matches(cached, settings.value.preferences)) journeys.value = cached
     }
     fun stopJourneySession(consumer: Any) {
-        if (journeyConsumers.remove(consumer) && journeyConsumers.isEmpty()) { cancelJourneys(); liveJob?.cancel(); liveJob = null }
+        if (journeyConsumers.remove(consumer) && journeyConsumers.isEmpty()) { cancelJourneys(); liveTracker?.stop() }
     }
 
-    /** Opóźnienia na żywo kursów z listy (klucz kursu -> stan), tylko dla bieżącego wyniku. */
-    val live = MutableStateFlow<Map<String, LiveStatus>>(emptyMap())
-    private val liveSeenAt = mutableMapOf<String, Long>()
-    private var liveJob: Job? = null
-    private fun startLive() {
-        if (liveRepository == null || liveJob?.isActive == true) return
-        liveJob = viewModelScope.launch {
-            // Nowa lista kursów - od razu nowe zapytanie, potem co minutę.
-            journeys.map { result -> result?.takeIf(::matchesCurrent)?.journeys?.map { it.key }.orEmpty() }
-                .distinctUntilChanged().collectLatest {
-                    while (true) { refreshLive(); kotlinx.coroutines.delay(LIVE_REFRESH_MS) }
-                }
-        }
+    /** Opóźnienia na żywo kursów z listy (klucz kursu -> stan), tylko dla bieżącego wyniku - patrz [TransitLiveTracker]. */
+    private val liveTracker = liveRepository?.let { repository ->
+        TransitLiveTracker(repository, viewModelScope,
+            current = { journeys.value?.takeIf(::matchesCurrent)?.let { it to settings.value.preferences } },
+            keys = journeys.map { result -> result?.takeIf(::matchesCurrent)?.journeys?.map { it.key }.orEmpty() })
     }
-    private suspend fun refreshLive() {
-        val repository = liveRepository ?: return
-        // Symulowany czas (tryb dewelopera) nie pasuje do pojazdów na ulicy.
-        if (AppClock.simulated) { live.value = emptyMap(); return }
-        val result = journeys.value?.takeIf(::matchesCurrent) ?: run { live.value = emptyMap(); return }
-        val now = AppClock.millis()
-        // Tylko kursy pokazywane na ekranie (przystanek, przesiadki, dojście przy "Szkoła").
-        val prefs = settings.value.preferences
-        val shown = TransitJourneys.upcoming(result.journeys, now, if (result.direction == TransitDirection.TO_SCHOOL) null else prefs.preferredOrigin,
-            prefs.allowTransfers, live.value).let { if (prefs.preferredOrigin == null) TransitJourneys.walkable(it, now, live.value) else it }
-        val boards = TransitLive.boards(shown, now)
-        val fetched = kotlinx.coroutines.coroutineScope {
-            boards.map { board -> async { board to runCatchingCancellable { repository.departures(board.first, board.second) }.getOrNull() } }
-                .map { it.await() }
-        }.filter { it.second != null }.associate { it.first to it.second!! }
-        val elapsed = android.os.SystemClock.elapsedRealtime()
-        val current = journeys.value?.takeIf(::matchesCurrent) ?: return
-        val next = mutableMapOf<String, LiveStatus>()
-        current.journeys.forEach { trip ->
-            val ride = trip.rides.first()
-            val board = fetched[ride.fromId to ride.line]
-            if (board != null) {
-                TransitLive.match(ride, board)?.let { next[trip.key] = it; liveSeenAt[trip.key] = elapsed }
-            } else {
-                // Tablica chwilowo bez odpowiedzi - poprzedni stan jeszcze przez 3 minuty.
-                val previous = live.value[trip.key]
-                if (previous != null && elapsed - (liveSeenAt[trip.key] ?: 0L) <= 3 * 60_000L) next[trip.key] = previous
-            }
-        }
-        liveSeenAt.keys.retainAll(next.keys)
-        live.value = next
-    }
+    val live: StateFlow<Map<String, LiveStatus>> = liveTracker?.live ?: MutableStateFlow(emptyMap())
+    private fun startLive() { liveTracker?.start() }
     fun cancelJourneys() { cancelJourneyRequest(); cancelWalkingRequest() }
     fun loadJourneys(force: Boolean = false, more: Boolean = false, minimumCount: Int = 1) {
         val prefs = settings.value.preferences
@@ -477,7 +439,4 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         }
     }
 
-    companion object {
-        const val LIVE_REFRESH_MS = 60_000L
-    }
 }

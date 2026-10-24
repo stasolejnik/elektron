@@ -161,11 +161,16 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
         val now = AppClock.millis()
         val platforms = catalog.load().platforms.associateBy { it.stopIds.single() }
         val whenMs = afterMs ?: fromMs
-        val targetWalk = schoolStop?.let { stop ->
-            val path = walking.cachedFromSchool(listOf(stop))[stop.stopIds.first()]
-                ?: runCatchingCancellable { walking.fromSchool(listOf(stop)) }.getOrNull()?.get(stop.stopIds.first())
-            path?.minutes ?: SchoolTransit.walkMinutes(SchoolTransit.distance(stop.latitude, stop.longitude))
-        } ?: 0
+        // Dojście z wybranego przystanku do szkoły równolegle z zapytaniem do planera (dawniej najpierw
+        // trasa piesza - pierwsze wyszukiwanie czekało na nią przed planerem).
+        kotlinx.coroutines.coroutineScope {
+        val targetWalkAsync = async {
+            schoolStop?.let { stop ->
+                val path = walking.cachedFromSchool(listOf(stop))[stop.stopIds.first()]
+                    ?: runCatchingCancellable { walking.fromSchool(listOf(stop)) }.getOrNull()?.get(stop.stopIds.first())
+                path?.minutes ?: SchoolTransit.walkMinutes(SchoolTransit.distance(stop.latitude, stop.longitude))
+            } ?: 0
+        }
         val target = schoolStop?.let { JSONObject().put("lat", it.latitude).put("lon", it.longitude) }
             ?: JSONObject().put("lat", SchoolTransit.LATITUDE).put("lon", SchoolTransit.LONGITUDE)
         val body = JSONObject().put("from", JSONObject().put("lat", home.latitude).put("lon", home.longitude))
@@ -180,12 +185,13 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
             if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
             JSONObject(source.readUtf8())
         }
-        val journeys = TransitJourneyParser.parseToSchool(response, home, platforms, minOf(now, whenMs), allowTransfers, schoolStop, targetWalk,
-            searchFromMs = whenMs)
+        val journeys = TransitJourneyParser.parseToSchool(response, home, platforms, minOf(now, whenMs), allowTransfers, schoolStop,
+            targetWalkAsync.await(), searchFromMs = whenMs)
         val cursor = response.optLong("nastepneWhenMs", 0).takeIf { it > whenMs && it <= whenMs + 24 * 60 * 60_000L }
         val at = AppClock.millis()
         Result(home.key, TransitJourneys.rankToSchool(journeys, at, allowTransfers), at, schoolStop?.key, cursor, allowTransfers,
             direction = TransitDirection.TO_SCHOOL, searchFromMs = fromMs)
+        }
     }
 
     private val cacheLock = kotlinx.coroutines.sync.Mutex()
