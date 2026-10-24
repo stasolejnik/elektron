@@ -182,6 +182,8 @@ tasks.withType<Test>().configureEach {
     systemProperty("java.io.tmpdir", robolectricTmp.absolutePath)
     // Testy budujące lekcje na prawdziwe "dziś" nie mogą zależeć od świąt i ferii (SchoolCalendar - osobne testy).
     systemProperty("elektron.schoolCalendar", "off")
+    // Aplikacja liczy czas w strefie telefonu (AppClock, Przejazdy), a testy - w czasie polskim; CI działa w UTC.
+    systemProperty("user.timezone", "Europe/Warsaw")
     // Pełny opis nieudanego testu w logu (CI) - raport HTML nie zawsze da się pobrać.
     testLogging {
         events("failed")
