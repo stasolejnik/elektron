@@ -24,6 +24,8 @@ import java.io.File
 @Config(sdk = [34])
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransitViewModelTest {
+    /** Przebieg zapytań w teście paginacji - w komunikacie błędu (rzadki dodatkowy request, do zbadania). */
+    private val DEBUG = java.util.Collections.synchronizedList(mutableListOf<String>())
     /**
      * Wstawia gotowy wynik do ViewModelu. Obserwator ustawień biegnie na wątku IO (Main to Unconfined)
      * i po zmianie celu zeruje wynik, więc mógłby nadpisać ten wstawiony już po powrocie z
@@ -311,9 +313,12 @@ class TransitViewModelTest {
                 request.url.encodedPath.endsWith("/stops") -> """[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]"""
                 request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[480]],"distances":[[600]]}"""
                 else -> {
-                    if (plans.incrementAndGet() == 1) {
+                    val n = plans.incrementAndGet()
+                    DEBUG += "req$n @${System.nanoTime() / 1_000_000 % 100000} whenMs=${run { val b = okio.Buffer(); request.body!!.writeTo(b); org.json.JSONObject(b.readUtf8()).optLong("whenMs") }}"
+                    if (n == 1) {
                         firstStarted.countDown()
                         check(releaseFirst.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                        DEBUG += "req1 released canceled=${chain.call().isCanceled()}"
                     }
                     val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                     val body = org.json.JSONObject(buffer.readUtf8())
@@ -339,8 +344,8 @@ class TransitViewModelTest {
             vm.loadJourneys(minimumCount = 3)
             releaseFirst.countDown()
             vm.journeyLoading.first { !it }
-            assertEquals(3, vm.journeys.value!!.journeys.size)
-            assertEquals(3, plans.get())
+            assertEquals(DEBUG.toString(), 3, vm.journeys.value!!.journeys.size)
+            assertEquals(DEBUG.toString(), 3, plans.get())
             vm.journeys.first { it?.journeys?.firstOrNull()?.walkMinutes == 8 }
             // Wszystkie dojścia uzupełnione - dalsze zadanie dojścia nie podmieni wyniku w trakcie testu.
             vm.journeys.first { result -> result != null && result.complete && result.journeys.none { it.walkPending } }
