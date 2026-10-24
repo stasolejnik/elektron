@@ -5,23 +5,23 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
-        Entry(38, "1.0.2", listOf(
-            "Przejazdy (dawniej Odjazdy): rano dojazd na najbliższą lekcję - ile zapasu i ostatni kurs, którym zdążysz; od połowy dnia lekcji powrót ze szkoły z godziną wyjścia",
-            "Przejazdy: opóźnienia na żywo („+3 min”, „2 min wcześniej”), gdy pojazd jest śledzony",
-            "Nowe Ustawienia: na górze klasa i grupy, pod nimi kategorie z własnymi stronami",
-            "Przejazdy: wybierz dowolny przystanek przy szkole (domyślnie „Szkoła”), a w karcie linię i przystanek, na którym wysiadasz",
-            "Kolor tła: gotowe (Grafit, Ciepły, Morski, Leśny) albo własny odcień i nasycenie tła i kart",
-            "Powiadomienie o nowej wersji (wersja z GitHuba, Ustawienia → Aktualizacje)",
-            "Powiadomienia o informacjach szkoły ze strony zastępstw, np. o skróconych lekcjach",
+        Entry(38, "1.0.2", listOfNotNull(
+            "Przejazdy (dawniej Odjazdy): rano dojazd z Twojego przystanku na najbliższą lekcję - kiedy będziesz w szkole, ile zapasu i ostatni kurs, którym zdążysz; od połowy dnia lekcji powrót ze szkoły z godziną wyjścia",
+            "Przejazdy: opóźnienia na żywo („+3 min”, „2 min wcześniej”), dowolny przystanek przy szkole (domyślnie „Szkoła”), w karcie linia i przystanek, na którym wysiadasz",
             "Dni wolne: w święta, przerwy, ferie i wakacje bez przypomnień i powiadomienia na żywo, plan pokazuje dzień wolny",
-            "Nowy rok szkolny: przy zmianie listy klas aplikacja poprosi o ponowny wybór klasy",
-            "Powiadomienie na żywo: pasek i pozostały czas zawsze aktualne, mały napis z końcem lekcji całego dnia",
-            "Odliczanie na pasku stanu (Android 16+) - Ustawienia podpowiedzą, gdy system ma je wyłączone",
-            "Powiadomienie na żywo nie znika po „Wyczyść wszystko”",
-            "Widżety pokazują ten sam pozostały czas co strona główna",
+            "Powiadomienia o informacjach szkoły ze strony zastępstw, np. o skróconych lekcjach",
+            "Nowe Ustawienia: na górze klasa i grupy, pod nimi kategorie z własnymi stronami",
+            "Kolor tła: gotowe (Grafit, Ciepły, Morski, Leśny) albo własny odcień i nasycenie tła i kart",
             "Czas do końca lekcji na stronie głównej i w widżecie Plan dnia (Ustawienia → Strona główna)",
             "Kilka grup jednego przedmiotu naraz - przycisk „Wybierz kilka grup” przy przedmiotach z trzema grupami i więcej",
-            "Informacje szkoły bez osobnych wpisów „Publikacja / Aktualizacja”, z obrazkami ze strony szkoły"
+            // Wersja F-Droid nie sprawdza aktualizacji (robi to F-Droid) - bez tego punktu.
+            "Powiadomienie o nowej wersji (Ustawienia → Aktualizacje)".takeIf { pl.zse.bydgoszcz.elektron.BuildConfig.UPDATE_CHECK },
+            "Powiadomienie na żywo: pasek i pozostały czas zawsze aktualne, mały napis z końcem lekcji całego dnia, nie znika po „Wyczyść wszystko”",
+            "Odliczanie na pasku stanu (Android 16+) - Ustawienia podpowiedzą, gdy system ma je wyłączone",
+            "Widżety pokazują ten sam pozostały czas co strona główna",
+            "Tytuł ekranu stoi w miejscu - bez pustego pasa nad nim i bez zwijania przy przewijaniu",
+            "Informacje szkoły bez osobnych wpisów „Publikacja / Aktualizacja”, z obrazkami ze strony szkoły",
+            "Nowy rok szkolny: przy zmianie listy klas aplikacja poprosi o ponowny wybór klasy"
         )),
         Entry(37, "1.0.1", listOf(
             "Nowość: powiadomienia na żywo (Ustawienia → Powiadomienia) - w dni lekcyjne odliczanie do przerwy albo do lekcji, co trwa i co dalej",

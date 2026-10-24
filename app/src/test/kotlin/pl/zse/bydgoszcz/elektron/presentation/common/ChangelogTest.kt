@@ -24,4 +24,9 @@ class ChangelogTest {
     @Test fun textsHaveNoLongDashes() {
         assertTrue(Changelog.entries.first().items.none { '—' in it || '–' in it })
     }
+
+    @Test fun updateNotificationItemOnlyInTheGitHubBuild() {
+        val item = Changelog.entries.first().items.any { it.startsWith("Powiadomienie o nowej wersji") }
+        assertEquals(pl.zse.bydgoszcz.elektron.BuildConfig.UPDATE_CHECK, item)
+    }
 }
