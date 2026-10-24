@@ -40,8 +40,8 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   informacje. Po otwarciu ogłoszenia lub dodaniu go do ulubionych pobiera także treść artykułu do czytania offline. Serwery szkoły widzą, jak przy każdej stronie internetowej, adres IP
   i wersję aplikacji.
 - **Firebase Cloud Messaging (Google)** - tylko w wersji z GitHuba (w wersji z F-Droid
-  Firebase nie ma): służy wyłącznie do powiadomień push o nowych zastępstwach
-  i ogłoszeniach. Telefon subskrybuje ogólne tematy powiadomień wspólne dla wszystkich
+  Firebase nie ma): służy wyłącznie do powiadomień push o nowych zastępstwach,
+  ogłoszeniach i informacjach szkoły (sam sygnał z datą - aplikacja pobiera wtedy stronę zastępstw). Telefon subskrybuje ogólne tematy powiadomień wspólne dla wszystkich
   użytkowników - nie jest przesyłana wybrana klasa ani żadne dane osobowe. Google przetwarza
   przy tym techniczny identyfikator instalacji aplikacji, zgodnie
   z [zasadami prywatności Google](https://policies.google.com/privacy).

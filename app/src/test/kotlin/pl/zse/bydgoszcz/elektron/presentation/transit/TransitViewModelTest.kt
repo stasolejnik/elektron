@@ -91,12 +91,13 @@ class TransitViewModelTest {
             val origin = goal.copy(name = "Start", stopIds = listOf("24"))
             prefs.selectOrigin(origin)
             vm.settings.first { it.preferences.preferredOrigin?.key == origin.key }
-            assertNull(vm.journeys.value)
+            // Obserwator ustawień łączy je z kierunkiem (combine) - czyści wynik chwilę po zmianie ustawień.
+            withContext(Dispatchers.IO) { withTimeout(10_000) { vm.journeys.first { it == null } } }
             assertNull(vm.journeyError.value)
             val next = goal.copy(name = "Nowy cel", stopIds = listOf("27"))
             prefs.select(next)
             vm.settings.first { it.preferences.destination?.key == next.key }
-            assertNull(vm.journeys.value)
+            withContext(Dispatchers.IO) { withTimeout(10_000) { vm.journeys.first { it == null } } }
             assertNull(vm.journeyError.value)
             vm.stops.value = List(150) { goal.copy(name = "Przystanek Łąkowa $it", stopIds = listOf("$it")) }
             vm.query.value = "lakowa"

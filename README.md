@@ -58,7 +58,7 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   gdy pojazd jest śledzony, linia, kierunek i czas dojścia. Przystanki wybierzesz przez
   wyszukiwarkę lub mapę OpenStreetMap, bez GPS; kierunek zmienisz też ręcznie.
 - **Strona główna:** trwająca lub najbliższa lekcja, przerwa i nadchodzące zmiany.
-- **Powiadomienia:** nowe zastępstwa i ogłoszenia, przypomnienia o lekcjach i notatkach,
+- **Powiadomienia:** nowe zastępstwa, ogłoszenia i informacje szkoły (np. skrócone lekcje), przypomnienia o lekcjach i notatkach,
   ciche godziny oraz powiadomienie na żywo w dni lekcyjne (odliczanie do przerwy albo lekcji, także na pasku stanu w Androidzie 16+, co trwa, co dalej i kiedy koniec lekcji).
 - **Szybki dostęp:** widżety Następna lekcja, Plan dnia i Zastępstwa, kafelek szybkich
   ustawień oraz skróty po przytrzymaniu ikony aplikacji.
@@ -80,7 +80,7 @@ własną stronę, a po powrocie lista jest przewinięta tam, gdzie była. Kolejn
 | Kategoria | Co ustawisz |
 |---|---|
 | **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały; przy przedmiotach z trzema grupami i więcej można wybrać kilka („Wybierz kilka grup”). Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
-| **Powiadomienia** | Nowe zastępstwa i nowe ogłoszenia (ogłoszenia domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. **Przypomnienia o lekcjach** (domyślnie wyłączone; punktualne wymagają zgody na alarmy o czasie) oraz **notatki do lekcji**: lista notatek i przypomnienia dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
+| **Powiadomienia** | Nowe zastępstwa, nowe ogłoszenia (domyślnie wyłączone) i **informacje szkoły** dopisane na stronie zastępstw, np. skrócone lekcje (domyślnie włączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. **Przypomnienia o lekcjach** (domyślnie wyłączone; punktualne wymagają zgody na alarmy o czasie) oraz **notatki do lekcji**: lista notatek i przypomnienia dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
 | **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Przejazdy. Karty na stronie głównej, w tym **Czas do końca lekcji** (domyślnie wyłączony, także linia w widżecie Plan dnia) i **Przejazdy**. |
 | **Wygląd** | Motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **kolor tła** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i nasycenie tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: domyślna albo logo na białym tle. Po zmianie ikony aplikacja się zamyka. |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, pokazywanie sali i nauczyciela. |
@@ -94,6 +94,14 @@ własną stronę, a po powrocie lista jest przewinięta tam, gdzie była. Kolejn
 
 Skróty po przytrzymaniu ikony aplikacji: Plan lekcji, Zastępstwa, Ogłoszenia, Strona główna
 i - przy włączonej zakładce - Przejazdy.
+
+**Dni wolne:** strona szkoły pokazuje stały plan także w święta i przerwy. eLektron zna święta
+ustawowe, przerwy świąteczne, wakacje i ferie zimowe w kujawsko-pomorskim (2026/2027: 15-28 lutego) -
+w takie dni nie ma przypomnień, powiadomienia na żywo ani „następnej lekcji”, a plan dnia mówi, że to
+dzień wolny. Dni wolne ustalane przez dyrektora szkoły nie są znane z góry.
+
+**Nowy rok szkolny:** gdy na stronie szkoły zmieni się lista klas i Twojej klasy nie ma albo jej
+miejsce zajęła inna, aplikacja poprosi o ponowny wybór klasy zamiast pokazywać cudzy plan.
 
 ## Instalacja i aktualizacje
 

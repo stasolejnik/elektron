@@ -1,6 +1,7 @@
-Commute (formerly Departures): to your lesson in the morning with time to spare, home after lessons, live delays.
+Commute (formerly Departures): to school in the morning, home after lessons, live delays.
+Days off: no reminders or live notification on holidays and breaks.
+School notice notifications.
 New Settings with categories, custom background colour.
-Time left until lessons end on the home screen and the Day plan widget.
+Time left until lessons end on the home screen and widget.
 Several groups of one subject.
-Live notification: current progress and time, status bar countdown (Android 16+).
-School notices without "published / updated" entries, with images.
+Live notification: current progress, status bar countdown (Android 16+).

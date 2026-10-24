@@ -1,6 +1,7 @@
-Przejazdy (dawniej Odjazdy): rano dojazd na lekcję z zapasem czasu, po lekcjach powrót, opóźnienia na żywo.
+Przejazdy (dawniej Odjazdy): rano dojazd na lekcję, po lekcjach powrót, opóźnienia na żywo.
+Dni wolne: w święta i ferie bez przypomnień i powiadomienia na żywo.
+Powiadomienia o informacjach szkoły.
 Nowe Ustawienia z kategoriami, własny kolor tła.
-Czas do końca lekcji na stronie głównej i w widżecie Plan dnia.
+Czas do końca lekcji na stronie głównej i w widżecie.
 Kilka grup jednego przedmiotu.
-Powiadomienie na żywo: aktualny pasek i czas, odliczanie na pasku stanu (Android 16+).
-Informacje szkoły bez wpisów „Publikacja / Aktualizacja”, z obrazkami.
+Powiadomienie na żywo: aktualny pasek, odliczanie na pasku stanu (Android 16+).
