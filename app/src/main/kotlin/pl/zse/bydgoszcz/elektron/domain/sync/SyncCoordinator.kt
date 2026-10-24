@@ -1,5 +1,8 @@
 package pl.zse.bydgoszcz.elektron.domain.sync
 
+import pl.zse.bydgoszcz.elektron.domain.model.ClassListChange
+import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
+
 import pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException
 import androidx.room.withTransaction
 import android.util.Log
@@ -212,8 +215,29 @@ class SyncCoordinator @Inject constructor(
         if (flight.waiters <= 0 && !flight.pinned && flight.deferred.isActive) flight.deferred.cancel()
     }
 
+    /**
+     * Nowy rok szkolny: wybrana klasa zniknęła z listy albo jej identyfikator ma teraz inna klasa.
+     * Bez klasy aplikacja pokazuje wybór klasy z wyjaśnieniem; plan starej klasy jest usuwany.
+     * Zwraca true, gdy klasa została odznaczona.
+     */
+    private suspend fun classListChanged(classId: String, before: String?, notify: Boolean): Boolean {
+        if (!ClassListChange.selectedIsStale(classId, before, timetableRepo.lastSidebarClasses())) return false
+        Log.i(TAG, "Lista klas się zmieniła - wybrana klasa ${before ?: classId} wymaga ponownego wyboru")
+        runCatchingCancellable {
+            settings.setClassListChangedFrom(before ?: "")
+            settings.clearSelectedClass()
+            timetableRepo.forgetClass(classId)
+        }.onFailure { Log.w(TAG, "Nie udało się odznaczyć klasy po zmianie listy", it) }
+        if (notify) runCatchingCancellable {
+            sink.postGeneric("Wybierz klasę ponownie",
+                "Lista klas na stronie szkoły się zmieniła (nowy rok szkolny?). Otwórz eLektron i wybierz swoją klasę.", null)
+        }
+        return true
+    }
+
     private suspend fun classChange(classId: String, reset: Boolean): SyncOutcome {
         settings.setSelectedClassId(classId)
+        runCatchingCancellable { settings.setClassListChangedFrom(null) }
         if (reset) announcementsRepo.resetArchive { db.withTransaction {
             val sql = db.openHelper.writableDatabase
             listOf("lesson_groups", "lessons", "substitutions", "school_classes", "teachers", "rooms",
@@ -257,14 +281,29 @@ class SyncCoordinator @Inject constructor(
             onSuccess { ok += key }
             onFailure { Log.w(TAG, "$key: synchronizacja nieudana", it); failed[key] = it }
         }
+        // Informacje szkoły przed pobraniem strony zastępstw - powiadomienie o nowych i zmienionych.
+        val noticesBefore = if (SyncOutcome.SUBSTITUTIONS in sources)
+            runCatchingCancellable { substitutionsRepo.observeNotices(LocalDate.now()).first() }.getOrNull()
+            else null
+        // Nazwa wybranej klasy przed pobraniem listy - do wykrycia nowego roku szkolnego (ClassListChange).
+        val classBefore = if (classId != null && SyncOutcome.SIDEBAR in sources)
+            runCatchingCancellable { timetableRepo.observeClasses().first().firstOrNull { it.id == classId }?.shortName }.getOrNull()
+            else null
         try {
             coroutineScope {
                 val sidebarJob = if (SyncOutcome.SIDEBAR in sources) launch {
                     timetableRepo.syncSidebar().record(SyncOutcome.SIDEBAR)
                 } else null
                 val timetableJob = if (SyncOutcome.TIMETABLE in sources && classId != null) launch {
+                    // Plan dopiero po liście klas: pod identyfikatorem, który dostała inna klasa, pobrałby się jej plan.
+                    sidebarJob?.join()
+                    if (sidebarJob != null && classListChanged(classId, classBefore, notify)) return@launch
                     timetableRepo.syncTimetable(classId, request.anchorDate).record(SyncOutcome.TIMETABLE)
                 } else null
+                if (sidebarJob != null && classId != null && SyncOutcome.TIMETABLE !in sources) launch {
+                    sidebarJob.join()
+                    classListChanged(classId, classBefore, notify)
+                }
                 // Zastępstwa po zapisie planu: wpisy bez klasy (zajęcia łączone) są przypisywane według
                 // zapisanego planu - przy pierwszej synchronizacji (wybór klasy, czyszczenie danych)
                 // plan jeszcze się zapisywał i takie zastępstwa znikały do kolejnego pobrania. Lista
@@ -319,7 +358,7 @@ class SyncCoordinator @Inject constructor(
             }
             if (SyncOutcome.freshDataLoaded(written)) notificationsRepo.setLastSyncAt(Instant.now())
             if (subsWritten || SyncOutcome.ANNOUNCEMENTS in outcome.succeeded) {
-                notifyNew(classId, notify, substitutionsLoaded = subsWritten)
+                notifyNew(classId, notify, substitutionsLoaded = subsWritten, noticesBefore = noticesBefore.takeIf { subsWritten })
             }
             return outcome
         } finally {
@@ -352,7 +391,8 @@ class SyncCoordinator @Inject constructor(
      * po instalacji / resecie (isInitialSyncDone, gotowość zbioru "widzianych" v2) i pierwsza
      * po zmianie klasy ([allowed] = false) tylko zapisują stan.
      */
-    private suspend fun notifyNew(classId: String?, allowed: Boolean, substitutionsLoaded: Boolean) {
+    private suspend fun notifyNew(classId: String?, allowed: Boolean, substitutionsLoaded: Boolean,
+        noticesBefore: Map<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice>? = null) {
         // Blokada dzielona z pushami ogłoszeń FCM (ElektronFirebaseMessagingService) - bez duplikatów.
         notificationsRepo.withNotifyLock {
             // Wysyłka i zapis "widzianych" jako jeden krok: anulowanie pomiędzy (limit czasu pusha,
@@ -370,6 +410,12 @@ class SyncCoordinator @Inject constructor(
                     val fresh = currentSubs.filter { it.id !in seenSubs } +
                         pl.zse.bydgoszcz.elektron.domain.model.SubstitutionNotice.changedNotes(currentSubs, seenSubs, seenFingerprints)
                     if (classId != null) substitutionNotifier.notifyFresh(fresh)
+                    if (noticesBefore != null && classId != null && settings.notifyNotices.first()) runCatchingCancellable {
+                        val today = LocalDate.now()
+                        val after = substitutionsRepo.observeNotices(today).first()
+                        pl.zse.bydgoszcz.elektron.domain.model.SchoolNotices.toNotify(noticesBefore, after, today)
+                            .forEach { (day, notice) -> sink.postSchoolNotice(day, notice) }
+                    }.onFailure { Log.w(TAG, "Nie udało się powiadomić o informacji szkoły", it) }
                     val freshAnns = currentAnns.filter { it.id !in seenAnns }
                     if (settings.notificationsAnnouncements.first() && freshAnns.isNotEmpty()) {
                         freshAnns.take(5).forEach { sink.postAnnouncement(it) }

@@ -26,6 +26,10 @@ class FakeSettings(
 
     override val selectedClassId: Flow<String?> = classIdFlow
     override suspend fun setSelectedClassId(id: String) { classIdFlow.value = id }
+    override suspend fun clearSelectedClass() { classIdFlow.value = null }
+    val classListChangedFlow = MutableStateFlow<String?>(null)
+    override val classListChangedFrom: Flow<String?> = classListChangedFlow
+    override suspend fun setClassListChangedFrom(name: String?) { classListChangedFlow.value = name }
     override val themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM)
     override suspend fun setThemeMode(mode: ThemeMode) {}
     override val dynamicColor: Flow<Boolean> = flowOf(false)
@@ -61,6 +65,9 @@ class FakeSettings(
     override suspend fun setGroupSelection(classId: String, subject: String, choice: String?) {}
     override val groupsConfiguredFor: Flow<String?> = flowOf(classId)
     override suspend fun setGroupsConfiguredFor(classId: String) {}
+    val notifyNoticesFlow = MutableStateFlow(true)
+    override val notifyNotices: Flow<Boolean> = notifyNoticesFlow
+    override suspend fun setNotifyNotices(enabled: Boolean) { notifyNoticesFlow.value = enabled }
     val updatesFlow = MutableStateFlow(false)
     override val notifyUpdates: Flow<Boolean> = updatesFlow
     override suspend fun setNotifyUpdates(enabled: Boolean) { updatesFlow.value = enabled }

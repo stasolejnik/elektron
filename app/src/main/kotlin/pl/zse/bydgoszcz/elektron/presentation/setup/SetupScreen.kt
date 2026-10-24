@@ -35,6 +35,7 @@ fun SetupScreen(viewModel: SetupViewModel = hiltViewModel()) {
     val classes by viewModel.classes.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val changedFrom by viewModel.changedFrom.collectAsStateWithLifecycle()
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(
@@ -51,7 +52,10 @@ fun SetupScreen(viewModel: SetupViewModel = hiltViewModel()) {
             Text("eLektron", style = MaterialTheme.typography.displaySmall)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Witaj! Wybierz swoją klasę, żeby zobaczyć plan lekcji.",
+                changedFrom?.let { old ->
+                    "Lista klas na stronie szkoły się zmieniła (nowy rok szkolny?). Wybierz swoją klasę ponownie" +
+                        (if (old.isNotBlank()) " - wcześniej: $old." else ".") + " Grupy i notatki zostają zapisane."
+                } ?: "Witaj! Wybierz swoją klasę, żeby zobaczyć plan lekcji.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

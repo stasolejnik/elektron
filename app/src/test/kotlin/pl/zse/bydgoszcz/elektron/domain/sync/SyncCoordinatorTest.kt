@@ -71,7 +71,9 @@ class SyncCoordinatorTest {
         @Volatile var blockOnce = false
         @Volatile var error: Exception? = null
 
-        override suspend fun fetchSidebar() = listOf(
+        /** Lista klas po zmianie na stronie szkoły (null - zwykła). */
+        @Volatile var sidebar: List<ClassListItemDto>? = null
+        override suspend fun fetchSidebar() = sidebar ?: listOf(
             ClassListItemDto("o3", ClassListItemDto.Kind.CLASS, "1D 1D PBŚ", "1D", "https://plan.zse.bydgoszcz.pl/plany/o3.html"),
             ClassListItemDto("o4", ClassListItemDto.Kind.CLASS, "1E 1E PBŚ", "1E", "https://plan.zse.bydgoszcz.pl/plany/o4.html")
         )
@@ -104,10 +106,12 @@ class SyncCoordinatorTest {
         @Volatile var error: Exception? = null
         /** Dni, z których "parser" nie odczytał wszystkich wierszy. */
         @Volatile var incomplete: Set<String> = emptySet()
+        @Volatile var notices: Map<String, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice> = emptyMap()
         override suspend fun fetchSubstitutions(): List<SubstitutionDto> { error?.let { throw it }; return items }
         override suspend fun fetchPage(): pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsPage {
             val list = fetchSubstitutions()
-            return pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsPage(list.map { it.dateRaw }.toSet() + incomplete, list, incomplete)
+            return pl.zse.bydgoszcz.elektron.data.remote.sources.SubstitutionsPage(list.map { it.dateRaw }.toSet() + incomplete + notices.keys,
+                list, incomplete, notices = notices)
         }
     }
 
@@ -122,9 +126,12 @@ class SyncCoordinatorTest {
 
     private class RecordingSink : NotificationSink {
         val substitutions: MutableList<String> = Collections.synchronizedList(mutableListOf())
+        val generic: MutableList<String> = Collections.synchronizedList(mutableListOf())
+        val notices: MutableList<String> = Collections.synchronizedList(mutableListOf())
+        override suspend fun postSchoolNotice(date: LocalDate, notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice) { notices += "$date:${notice.text}" }
         override suspend fun postSubstitution(sub: Substitution, originalSubject: String?) { substitutions += sub.id }
         override suspend fun postAnnouncement(ann: Announcement) {}
-        override suspend fun postGeneric(title: String, body: String, deepLink: String?) {}
+        override suspend fun postGeneric(title: String, body: String, deepLink: String?) { generic += title }
     }
 
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -155,6 +162,49 @@ class SyncCoordinatorTest {
         var v = read()
         while (!ok(v)) { delay(20); v = read() }
         v
+    }
+
+    // --- Informacje szkoły ---
+
+    @Test
+    fun newAndChangedSchoolNoticesAreNotifiedOnce() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())   // punkt odniesienia - bez powiadomień
+        val day = nextMonday.format(fmt)
+        subs.notices = mapOf(day to pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice("Lekcje skrócone do 30 min"))
+        coordinator.sync(SyncRequest.full())
+        assertEquals(listOf("$nextMonday:Lekcje skrócone do 30 min"), sink.notices.toList())
+        coordinator.sync(SyncRequest.full())
+        assertEquals("bez zmian - bez powiadomienia", 1, sink.notices.size)
+        subs.notices = mapOf(day to pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice("Lekcje skrócone do 30 min, apel o 12:00"))
+        coordinator.sync(SyncRequest.full())
+        assertEquals("$nextMonday:Lekcje skrócone do 30 min, apel o 12:00", sink.notices.last())
+        settings.notifyNoticesFlow.value = false
+        subs.notices = mapOf(day to pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice("Odwołany apel"))
+        coordinator.sync(SyncRequest.full())
+        assertEquals("wyłączone w ustawieniach", 2, sink.notices.size)
+    }
+
+    // --- Nowy rok szkolny ---
+
+    @Test
+    fun renumberedClassListAsksForTheClassInsteadOfFetchingAnotherClassPlan() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        val callsBefore = timetable.calls.get()
+        // Identyfikator "o3" ma teraz inna klasa (3A), a 1D zniknęła z listy.
+        timetable.sidebar = listOf(
+            ClassListItemDto("o3", ClassListItemDto.Kind.CLASS, "3A 3A Technik", "3A", "https://plan.zse.bydgoszcz.pl/plany/o3.html"),
+            ClassListItemDto("o4", ClassListItemDto.Kind.CLASS, "1E 1E PBŚ", "1E", "https://plan.zse.bydgoszcz.pl/plany/o4.html"),
+            ClassListItemDto("o5", ClassListItemDto.Kind.CLASS, "2D 2D PBŚ", "2D", "https://plan.zse.bydgoszcz.pl/plany/o5.html"))
+        coordinator.sync(SyncRequest.full())
+        assertEquals(callsBefore, timetable.calls.get())
+        assertNull(settings.classIdFlow.value)
+        assertEquals("1D", settings.classListChangedFlow.value)
+        assertEquals(listOf("Wybierz klasę ponownie"), sink.generic.toList())
+        assertTrue(db.lessonDao().classIds().isEmpty())
+        // Ponowny wybór klasy kasuje komunikat.
+        coordinator.selectClass("o5")
+        withTimeout(10_000) { settings.classListChangedFlow.first { it == null } }
+        assertEquals("o5", settings.classIdFlow.value)
     }
 
     // --- Wspólna praca ---

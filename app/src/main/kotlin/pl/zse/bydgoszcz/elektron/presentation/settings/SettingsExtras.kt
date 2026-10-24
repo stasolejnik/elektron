@@ -156,7 +156,8 @@ internal fun TransitSection(
 internal fun NotificationsSection(
     substitutions: Boolean, announcements: Boolean, quiet: QuietHours,
     onSubs: (Boolean) -> Unit, onAnnouncements: (Boolean) -> Unit, onQuiet: (QuietHours) -> Unit,
-    live: Boolean = false, onLive: (Boolean) -> Unit = {}, onLiveResume: () -> Unit = {}
+    live: Boolean = false, onLive: (Boolean) -> Unit = {}, onLiveResume: () -> Unit = {},
+    notices: Boolean = true, onNotices: (Boolean) -> Unit = {}
 ) {
     var picking by remember { mutableStateOf<Boolean?>(null) }   // true = od, false = do
     val ctx = LocalContext.current
@@ -183,6 +184,8 @@ internal fun NotificationsSection(
         SwitchRow("Nowe zastępstwa", substitutions, supporting = "Zmiany w planie Twojej klasy", onChange = onSubs)
         RowDivider()
         SwitchRow("Nowe ogłoszenia", announcements, supporting = "Wpisy na stronie szkoły", onChange = onAnnouncements)
+        RowDivider()
+        SwitchRow("Informacje szkoły", notices, supporting = "Dopisane na stronie zastępstw, np. skrócone lekcje albo apel", onChange = onNotices)
         RowDivider()
         SwitchRow("Powiadomienia na żywo", live,
             supporting = "W dni lekcyjne: co trwa, ile zostało i co dalej. Ciche, więc działa też w ciche godziny"

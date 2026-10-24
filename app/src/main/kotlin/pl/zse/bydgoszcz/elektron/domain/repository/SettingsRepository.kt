@@ -16,6 +16,11 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 interface SettingsRepository {
     val selectedClassId: Flow<String?>
     suspend fun setSelectedClassId(id: String)
+    /** Zmieniona lista klas (ClassListChange): bez klasy, aplikacja pokaże wybór klasy. */
+    suspend fun clearSelectedClass() {}
+    /** Nazwa klasy sprzed zmiany listy klas (komunikat przy ponownym wyborze); null - brak zmiany. */
+    val classListChangedFrom: Flow<String?> get() = flowOf(null)
+    suspend fun setClassListChangedFrom(name: String?) {}
 
     val themeMode: Flow<ThemeMode>
     suspend fun setThemeMode(mode: ThemeMode)
@@ -78,6 +83,10 @@ interface SettingsRepository {
     /** Dzień (epochDay), w którym użytkownik ukrył albo odrzucił powiadomienie na żywo; null - żaden. */
     val liveHiddenDay: Flow<Long?> get() = flowOf(null)
     suspend fun setLiveHiddenDay(epochDay: Long?) {}
+
+    /** Powiadomienia o informacjach szkoły ze strony zastępstw (np. skrócone lekcje); domyślnie włączone. */
+    val notifyNotices: Flow<Boolean> get() = flowOf(true)
+    suspend fun setNotifyNotices(enabled: Boolean) {}
 
     /** Powiadomienie o nowej wersji (tylko wersja z GitHuba, sprawdzanie w tle); domyślnie wyłączone. */
     val notifyUpdates: Flow<Boolean> get() = flowOf(false)

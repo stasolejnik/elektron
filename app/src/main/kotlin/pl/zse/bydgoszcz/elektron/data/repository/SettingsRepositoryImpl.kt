@@ -68,6 +68,7 @@ class SettingsRepositoryImpl internal constructor(
 
     private object Keys {
         val SELECTED_CLASS_ID = stringPreferencesKey("selected_class_id")
+        val CLASS_LIST_CHANGED_FROM = stringPreferencesKey("class_list_changed_from")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         // Nowy klucz (0.5.0): stary "dynamic_color" miał domyślnie true z czasów, gdy opcja
         // była nieaktywna — podpięcie go zmieniłoby wszystkim wygląd bez pytania.
@@ -102,6 +103,7 @@ class SettingsRepositoryImpl internal constructor(
         val LIVE_ENABLED = booleanPreferencesKey("live_notifications")
         val SHOW_DAY_END = booleanPreferencesKey("show_day_end")
         val NOTIFY_UPDATES = booleanPreferencesKey("notify_updates")
+        val NOTIFY_NOTICES = booleanPreferencesKey("notify_notices")
         val LIVE_HIDDEN_DAY = longPreferencesKey("live_hidden_day")
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
     }
@@ -120,6 +122,13 @@ class SettingsRepositoryImpl internal constructor(
     override val selectedClassId: Flow<String?> = prefs.map { it[Keys.SELECTED_CLASS_ID] }.distinctUntilChanged()
     override suspend fun setSelectedClassId(id: String) {
         safeEdit { it[Keys.SELECTED_CLASS_ID] = id }
+    }
+    override suspend fun clearSelectedClass() {
+        safeEdit { it.remove(Keys.SELECTED_CLASS_ID) }
+    }
+    override val classListChangedFrom: Flow<String?> = prefs.map { it[Keys.CLASS_LIST_CHANGED_FROM] }.distinctUntilChanged()
+    override suspend fun setClassListChangedFrom(name: String?) {
+        safeEdit { if (name == null) it.remove(Keys.CLASS_LIST_CHANGED_FROM) else it[Keys.CLASS_LIST_CHANGED_FROM] = name }
     }
 
     override val themeMode: Flow<ThemeMode> = prefs.map {
@@ -265,6 +274,11 @@ class SettingsRepositoryImpl internal constructor(
         prefs.map { UpdateChannel.fromKey(it[Keys.UPDATE_CHANNEL]) }.distinctUntilChanged()
     override suspend fun setUpdateChannel(channel: UpdateChannel) {
         safeEdit { it[Keys.UPDATE_CHANNEL] = channel.key }
+    }
+
+    override val notifyNotices: Flow<Boolean> = prefs.map { it[Keys.NOTIFY_NOTICES] ?: true }.distinctUntilChanged()
+    override suspend fun setNotifyNotices(enabled: Boolean) {
+        safeEdit { it[Keys.NOTIFY_NOTICES] = enabled }
     }
 
     override val notifyUpdates: Flow<Boolean> = prefs.map { it[Keys.NOTIFY_UPDATES] ?: false }.distinctUntilChanged()

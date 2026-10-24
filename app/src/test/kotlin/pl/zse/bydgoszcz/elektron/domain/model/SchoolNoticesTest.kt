@@ -38,4 +38,13 @@ class SchoolNoticesTest {
     @Test fun nothingWithoutNotices() {
         assertNull(SchoolNotices.forDashboard(emptyMap(), lessons, friday.atTime(9, 0), monday))
     }
+
+    @Test fun notifyOnlyAboutNewOrChangedTextFromToday() {
+        val today = java.time.LocalDate.of(2026, 10, 26)
+        val before = mapOf(today to SchoolNotice("Apel"), today.plusDays(1) to SchoolNotice("Bez zmian"))
+        val after = mapOf(today.minusDays(1) to SchoolNotice("Wczoraj"), today to SchoolNotice("Apel o 12:00"),
+            today.plusDays(1) to SchoolNotice("Bez zmian ", updated = "15:30"), today.plusDays(2) to SchoolNotice("", images = listOf("https://zse.edu.bydgoszcz.pl/a.png")),
+            today.plusDays(3) to SchoolNotice("Nowa"))
+        assertEquals(listOf(today, today.plusDays(3)), SchoolNotices.toNotify(before, after, today).map { it.first })
+    }
 }

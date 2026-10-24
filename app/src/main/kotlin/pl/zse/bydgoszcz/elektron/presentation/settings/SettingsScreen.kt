@@ -189,7 +189,8 @@ fun SettingsScreen(
                         NotificationsSection(state.notifSubs, state.notifAnn, state.quiet,
                             onSubs = viewModel::setNotifSubs, onAnnouncements = viewModel::setNotifAnn, onQuiet = viewModel::setQuietHours,
                             live = state.liveNotifications, onLive = { viewModel.setLiveNotifications(it) },
-                            onLiveResume = { viewModel.refreshLiveNotifications() })
+                            onLiveResume = { viewModel.refreshLiveNotifications() },
+                            notices = state.notifyNotices, onNotices = viewModel::setNotifNotices)
                     }
                     item(key = "reminders") {
                         val reminderStatus by viewModel.reminderStatus.collectAsStateWithLifecycle()
@@ -341,6 +342,7 @@ internal fun SettingsHome(
                 GroupedSection(null) {
                     val notifications = listOfNotNull(
                         "zastępstwa".takeIf { state.notifSubs }, "ogłoszenia".takeIf { state.notifAnn },
+                        "informacje szkoły".takeIf { state.notifyNotices },
                         "na żywo".takeIf { state.liveNotifications },
                         "przypomnienia".takeIf { state.reminder.mode != pl.zse.bydgoszcz.elektron.domain.model.ReminderMode.OFF })
                     CategoryRow(Icons.Outlined.Notifications, "Powiadomienia",

@@ -9,6 +9,10 @@ import java.time.LocalDate
 
 interface TimetableRepository {
     suspend fun syncSidebar(): Result<Unit>
+    /** Klasy z ostatniej udanej synchronizacji listy (w tym procesie); null - jeszcze nie pobrano. */
+    fun lastSidebarClasses(): List<SchoolClass>? = null
+    /** Usuwa zapisany plan i wpis klasy, której nie ma już na stronie szkoły. */
+    suspend fun forgetClass(classId: String) {}
     suspend fun syncTimetable(classId: String, anchorDate: LocalDate): Result<Unit>
     fun observeClasses(): Flow<List<SchoolClass>>
     fun observeTeachers(): Flow<List<Teacher>>

@@ -23,8 +23,13 @@ import javax.inject.Inject
 class SetupViewModel @Inject constructor(
     timetableRepo: TimetableRepository,
     private val classSelection: ClassSelection,
-    private val coordinator: SyncCoordinator
+    private val coordinator: SyncCoordinator,
+    settings: pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository
 ) : ViewModel() {
+
+    /** Nazwa klasy sprzed zmiany listy klas na stronie szkoły (nowy rok szkolny); null - pierwszy wybór. */
+    val changedFrom: StateFlow<String?> = settings.classListChangedFrom
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val classes: StateFlow<List<SchoolClass>> = timetableRepo.observeClasses()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

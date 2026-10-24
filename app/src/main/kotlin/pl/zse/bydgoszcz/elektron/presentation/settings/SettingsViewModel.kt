@@ -185,6 +185,7 @@ class SettingsViewModel @Inject constructor(
         val showDayEnd: Boolean = false,
         val baseLook: pl.zse.bydgoszcz.elektron.domain.model.LookSetting = pl.zse.bydgoszcz.elektron.domain.model.LookSetting(),
         val notifyUpdates: Boolean = false,
+        val notifyNotices: Boolean = true,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
         val ready: Boolean = false
     )
@@ -204,7 +205,8 @@ class SettingsViewModel @Inject constructor(
         settings.liveNotifications,
         settings.showDayEnd,
         settings.look,
-        settings.notifyUpdates
+        settings.notifyUpdates,
+        settings.notifyNotices
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -228,7 +230,8 @@ class SettingsViewModel @Inject constructor(
             liveNotifications = values[16] as Boolean,
             showDayEnd = values[17] as Boolean,
             baseLook = values[18] as pl.zse.bydgoszcz.elektron.domain.model.LookSetting,
-            notifyUpdates = values[19] as Boolean
+            notifyUpdates = values[19] as Boolean,
+            notifyNotices = values[20] as Boolean
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -327,6 +330,7 @@ class SettingsViewModel @Inject constructor(
     fun refreshLiveNotifications() = liveLessons.requestReschedule()
 
     fun setNotifSubs(b: Boolean) = writeSetting { settings.setNotificationsSubstitutions(b) }
+    fun setNotifNotices(b: Boolean) = writeSetting { settings.setNotifyNotices(b) }
     fun setNotifAnn(b: Boolean) = writeSetting { settings.setNotificationsAnnouncements(b) }
     fun setShowNextLesson(b: Boolean) = writeSetting { settings.setShowNextLesson(b) }
     fun setShowSubstitutions(b: Boolean) = writeSetting { settings.setShowSubstitutions(b) }

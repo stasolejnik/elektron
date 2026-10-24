@@ -15,6 +15,15 @@ data class SchoolNotice(val text: String, val images: List<String> = emptyList()
 
 /** Informacje szkoły ze strony zastępstw (np. o oddawaniu krwi) - który dzień pokazać na stronie głównej. */
 object SchoolNotices {
+    /**
+     * Powiadomienia: nowa albo zmieniona treść informacji na dziś i kolejne dni (sama godzina
+     * aktualizacji ani same obrazki - nie). Najwyżej 3, od najbliższego dnia.
+     */
+    fun toNotify(before: Map<LocalDate, SchoolNotice>, after: Map<LocalDate, SchoolNotice>, today: LocalDate): List<Pair<LocalDate, SchoolNotice>> =
+        after.filter { (day, notice) -> !day.isBefore(today) && notice.text.isNotBlank() &&
+            before[day]?.text?.trim() != notice.text.trim() }
+            .toList().sortedBy { it.first }.take(3)
+
 
     /**
      * Informacja dla dnia, który pokazuje strona główna: dziś, a po dzisiejszych lekcjach następny dzień

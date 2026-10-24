@@ -51,6 +51,7 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
             when (type) {
                 "substitution" -> handleSubstitution(data)
                 "announcement" -> handleAnnouncement(data)
+                "notice" -> handleNotice(data)
                 else -> Log.w(TAG, "Nieznany typ push: $type")
             }
         } catch (e: Exception) {
@@ -75,6 +76,21 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
                 pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS))
         }
         // Niepełna strona (kilka nieczytelnych wierszy) jest już zapisana - bez ponownego pobierania.
+        if (outcome == null || outcome.shouldRetry) syncScheduler.syncSubstitutionsNow()
+    }
+
+    /**
+     * Nowa albo zmieniona informacja szkoły na stronie zastępstw: sygnał do pobrania strony - powiadomienie
+     * (gdy włączone) wysyła koordynator po porównaniu z zapisaną treścią, jak przy zwykłej synchronizacji.
+     */
+    private suspend fun handleNotice(data: Map<String, String>) {
+        val date = runCatching { LocalDate.parse(data["date"]) }.getOrNull() ?: return
+        if (date < LocalDate.now()) return
+        if (settings.selectedClassId.first() == null) return
+        val outcome = kotlinx.coroutines.withTimeoutOrNull(8_000) {
+            coordinator.sync(pl.zse.bydgoszcz.elektron.domain.sync.SyncRequest.of(
+                pl.zse.bydgoszcz.elektron.domain.model.SyncOutcome.SUBSTITUTIONS))
+        }
         if (outcome == null || outcome.shouldRetry) syncScheduler.syncSubstitutionsNow()
     }
 

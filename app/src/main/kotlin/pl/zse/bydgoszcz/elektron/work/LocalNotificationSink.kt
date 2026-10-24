@@ -57,6 +57,10 @@ class LocalNotificationSink @Inject constructor(
                 group = GROUP_ELEKTRON
             }
         )
+        mgr.createNotificationChannel(NotificationChannel(CHANNEL_NOTICES, "Informacje szkoły", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "Informacje dopisane na stronie zastępstw, np. skrócone lekcje albo apel (Ustawienia -> Powiadomienia)."
+            group = GROUP_ELEKTRON
+        })
         mgr.createNotificationChannel(NotificationChannel(CHANNEL_NOTES, "Notatki do lekcji", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "Przypomnienia o Twoich notatkach do przyszłych lekcji."
             group = GROUP_ELEKTRON
@@ -162,6 +166,30 @@ class LocalNotificationSink @Inject constructor(
         safeNotify(title.hashCode(), n)
     }
 
+    override suspend fun postSchoolNotice(date: java.time.LocalDate, notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice) {
+        if (!canNotify()) return
+        val today = pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()
+        val day = when (date) {
+            today -> "dziś"
+            today.plusDays(1) -> "jutro"
+            else -> date.format(java.time.format.DateTimeFormatter.ofPattern("d.MM"))
+        }
+        val text = notice.text.take(1000)
+        val pi = PendingIntent.getActivity(context, NOTICE_ID_BASE + (date.toEpochDay() % 1000).toInt(), deepLinkIntent("substitutions"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val n = NotificationCompat.Builder(context, CHANNEL_NOTICES)
+            .setSmallIcon(R.drawable.ic_stat_elektron)
+            .setContentTitle("Informacja szkoły · $day")
+            .setContentText(text.lineSequence().firstOrNull { it.isNotBlank() } ?: text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setSilent(isQuietNow())
+            .build()
+        // Jedno powiadomienie na dzień: zmieniona treść zastępuje poprzednią.
+        safeNotify(NOTICE_ID_BASE + (date.toEpochDay() % 1000).toInt(), n)
+    }
+
     fun canPostNotes(): Boolean = canNotify() && NotificationManagerCompat.from(context).areNotificationsEnabled() && (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
         context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE)
 
@@ -240,6 +268,8 @@ class LocalNotificationSink @Inject constructor(
         const val CHANNEL_NOTES = "elektron_lesson_notes"
         const val CHANNEL_REMINDERS = "elektron_reminders"
         const val CHANNEL_LIVE = "elektron_live"
+        const val CHANNEL_NOTICES = "elektron_school_notices"
+        private const val NOTICE_ID_BASE = 0x5D000000
         private const val REMINDER_ID_BASE = 0x7E000000
         /** Zastępstwa: rozróżnia je znacznik (SubstitutionNotice.tag), ID jest stałe. */
         private const val SUBSTITUTION_ID = 0x5B000001

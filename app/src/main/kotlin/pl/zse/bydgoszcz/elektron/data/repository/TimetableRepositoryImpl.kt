@@ -45,6 +45,17 @@ class TimetableRepositoryImpl @Inject constructor(
     private val db: AppDatabase
 ) : TimetableRepository {
 
+    @Volatile private var lastSidebar: List<SchoolClass>? = null
+    override fun lastSidebarClasses(): List<SchoolClass>? = lastSidebar
+
+    override suspend fun forgetClass(classId: String) = withContext(Dispatchers.IO) {
+        db.withTransaction {
+            lessonDao.deleteForClass(classId)   // grupy lekcji - kaskadowo
+            val fresh = lastSidebar?.map { it.id }.orEmpty()
+            if (classId !in fresh) classDao.deleteExcept(classDao.getAll().map { it.id } - classId)
+        }
+    }
+
     override suspend fun syncSidebar(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
             val items = source.fetchSidebar()
@@ -56,6 +67,7 @@ class TimetableRepositoryImpl @Inject constructor(
                 val freshClasses = items.filter { it.kind == ClassListItemDto.Kind.CLASS }.map(SidebarMapper::toClassEntity)
                 val freshTeachers = items.filter { it.kind == ClassListItemDto.Kind.TEACHER }.map(SidebarMapper::toTeacherEntity)
                 val freshRooms = items.filter { it.kind == ClassListItemDto.Kind.ROOM }.map(SidebarMapper::toRoomEntity)
+                lastSidebar = freshClasses.map { SchoolClass(it.id, it.fullName, it.shortName, it.url) }
                 classDao.upsertAll(freshClasses.filter { classes[it.id] != it })
                 teacherDao.upsertAll(freshTeachers.filter { teachers[it.code] != it })
                 roomDao.upsertAll(freshRooms.filter { rooms[it.id] != it })
