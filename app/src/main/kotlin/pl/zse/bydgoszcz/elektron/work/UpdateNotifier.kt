@@ -23,7 +23,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Powiadomienie o nowej wersji (Ustawienia -> Aktualizacje, domyślnie wyłączone; tylko wersja
+ * Powiadomienie o nowej wersji (Ustawienia -> Powiadomienia, domyślnie wyłączone; tylko wersja
  * z GitHuba - F-Droid aktualizuje sam). Sprawdzanie przy synchronizacji w tle, ale GitHub pytany
  * najwyżej co 12 godzin (UpdateRepository). Jedno powiadomienie na wersję; wersja odłożona
  * przyciskiem "Później" na stronie głównej nie wraca w powiadomieniu.
@@ -73,7 +73,7 @@ class UpdateNotifier @Inject constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
             NotificationChannel(CHANNEL_UPDATES, "Aktualizacje", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Nowa wersja aplikacji (Ustawienia -> Aktualizacje)."
+                description = "Nowa wersja aplikacji (Ustawienia -> Powiadomienia)."
                 group = LocalNotificationSink.GROUP_ELEKTRON
             })
     }

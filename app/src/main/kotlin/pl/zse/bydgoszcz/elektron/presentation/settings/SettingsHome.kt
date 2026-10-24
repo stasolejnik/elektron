@@ -121,6 +121,7 @@ internal fun SettingsHome(
                     val notifications = listOfNotNull(
                         "zastępstwa".takeIf { state.notifSubs }, "ogłoszenia".takeIf { state.notifAnn },
                         "informacje szkoły".takeIf { state.notifyNotices },
+                        "nowa wersja".takeIf { state.notifyUpdates && BuildConfig.UPDATE_CHECK },
                         "na żywo".takeIf { state.liveNotifications },
                         "przypomnienia".takeIf { state.reminder.mode != pl.zse.bydgoszcz.elektron.domain.model.ReminderMode.OFF })
                     CategoryRow(Icons.Outlined.Notifications, "Powiadomienia",
@@ -155,7 +156,7 @@ internal fun SettingsHome(
                     if (BuildConfig.UPDATE_CHECK) {
                         CategoryDivider()
                         CategoryRow(Icons.Outlined.SystemUpdate, "Aktualizacje",
-                            state.updateChannel.label + if (state.notifyUpdates) " · z powiadomieniami" else "") { onOpen(SettingsPage.UPDATES) }
+                            state.updateChannel.label) { onOpen(SettingsPage.UPDATES) }
                     }
                     CategoryDivider()
                     CategoryRow(Icons.Outlined.Storage, "Dane", "Wyczyść dane podręczne") { onOpen(SettingsPage.DATA) }

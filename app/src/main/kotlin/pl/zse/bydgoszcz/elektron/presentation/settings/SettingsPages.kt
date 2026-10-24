@@ -13,7 +13,6 @@ import pl.zse.bydgoszcz.elektron.crash.openContactEmail
 import androidx.compose.foundation.layout.Box
 import pl.zse.bydgoszcz.elektron.presentation.common.UpdateActions
 import pl.zse.bydgoszcz.elektron.crash.CrashReport
-import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -62,27 +61,12 @@ import androidx.compose.material.icons.outlined.SystemUpdate
 internal fun UpdatesSection(state: SettingsViewModel.State, viewModel: SettingsViewModel) {
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     var choosingChannel by remember { mutableStateOf(false) }
-    val ctx = LocalContext.current
-    var denied by remember { mutableStateOf(false) }
-    val permission = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { granted -> denied = !granted; if (granted) viewModel.setNotifyUpdates(true) }
     GroupedSection("Aktualizacje", icon = Icons.Outlined.SystemUpdate,
         footer = if (state.updateChannel == UpdateChannel.BETA)
             "Wersje beta są testowe i mogą zawierać błędy. Gdy ukaże się wersja stabilna, też ją dostaniesz."
         else null) {
         ValueRow("Kanał", state.updateChannel.label) { choosingChannel = true }
         RowDivider()
-        SwitchRow("Powiadamiaj o nowej wersji", state.notifyUpdates,
-            supporting = "Sprawdzanie w tle najwyżej co 12 godzin, jedno powiadomienie na wersję") { enable ->
-            val needsPermission = enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
-                    android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (needsPermission) permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) else viewModel.setNotifyUpdates(enable)
-        }
-        if (denied) Text("Bez zgody na powiadomienia o nowej wersji dowiesz się z baneru na stronie głównej.",
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         RowDivider()
         ActionRow("Sprawdź aktualizacje", enabled = updateStatus != SettingsViewModel.UpdateStatus.Checking) { viewModel.checkForUpdates() }
         when (val st = updateStatus) {

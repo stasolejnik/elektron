@@ -15,7 +15,7 @@ object Changelog {
             "Czas do końca lekcji na stronie głównej i w widżecie Plan dnia (Ustawienia → Strona główna)",
             "Kilka grup jednego przedmiotu naraz - przycisk „Wybierz kilka grup” przy przedmiotach z trzema grupami i więcej",
             // Wersja F-Droid nie sprawdza aktualizacji (robi to F-Droid) - bez tego punktu.
-            "Powiadomienie o nowej wersji (Ustawienia → Aktualizacje)".takeIf { pl.zse.bydgoszcz.elektron.BuildConfig.UPDATE_CHECK },
+            "Powiadomienie o nowej wersji (Ustawienia → Powiadomienia)".takeIf { pl.zse.bydgoszcz.elektron.BuildConfig.UPDATE_CHECK },
             "Powiadomienie na żywo: pasek i pozostały czas zawsze aktualne, mały napis z końcem lekcji całego dnia, nie znika po „Wyczyść wszystko”",
             "Odliczanie na pasku stanu (Android 16+) - Ustawienia podpowiedzą, gdy system ma je wyłączone",
             "Widżety pokazują ten sam pozostały czas co strona główna",

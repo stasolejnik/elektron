@@ -157,7 +157,8 @@ internal fun NotificationsSection(
     substitutions: Boolean, announcements: Boolean, quiet: QuietHours,
     onSubs: (Boolean) -> Unit, onAnnouncements: (Boolean) -> Unit, onQuiet: (QuietHours) -> Unit,
     live: Boolean = false, onLive: (Boolean) -> Unit = {}, onLiveResume: () -> Unit = {},
-    notices: Boolean = true, onNotices: (Boolean) -> Unit = {}
+    notices: Boolean = true, onNotices: (Boolean) -> Unit = {},
+    updates: Boolean = false, onUpdates: (Boolean) -> Unit = {}
 ) {
     var picking by remember { mutableStateOf<Boolean?>(null) }   // true = od, false = do
     val ctx = LocalContext.current
@@ -179,6 +180,11 @@ internal fun NotificationsSection(
         liveDenied = !granted
         if (granted) onLive(true)
     }
+    // Powiadomienie o nowej wersji (tylko wersja z GitHuba): bez zgody zostaje baner na stronie głównej.
+    var updatesDenied by remember { mutableStateOf(false) }
+    val updatesPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted -> updatesDenied = !granted; if (granted) onUpdates(true) }
     GroupedSection("Powiadomienia", icon = Icons.Outlined.Notifications) {
         SystemNotificationStatus()
         SwitchRow("Nowe zastępstwa", substitutions, supporting = "Zmiany w planie Twojej klasy", onChange = onSubs)
@@ -186,6 +192,19 @@ internal fun NotificationsSection(
         SwitchRow("Nowe ogłoszenia", announcements, supporting = "Wpisy na stronie szkoły", onChange = onAnnouncements)
         RowDivider()
         SwitchRow("Informacje szkoły", notices, supporting = "Dopisane na stronie zastępstw, np. skrócone lekcje albo apel", onChange = onNotices)
+        if (pl.zse.bydgoszcz.elektron.BuildConfig.UPDATE_CHECK) {
+            RowDivider()
+            SwitchRow("Nowa wersja aplikacji", updates,
+                supporting = "Sprawdzanie w tle najwyżej co 12 godzin, jedno powiadomienie na wersję") { enable ->
+                val needsPermission = enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (needsPermission) updatesPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS) else onUpdates(enable)
+            }
+            if (updatesDenied) Text("Bez zgody na powiadomienia o nowej wersji dowiesz się z baneru na stronie głównej.",
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         RowDivider()
         SwitchRow("Powiadomienia na żywo", live,
             supporting = "W dni lekcyjne: co trwa, ile zostało i co dalej. Ciche, więc działa też w ciche godziny"
