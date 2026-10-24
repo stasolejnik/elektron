@@ -52,6 +52,10 @@ object SubstitutionDisplay {
     fun freesLesson(sub: Substitution): Boolean =
         sub.substituteTeacher.isNullOrBlank() && FREES.containsMatchIn(sub.roomOrInfo + " " + (sub.notes ?: ""))
 
-    /** Lekcja odbywa się (nie ma zwolnienia) - do przypomnień, "po lekcjach", startu aplikacji. */
-    fun takesPlace(lesson: Lesson): Boolean = lesson.substitution?.let { !freesLesson(it) } ?: true
+    /**
+     * Lekcja odbywa się: nie ma zwolnienia ani dnia wolnego ([SchoolCalendar] - święta, przerwy, ferie,
+     * wakacje). Wspólna reguła przypomnień, powiadomienia na żywo, strony głównej, widżetów i Przejazdów.
+     */
+    fun takesPlace(lesson: Lesson): Boolean =
+        !SchoolCalendar.isDayOff(lesson.date) && (lesson.substitution?.let { !freesLesson(it) } ?: true)
 }

@@ -180,6 +180,8 @@ tasks.withType<Test>().configureEach {
     val robolectricTmp = layout.buildDirectory.dir("tmp/robolectric").get().asFile
     doFirst { robolectricTmp.mkdirs() }
     systemProperty("java.io.tmpdir", robolectricTmp.absolutePath)
+    // Testy budujące lekcje na prawdziwe "dziś" nie mogą zależeć od świąt i ferii (SchoolCalendar - osobne testy).
+    systemProperty("elektron.schoolCalendar", "off")
     // Pełny opis nieudanego testu w logu (CI) - raport HTML nie zawsze da się pobrać.
     testLogging {
         events("failed")

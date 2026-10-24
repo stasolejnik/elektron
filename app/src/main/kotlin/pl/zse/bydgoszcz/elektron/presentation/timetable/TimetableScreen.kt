@@ -447,6 +447,8 @@ private fun DayPage(
             val weekHasLessons = week?.any { it.lessons.isNotEmpty() } == true
             item { if (weekHasLessons) NoLessonsCard() else EmptyOrLoading(loading, pastWeek) }
         } else {
+            // Święto, przerwa, ferie albo wakacje: strona szkoły pokazuje wtedy zwykły plan tygodnia.
+            pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.dayOff(date)?.let { reason -> item(key = "day_off") { DayOffCard(reason) } }
             val isToday = date == AppClock.today()
             // Ta sama reguła co strona główna i widżety (LessonClock): "Za X min" tylko przy
             // następnej lekcji w przerwie albo w ostatnich 30 min przed nią. Dawniej każda
@@ -502,6 +504,21 @@ private fun GroupBadge(text: String) {
         Text(text, style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+    }
+}
+
+/** Dzień bez zajęć mimo planu: powód i wyjaśnienie, że lekcje poniżej to zwykły plan tygodnia. */
+@Composable
+private fun DayOffCard(reason: String) {
+    Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Dzień wolny - $reason", style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer)
+            Text("Lekcje poniżej to zwykły plan tygodnia ze strony szkoły - w tym dniu nie ma zajęć, przypomnień ani powiadomienia na żywo.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(top = 4.dp))
+        }
     }
 }
 
