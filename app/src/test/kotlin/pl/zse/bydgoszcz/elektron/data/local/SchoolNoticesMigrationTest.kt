@@ -48,4 +48,37 @@ class SchoolNoticesMigrationTest {
             } finally { upgraded.close() }
         } finally { ctx.deleteDatabase(name) }
     }
+
+    /** 1.0.1 (baza w wersji 4) -> 1.0.2: zapisane informacje szkoły zostają, dochodzą obrazki i godzina aktualizacji. */
+    @Test fun version4NoticesKeepTheirTextAfterUpgrade() = runBlocking {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val name = "migration-notices-4.db"
+        ctx.deleteDatabase(name)
+        try {
+            val schema = JSONObject(javaClass.getResource("/pl.zse.bydgoszcz.elektron.data.local.AppDatabase/4.json")!!.readText())
+                .getJSONObject("database")
+            ctx.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { old ->
+                val entities = schema.getJSONArray("entities")
+                for (i in 0 until entities.length()) {
+                    val entity = entities.getJSONObject(i)
+                    old.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", entity.getString("tableName")))
+                    val indices = entity.getJSONArray("indices")
+                    for (j in 0 until indices.length()) old.execSQL(indices.getJSONObject(j).getString("createSql")
+                        .replace("\${TABLE_NAME}", entity.getString("tableName")))
+                }
+                old.execSQL("CREATE TABLE room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)")
+                old.execSQL("INSERT INTO room_master_table VALUES(42, ?)", arrayOf(schema.getString("identityHash")))
+                old.execSQL("INSERT INTO school_notices VALUES (20742, 'Oddawanie krwi w sali 12')")
+                old.version = 4
+            }
+            val upgraded = Room.databaseBuilder(ctx, AppDatabase::class.java, name)
+                .allowMainThreadQueries().addMigrations(*DatabaseMigrations.ALL).build()
+            try {
+                val notice = upgraded.schoolNoticeDao().get(20742)!!
+                assertEquals("Oddawanie krwi w sali 12", notice.text)
+                assertEquals("", notice.images)
+                assertEquals(null, notice.updated)
+            } finally { upgraded.close() }
+        } finally { ctx.deleteDatabase(name) }
+    }
 }
