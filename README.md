@@ -16,7 +16,7 @@
 Zalecane: najszybsze powiadomienia o zastępstwach (push) i nowe wersje od razu, z aktualizacją w aplikacji.
 
 <sub>Wolisz F-Droid? Wersja bez usług Google, aktualizowana przez F-Droid:</sub><br>
-<a href="https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/"><img src="https://f-droid.org/badge/get-it-on-pl.svg" alt="Pobierz z F-Droid" height="44"></a>
+<a href="https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/"><img src="https://f-droid.org/badge/get-it-on-pl.svg" alt="Pobierz z F-Droid" height="60"></a>
 
 </div>
 
