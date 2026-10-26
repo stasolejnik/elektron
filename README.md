@@ -13,9 +13,9 @@
 
 ### [Pobierz eLektron 1.0.2 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk)
 
-Zalecane: najszybsze powiadomienia o zastępstwach (push) i nowe wersje od razu, z aktualizacją w aplikacji.
+Zalecane, z powiadomieniami push.
 
-<sub>Wolisz F-Droid? Wersja bez usług Google, aktualizowana przez F-Droid:</sub><br>
+<sub>Albo z F-Droid, bez usług Google:</sub><br>
 <a href="https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/"><img src="https://f-droid.org/badge/get-it-on-pl.svg" alt="Pobierz z F-Droid" height="60"></a>
 
 </div>
