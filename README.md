@@ -11,7 +11,9 @@
 [![Licencja: GPL v3+](https://img.shields.io/badge/licencja-GPL--3.0--or--later-blue)](LICENSE)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
-[**Pobierz aplikację (.apk)**](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk)
+<a href="https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/"><img src="https://f-droid.org/badge/get-it-on-pl.svg" alt="Pobierz z F-Droid" height="80"></a>
+
+[**albo pobierz plik .apk z GitHuba**](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk)
 
 </div>
 
@@ -105,6 +107,11 @@ miejsce zajęła inna, aplikacja poprosi o ponowny wybór klasy zamiast pokazywa
 
 ## Instalacja i aktualizacje
 
+**Z F-Droid:** zainstaluj eLektron ze [strony aplikacji w F-Droid](https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/).
+Aktualizacje przychodzą przez F-Droid, zwykle kilka dni po wydaniu na GitHubie.
+
+**Z GitHuba:**
+
 1. Pobierz [**eLektron-1.0.2.apk**](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk) (wszystkie wersje: [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)).
 2. Otwórz pobrany plik na telefonie.
 3. Jeśli Android poprosi o zgodę na instalację z przeglądarki lub menedżera plików,
@@ -114,8 +121,8 @@ miejsce zajęła inna, aplikacja poprosi o ponowny wybór klasy zamiast pokazywa
 Aplikacja wymaga **Androida 8.0 lub nowszego**. Kolejne wersje instaluj jako aktualizację,
 bez odinstalowywania - zachowasz ustawienia, notatki i ulubione. W wydaniu z GitHuba
 aktualizacje można sprawdzić również w aplikacji, w **Ustawieniach → Aktualizacje**
-(domyślnie tylko wersje stabilne; kanał „Beta” obejmuje też wersje testowe). Tam też włączysz
-powiadomienie o nowej wersji.
+(domyślnie tylko wersje stabilne; kanał „Beta” obejmuje też wersje testowe), a powiadomienie
+o nowej wersji włączysz w **Ustawieniach → Powiadomienia**.
 
 Wydania w F-Droid są budowane i podpisywane przez F-Droid, a wydania z GitHuba moim kluczem.
 Nie da się zainstalować jednej wersji na drugą - przy zmianie źródła trzeba odinstalować
