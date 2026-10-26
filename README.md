@@ -11,9 +11,12 @@
 [![Licencja: GPL v3+](https://img.shields.io/badge/licencja-GPL--3.0--or--later-blue)](LICENSE)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
-<a href="https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/"><img src="https://f-droid.org/badge/get-it-on-pl.svg" alt="Pobierz z F-Droid" height="80"></a>
+### [Pobierz eLektron 1.0.2 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk)
 
-[**albo pobierz plik .apk z GitHuba**](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk)
+Zalecane: najszybsze powiadomienia o zastępstwach (push) i nowe wersje od razu, z aktualizacją w aplikacji.
+
+<sub>Wolisz F-Droid? Wersja bez usług Google, aktualizowana przez F-Droid:</sub><br>
+<a href="https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/"><img src="https://f-droid.org/badge/get-it-on-pl.svg" alt="Pobierz z F-Droid" height="44"></a>
 
 </div>
 
@@ -107,16 +110,17 @@ miejsce zajęła inna, aplikacja poprosi o ponowny wybór klasy zamiast pokazywa
 
 ## Instalacja i aktualizacje
 
-**Z F-Droid:** zainstaluj eLektron ze [strony aplikacji w F-Droid](https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/).
-Aktualizacje przychodzą przez F-Droid, zwykle kilka dni po wydaniu na GitHubie.
-
-**Z GitHuba:**
+**Z GitHuba (zalecane):** powiadomienia push o zastępstwach i nowe wersje od razu, z aktualizacją w aplikacji.
 
 1. Pobierz [**eLektron-1.0.2.apk**](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk) (wszystkie wersje: [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)).
 2. Otwórz pobrany plik na telefonie.
 3. Jeśli Android poprosi o zgodę na instalację z przeglądarki lub menedżera plików,
    zezwól na instalowanie z tego źródła.
 4. Przy pierwszym uruchomieniu wybierz klasę i swoje grupy zajęciowe.
+
+**Z F-Droid:** zainstaluj eLektron ze [strony aplikacji w F-Droid](https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/).
+Ta wersja nie korzysta z usług Google, więc o zastępstwach dowiaduje się tylko z okresowego
+sprawdzania w tle. Aktualizacje przychodzą przez F-Droid, zwykle kilka dni po wydaniu na GitHubie.
 
 Aplikacja wymaga **Androida 8.0 lub nowszego**. Kolejne wersje instaluj jako aktualizację,
 bez odinstalowywania - zachowasz ustawienia, notatki i ulubione. W wydaniu z GitHuba
