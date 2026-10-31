@@ -14,8 +14,9 @@ import java.time.temporal.TemporalAdjusters
  *  - święta ustawowe (Wielkanoc i Boże Ciało liczone z daty Wielkanocy, Wigilia od 2025 r.),
  *  - zimowa przerwa świąteczna 23-31 grudnia,
  *  - wiosenna przerwa świąteczna od czwartku przed Wielkanocą do wtorku po niej,
- *  - wakacje od dnia po ostatnim piątku czerwca do 31 sierpnia, a gdy 1 września wypada w piątek
- *    albo sobotę - do najbliższego poniedziałku,
+ *  - wakacje od dnia po zakończeniu zajęć - w najbliższy piątek po 20 czerwca, a gdy czwartek przed nim
+ *    jest świętem (Boże Ciało), w środę - do 31 sierpnia; gdy 1 września wypada w piątek albo sobotę,
+ *    do najbliższego poniedziałku,
  *  - ferie zimowe z tabeli [WINTER_BREAKS] (ustala je MEN co roku dla województw).
  *
  * Dni wolne ustalane przez dyrektora szkoły nie są tu znane - szkoła ogłasza je na stronie zastępstw.
@@ -70,10 +71,18 @@ object SchoolCalendar {
         }
     }
 
-    /** Wakacje: od dnia po ostatnim piątku czerwca do dnia przed początkiem roku szkolnego. */
-    private fun isSummerBreak(date: LocalDate): Boolean {
-        val lastFriday = LocalDate.of(date.year, 6, 30).with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY))
-        return date.isAfter(lastFriday) && date.isBefore(schoolYearStart(date.year))
+    /** Wakacje: od dnia po zakończeniu zajęć do dnia przed początkiem roku szkolnego. */
+    private fun isSummerBreak(date: LocalDate): Boolean =
+        date.isAfter(schoolYearEnd(date.year)) && date.isBefore(schoolYearStart(date.year))
+
+    /**
+     * Ostatni dzień zajęć (rozporządzenie MEN w sprawie organizacji roku szkolnego): najbliższy piątek
+     * po 20 czerwca, a gdy czwartek przed nim jest dniem wolnym - środa. Dawniej ostatni piątek czerwca:
+     * w latach takich jak 2028 (zajęcia do 23.06) dni 26-30 czerwca liczyły się jako dni nauki.
+     */
+    fun schoolYearEnd(year: Int): LocalDate {
+        val friday = LocalDate.of(year, 6, 20).with(TemporalAdjusters.next(DayOfWeek.FRIDAY))
+        return if (holiday(friday.minusDays(1)) != null) friday.minusDays(2) else friday
     }
 
     /** 1 września, a gdy wypada w piątek albo sobotę - najbliższy poniedziałek. */

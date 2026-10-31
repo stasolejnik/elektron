@@ -47,6 +47,22 @@ class SchoolCalendarTest {
         assertNull(SchoolCalendar.dayOff(d(2027, 2, 13)))
     }
 
+    @Test fun lessonsEndOnTheFridayAfterTwentiethOfJune() {
+        assertEquals(d(2024, 6, 21), SchoolCalendar.schoolYearEnd(2024))
+        assertEquals(d(2025, 6, 27), SchoolCalendar.schoolYearEnd(2025))   // 20.06.2025 to piątek - następny
+        assertEquals(d(2027, 6, 25), SchoolCalendar.schoolYearEnd(2027))
+        // 2028: piątek po 20 czerwca to 23.06, a nie ostatni piątek czerwca (30.06).
+        assertEquals(d(2028, 6, 23), SchoolCalendar.schoolYearEnd(2028))
+        assertNull(SchoolCalendar.dayOff(d(2028, 6, 23)))
+        assertEquals("Wakacje", SchoolCalendar.dayOff(d(2028, 6, 26)))
+        assertEquals("Wakacje", SchoolCalendar.dayOff(d(2028, 6, 30)))
+        // 2030: Boże Ciało w czwartek 20.06 - zajęcia kończą się w środę 19.06.
+        assertEquals(d(2030, 6, 19), SchoolCalendar.schoolYearEnd(2030))
+        assertNull(SchoolCalendar.dayOff(d(2030, 6, 19)))
+        assertEquals("Boże Ciało", SchoolCalendar.dayOff(d(2030, 6, 20)))
+        assertEquals("Wakacje", SchoolCalendar.dayOff(d(2030, 6, 21)))
+    }
+
     @Test fun schoolYearStartsOnMondayWhenFirstSeptemberIsFridayOrSaturday() {
         assertEquals(d(2028, 9, 4), SchoolCalendar.schoolYearStart(2028))   // 1.09.2028 - piątek
         assertEquals(d(2026, 9, 1), SchoolCalendar.schoolYearStart(2026))
