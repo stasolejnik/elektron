@@ -5,6 +5,13 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(39, "1.0.3-beta1", listOf(
+            "Powiadomienie na żywo: czas w kapsule na pasku stanu także na telefonach realme, OPPO i OnePlus",
+            "„Zgłoś problem” pokazuje, czy odliczanie powiadomienia na żywo może być na pasku stanu (Android 16+)",
+            "Powiadomienie „Wybierz klasę ponownie” otwiera aplikację po dotknięciu",
+            "Bez przypomnień o notatkach przed lekcjami w dni wolne",
+            "Wakacje od piątku po 20 czerwca, jak w rozporządzeniu"
+        )),
         Entry(38, "1.0.2", listOfNotNull(
             "Przejazdy (dawniej Odjazdy): rano dojazd z Twojego przystanku na najbliższą lekcję - kiedy będziesz w szkole, ile zapasu i ostatni kurs, którym zdążysz; od połowy dnia lekcji powrót ze szkoły z godziną wyjścia",
             "Przejazdy: opóźnienia na żywo („+3 min”, „2 min wcześniej”), dowolny przystanek przy szkole (domyślnie „Szkoła”), w karcie linia i przystanek, na którym wysiadasz",

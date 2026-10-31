@@ -1,0 +1,5 @@
+Live notification: time left in the status bar capsule also on realme, OPPO and OnePlus phones (Android 16+).
+The problem report shows whether the countdown can appear in the status bar.
+The "choose your class again" notification opens the app.
+No note reminders on days off.
+Summer break starts after the Friday following 20 June, as in the regulation.

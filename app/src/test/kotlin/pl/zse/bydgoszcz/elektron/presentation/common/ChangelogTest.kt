@@ -26,7 +26,7 @@ class ChangelogTest {
     }
 
     @Test fun updateNotificationItemOnlyInTheGitHubBuild() {
-        val item = Changelog.entries.first().items.any { it.startsWith("Powiadomienie o nowej wersji") }
+        val item = Changelog.entries.first { it.versionCode == 38 }.items.any { it.startsWith("Powiadomienie o nowej wersji") }
         assertEquals(pl.zse.bydgoszcz.elektron.BuildConfig.UPDATE_CHECK, item)
     }
 }
