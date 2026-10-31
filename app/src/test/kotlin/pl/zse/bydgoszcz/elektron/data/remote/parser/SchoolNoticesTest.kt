@@ -36,7 +36,7 @@ class SchoolNoticesTest {
 
     @Test fun oldPageWithoutNoticeHasNone() {
         val doc = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html")!!
-            .use { Jsoup.parse(it, "UTF-8", "https://zastepstwa.zse.bydgoszcz.pl/") }
+            .use { Jsoup.parse(it, "ISO-8859-2", "https://zastepstwa.zse.bydgoszcz.pl/") }
         assertTrue(ZastepstwaParser.notices(doc).isEmpty())
         assertEquals(32, ZastepstwaParser.parse(doc).size)
     }

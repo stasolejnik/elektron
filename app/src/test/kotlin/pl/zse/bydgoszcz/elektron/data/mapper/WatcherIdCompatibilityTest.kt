@@ -17,7 +17,7 @@ class WatcherIdCompatibilityTest {
     @Test
     fun appIdsMatchPushWatcherIds() {
         val doc = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.html")!!
-            .use { Jsoup.parse(it, "UTF-8", "https://zastepstwa.zse.bydgoszcz.pl/") }
+            .use { Jsoup.parse(it, "ISO-8859-2", "https://zastepstwa.zse.bydgoszcz.pl/") }
         val appIds = ZastepstwaParser.parse(doc).mapNotNull(SubstitutionMapper::toEntity).map { it.id }
         val watcherIds = javaClass.getResourceAsStream("/zastepstwa/2026-10-01.watcher.ids")!!
             .use { it.readBytes().toString(Charsets.UTF_8) }.lines().filter { it.isNotBlank() }
