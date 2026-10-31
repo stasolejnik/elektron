@@ -1,5 +1,6 @@
-Live notification: time left in the status bar capsule also on realme, OPPO and OnePlus phones (Android 16+).
-The problem report shows whether the countdown can appear in the status bar.
+Free periods and moved lessons no longer count as lessons: no reminders, correct end of the day.
+After classes are renumbered, the app asks for your class again, also in the background and after a restore.
+Live notification: time left in the status bar capsule also on realme, OPPO and OnePlus (Android 16+).
 The "choose your class again" notification opens the app.
 No note reminders on days off.
-Summer break starts after the Friday following 20 June, as in the regulation.
+Summer break follows the Friday after 20 June, as in the regulation.

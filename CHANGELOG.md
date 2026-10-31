@@ -8,6 +8,8 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 
 Wersja testowa (kanał „Beta”). Szczegóły: [release-notes/1.0.3-beta1.md](release-notes/1.0.3-beta1.md).
 
+- Okienka i przeniesione lekcje nie liczą się jako lekcje, które się odbywają: bez przypomnienia, „Teraz” w powiadomieniu na żywo i widżecie, z właściwym końcem lekcji i powrotem w Przejazdach. Wpisy bez zastępcy typu „Okienko dla uczniów” i „przeniesiona na 22.10.2026 (0)”. Okienko tylko dla jednej grupy („okienko dla grupy 2/2” przy wpisie bez numeru grupy) dalej liczy się jako lekcja, a zmiana sali („przeniesione do sali 215”) i lekcja przeniesiona na tę godzinę bez zmian. Przeniesiona lekcja nie pojawia się w nowym terminie (np. 0. lekcja) - to tylko informacja w planie.
+- Przenumerowane klasy: strona planu innej klasy pod identyfikatorem wybranej klasy nie jest zapisywana, także w tle, gdy listy klas nie ma w żądaniu (lista co 24 h, plan co 6 h) - aplikacja pobiera wtedy listę i prosi o ponowny wybór klasy. Skrót nazwy klasy zapisywany w ustawieniach (`selected_class_name`), więc to samo działa po przywróceniu kopii zapasowej, w której baza nie wraca.
 - Powiadomienie na żywo na telefonach realme, OPPO i OnePlus (ColorOS): czas w kapsule na pasku stanu. System promował powiadomienie (Live Update), ale kapsuła tych nakładek nie pokazuje chronometru - dostaje teraz krótki tekst (`shortCriticalText`, np. „12 min”, od 100 min „2 h”). Na innych telefonach bez zmian (krótki tekst zastąpiłby tam odliczanie co do sekundy). Pasek postępu i ten tekst odświeżają się w chwili zmiany pełnej minuty odliczania, a nie minutę po poprzednim odświeżeniu.
 - Powiadomienie na żywo, odliczanie na pasku stanu (Live Updates, Android 16+): diagnostyka w „Zgłoś problem” - czy system pozwala na Live Updates i czy pokazane powiadomienie zostało promowane; log `LiveLesson` mówi też, czy powiadomienie spełnia warunki Live Update (`hasPromotableCharacteristics`). Pomaga ustalić, dlaczego na części telefonów (np. OPPO/OnePlus z ColorOS) czasu nie widać na pasku stanu.
 - Ustawienia → Powiadomienia na Androidzie starszym niż 16 (przy włączonym powiadomieniu na żywo): informacja, że odliczanie na pasku stanu pokazuje Android 16 i nowszy, a na tym telefonie czas widać w samym powiadomieniu.
@@ -15,6 +17,9 @@ Wersja testowa (kanał „Beta”). Szczegóły: [release-notes/1.0.3-beta1.md](
 - Przypomnienia o notatkach: bez przypomnień przed lekcjami w dni wolne (święta, przerwy, ferie, wakacje) - liczy się ta sama reguła „lekcja się odbywa” co w przypomnieniach o lekcjach. Dawniej np. 10.11 o 18:00 przychodziło „Notatka: …” do lekcji 11 listopada.
 - Dni wolne: wakacje od dnia po zakończeniu zajęć - w najbliższy piątek po 20 czerwca, a gdy czwartek przed nim jest świętem (Boże Ciało), w środę (rozporządzenie MEN w sprawie organizacji roku szkolnego). Dawniej od ostatniego piątku czerwca: np. w 2028 r. (zajęcia do 23.06) dni 26-30 czerwca liczyły się jako dni nauki.
 - Przejazdy: zapisy listy kursów atomowe (`update`). Uzupełnienie czasów dojścia nie nadpisuje strony kursów dociągniętej w międzyczasie, a dociągnięta strona nie kasuje czasów dojścia już uzupełnionych (dawniej liczyły się wtedy od nowa). To też przyczyna rzadko padającego testu paginacji (4 zapytania zamiast 3).
+- Synchronizacja: żądanie dołącza też do takiej samej pracy, która jeszcze nie ruszyła (dawniej mogło pobrać dane drugi raz).
+- Strona główna: błąd zapisu przy „Później” na banerze aktualizacji nie zamyka aplikacji.
+- Testy: prawdziwa strona zastępstw jako bajty ISO-8859-2, nowy test źródła ze ścieżką produkcyjną (kodowanie, układ, stopka).
 
 ## [1.0.2] - 2026-10-24 (38)
 
