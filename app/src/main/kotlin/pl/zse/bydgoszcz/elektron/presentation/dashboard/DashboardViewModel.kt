@@ -284,7 +284,11 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun dismissUpdate(versionName: String) {
-        viewModelScope.launch { updateRepo.dismiss(versionName) }
+        // Błąd zapisu (np. pełny dysk) nie może zamknąć aplikacji - baner wróci przy następnym otwarciu.
+        viewModelScope.launch {
+            pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { updateRepo.dismiss(versionName) }
+                .onFailure { android.util.Log.w("Dashboard", "Nie udało się odłożyć aktualizacji", it) }
+        }
     }
 
     /** Pull-to-refresh: pełna synchronizacja przez koordynator (komunikaty, przypomnienia, widżety - tam). */

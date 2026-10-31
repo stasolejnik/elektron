@@ -764,4 +764,24 @@ class SyncCoordinatorTest {
         assertEquals(Instant.ofEpochSecond(1234L), coordinator.observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS).first())
     }
 
+
+    @Test
+    fun failedUpdateDismissDoesNotCrashTheApp() = kotlinx.coroutines.test.runTest {
+        kotlinx.coroutines.Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler))
+        val updates = object : pl.zse.bydgoszcz.elektron.domain.repository.UpdateRepository {
+            override val availableUpdate = kotlinx.coroutines.flow.flowOf<pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate?>(null)
+            override suspend fun check(force: Boolean) = Result.success<pl.zse.bydgoszcz.elektron.domain.repository.AppUpdate?>(null)
+            override suspend fun dismiss(versionName: String) { throw android.database.sqlite.SQLiteFullException("Pełny dysk") }
+        }
+        val vm = pl.zse.bydgoszcz.elektron.presentation.dashboard.DashboardViewModel(settings, t.substitutionsRepo,
+            t.announcementsRepo, t.notificationsRepo, t.timetableRepo, updates, coordinator)
+        val owner = androidx.lifecycle.ViewModelStore().apply { put("dashboard", vm) }
+        try {
+            // Wyjątek poza runCatching runTest zgłasza jako nieobsłużony i test pada.
+            vm.dismissUpdate("9.9.9")
+        } finally {
+            owner.clear()
+            kotlinx.coroutines.Dispatchers.resetMain()
+        }
+    }
 }
