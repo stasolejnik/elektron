@@ -10,7 +10,7 @@ object ClassListChange {
     const val MIN_CLASSES = 3
 
     /**
-     * [before] - zapisana nazwa wybranej klasy (null - nieznana), [fresh] - lista klas z tej
+     * [before] - zapisana nazwa wybranej klasy z bazy albo ustawień (null - nieznana), [fresh] - lista klas z tej
      * synchronizacji (null - listy nie pobierano).
      */
     fun selectedIsStale(classId: String, before: String?, fresh: List<SchoolClass>?): Boolean {

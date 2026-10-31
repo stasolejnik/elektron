@@ -14,6 +14,9 @@ interface TimetableRepository {
     /** Usuwa zapisany plan i wpis klasy, której nie ma już na stronie szkoły. */
     suspend fun forgetClass(classId: String) {}
     suspend fun syncTimetable(classId: String, anchorDate: LocalDate): Result<Unit>
+    /** Jak wyżej, ale plan innej klasy niż [expectedClass] (skrót nazwy) nie jest zapisywany: [pl.zse.bydgoszcz.elektron.domain.model.ClassMismatchException]. */
+    suspend fun syncTimetable(classId: String, anchorDate: LocalDate, expectedClass: String?): Result<Unit> =
+        syncTimetable(classId, anchorDate)
     fun observeClasses(): Flow<List<SchoolClass>>
     fun observeTeachers(): Flow<List<Teacher>>
     fun observeRooms(): Flow<List<SchoolRoom>>

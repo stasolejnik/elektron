@@ -86,6 +86,9 @@ class TimetableRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncTimetable(classId: String, anchorDate: LocalDate): Result<Unit> =
+        syncTimetable(classId, anchorDate, null)
+
+    override suspend fun syncTimetable(classId: String, anchorDate: LocalDate, expectedClass: String?): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 // Strona szkoły publikuje tylko AKTUALNY plan - nigdy nie zapisujemy go w minionych
@@ -105,6 +108,10 @@ class TimetableRepositoryImpl @Inject constructor(
                 // Zmieniony układ strony: zapisany plan zostaje, ale sync kończy się błędem,
                 // żeby użytkownik dostał komunikat zamiast cichego braku aktualizacji.
                 if (!dto.layoutOk) throw SchoolPageChangedException("plan lekcji")
+                // Przenumerowane klasy: pod tym identyfikatorem jest już plan innej klasy.
+                val pageClass = pl.zse.bydgoszcz.elektron.domain.model.ClassNames.shortName(dto.className)
+                if (expectedClass != null && pageClass.isNotEmpty() && !pageClass.equals(expectedClass, ignoreCase = true))
+                    throw pl.zse.bydgoszcz.elektron.domain.model.ClassMismatchException(expectedClass, pageClass)
                 if (dto.lessons.any { cell ->
                     (cell.groups.isNotEmpty() || cell.note != null) &&
                         (runCatching { java.time.LocalTime.parse(cell.timeFrom) }.getOrNull() == null ||

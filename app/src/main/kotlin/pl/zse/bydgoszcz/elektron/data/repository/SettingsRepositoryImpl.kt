@@ -68,6 +68,7 @@ class SettingsRepositoryImpl internal constructor(
 
     private object Keys {
         val SELECTED_CLASS_ID = stringPreferencesKey("selected_class_id")
+        val SELECTED_CLASS_NAME = stringPreferencesKey("selected_class_name")
         val CLASS_LIST_CHANGED_FROM = stringPreferencesKey("class_list_changed_from")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         // Nowy klucz (0.5.0): stary "dynamic_color" miał domyślnie true z czasów, gdy opcja
@@ -124,7 +125,11 @@ class SettingsRepositoryImpl internal constructor(
         safeEdit { it[Keys.SELECTED_CLASS_ID] = id }
     }
     override suspend fun clearSelectedClass() {
-        safeEdit { it.remove(Keys.SELECTED_CLASS_ID) }
+        safeEdit { it.remove(Keys.SELECTED_CLASS_ID); it.remove(Keys.SELECTED_CLASS_NAME) }
+    }
+    override val selectedClassName: Flow<String?> = prefs.map { it[Keys.SELECTED_CLASS_NAME] }.distinctUntilChanged()
+    override suspend fun setSelectedClassName(name: String?) {
+        safeEdit { if (name == null) it.remove(Keys.SELECTED_CLASS_NAME) else it[Keys.SELECTED_CLASS_NAME] = name }
     }
     override val classListChangedFrom: Flow<String?> = prefs.map { it[Keys.CLASS_LIST_CHANGED_FROM] }.distinctUntilChanged()
     override suspend fun setClassListChangedFrom(name: String?) {

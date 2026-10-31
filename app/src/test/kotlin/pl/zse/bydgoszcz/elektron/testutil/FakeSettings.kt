@@ -26,7 +26,10 @@ class FakeSettings(
 
     override val selectedClassId: Flow<String?> = classIdFlow
     override suspend fun setSelectedClassId(id: String) { classIdFlow.value = id }
-    override suspend fun clearSelectedClass() { classIdFlow.value = null }
+    override suspend fun clearSelectedClass() { classIdFlow.value = null; classNameFlow.value = null }
+    val classNameFlow = MutableStateFlow<String?>(null)
+    override val selectedClassName: Flow<String?> = classNameFlow
+    override suspend fun setSelectedClassName(name: String?) { classNameFlow.value = name }
     val classListChangedFlow = MutableStateFlow<String?>(null)
     override val classListChangedFrom: Flow<String?> = classListChangedFlow
     override suspend fun setClassListChangedFrom(name: String?) { classListChangedFlow.value = name }

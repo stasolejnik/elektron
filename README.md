@@ -107,6 +107,7 @@ dzień wolny. Dni wolne ustalane przez dyrektora szkoły nie są znane z góry.
 
 **Nowy rok szkolny:** gdy na stronie szkoły zmieni się lista klas i Twojej klasy nie ma albo jej
 miejsce zajęła inna, aplikacja poprosi o ponowny wybór klasy zamiast pokazywać cudzy plan.
+Sprawdza to także przy pobieraniu samego planu i po przywróceniu ustawień z kopii zapasowej.
 
 ## Instalacja i aktualizacje
 

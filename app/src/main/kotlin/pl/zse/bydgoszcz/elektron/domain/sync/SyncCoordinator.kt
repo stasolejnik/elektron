@@ -1,6 +1,7 @@
 package pl.zse.bydgoszcz.elektron.domain.sync
 
 import pl.zse.bydgoszcz.elektron.domain.model.ClassListChange
+import pl.zse.bydgoszcz.elektron.domain.model.ClassMismatchException
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 
 import pl.zse.bydgoszcz.elektron.domain.model.IncompleteSchoolDataException
@@ -236,9 +237,14 @@ class SyncCoordinator @Inject constructor(
         return true
     }
 
+    private suspend fun savedClassName(classId: String): String? =
+        timetableRepo.observeClasses().first().firstOrNull { it.id == classId }?.shortName
+
     private suspend fun classChange(classId: String, reset: Boolean): SyncOutcome {
+        // Przed czyszczeniem bazy (reset usuwa też listę klas).
+        val name = runCatchingCancellable { savedClassName(classId) }.getOrNull()
         settings.setSelectedClassId(classId)
-        runCatchingCancellable { settings.setClassListChangedFrom(null) }
+        runCatchingCancellable { settings.setClassListChangedFrom(null); settings.setSelectedClassName(name) }
         if (reset) announcementsRepo.resetArchive { db.withTransaction {
             val sql = db.openHelper.writableDatabase
             listOf("lesson_groups", "lessons", "substitutions", "school_classes", "teachers", "rooms",
@@ -286,9 +292,10 @@ class SyncCoordinator @Inject constructor(
         val noticesBefore = if (SyncOutcome.SUBSTITUTIONS in sources)
             runCatchingCancellable { substitutionsRepo.observeNotices(LocalDate.now()).first() }.getOrNull()
             else null
-        // Nazwa wybranej klasy przed pobraniem listy - do wykrycia nowego roku szkolnego (ClassListChange).
-        val classBefore = if (classId != null && SyncOutcome.SIDEBAR in sources)
-            runCatchingCancellable { timetableRepo.observeClasses().first().firstOrNull { it.id == classId }?.shortName }.getOrNull()
+        // Nazwa wybranej klasy przed pobraniem - do wykrycia nowego roku szkolnego (ClassListChange) także
+        // wtedy, gdy plan idzie bez listy klas. Pusta baza (kopia zapasowa ją pomija): nazwa z ustawień.
+        val classBefore = if (classId != null && (SyncOutcome.SIDEBAR in sources || SyncOutcome.TIMETABLE in sources))
+            runCatchingCancellable { savedClassName(classId) ?: settings.selectedClassName.first() }.getOrNull()
             else null
         try {
             coroutineScope {
@@ -299,7 +306,17 @@ class SyncCoordinator @Inject constructor(
                     // Plan dopiero po liście klas: pod identyfikatorem, który dostała inna klasa, pobrałby się jej plan.
                     sidebarJob?.join()
                     if (sidebarJob != null && classListChanged(classId, classBefore, notify)) return@launch
-                    timetableRepo.syncTimetable(classId, request.anchorDate).record(SyncOutcome.TIMETABLE)
+                    var plan = timetableRepo.syncTimetable(classId, request.anchorDate, classBefore)
+                    if (plan.exceptionOrNull() is ClassMismatchException) {
+                        // Plan innej klasy: w tle listy klas mogło nie być w żądaniu (co 24 h, plan co 6 h).
+                        val listOk = sidebarJob != null || timetableRepo.syncSidebar().also { it.record(SyncOutcome.SIDEBAR) }.isSuccess
+                        if (listOk) {
+                            if (classListChanged(classId, classBefore, notify)) return@launch
+                            // Lista potwierdza klasę - nietypowy tytuł strony, a nie cudzy plan.
+                            plan = timetableRepo.syncTimetable(classId, request.anchorDate)
+                        }
+                    }
+                    plan.record(SyncOutcome.TIMETABLE)
                 } else null
                 if (sidebarJob != null && classId != null && SyncOutcome.TIMETABLE !in sources) launch {
                     sidebarJob.join()
@@ -316,6 +333,10 @@ class SyncCoordinator @Inject constructor(
                 }
                 if (SyncOutcome.ANNOUNCEMENTS in sources) launch { announcementsRepo.syncAll().record(SyncOutcome.ANNOUNCEMENTS) }
             }
+            // Nazwa wybranej klasy na potrzeby kopii zapasowej (także po aktualizacji z wersji bez tego zapisu).
+            if (classId != null && settings.selectedClassId.first() == classId) runCatchingCancellable {
+                savedClassName(classId)?.takeIf { it != settings.selectedClassName.first() }?.let { settings.setSelectedClassName(it) }
+            }.onFailure { Log.w(TAG, "Nie udało się zapisać nazwy klasy", it) }
             val outcome = SyncOutcome(ok.toSet(), failed.toMap())
             // Zastępstwa zapisane mimo kilku nieczytelnych wierszy (repozytorium zgłasza to wyjątkiem
             // po zapisie): dla powiadomień, "sprawdzono" i stanu pobrania to udane pobranie.

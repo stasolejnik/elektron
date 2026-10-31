@@ -18,6 +18,12 @@ interface SettingsRepository {
     suspend fun setSelectedClassId(id: String)
     /** Zmieniona lista klas (ClassListChange): bez klasy, aplikacja pokaże wybór klasy. */
     suspend fun clearSelectedClass() {}
+    /**
+     * Skrót nazwy wybranej klasy z chwili wyboru (np. "1D"): identyfikator z listy klas może po nowym roku
+     * szkolnym należeć do innej klasy, a baza nie wraca z kopii zapasowej - ten zapis wraca.
+     */
+    val selectedClassName: Flow<String?> get() = flowOf(null)
+    suspend fun setSelectedClassName(name: String?) {}
     /** Nazwa klasy sprzed zmiany listy klas (komunikat przy ponownym wyborze); null - brak zmiany. */
     val classListChangedFrom: Flow<String?> get() = flowOf(null)
     suspend fun setClassListChangedFrom(name: String?) {}

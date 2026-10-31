@@ -71,6 +71,9 @@ class SyncCoordinatorTest {
         @Volatile var blockOnce = false
         @Volatile var error: Exception? = null
 
+        /** Nazwa z tytułu strony planu (null - zwykła nazwa klasy). */
+        @Volatile var planName: String? = null
+
         /** Lista klas po zmianie na stronie szkoły (null - zwykła). */
         @Volatile var sidebar: List<ClassListItemDto>? = null
         override suspend fun fetchSidebar() = sidebar ?: listOf(
@@ -94,7 +97,7 @@ class SyncCoordinatorTest {
                 }
             }
             error?.let { throw it }
-            val name = if (classId == "o4") "1E 1E PBŚ" else "1D 1D PBŚ"
+            val name = planName ?: if (classId == "o4") "1E 1E PBŚ" else "1D 1D PBŚ"
             return TimetableDto(classId, name, null, null, (1..5).map { day ->
                 LessonCellDto(2, "08:55", "09:40", day, listOf(LessonGroupDto("mat", "Ch", null, "105", null, null, null)), null)
             })
@@ -185,6 +188,58 @@ class SyncCoordinatorTest {
     }
 
     // --- Nowy rok szkolny ---
+
+    private fun list(vararg classes: Pair<String, String>) = classes.map { (id, short) ->
+        ClassListItemDto(id, ClassListItemDto.Kind.CLASS, "$short $short PBŚ", short, "https://plan.zse.bydgoszcz.pl/plany/$id.html") }
+
+    @Test
+    fun backgroundPlanOfAnotherClassIsNotSavedWhileTheClassListIsFresh() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        val lessonsBefore = db.lessonDao().classIds()
+        // Lista klas świeża (< 24 h), plan już do pobrania (> 6 h): w żądaniu w tle nie ma listy klas.
+        val old = Instant.now().epochSecond - 7 * 60 * 60
+        db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity("source_${SyncOutcome.TIMETABLE}_o3", old, "ok", null))
+        timetable.planName = "3D 3D PBŚ"
+        timetable.sidebar = list("o3" to "3D", "o4" to "1E", "o5" to "2D")
+        coordinator.sync(SyncRequest.full(background = true))
+        assertNull(settings.classIdFlow.value)
+        assertEquals("1D", settings.classListChangedFlow.value)
+        assertEquals(listOf("Wybierz klasę ponownie -> dashboard"), sink.generic.toList())
+        assertTrue(lessonsBefore.isNotEmpty())
+        assertTrue(db.lessonDao().classIds().isEmpty())
+    }
+
+    @Test
+    fun restoredSettingsWithEmptyDatabaseAskForTheClassWhenItsIdIsTakenByAnother() = runBlocking<Unit> {
+        // Kopia zapasowa: ustawienia wracają, baza nie.
+        settings.classNameFlow.value = "3D"
+        timetable.sidebar = list("o3" to "1D", "o4" to "1E", "o5" to "2D")
+        coordinator.sync(SyncRequest.full(background = true))
+        assertNull(settings.classIdFlow.value)
+        assertEquals("3D", settings.classListChangedFlow.value)
+        assertTrue(db.lessonDao().classIds().isEmpty())
+    }
+
+    @Test
+    fun syncOfTheSameClassKeepsItAndRemembersItsName() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        coordinator.sync(SyncRequest.full(background = true))
+        coordinator.sync(SyncRequest.full())
+        assertEquals("o3", settings.classIdFlow.value)
+        assertNull(settings.classListChangedFlow.value)
+        assertEquals("1D", settings.classNameFlow.value)
+    }
+
+    @Test
+    fun oddPlanTitleWithoutClassListChangeStillSavesThePlan() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        val old = Instant.now().epochSecond - 7 * 60 * 60
+        db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity("source_${SyncOutcome.TIMETABLE}_o3", old, "ok", null))
+        timetable.planName = "Plan zmieniony"
+        val outcome = coordinator.sync(SyncRequest.full(background = true))
+        assertEquals("o3", settings.classIdFlow.value)
+        assertTrue(SyncOutcome.TIMETABLE in outcome.succeeded)
+    }
 
     @Test
     fun renumberedClassListAsksForTheClassInsteadOfFetchingAnotherClassPlan() = runBlocking<Unit> {
