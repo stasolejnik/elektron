@@ -131,7 +131,7 @@ class SyncCoordinatorTest {
         override suspend fun postSchoolNotice(date: LocalDate, notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice) { notices += "$date:${notice.text}" }
         override suspend fun postSubstitution(sub: Substitution, originalSubject: String?) { substitutions += sub.id }
         override suspend fun postAnnouncement(ann: Announcement) {}
-        override suspend fun postGeneric(title: String, body: String, deepLink: String?) { generic += title }
+        override suspend fun postGeneric(title: String, body: String, deepLink: String?) { generic += "$title -> $deepLink" }
     }
 
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -199,7 +199,8 @@ class SyncCoordinatorTest {
         assertEquals(callsBefore, timetable.calls.get())
         assertNull(settings.classIdFlow.value)
         assertEquals("1D", settings.classListChangedFlow.value)
-        assertEquals(listOf("Wybierz klasę ponownie"), sink.generic.toList())
+        // Dotknięcie otwiera aplikację (dawniej powiadomienie bez ekranu docelowego).
+        assertEquals(listOf("Wybierz klasę ponownie -> dashboard"), sink.generic.toList())
         assertTrue(db.lessonDao().classIds().isEmpty())
         // Ponowny wybór klasy kasuje komunikat.
         coordinator.selectClass("o5")

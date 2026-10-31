@@ -26,4 +26,15 @@ class NotificationChannelsTest {
         LocalNotificationSink(context, FakeSettings())
         assertEquals(channels.map { it.id }.toSet(), manager.notificationChannels.filter { it.group == group.id }.map { it.id }.toSet())
     }
+
+    @Test @Config(sdk = [34])
+    fun classReselectNoticeOpensTheAppOnTheSubstitutionsChannel() = kotlinx.coroutines.runBlocking {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        LocalNotificationSink(app, FakeSettings()).postGeneric("Wybierz klasę ponownie", "Lista klas się zmieniła.", "dashboard")
+        val posted = org.robolectric.Shadows.shadowOf(app.getSystemService(NotificationManager::class.java)).allNotifications.single()
+        assertEquals(LocalNotificationSink.CHANNEL_SUBSTITUTIONS, posted.channelId)
+        val intent = org.robolectric.Shadows.shadowOf(posted.contentIntent).savedIntent
+        assertEquals("dashboard", intent.getStringExtra(LocalNotificationSink.EXTRA_DEEP_LINK))
+    }
 }

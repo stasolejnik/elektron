@@ -47,7 +47,7 @@ class LocalNotificationSink @Inject constructor(
 
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_SUBSTITUTIONS, "Zastępstwa", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Powiadomienia o nowych zastępstwach w Twojej klasie."
+                description = "Nowe zastępstwa w Twojej klasie i prośba o ponowny wybór klasy po zmianie listy klas."
                 group = GROUP_ELEKTRON
             }
         )
@@ -155,10 +155,13 @@ class LocalNotificationSink @Inject constructor(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
-        val n = NotificationCompat.Builder(context, CHANNEL_ANNOUNCEMENTS)
+        // Kanał zastępstw (plan klasy), nie ogłoszeń: dawniej wyłączone ogłoszenia ukrywały prośbę
+        // o ponowny wybór klasy, a dotknięcie nic nie otwierało (brak ekranu docelowego).
+        val n = NotificationCompat.Builder(context, CHANNEL_SUBSTITUTIONS)
             .setSmallIcon(R.drawable.ic_stat_elektron)
             .setContentTitle(title)
             .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(pi)
             .setAutoCancel(true)
             .setSilent(isQuietNow())

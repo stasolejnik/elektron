@@ -228,9 +228,10 @@ class SyncCoordinator @Inject constructor(
             settings.clearSelectedClass()
             timetableRepo.forgetClass(classId)
         }.onFailure { Log.w(TAG, "Nie udało się odznaczyć klasy po zmianie listy", it) }
+        // Dotknięcie otwiera aplikację - bez klasy pokazuje ona wybór klasy z wyjaśnieniem.
         if (notify) runCatchingCancellable {
             sink.postGeneric("Wybierz klasę ponownie",
-                "Lista klas na stronie szkoły się zmieniła (nowy rok szkolny?). Otwórz eLektron i wybierz swoją klasę.", null)
+                "Lista klas na stronie szkoły się zmieniła (nowy rok szkolny?). Otwórz eLektron i wybierz swoją klasę.", "dashboard")
         }
         return true
     }
