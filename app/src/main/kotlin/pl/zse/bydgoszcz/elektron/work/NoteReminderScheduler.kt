@@ -126,7 +126,7 @@ class NoteReminderScheduler @Inject constructor(
                 for (note in all.filterNot { it.reminded }) {
                     val lesson = byKey[note.key] ?: continue
                     if (!LessonNote.canEdit(lesson, now) || !NoteReminders.matchesGroups(note, lesson) || NoteReminders.plannedAt(note, lesson, timing) > now ||
-                        lesson.substitution?.let(SubstitutionDisplay::freesLesson) == true) continue
+                        !SubstitutionDisplay.takesPlace(lesson)) continue
                     // Finish the atomic claim even if the worker is cancelled during the disk write.
                     // The delivery finally block can then reliably release that exact revision.
                     if (withContext(NonCancellable) { notes.claimReminder(note.key, note.revision) }) {

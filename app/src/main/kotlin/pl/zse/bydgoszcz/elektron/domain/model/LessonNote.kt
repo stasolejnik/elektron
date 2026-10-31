@@ -54,7 +54,9 @@ object NoteReminders {
         val byKey = lessons.associateBy(LessonNote::key)
         return notes.asSequence().filter { !it.reminded }.mapNotNull { note ->
             val lesson = byKey[note.key] ?: return@mapNotNull null
-            if (!matchesGroups(note, lesson) || lesson.substitution?.let(SubstitutionDisplay::freesLesson) == true) return@mapNotNull null
+            // Lekcja, która się nie odbędzie (zwolnienie z zastępstwa, święto, ferie) - bez przypomnienia.
+            // Dawniej dni wolne się nie liczyły: przed 11 listopada przychodziło "Notatka: matematyka".
+            if (!matchesGroups(note, lesson) || !SubstitutionDisplay.takesPlace(lesson)) return@mapNotNull null
             val start = LocalDateTime.of(lesson.date, lesson.timeFrom)
             if (start <= now) return@mapNotNull null
             val planned = plannedAt(note, lesson, settings)

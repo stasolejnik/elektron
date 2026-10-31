@@ -38,6 +38,21 @@ class LessonNoteTest {
         val sub = Substitution("s", day, 1, "1D", null, "Uczniowie zwolnieni", null, null, "Kowalski")
         assertNull(NoteReminders.next(listOf(note()), listOf(lesson().copy(substitution = sub)), day.minusDays(1).atStartOfDay()))
     }
+    @Test fun noReminderForLessonsOnDaysOff() {
+        val before = SchoolCalendar.enabled
+        SchoolCalendar.enabled = true
+        try {
+            // Zwykły plan na 11 listopada (Święto Niepodległości) - lekcja się nie odbędzie.
+            val holiday = LocalDate.of(2026, 11, 11)
+            val onHoliday = lesson().copy(date = holiday, dayOfWeek = DayOfWeek.SRODA)
+            val n = note().copy(date = holiday)
+            assertNull(NoteReminders.next(listOf(n), listOf(onHoliday), holiday.minusDays(2).atStartOfDay()))
+            // Dzień później - zwykły dzień nauki, przypomnienie wieczorem przed nim.
+            val nextDay = holiday.plusDays(1)
+            assertEquals(holiday.atTime(18, 0), NoteReminders.next(listOf(n.copy(date = nextDay)),
+                listOf(onHoliday.copy(date = nextDay, dayOfWeek = DayOfWeek.CZWARTEK)), holiday.minusDays(2).atStartOfDay())!!.at)
+        } finally { SchoolCalendar.enabled = before }
+    }
     @Test fun noteForOneGroupDoesNotRemindAfterSwitchToAnotherGroupOfSameSubject() {
         val n = note().copy(subject = "ang-1/2")
         val other = lesson().copy(groups = lesson().groups.map { it.copy(subject = "ang-2/2") })
