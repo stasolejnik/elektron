@@ -29,6 +29,13 @@ class SchoolDayEndTest {
         assertNull(SchoolDayEnd.of(plan, day.plusDays(1).atTime(9, 0)))
     }
 
+    @Test fun movedLastLessonsEndTheDayEarlier() {
+        val moved = plan.map { if (it.number == 7) it.copy(substitution = Substitution("s", day, 7, "1D", null,
+            "przeniesiona na 22.10.2026 (0)", null, "Zajęcia przeniesione na 0 h lek. do sali 215", "X")) else it }
+        assertEquals(LocalTime.of(9, 40), SchoolDayEnd.of(moved, day.atTime(9, 0))!!.end)
+        assertNull(SchoolDayEnd.of(moved, day.atTime(10, 0)))
+    }
+
     @Test fun freedLastLessonsEndTheDayEarlier() {
         val freed = plan.map { if (it.number == 7) it.copy(substitution = Substitution("s", day, 7, "1D", null,
             "Uczniowie zwolnieni do domu", null, null, "X")) else it }

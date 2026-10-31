@@ -42,15 +42,25 @@ object SubstitutionDisplay {
     /**
      * Wpisy, po których lekcja się dla ucznia NIE odbywa (zwolnienie klasy/grupy): bez zastępcy
      * i z informacją typu "Uczniowie zwolnieni do domu", "Uczniowie przychodzą później",
-     * "lekcja odwołana". "Zajęcia świetlicowe" to NIE zwolnienie - uczniowie są w szkole.
+     * "lekcja odwołana", "przeniesiona na 22.10.2026 (0)". "Przeniesione do sali" i "na salę 215" to zmiana
+     * sali, a "przeniesiona z czwartku" - lekcja, która się odbywa. "Zajęcia świetlicowe" to NIE zwolnienie
+     * - uczniowie są w szkole. Przeniesiona lekcja nie pojawia się w nowym terminie, zostaje informacja w planie.
      */
     private val FREES = Regex(
-        "zwolnien|przychodz\\p{L}* p[oó]\\p{L}*niej|odwo[lł]an|do domu|nie odbywa|wolne od zaj",
+        "zwolnien|przychodz\\p{L}* p[oó]\\p{L}*niej|odwo[lł]an|do domu|nie odbywa|wolne od zaj|" +
+            "(?:przeniesion|prze[lł]o[zż]on)\\p{L}* na (?!sal)",
         RegexOption.IGNORE_CASE
     )
 
-    fun freesLesson(sub: Substitution): Boolean =
-        sub.substituteTeacher.isNullOrBlank() && FREES.containsMatchIn(sub.roomOrInfo + " " + (sub.notes ?: ""))
+    /** Okienko zwalnia lekcję, chyba że wpis dotyczy tylko grupy ("okienko dla grupy 2/2" przy "5 J" bez numeru grupy). */
+    private val WINDOW = Regex("okienk", RegexOption.IGNORE_CASE)
+    private val GROUP = Regex("grup|\\bgr\\.", RegexOption.IGNORE_CASE)
+
+    fun freesLesson(sub: Substitution): Boolean {
+        if (!sub.substituteTeacher.isNullOrBlank()) return false
+        val text = sub.roomOrInfo + " " + (sub.notes ?: "")
+        return FREES.containsMatchIn(text) || (WINDOW.containsMatchIn(text) && !GROUP.containsMatchIn(text))
+    }
 
     /**
      * Lekcja odbywa się: nie ma zwolnienia ani dnia wolnego ([SchoolCalendar] - święta, przerwy, ferie,

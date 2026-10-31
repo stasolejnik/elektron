@@ -62,4 +62,29 @@ class SubstitutionDisplayTest {
         // Zastępca wpisany - to nie zwolnienie, nawet przy dziwnej uwadze.
         assertFalse(SubstitutionDisplay.freesLesson(sub("211", "M. Zelek", "uczniowie zwolnieni z 1 lekcji")))
     }
+
+    /** Prawdziwe wiersze z października 2026 (archiwum watchera). */
+    @Test
+    fun windowsAndMovedLessonsFreeTheLesson() {
+        assertTrue(SubstitutionDisplay.freesLesson(sub("Okienko dla uczniów", null)))
+        listOf(
+            "przeniesiona na 22.10.2026 (0)" to "Zajęcia przeniesione na 0 h lek. do sali 215",
+            "przeniesiona na 22.10.2026 (1)" to "Zajęcia przeniesione na 1 h lek. do sali 215",
+            "przeniesiona na 23.10.2026 (7)" to "Matematyka przełożona na piątek na 7 h lekcyjną.",
+            "przeniesiona na 29.10.2026 (0)" to "Zajęcia przeniesione na 0 h lek. do sali 215",
+            "przeniesiona na 30.10.2026 (7)" to "Zajęcia przeniesione na piątek na 7 h lek do sali 1015"
+        ).forEach { (info, notes) -> assertTrue(info, SubstitutionDisplay.freesLesson(sub(info, null, notes))) }
+    }
+
+    @Test
+    fun groupWindowsRoomChangesAndLessonsMovedHereStillTakePlace() {
+        assertFalse(SubstitutionDisplay.freesLesson(sub("Okienko dla uczniów", null, "okienko dla grupy 2/2")))
+        assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null)))
+        assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null, "II gr. zwolniona")))
+        assertFalse(SubstitutionDisplay.freesLesson(sub("213", null, "przeniesione z 1h lek.")))
+        assertFalse(SubstitutionDisplay.freesLesson(sub("215", null, "Zajęcia przeniesione do sali 215")))
+        assertFalse(SubstitutionDisplay.freesLesson(sub("215", null, "Lekcja przeniesiona na salę 215")))
+        // Z zastępcą lekcja się odbywa, także "przeniesiona z godz. 0".
+        assertFalse(SubstitutionDisplay.freesLesson(sub("216", "R. Śmidoda", "wit.i ap. int - lekcja przeniesiona z godz. 0 z piątku")))
+    }
 }

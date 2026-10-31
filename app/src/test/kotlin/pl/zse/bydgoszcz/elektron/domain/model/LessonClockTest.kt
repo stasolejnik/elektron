@@ -19,6 +19,13 @@ class LessonClockTest {
     private val plan = listOf(lesson(1, "08:00", "08:45"), lesson(2, "08:55", "09:40"), lesson(4, "10:45", "11:30"),
         lesson(1, "08:00", "08:45", day.plusDays(1)))
 
+    @Test fun windowIsNotAnOngoingLesson() {
+        val window = Substitution("s", day, 2, "1D", null, "Okienko dla uczniów", null, null, "X")
+        val withWindow = plan.map { if (it.date == day && it.number == 2) it.copy(substitution = window) else it }
+        val s = LessonClock.status(withWindow, at("09:00"))
+        assertTrue(s !is LessonClock.During)
+    }
+
     @Test fun duringLessonShowsTimeLeft() {
         val s = LessonClock.status(plan, at("08:20")) as LessonClock.During
         assertEquals(1, s.lesson.number)
