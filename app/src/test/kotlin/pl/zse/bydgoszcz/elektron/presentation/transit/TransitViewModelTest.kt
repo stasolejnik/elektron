@@ -24,7 +24,10 @@ import java.io.File
 @Config(sdk = [34])
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransitViewModelTest {
-    /** Przebieg zapytań w teście paginacji - w komunikacie błędu (rzadki dodatkowy request, do zbadania). */
+    /**
+     * Przebieg zapytań w teście paginacji - w komunikacie błędu. Dawniej rzadko 4 zapytania zamiast 3: zapis
+     * dojść (osobny odczyt i zapis listy) nadpisywał dociągniętą w międzyczasie stronę - teraz atomowo (update).
+     */
     private val DEBUG = java.util.Collections.synchronizedList(mutableListOf<String>())
     /**
      * Wstawia gotowy wynik do ViewModelu. Obserwator ustawień biegnie na wątku IO (Main to Unconfined)

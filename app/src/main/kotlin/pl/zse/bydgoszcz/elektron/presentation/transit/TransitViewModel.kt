@@ -326,10 +326,12 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                             // Dociągnięcie do wyniku cząstkowego (przerwane pierwsze sprawdzenie) nie czyni go pełnym.
                             complete = previous.complete && result.complete) else result
                         if (!matches(published, settings.value.preferences)) return@runCatchingCancellable
-                        journeys.value = published
+                        // Atomowo i z dojściami już uzupełnionymi w międzyczasie (praca dojść działa równolegle):
+                        // dawniej zapis listy zbudowanej przed ich uzupełnieniem kasował je i dojścia liczyły się od nowa.
+                        val shown = journeys.updateAndGet { latest -> withWalksFrom(published, latest) }
                         automaticRetryKey = null; automaticRetryAt = 0L
                         checkSavedStops()
-                        loadWalking(published)
+                        loadWalking(shown ?: published)
                         val next = published.nextWhenMs
                         if (published.journeys.size >= journeyMinimumCount || next == null || (cursor != null && next <= cursor!!)) return@runCatchingCancellable
                         // Do szkoły: dalej niż pół godziny po lekcji szukać nie ma po co - dawniej strony bez pasującego
@@ -364,17 +366,21 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         walkingJob = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 runCatchingCancellable { journeyRepository.enrichWalking(result) }.onSuccess { enriched ->
-                    val current = journeys.value
-                    if (current != null && matches(enriched, settings.value.preferences) && matches(current, settings.value.preferences)) {
-                        val paths = enriched.journeys.associateBy { it.rides.first().fromId }
-                        journeys.value = current.copy(journeys = current.journeys.map { trip ->
+                    val prefs = settings.value.preferences
+                    if (!matches(enriched, prefs)) return@onSuccess
+                    val paths = enriched.journeys.filter { !it.walkPending }.associateBy { it.rides.first().fromId }
+                    // Atomowo na najnowszej liście: dawniej odczyt i zapis osobno - dociągnięta w międzyczasie
+                    // strona kursów znikała (lista wracała do stanu sprzed niej).
+                    journeys.update { current ->
+                        if (current == null || !matches(current, prefs)) current
+                        else current.copy(journeys = current.journeys.map { trip ->
                             val path = paths[trip.rides.first().fromId]
                             if (!trip.walkPending || path == null) trip else trip.copy(walkMinutes = path.walkMinutes,
                                 distanceMeters = path.distanceMeters, walkAvailable = path.walkAvailable, walkPending = false)
                         })
                     }
                 }.onFailure {
-                    if (journeys.value === result) journeys.value = result.copy(journeys = result.journeys.map { it.copy(walkPending = false) })
+                    journeys.compareAndSet(result, result.copy(journeys = result.journeys.map { it.copy(walkPending = false) }))
                 }
             } finally {
                 if (walkingJob === coroutineContext[Job]) walkingJob = null
@@ -383,6 +389,18 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
             journeys.value?.takeIf { matches(it, settings.value.preferences) && it.journeys.any { trip -> trip.walkPending } }?.let(::loadWalking)
         }
         walkingJob?.start()
+    }
+
+    /** [published] z dojściami, które [latest] (ten sam wybór) ma już uzupełnione - po stanowisku początkowym. */
+    private fun withWalksFrom(published: TransitJourneyRepository.Result, latest: TransitJourneyRepository.Result?): TransitJourneyRepository.Result {
+        if (latest == null || keyOf(latest) != keyOf(published) || published.journeys.none { it.walkPending }) return published
+        val known = latest.journeys.filter { !it.walkPending }.associateBy { it.rides.first().fromId }
+        if (known.isEmpty()) return published
+        return published.copy(journeys = published.journeys.map { trip ->
+            val path = known[trip.rides.first().fromId]
+            if (!trip.walkPending || path == null) trip else trip.copy(walkMinutes = path.walkMinutes,
+                distanceMeters = path.distanceMeters, walkAvailable = path.walkAvailable, walkPending = false)
+        })
     }
 
     private var loadJob: Job? = null
