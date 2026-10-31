@@ -182,4 +182,32 @@ class LiveLessonTest {
         assertEquals(day.atTime(8, 40), c.progressFrom)
         assertEquals(0.5f, c.progress(day.atTime(8, 47, 30)), 0.01f)
     }
+
+    @Test fun shortCountdownForTheStatusBarCapsuleRoundsMinutesUp() {
+        val c = at("08:20")!!                                   // lekcja 1 do 08:45
+        assertEquals("25 min", LiveLesson.shortCountdown(c, LocalDateTime.of(day, LocalTime.of(8, 20))))
+        assertEquals("13 min", LiveLesson.shortCountdown(c, LocalDateTime.of(day, LocalTime.of(8, 32, 30))))
+        assertEquals("1 min", LiveLesson.shortCountdown(c, LocalDateTime.of(day, LocalTime.of(8, 44, 59))))
+        assertEquals("1 min", LiveLesson.shortCountdown(c, LocalDateTime.of(day, LocalTime.of(8, 45))))
+        val long = c.copy(countdownTo = LocalDateTime.of(day, LocalTime.of(11, 0)))
+        assertEquals("3 h", LiveLesson.shortCountdown(long, LocalDateTime.of(day, LocalTime.of(8, 20))))
+    }
+
+    @Test fun nextMinuteTickIsWhenTheShortTextChanges() {
+        val c = at("08:20")!!
+        // 12 min 30 s do końca = "13 min"; "12 min" od 08:33:00.
+        assertEquals(LocalDateTime.of(day, LocalTime.of(8, 33)), LiveLesson.nextMinuteTick(c, LocalDateTime.of(day, LocalTime.of(8, 32, 30))))
+        // Równo 12 min do końca: następna zmiana za minutę.
+        assertEquals(LocalDateTime.of(day, LocalTime.of(8, 34)), LiveLesson.nextMinuteTick(c, LocalDateTime.of(day, LocalTime.of(8, 33))))
+        // Po czasie odliczania - za minutę, nigdy w przeszłości.
+        assertEquals(LocalDateTime.of(day, LocalTime.of(8, 46)), LiveLesson.nextMinuteTick(c, LocalDateTime.of(day, LocalTime.of(8, 45))))
+    }
+
+    @Test fun shortCriticalTextOnlyOnColorOsPhones() {
+        assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("realme"))
+        assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("OPPO"))
+        assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("OnePlus"))
+        assertFalse(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("Google"))
+        assertFalse(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText(null))
+    }
 }

@@ -220,6 +220,12 @@ internal fun NotificationsSection(
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             ActionRow("Otwórz ustawienia powiadomień", trailingIcon = true) { openNotificationSettings(ctx) }
         }
+        // Starszy Android: powiadomienie działa, ale odliczania na pasku stanu (Live Updates) system nie pokaże.
+        if (live && liveAllowed && Build.VERSION.SDK_INT < 36) {
+            Text("Odliczanie na pasku stanu pokazuje Android 16 i nowszy. Na tym telefonie czas widać w samym powiadomieniu.",
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         // Android 16+: odliczanie na pasku stanu (Live Updates) użytkownik może wyłączyć dla aplikacji.
         if (live && liveAllowed && livePromoted == false) {
             Text("Odliczanie na pasku stanu (Live Updates) jest wyłączone dla eLektronu w ustawieniach systemu.",

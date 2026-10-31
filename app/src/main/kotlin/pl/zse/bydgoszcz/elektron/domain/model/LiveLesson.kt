@@ -162,6 +162,25 @@ object LiveLesson {
         return "Koniec lekcji o ${end.toLocalTime()}" + (left?.takeIf { content.countdownTo != end }?.let { " · jeszcze $it" } ?: "")
     }
 
+    /** Pełne minuty do [Content.countdownTo], w górę (12:30 zostało = 13), najmniej 1. */
+    fun minutesLeft(content: Content, now: LocalDateTime): Long {
+        val seconds = java.time.Duration.between(now, content.countdownTo).seconds.coerceAtLeast(0)
+        return ((seconds + 59) / 60).coerceAtLeast(1)
+    }
+
+    /**
+     * Krótki tekst czasu do kapsuły na pasku stanu (Live Update), np. "12 min"; od 100 min - "2 h".
+     * Nakładki producentów (np. realme, OPPO) nie pokazują tam chronometru powiadomienia.
+     */
+    fun shortCountdown(content: Content, now: LocalDateTime): String {
+        val minutes = minutesLeft(content, now)
+        return if (minutes < 100) "$minutes min" else "${(minutes + 30) / 60} h"
+    }
+
+    /** Kiedy [minutesLeft] spadnie o jeden - wtedy odświeżyć krótki tekst i pasek postępu. */
+    fun nextMinuteTick(content: Content, now: LocalDateTime): LocalDateTime =
+        content.countdownTo.minusMinutes(minutesLeft(content, now) - 1).let { if (it.isAfter(now)) it else now.plusMinutes(1) }
+
     /** Krótko do zwiniętej treści: "8. wf · s. Hala3". */
     private fun short(l: Lesson, styles: Map<String, SubjectStyle>): String =
         listOfNotNull("${l.number}. ${subject(l, styles)}", room(l)?.let { "s. $it" }).joinToString(" · ")

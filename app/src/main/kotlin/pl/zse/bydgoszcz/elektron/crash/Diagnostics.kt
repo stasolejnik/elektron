@@ -75,8 +75,20 @@ object Diagnostics {
             "Bez oszczędzania baterii" to yes(power?.isIgnoringBatteryOptimizations(context.packageName) == true),
             "Dokładne alarmy" to (if (Build.VERSION.SDK_INT >= 31) yes(alarms?.canScheduleExactAlarms() == true) else "tak"),
             "Sieć" to network
-        )
+        ) + liveUpdates(context)
     }.getOrDefault(emptyList<Pair<String, String>>())
+
+    /** Android 16+: odliczanie powiadomienia na żywo na pasku stanu (Live Updates) - zgoda i stan teraz. */
+    private fun liveUpdates(context: Context): List<Pair<String, String>> {
+        val allowed = pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.canPostPromoted(context)
+            ?: return listOf("Live Updates" to "Android starszy niż 16")
+        val promoted = pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.isPromoted(context)
+        return listOf("Live Updates" to (if (allowed) "tak" else "wyłączone w systemie") + when (promoted) {
+            null -> ", powiadomienie na żywo nie jest teraz pokazane"
+            true -> ", powiadomienie na żywo promowane"
+            false -> ", powiadomienie na żywo niepromowane"
+        })
+    }
 
     fun now(): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(Date())
 

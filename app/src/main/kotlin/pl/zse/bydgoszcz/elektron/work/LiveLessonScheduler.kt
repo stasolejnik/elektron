@@ -37,7 +37,7 @@ import javax.inject.Singleton
  * Powiadomienie na żywo (treść: [LiveLesson]). Bez usługi pierwszoplanowej i bez stałego procesu:
  * jak przypomnienia o lekcjach - jeden alarm na najbliższą granicę (początek okna, dzwonek), po nim
  * przeliczenie. Odliczanie robi chronometr powiadomienia. Pasek postępu odświeża osobny alarm
- * BEZ budzenia telefonu (co [PROGRESS_MINUTES] min) - system dostarcza go, gdy telefon i tak działa
+ * BEZ budzenia telefonu (co minutę, LiveLesson.nextMinuteTick) - system dostarcza go, gdy telefon i tak działa
  * (np. włączony ekran), więc uśpiony telefon nie budzi się co kilka minut.
  *
  * Przeliczane przy każdym przeliczeniu przypomnień ([LessonReminderScheduler.reschedule]: synchronizacja,
@@ -109,24 +109,34 @@ class LiveLessonScheduler @Inject constructor(
         val styles = runCatchingCancellable { settings.subjectStyles.first() }.getOrDefault(emptyMap())
         val noteMap = runCatchingCancellable { notes.notes.first() }.getOrDefault(emptyList()).associateBy { it.key }
         val content = if (hidden) null else LiveLesson.content(lessons, now, styles, noteMap)
-        if (content == null) NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
-        else post(content, now)
+        val promotable = if (content == null) { NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID); null }
+            else post(content, now)
         // Ukryte dziś - następna granica dopiero jutro (bez budzenia na dzisiejsze dzwonki).
         val from = if (hidden) today.plusDays(1).atStartOfDay().minusNanos(1) else now
         val next = LiveLesson.nextChange(lessons, from)
         setAlarm(BOUNDARY_REQUEST, ACTION_BOUNDARY, next, wakeUp = true)
-        val progressAt = content?.let { minOf(next ?: it.windowEnd, now.plusMinutes(PROGRESS_MINUTES)) }
+        // Co minutę, w chwili zmiany pełnej minuty odliczania - krótki tekst w kapsule nie spóźnia się o minutę.
+        val progressAt = content?.let { minOf(next ?: it.windowEnd, LiveLesson.nextMinuteTick(it, now)) }
         setAlarm(PROGRESS_REQUEST, ACTION_PROGRESS, progressAt?.takeIf { next == null || it < next }, wakeUp = false)
         // Diagnostyka ("Zgłoś problem"): co pokazano i kiedy następna zmiana - tylko przy zmianie stanu,
         // nie przy każdym odświeżeniu paska co minutę.
-        if (stateLog.changed(listOf(content?.phase, content?.countdownTo, hidden, next, AppClock.simulated)))
-        Log.i(TAG, "Teraz ${now.withNano(0)}${if (AppClock.simulated) " (symulacja)" else ""}: " +
-            (content?.let { "${it.phase}, do ${it.countdownTo.toLocalTime()}" } ?: if (hidden) "ukryte na dziś" else "bez powiadomienia") +
-            ", następna zmiana ${next?.withNano(0) ?: "brak"}, dokładne alarmy: ${LessonReminderScheduler.canUseExactAlarms(context)}" +
-            (canPostPromoted(context)?.let { ", Live Updates: ${if (it) "tak" else "wyłączone w systemie"}" } ?: ""))
+        val promoted = if (content != null) isPromoted(context) else null
+        if (stateLog.changed(listOf(content?.phase, content?.countdownTo, hidden, next, AppClock.simulated, promotable, promoted))) {
+            Log.i(TAG, "Teraz ${now.withNano(0)}${if (AppClock.simulated) " (symulacja)" else ""}: " +
+                (content?.let { "${it.phase}, do ${it.countdownTo.toLocalTime()}" } ?: if (hidden) "ukryte na dziś" else "bez powiadomienia") +
+                ", następna zmiana ${next?.withNano(0) ?: "brak"}, dokładne alarmy: ${LessonReminderScheduler.canUseExactAlarms(context)}" +
+                (canPostPromoted(context)?.let { ", Live Updates: ${if (it) "tak" else "wyłączone w systemie"}" } ?: "") +
+                // Android 16+: czy system uznał powiadomienie za Live Update (odliczanie na pasku stanu).
+                (promotable?.let { ", spełnia warunki Live Update: ${if (it) "tak" else "nie"}" } ?: "") +
+                (promoted?.let { ", promowane przez system: ${if (it) "tak" else "nie"}" } ?: ""))
+        }
     }
 
-    private fun post(content: LiveLesson.Content, now: LocalDateTime) {
+    /**
+     * Pokazuje powiadomienie. Wynik: czy na Androidzie 16+ spełnia warunki Live Update
+     * (Notification.hasPromotableCharacteristics); null - starszy system albo brak metody.
+     */
+    private fun post(content: LiveLesson.Content, now: LocalDateTime): Boolean? {
         val target = pl.zse.bydgoszcz.elektron.widget.lessonIntent(context, content.target).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -171,6 +181,9 @@ class LiveLessonScheduler @Inject constructor(
                 // Android 16: prośba o "Live Update" (promowane powiadomienie na pasku i ekranie blokady).
                 // Starsze systemy ignorują ten klucz; nie wymaga compileSdk 36.
                 extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
+                // realme/OPPO/OnePlus: kapsuła na pasku stanu nie pokazuje chronometru, tylko krótki tekst.
+                // Na zwykłym Androidzie 16 krótki tekst zastąpiłby odliczanie co do sekundy - tam bez niego.
+                if (usesShortCriticalText()) extras.putString(EXTRA_SHORT_CRITICAL_TEXT, LiveLesson.shortCountdown(content, now))
             }
             .build()
         // "Wyczyść wszystko" nie usuwa powiadomienia (dawniej znikało i ukrywało się do jutra);
@@ -178,6 +191,8 @@ class LiveLessonScheduler @Inject constructor(
         n.flags = n.flags or android.app.Notification.FLAG_NO_CLEAR
         try { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, n) }
         catch (e: SecurityException) { Log.w(TAG, "Brak uprawnień do powiadomień", e) }
+        return if (Build.VERSION.SDK_INT < 36) null
+            else runCatching { n.javaClass.getMethod("hasPromotableCharacteristics").invoke(n) as Boolean }.getOrNull()
     }
 
     private fun broadcast(request: Int, action: String): PendingIntent =
@@ -221,8 +236,6 @@ class LiveLessonScheduler @Inject constructor(
         private const val TAG = "LiveLesson"
         const val NOTIFICATION_ID = 0x4C495645
         private const val PROGRESS_MAX = 1000
-        /** Pasek postępu i napis o końcu dnia: co minutę, alarmem bez budzenia (tylko przy działającym telefonie). */
-        private const val PROGRESS_MINUTES = 1L
         private const val BOUNDARY_REQUEST = 4201
         private const val PROGRESS_REQUEST = 4202
         private const val HIDE_REQUEST = 4203
@@ -234,6 +247,13 @@ class LiveLessonScheduler @Inject constructor(
         const val ACTION_DISMISSED = "pl.zse.bydgoszcz.elektron.live.DISMISSED"
         /** Notification.EXTRA_REQUEST_PROMOTED_ONGOING (API 36). */
         private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
+        /** Notification.EXTRA_SHORT_CRITICAL_TEXT (API 36): tekst kapsuły Live Update na pasku stanu. */
+        private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
+        private val SHORT_TEXT_MANUFACTURERS = setOf("realme", "oppo", "oneplus")
+
+        /** Telefony z nakładką ColorOS (realme, OPPO, OnePlus): czas w kapsule tylko z krótkiego tekstu. */
+        fun usesShortCriticalText(manufacturer: String? = Build.MANUFACTURER): Boolean =
+            manufacturer?.trim()?.lowercase() in SHORT_TEXT_MANUFACTURERS
 
         /** Ekran blokady: tylko rodzaj odliczania, bez przedmiotów i sal. */
         private val PUBLIC_TITLES = mapOf(
@@ -252,6 +272,19 @@ class LiveLessonScheduler @Inject constructor(
             if (Build.VERSION.SDK_INT < 36) return null
             val nm = context.getSystemService(NotificationManager::class.java) ?: return null
             return runCatching { nm.javaClass.getMethod("canPostPromotedNotifications").invoke(nm) as Boolean }.getOrNull()
+        }
+
+        /**
+         * Android 16+: czy pokazane teraz powiadomienie na żywo system promował (Notification.FLAG_PROMOTED_ONGOING),
+         * czyli czy odliczanie może być na pasku stanu. null - starszy Android, brak powiadomienia albo flagi.
+         */
+        fun isPromoted(context: Context): Boolean? {
+            if (Build.VERSION.SDK_INT < 36) return null
+            val nm = context.getSystemService(NotificationManager::class.java) ?: return null
+            return runCatching {
+                val flag = android.app.Notification::class.java.getField("FLAG_PROMOTED_ONGOING").getInt(null)
+                nm.activeNotifications.firstOrNull { it.id == NOTIFICATION_ID }?.let { it.notification.flags and flag != 0 }
+            }.getOrNull()
         }
 
         /** Ustawienia Live Updates dla eLektronu (Android 16+), a gdy ich brak - ustawienia powiadomień. */
