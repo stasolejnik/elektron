@@ -136,7 +136,8 @@ class SyncCoordinator @Inject constructor(
      */
     suspend fun sync(request: SyncRequest): SyncOutcome {
         val flight = synchronized(lock) {
-            val existing = flights.firstOrNull { it.request == request && it.deferred.isActive }
+            // Praca utworzona, a jeszcze nieuruchomiona (LAZY) nie jest isActive - też dołączamy; przerwana już nie.
+            val existing = flights.firstOrNull { it.request == request && !it.deferred.isCompleted && !it.deferred.isCancelled }
             (existing ?: newFlight(request, pinned = false) { doSync(request, notify = true) })
                 .also { it.waiters++ }
         }
