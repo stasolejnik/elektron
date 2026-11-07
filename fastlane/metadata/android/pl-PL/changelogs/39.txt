@@ -1,7 +1,6 @@
 Nowe logo: ikona granatowa albo cyjanowa.
-Przejazdy: wszystkie kursy z Twojego przystanku, nowe API BUSearch, karta „Na przystanku 07:39 · zapas 16 min”.
-Zastępstwa: najpierw lekcja na zastępstwie, potem nauczyciel.
+Przejazdy: wszystkie kursy z Twojego przystanku, pozycja pojazdu, inne przystanki przy szkole, nowe API BUSearch.
+Zastępstwa: najpierw lekcja na zastępstwie, potem nauczyciel; czytelniejsze powiadomienia.
 Informacje szkoły w ogłoszeniach, powiadomienia o nich domyślnie wyłączone.
-Okienka i przeniesione lekcje nie liczą się jako lekcje.
-Bez przypomnień o notatkach w dni wolne.
+Okienka, przeniesione lekcje i zwolnienia jednej grupy poprawnie w planie.
 Czas w kapsule na pasku stanu na realme, OPPO i OnePlus.

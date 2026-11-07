@@ -18,7 +18,13 @@ object Changelog {
             "„Zgłoś problem” pokazuje, czy odliczanie powiadomienia na żywo może być na pasku stanu (Android 16+)",
             "Powiadomienie „Wybierz klasę ponownie” otwiera aplikację po dotknięciu",
             "Bez przypomnień o notatkach przed lekcjami w dni wolne",
-            "Wakacje od piątku po 20 czerwca, jak w rozporządzeniu"
+            "Wakacje od piątku po 20 czerwca, jak w rozporządzeniu",
+            "Przejazdy: pozycja pojazdu na żywo i opcja „Także inne przystanki przy szkole”",
+            "Czytelniejsze powiadomienia o zastępstwach i przypomnienia z nazwą lekcji",
+            "Zwolnienie do domu tylko jednej grupy nie odwołuje lekcji całej klasie",
+            "Jednolite daty, numer sali bez łamania linii, plan tygodnia bez dzielenia słów",
+            "W dni bez lekcji zastępstwa sprawdzane rzadziej (co 45 min)",
+            "Ferie zimowe 2027/2028: 17-30 stycznia"
         )),
         Entry(38, "1.0.2", listOfNotNull(
             "Przejazdy (dawniej Odjazdy): rano dojazd z Twojego przystanku na najbliższą lekcję - kiedy będziesz w szkole, ile zapasu i ostatni kurs, którym zdążysz; od połowy dnia lekcji powrót ze szkoły z godziną wyjścia",
@@ -367,7 +373,7 @@ object Changelog {
             versionCode = 3,
             versionName = "0.1.0-alpha",
             items = listOf(
-                "Wersja Alpha — pierwsza po pełnym audycie kodu",
+                "Wersja Alpha - pierwsza po pełnym audycie kodu",
                 "Naprawiono resetowanie 'przeczytane' na ogloszeniach po kazdym syncu",
                 "Naprawiono powiadomienie o ogloszeniu prowadzace donikad",
                 "Naprawiono nakladanie zastepstwa na zly dzien w widoku tygodnia",

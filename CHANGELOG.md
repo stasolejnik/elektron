@@ -28,6 +28,27 @@ Krótki opis do wydania na GitHubie: [release-notes/1.0.3.md](release-notes/1.0.
 - Synchronizacja: żądanie dołącza też do takiej samej pracy, która jeszcze nie ruszyła (dawniej mogło pobrać dane drugi raz).
 - Strona główna: błąd zapisu przy „Później” na banerze aktualizacji nie zamyka aplikacji.
 - Testy: prawdziwa strona zastępstw jako bajty ISO-8859-2, nowy test źródła ze ścieżką produkcyjną (kodowanie, układ, stopka).
+- Przejazdy: opcja „Także inne przystanki przy szkole” (Ustawienia → Przejazdy, przy wybranym przystanku przy szkole) - oprócz wybranego przystanku kursy z przystanków do 1 km od szkoły i na nie; wynik zapisany osobno od wyniku samego przystanku.
+- Przejazdy: pozycja pojazdu na żywo w karcie („pojazd 650 m stąd”, „pojazd 1,2 km stąd”, „pojazd na przystanku”) z tablicy odjazdów BUSearch, tylko dla śledzonego pojazdu z aktualną pozycją. Wiersz odjazdu „Odjazd: Rondo Wielkopolskie” zamiast niegramatycznego „z Rondo Wielkopolskie”, do dwóch linii.
+- Przejazdy: katalog przystanków odświeżany zapytaniem warunkowym (ETag, `If-None-Match`) - bez zmian serwer odpowiada 304 i nie wysyła całego katalogu.
+- Synchronizacja w tle: w weekendy i dni bez lekcji zastępstwa sprawdzane co 45 min (dawniej przy każdym uruchomieniu, czyli co 15 min); od 15:00 przed dniem lekcji jak zwykle.
+- Dni wolne: ferie zimowe 2027/2028 w kujawsko-pomorskim (17-30.01.2028, gov.pl).
+- Plan: zajęcia łączone zapisane przez szkołę jako „5B,5D 105 zaj uni” (od listopada 2026 z numerem sali) - sala 105 i nazwa „zaj uni”; dawniej nazwa „105 zaj uni” bez sali.
+- Zastępstwa: zwolnienie tylko części klasy („I gr. - do domu”, „grupa 1/2 zwolniona do domu; grupa 2/2 świetlica”) przy wpisie bez numeru grupy nie odwołuje lekcji całej klasie - reszta ma zajęcia, więc lekcja zostaje z informacją szkoły (przypomnienia, powiadomienie na żywo, widżety, strona główna). Prawdziwe wpisy z 02.11 i 06.11.2026.
+- Powiadomienie o zastępstwie: tytuł „Dziś, 6. lekcja: edukacja zdrowotna”, pod nim zastępca z salą, „Za: przedmiot · nieobecny” i uwagi - każda informacja raz. Dawniej tytuł z salą i nazwiskiem, a rozwinięcie powtarzało „Kiedy”, „Zastępca” i „Gdzie” (przy lekcji z uwag „Gdzie: D. Musierowicz · s. 111”).
+- Szczegóły lekcji: przy lekcji z uwag osobno „Zastępca” i „Gdzie: s. 111”.
+- Przypomnienie przed lekcją z zastępstwem: „Za 10 min: fizyka (zastępstwo)” albo lekcja z uwag („edukacja zdrowotna (zastępstwo)”), bez zastępcy informacja szkoły („Zajęcia Świetlicowe”); dawniej „zastępstwo – M. Zelek”.
+- Powiadomienie na żywo: „Teraz” to lekcja na zastępstwie (jak na stronie głównej i w widżecie), a linia „Zastępstwo za: j.polski · Dagmara Wróblewska” nie powtarza zastępcy i sali; dawniej „Teraz: 6. j.polski · D. Musierowicz”. Mały napis „Lekcje do 15:30 · 2 h 40 min” zamiast ucinanego „Koniec lekcji o 15:30 · jeszcze …”.
+- Widżet Następna lekcja: przy lekcji z uwag zastępca pod nazwą lekcji (dawniej go brakowało), inaczej „Za: <nieobecny>” zamiast „Zastępstwo za Dagmara Wróblewska”.
+- Plan tygodnia: kafelek zastępstwa z lekcją z uwag pokazuje tę lekcję, zastępcę i salę zamiast „j.polski · edukacja zdrowotna”; nazwy przedmiotów, które nie mieszczą się w kolumnie („e_zdrowotna”, „r_matematyka”, „Zaj.Prakt_1”), lekko maleją zamiast łamać się w środku słowa.
+- Informacje szkoły: strzałki pisane znakami („pc2 <-> pc5”) jako „↔”, „→”, „←”; w powiadomieniu dzień jak przy zastępstwach („jutro”, „poniedziałek 12.11”) zamiast samej daty.
+- Daty w jednym zapisie z zerem na początku („03.11”, „06.11.2026”) w planie, ogłoszeniach, notatkach, udostępnianiu i Przejazdach; „Sprawdzono 12:49” w zakładce Zastępstwa (dawniej „Zastępstwa sprawdzono: 3.11, 12:49”) i na karcie dojazdu; najbliższe przypomnienie „jutro, 07:50” albo „czwartek, 07:50”.
+- Sala zawsze jako „s. 111” z twardą spacją - numer nie przechodzi sam do następnej linii przy dużej czcionce; strona główna „s. 105” zamiast „sala 105” (bez sali same godziny).
+- Dolny pasek: podpisy mieszczą się w całości do czcionki systemowej ok. 145% (dawniej „Zastępst…” już przy 130%). Nazwy przystanków łamią się po łączniku („Skłodowskiej-/Curie”), nie w środku słowa.
+- Ustawienia → Pasek nawigacji: także Przejazdy (ten sam przełącznik co w Ustawieniach → Przejazdy).
+- Teksty: „Witaj w eLektronie”, opisy kanałów powiadomień ze strzałką „→” i bez „RSS”, „Barwy dopasowane do tapety telefonu” zamiast „Material You”, „dotknij” zamiast „stuknij”, bez długich myślników.
+- Android 16: compileSdk 36 i oficjalne API Live Update (`canPostPromotedNotifications`, `FLAG_PROMOTED_ONGOING`, `hasPromotableCharacteristics`, `setShortCriticalText`) zamiast refleksji. Tryb dewelopera: „Krótki czas w kapsule na każdym telefonie” do sprawdzania nakładek innych producentów.
+- GitHub Actions w nowych wersjach (checkout v7, setup-java v6, upload-artifact v7, setup-gradle v6, setup-python v7).
 
 ## [1.0.2] - 2026-10-24 (38)
 

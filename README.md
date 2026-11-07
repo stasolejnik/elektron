@@ -60,8 +60,8 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   wyszukiwanie, czytanie treści w aplikacji i ulubione z zapisem do odczytu bez internetu.
 - **Przejazdy:** autobusy i tramwaje między Twoim przystankiem a szkołą. Rano dojazd na
   najbliższą lekcję (o której będziesz na przystanku przy szkole i ile zapasu do lekcji),
-  od połowy dnia lekcji powrót ze szkoły (kiedy wyjść, żeby zdążyć dojść). Opóźnienia na żywo,
-  gdy pojazd jest śledzony, linia, kierunek i czas dojścia. Przystanki wybierzesz przez
+  od połowy dnia lekcji powrót ze szkoły (kiedy wyjść, żeby zdążyć dojść). Opóźnienia i pozycja
+  pojazdu na żywo, gdy jest śledzony, linia, kierunek i czas dojścia. Przystanki wybierzesz przez
   wyszukiwarkę lub mapę OpenStreetMap, bez GPS; kierunek zmienisz też ręcznie.
 - **Strona główna:** trwająca lub najbliższa lekcja, przerwa i nadchodzące zmiany.
 - **Powiadomienia:** nowe zastępstwa, ogłoszenia i informacje szkoły (np. skrócone lekcje), przypomnienia o lekcjach i notatkach,
@@ -90,7 +90,7 @@ własną stronę, a po powrocie lista jest przewinięta tam, gdzie była. Kolejn
 | **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Przejazdy. Karty na stronie głównej, w tym **Czas do końca lekcji** (domyślnie wyłączony, także linia w widżecie Plan dnia), **Przejazdy** oraz **Informacje szkoły w ogłoszeniach** (np. zamiana sal - w sekcji ogłoszeń na stronie głównej i na górze zakładki Ogłoszenia, domyślnie włączone). |
 | **Wygląd** | Motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **kolor tła** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i nasycenie tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: granatowa (domyślna) albo cyjanowa. Po zmianie ikony aplikacja się zamyka. |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, pokazywanie sali i nauczyciela. |
-| **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie „Szkoła” - najbliższe przystanki; można wybrać dowolny, lista od najbliższego szkoły) i połączenia z przesiadką. |
+| **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie „Szkoła” - najbliższe przystanki; można wybrać dowolny, lista od najbliższego szkoły), **także inne przystanki przy szkole** (kursy z przystanków do 1 km od szkoły) i połączenia z przesiadką. |
 | **Pasek nawigacji** | Które zakładki są na dolnym pasku i w jakiej kolejności (przytrzymaj i przeciągnij). |
 | **Widżety** | Przezroczystość tła oraz sala i nauczyciel w widżetach. W motywie Auto przy dużej przezroczystości kolor tekstu dopasowuje się do tapety. |
 | **Praca w tle** | Stan optymalizacji baterii i poradnik dla Twojego telefonu - przydatne, gdy powiadomienia lub widżety się spóźniają. |
@@ -102,7 +102,8 @@ Skróty po przytrzymaniu ikony aplikacji: Plan lekcji, Zastępstwa, Ogłoszenia,
 i - przy włączonej zakładce - Przejazdy.
 
 **Dni wolne:** strona szkoły pokazuje stały plan także w święta i przerwy. eLektron zna święta
-ustawowe, przerwy świąteczne, wakacje i ferie zimowe w kujawsko-pomorskim (2026/2027: 15-28 lutego) -
+ustawowe, przerwy świąteczne, wakacje i ferie zimowe w kujawsko-pomorskim (2026/2027: 15-28 lutego,
+2027/2028: 17-30 stycznia) -
 w takie dni nie ma przypomnień, powiadomienia na żywo ani „następnej lekcji”, a plan dnia mówi, że to
 dzień wolny. Dni wolne ustalane przez dyrektora szkoły nie są znane z góry.
 
@@ -140,7 +141,8 @@ Android może opóźniać pracę aplikacji w tle. Jeśli powiadomienia nie przyc
 sprawdź zgodę na powiadomienia oraz kategorię **Praca w tle** w Ustawieniach eLektronu.
 Przypomnienia o lekcjach korzystają także z uprawnienia do dokładnych alarmów.
 
-Dane szkolne są sprawdzane w tle przez WorkManager; wariant z GitHuba korzysta również
+Dane szkolne są sprawdzane w tle przez WorkManager (zastępstwa co 15 min, w nocy i w dni bez lekcji
+rzadziej); wariant z GitHuba korzysta również
 z powiadomień Firebase Cloud Messaging. Informacje o zastępstwach i ogłoszeniach pochodzą
 ze stron szkoły. Przejazdy są sprawdzane podczas korzystania z tej funkcji.
 
