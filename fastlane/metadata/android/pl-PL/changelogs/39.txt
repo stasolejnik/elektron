@@ -1,6 +1,7 @@
 Nowe logo: ikona granatowa albo cyjanowa.
-Przejazdy: wszystkie kursy z Twojego przystanku, pozycja pojazdu, inne przystanki przy szkole, nowe API BUSearch.
-Zastępstwa: najpierw lekcja na zastępstwie, potem nauczyciel; czytelniejsze powiadomienia.
+Nowy widżet Przejazdy: najbliższe kursy rano do szkoły, po lekcjach ze szkoły.
+Przejazdy od najbliższego kursu, nowe API BUSearch, inne przystanki przy szkole.
+Zastępstwa: najpierw lekcja na zastępstwie; czytelniejsze powiadomienia.
 Informacje szkoły w ogłoszeniach, powiadomienia o nich domyślnie wyłączone.
 Okienka, przeniesione lekcje i zwolnienia jednej grupy poprawnie w planie.
 Czas w kapsule na pasku stanu na realme, OPPO i OnePlus.

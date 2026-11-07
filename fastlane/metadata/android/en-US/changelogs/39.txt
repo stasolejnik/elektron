@@ -1,6 +1,7 @@
 New logo: navy or cyan app icon.
-Commute: all rides from your stop, live vehicle position, other stops near the school, new BUSearch API.
-Substitutions: the substituted lesson first, then the teacher; clearer notifications.
+New Commute widget: the nearest rides to school in the morning, home after lessons.
+Commute from the nearest ride, new BUSearch API, other stops near the school.
+Substitutions: the substituted lesson first; clearer notifications.
 School notices among the news, notifications off by default.
 Free periods, moved lessons and one group sent home are handled correctly.
 Time left in the status bar capsule on realme, OPPO and OnePlus.

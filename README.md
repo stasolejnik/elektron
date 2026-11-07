@@ -37,7 +37,7 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   <img src="docs/screenshots/strona-glowna.png" alt="Strona główna" title="Strona główna" width="23%">
   <img src="docs/screenshots/plan.png" alt="Plan lekcji" title="Plan lekcji" width="23%">
   <img src="docs/screenshots/zastepstwa.png" alt="Zastępstwa" title="Zastępstwa" width="23%">
-  <img src="docs/screenshots/odjazdy.png" alt="Przejazdy" title="Przejazdy" width="23%">
+  <img src="docs/screenshots/przejazdy.png" alt="Przejazdy" title="Przejazdy" width="23%">
 </p>
 <p align="center">
   <img src="docs/screenshots/ogloszenia.png" alt="Ogłoszenia" title="Ogłoszenia" width="23%">
@@ -58,15 +58,16 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   zastępstwa lub całej widocznej listy.
 - **Ogłoszenia:** informacje szkoły na dziś i kolejne dni (np. zamiana sal) na górze listy,
   wyszukiwanie, czytanie treści w aplikacji i ulubione z zapisem do odczytu bez internetu.
-- **Przejazdy:** autobusy i tramwaje między Twoim przystankiem a szkołą. Rano dojazd na
+- **Przejazdy:** autobusy i tramwaje między Twoim przystankiem a szkołą, od najbliższego kursu. Rano dojazd na
   najbliższą lekcję (o której będziesz na przystanku przy szkole i ile zapasu do lekcji),
-  od połowy dnia lekcji powrót ze szkoły (kiedy wyjść, żeby zdążyć dojść). Opóźnienia i pozycja
-  pojazdu na żywo, gdy jest śledzony, linia, kierunek i czas dojścia. Przystanki wybierzesz przez
+  od połowy dnia lekcji powrót ze szkoły (kiedy wyjść, żeby zdążyć dojść). Opóźnienia na żywo,
+  gdy pojazd jest śledzony, linia, kierunek i czas dojścia. Przystanki wybierzesz przez
   wyszukiwarkę lub mapę OpenStreetMap, bez GPS; kierunek zmienisz też ręcznie.
 - **Strona główna:** trwająca lub najbliższa lekcja, przerwa i nadchodzące zmiany.
 - **Powiadomienia:** nowe zastępstwa, ogłoszenia i informacje szkoły (np. skrócone lekcje), przypomnienia o lekcjach i notatkach,
   ciche godziny oraz powiadomienie na żywo w dni lekcyjne (odliczanie do przerwy albo lekcji, także na pasku stanu w Androidzie 16+, co trwa, co dalej i kiedy koniec lekcji).
-- **Szybki dostęp:** widżety Następna lekcja, Plan dnia i Zastępstwa, kafelek szybkich
+- **Szybki dostęp:** widżety Następna lekcja, Plan dnia, Zastępstwa i Przejazdy (najbliższe kursy rano do szkoły,
+  po lekcjach ze szkoły), kafelek szybkich
   ustawień oraz skróty po przytrzymaniu ikony aplikacji.
 - **Wygląd:** własne nazwy i kolory przedmiotów, jasny lub ciemny motyw, kolor akcentu,
   kolor tła (gotowy albo własny), kolory z tapety na Androidzie 12 lub
@@ -90,7 +91,7 @@ własną stronę, a po powrocie lista jest przewinięta tam, gdzie była. Kolejn
 | **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Przejazdy. Karty na stronie głównej, w tym **Czas do końca lekcji** (domyślnie wyłączony, także linia w widżecie Plan dnia), **Przejazdy** oraz **Informacje szkoły w ogłoszeniach** (np. zamiana sal - w sekcji ogłoszeń na stronie głównej i na górze zakładki Ogłoszenia, domyślnie włączone). |
 | **Wygląd** | Motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **kolor tła** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i nasycenie tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: granatowa (domyślna) albo cyjanowa. Po zmianie ikony aplikacja się zamyka. |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, pokazywanie sali i nauczyciela. |
-| **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie „Szkoła” - najbliższe przystanki; można wybrać dowolny, lista od najbliższego szkoły), **także inne przystanki przy szkole** (kursy z przystanków do 1 km od szkoły) i połączenia z przesiadką. |
+| **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie „Szkoła” - najbliższe przystanki; można wybrać dowolny, lista od najbliższego szkoły), **także inne przystanki przy szkole** (kursy z przystanków do 1 km od szkoły), połączenia z przesiadką i **kursy na czas przed lekcją** (dojazd od kursu, który jest na miejscu najbliżej 5-30 min przed lekcją, zamiast od najbliższego). |
 | **Pasek nawigacji** | Które zakładki są na dolnym pasku i w jakiej kolejności (przytrzymaj i przeciągnij). |
 | **Widżety** | Przezroczystość tła oraz sala i nauczyciel w widżetach. W motywie Auto przy dużej przezroczystości kolor tekstu dopasowuje się do tapety. |
 | **Praca w tle** | Stan optymalizacji baterii i poradnik dla Twojego telefonu - przydatne, gdy powiadomienia lub widżety się spóźniają. |

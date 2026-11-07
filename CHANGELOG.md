@@ -28,8 +28,11 @@ Krótki opis do wydania na GitHubie: [release-notes/1.0.3.md](release-notes/1.0.
 - Synchronizacja: żądanie dołącza też do takiej samej pracy, która jeszcze nie ruszyła (dawniej mogło pobrać dane drugi raz).
 - Strona główna: błąd zapisu przy „Później” na banerze aktualizacji nie zamyka aplikacji.
 - Testy: prawdziwa strona zastępstw jako bajty ISO-8859-2, nowy test źródła ze ścieżką produkcyjną (kodowanie, układ, stopka).
+- Nowy widżet **Przejazdy** (3×2, rozciągany): najbliższe kursy w kierunku według pory - do połowy dnia lekcji dojazd do szkoły („Odjazd 07:28 · na przystanku 07:40”), potem powrót („Rycerska · 15:13”), „za X min” co minutę, „Sprawdzono 15:02”. Dane z ostatniego wyniku Przejazdów (zakładka, karta); w porze dojazdu (2 h przed lekcjami, godzina po zajęciach) widżet odświeża je w tle najwyżej co 5 min, gdy wynik ma ponad 10 min albo zostały mniej niż 3 kursy; ikona odświeżania sprawdza od razu, także poza tą porą. Dotknięcie otwiera zakładkę Przejazdy.
+- Przejazdy: lista i karta na stronie głównej od najbliższego kursu. Dojazd do szkoły dawniej zaczynał się od kursu z ok. 10 min zapasu (wcześniejsze po „Pokaż wcześniejsze”) - teraz to opcja „Kursy na czas przed lekcją” (Ustawienia → Przejazdy) z wyborem 5, 10, 15, 20 albo 30 min. Powrót ze szkoły według odjazdu, a nie przyjazdu do celu (dawniej „za 14 min” nad „za 11 min”).
+- Przejazdy: krótszy opis w Ustawieniach.
 - Przejazdy: opcja „Także inne przystanki przy szkole” (Ustawienia → Przejazdy, przy wybranym przystanku przy szkole) - oprócz wybranego przystanku kursy z przystanków do 1 km od szkoły i na nie; wynik zapisany osobno od wyniku samego przystanku.
-- Przejazdy: pozycja pojazdu na żywo w karcie („pojazd 650 m stąd”, „pojazd 1,2 km stąd”, „pojazd na przystanku”) z tablicy odjazdów BUSearch, tylko dla śledzonego pojazdu z aktualną pozycją. Wiersz odjazdu „Odjazd: Rondo Wielkopolskie” zamiast niegramatycznego „z Rondo Wielkopolskie”, do dwóch linii.
+- Przejazdy: wiersz odjazdu „Odjazd: Rondo Wielkopolskie” zamiast niegramatycznego „z Rondo Wielkopolskie”.
 - Przejazdy: katalog przystanków odświeżany zapytaniem warunkowym (ETag, `If-None-Match`) - bez zmian serwer odpowiada 304 i nie wysyła całego katalogu.
 - Synchronizacja w tle: w weekendy i dni bez lekcji zastępstwa sprawdzane co 45 min (dawniej przy każdym uruchomieniu, czyli co 15 min); od 15:00 przed dniem lekcji jak zwykle.
 - Dni wolne: ferie zimowe 2027/2028 w kujawsko-pomorskim (17-30.01.2028, gov.pl).
@@ -43,11 +46,12 @@ Krótki opis do wydania na GitHubie: [release-notes/1.0.3.md](release-notes/1.0.
 - Plan tygodnia: kafelek zastępstwa z lekcją z uwag pokazuje tę lekcję, zastępcę i salę zamiast „j.polski · edukacja zdrowotna”; nazwy przedmiotów, które nie mieszczą się w kolumnie („e_zdrowotna”, „r_matematyka”, „Zaj.Prakt_1”), lekko maleją zamiast łamać się w środku słowa.
 - Informacje szkoły: strzałki pisane znakami („pc2 <-> pc5”) jako „↔”, „→”, „←”; w powiadomieniu dzień jak przy zastępstwach („jutro”, „poniedziałek 12.11”) zamiast samej daty.
 - Daty w jednym zapisie z zerem na początku („03.11”, „06.11.2026”) w planie, ogłoszeniach, notatkach, udostępnianiu i Przejazdach; „Sprawdzono 12:49” w zakładce Zastępstwa (dawniej „Zastępstwa sprawdzono: 3.11, 12:49”) i na karcie dojazdu; najbliższe przypomnienie „jutro, 07:50” albo „czwartek, 07:50”.
-- Sala zawsze jako „s. 111” z twardą spacją - numer nie przechodzi sam do następnej linii przy dużej czcionce; strona główna „s. 105” zamiast „sala 105” (bez sali same godziny).
-- Dolny pasek: podpisy mieszczą się w całości do czcionki systemowej ok. 145% (dawniej „Zastępst…” już przy 130%). Nazwy przystanków łamią się po łączniku („Skłodowskiej-/Curie”), nie w środku słowa.
+- Sala zawsze jako „s. 111” bez przerwy wiersza między „s.” a numerem (twarda spacja i łączniki słów - sama twarda spacja nie wystarczała w panelu powiadomień Androida 16), także przy dużej czcionce; tekst do udostępniania bez tych znaków; strona główna „s. 105” zamiast „sala 105” (bez sali same godziny).
+- Dolny pasek: podpisy mieszczą się w całości do czcionki systemowej ok. 160% (dawniej „Zastępst…” już przy 130%). Nazwy przystanków łamią się po łączniku („Skłodowskiej-/Curie”), nie w środku słowa.
 - Ustawienia → Pasek nawigacji: także Przejazdy (ten sam przełącznik co w Ustawieniach → Przejazdy).
 - Teksty: „Witaj w eLektronie”, opisy kanałów powiadomień ze strzałką „→” i bez „RSS”, „Barwy dopasowane do tapety telefonu” zamiast „Material You”, „dotknij” zamiast „stuknij”, bez długich myślników.
 - Android 16: compileSdk 36 i oficjalne API Live Update (`canPostPromotedNotifications`, `FLAG_PROMOTED_ONGOING`, `hasPromotableCharacteristics`, `setShortCriticalText`) zamiast refleksji. Tryb dewelopera: „Krótki czas w kapsule na każdym telefonie” do sprawdzania nakładek innych producentów.
+- Nowe zrzuty ekranu (klasa 1D, wtorek 03.11.2026, 12:15, prawdziwe zastępstwo): w README w ramce telefonu, w F-Droid bez ramki; `odjazdy.png` → `przejazdy.png`.
 - GitHub Actions w nowych wersjach (checkout v7, setup-java v6, upload-artifact v7, setup-gradle v6, setup-python v7).
 
 ## [1.0.2] - 2026-10-24 (38)
