@@ -4,7 +4,7 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
-## [1.0.3] - niewydane (39)
+## [1.0.3] - 2026-11-07 (39)
 
 Krótki opis do wydania na GitHubie: [release-notes/1.0.3.md](release-notes/1.0.3.md).
 
