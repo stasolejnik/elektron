@@ -87,4 +87,45 @@ class SubstitutionDisplayTest {
         // Z zastępcą lekcja się odbywa, także "przeniesiona z godz. 0".
         assertFalse(SubstitutionDisplay.freesLesson(sub("216", "R. Śmidoda", "wit.i ap. int - lekcja przeniesiona z godz. 0 z piątku")))
     }
+
+    /** Uwagi z prawdziwych stron (październik-listopad 2026): lekcja na zastępstwie na pierwszym planie. */
+    @Test
+    fun substitutedLessonFromNotesIsTheHeadlineAndTeacherGoesSecond() {
+        val s = sub("111", "D. Musierowicz", "edukacja zdrowotna")
+        assertEquals("edukacja zdrowotna", SubstitutionDisplay.headline(s))
+        assertEquals("edukacja zdrowotna", SubstitutionDisplay.headline(s, infoFirst = true))
+        assertEquals("D. Musierowicz · s. 111", SubstitutionDisplay.place(s))
+        assertNull(SubstitutionDisplay.notes(s))
+        mapOf(
+            "za nieobecny oddział; matematyka" to "matematyka",
+            "matematyka, za nieobecny oddział" to "matematyka",
+            "historia" to "historia",
+            "j. angielski z 0 h lek. sala 204" to "j. angielski",
+            "za nieobecny oddział na 8 h lek.; j. ang. zawodowy" to "j. ang. zawodowy",
+            "informatyka - teoria" to "informatyka",
+            "matematyka (zabrać zeszyty itp.)" to "matematyka",
+            "wit.i ap. int - lekcja przeniesiona z godz. 0 z piątku" to "wit.i ap. int",
+            "ed. obywatelska z 0 lekcji" to "ed. obywatelska",
+            "r_fizyka" to "r_fizyka"
+        ).forEach { (notes, lesson) -> assertEquals(notes, lesson, SubstitutionDisplay.lesson(sub("211", "M. Zelek", notes))) }
+        assertEquals("za nieobecny oddział", SubstitutionDisplay.notes(sub("211", "M. Zelek", "za nieobecny oddział; matematyka")))
+        // Dopisek przy lekcji zostaje w uwagach.
+        assertEquals("j. angielski z 0 h lek. sala 204", SubstitutionDisplay.notes(sub("211", "M. Zelek", "j. angielski z 0 h lek. sala 204")))
+    }
+
+    @Test
+    fun organisationalNotesKeepTheTeacherHeadline() {
+        listOf("za nieobecny oddział", "za ostatnią lekcję", "złączenie grup", "przeniesione z 1h lek.",
+            "Zajęcia przełożone z 1 godziny lekcyjnej.",
+            "za nieobecny oddział; grupa 2/2 wf - teoria; grupa 1/2 zwolniona do domu",
+            "za nieobecny oddział; osoby uczeszczajace na religię - j. niemiecki; pozostałe osoby zwolnione do domu"
+        ).forEach { notes ->
+            val s = sub("211", "M. Zelek", notes)
+            assertNull(notes, SubstitutionDisplay.lesson(s))
+            assertEquals(notes, "M. Zelek", SubstitutionDisplay.headline(s))
+            assertEquals(notes, SubstitutionDisplay.notes(s))
+        }
+        // Bez zastępcy - informacja szkoły jak dotąd.
+        assertNull(SubstitutionDisplay.lesson(sub("Zajęcia Świetlicowe", null, "historia")))
+    }
 }
