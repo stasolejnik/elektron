@@ -144,6 +144,9 @@ fun SettingsScreen(
                         RowDivider()
                         SwitchRow("Najnowsze ogłoszenia", state.showAnnouncements) { viewModel.setShowAnnouncements(it) }
                         RowDivider()
+                        SwitchRow("Informacje szkoły w ogłoszeniach", state.showNotices,
+                            supporting = "Np. zamiana sal albo skrócone lekcje - na stronie głównej i w zakładce Ogłoszenia") { viewModel.setShowNotices(it) }
+                        RowDivider()
                         SwitchRow("Przejazdy", transitSettings.preferences.showOnDashboard,
                             enabled = transitSettings.ready && !transitSettings.failed,
                             supporting = "Dojazd rano i powrót po lekcjach (Ustawienia -> Przejazdy)") { transitViewModel.setShowOnDashboard(it) }

@@ -157,7 +157,7 @@ internal fun NotificationsSection(
     substitutions: Boolean, announcements: Boolean, quiet: QuietHours,
     onSubs: (Boolean) -> Unit, onAnnouncements: (Boolean) -> Unit, onQuiet: (QuietHours) -> Unit,
     live: Boolean = false, onLive: (Boolean) -> Unit = {}, onLiveResume: () -> Unit = {},
-    notices: Boolean = true, onNotices: (Boolean) -> Unit = {},
+    notices: Boolean = false, onNotices: (Boolean) -> Unit = {},
     updates: Boolean = false, onUpdates: (Boolean) -> Unit = {}
 ) {
     var picking by remember { mutableStateOf<Boolean?>(null) }   // true = od, false = do

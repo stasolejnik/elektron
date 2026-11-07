@@ -90,8 +90,11 @@ interface SettingsRepository {
     val liveHiddenDay: Flow<Long?> get() = flowOf(null)
     suspend fun setLiveHiddenDay(epochDay: Long?) {}
 
-    /** Powiadomienia o informacjach szkoły ze strony zastępstw (np. skrócone lekcje); domyślnie włączone. */
-    val notifyNotices: Flow<Boolean> get() = flowOf(true)
+    /** Powiadomienia o informacjach szkoły ze strony zastępstw (np. skrócone lekcje); domyślnie wyłączone. */
+    val notifyNotices: Flow<Boolean> get() = flowOf(false)
+    /** Informacje szkoły w ogłoszeniach: na stronie głównej i w zakładce Ogłoszenia; domyślnie włączone. */
+    val showNotices: Flow<Boolean> get() = flowOf(true)
+    suspend fun setShowNotices(enabled: Boolean) {}
     suspend fun setNotifyNotices(enabled: Boolean) {}
 
     /** Powiadomienie o nowej wersji (tylko wersja z GitHuba, sprawdzanie w tle); domyślnie wyłączone. */

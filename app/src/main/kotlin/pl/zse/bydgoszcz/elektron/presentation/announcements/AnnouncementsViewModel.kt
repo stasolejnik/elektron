@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
@@ -31,8 +32,23 @@ import javax.inject.Inject
 class AnnouncementsViewModel @Inject constructor(
     private val repo: AnnouncementsRepository,
     private val coordinator: SyncCoordinator,
-    network: pl.zse.bydgoszcz.elektron.domain.repository.NetworkStatus = pl.zse.bydgoszcz.elektron.domain.repository.NetworkStatus.AlwaysOnline
+    network: pl.zse.bydgoszcz.elektron.domain.repository.NetworkStatus = pl.zse.bydgoszcz.elektron.domain.repository.NetworkStatus.AlwaysOnline,
+    /** Informacje szkoły ze strony zastępstw (null w testach - bez nich). */
+    substitutions: pl.zse.bydgoszcz.elektron.domain.repository.SubstitutionsRepository? = null,
+    settings: pl.zse.bydgoszcz.elektron.domain.repository.SettingsRepository? = null
 ) : ViewModel() {
+
+    /**
+     * Informacje szkoły na dziś i kolejne dni (np. zamiana sal) - na górze listy, gdy włączone
+     * (Ustawienia -> Strona główna, domyślnie tak). Puste dni (sama godzina publikacji) pomijane.
+     */
+    val notices: StateFlow<List<Pair<java.time.LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice>>> =
+        if (substitutions == null || settings == null) MutableStateFlow(emptyList())
+        else combine(settings.showNotices, pl.zse.bydgoszcz.elektron.presentation.common.currentDateFlow()
+            .flatMapLatest { day -> substitutions.observeNotices(day) }) { show, notices ->
+            if (!show) emptyList() else notices.filter { it.value.hasContent }.toList().sortedBy { it.first }
+        }.catch { emit(emptyList()) }
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private companion object { const val PAGE_SIZE = 10 }
 

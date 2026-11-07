@@ -171,6 +171,7 @@ class SyncCoordinatorTest {
 
     @Test
     fun newAndChangedSchoolNoticesAreNotifiedOnce() = runBlocking<Unit> {
+        settings.notifyNoticesFlow.value = true   // domyślnie wyłączone
         coordinator.sync(SyncRequest.full())   // punkt odniesienia - bez powiadomień
         val day = nextMonday.format(fmt)
         subs.notices = mapOf(day to pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice("Lekcje skrócone do 30 min"))

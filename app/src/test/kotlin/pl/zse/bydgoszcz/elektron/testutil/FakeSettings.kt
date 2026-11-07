@@ -68,7 +68,10 @@ class FakeSettings(
     override suspend fun setGroupSelection(classId: String, subject: String, choice: String?) {}
     override val groupsConfiguredFor: Flow<String?> = flowOf(classId)
     override suspend fun setGroupsConfiguredFor(classId: String) {}
-    val notifyNoticesFlow = MutableStateFlow(true)
+    val notifyNoticesFlow = MutableStateFlow(false)
+    val showNoticesFlow = MutableStateFlow(true)
+    override val showNotices: Flow<Boolean> = showNoticesFlow
+    override suspend fun setShowNotices(enabled: Boolean) { showNoticesFlow.value = enabled }
     override val notifyNotices: Flow<Boolean> = notifyNoticesFlow
     override suspend fun setNotifyNotices(enabled: Boolean) { notifyNoticesFlow.value = enabled }
     val updatesFlow = MutableStateFlow(false)

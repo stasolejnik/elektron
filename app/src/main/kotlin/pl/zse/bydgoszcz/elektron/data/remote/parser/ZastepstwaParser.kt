@@ -85,9 +85,11 @@ object ZastepstwaParser {
     /** "Publikacja: niedziela, godz. 13:17", "Publikacja godz. 16:10", "Opublikowano: …", "Aktualizacja 19:11". */
     // Cała linia to słowo kluczowe, opcjonalnie dzień tygodnia albo data, "godz." i godzina - nic więcej.
     // "Aktualizacja planu: od 14:00 lekcje skrócone" to już treść, nie znacznik publikacji.
+    // Także "Publikacja dn. 03.11.26 godz. 17:22" (skrót ze kropką przed datą) - dawniej trafiała do treści
+    // informacji szkoły, a przez to do powiadomienia "Informacja szkoły · jutro".
     private val PUBLICATION_RE = Regex(
         "^(publikacja|opublikowan[oy]|aktualizacja|zaktualizowan[oy])\\s*:?\\s*" +
-            "(\\p{L}+\\s*,?\\s*)?(\\d{1,2}\\.\\d{1,2}(\\.\\d{2,4})?\\s*,?\\s*)?(godz\\.?\\s*)?\\d{1,2}[:.]\\d{2}\\s*[.,;]?$",
+            "(\\p{L}+\\.?\\s*,?\\s*){0,2}(\\d{1,2}\\.\\d{1,2}(\\.\\d{2,4})?\\s*,?\\s*)?(godz\\.?\\s*)?\\d{1,2}[:.]\\d{2}\\s*[.,;]?$",
         RegexOption.IGNORE_CASE)
     internal fun isPublicationLine(line: String): Boolean = PUBLICATION_RE.matches(line.trim())
 

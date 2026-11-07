@@ -79,6 +79,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val notices by viewModel.notices.collectAsStateWithLifecycle()
     // Tekst pola od razu, nie z przefiltrowanej listy (liczonej w tle) - inaczej przy szybkim
     // pisaniu pole wracało do starszej wartości i gubiło znaki. remember, nie rememberSaveable:
     // zapytanie w ViewModelu nie przeżywa śmierci procesu, więc pole też nie (obrót - ViewModel trwa).
@@ -137,6 +138,15 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                             FilterChip(selected = state.favoritesOnly, onClick = { viewModel.setFavoritesOnly(true) }, label = { Text("Ulubione (${state.favoriteCount})") })
 
                         }
+                    }
+                }
+                // Informacje szkoły ze strony zastępstw (np. zamiana sal) - nad ogłoszeniami, bez wyszukiwania i ulubionych.
+                if (!state.favoritesOnly && !state.isSearching) {
+                    val today = pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()
+                    items(notices, key = { "notice_${it.first}" }) { (day, notice) ->
+                        pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 3,
+                            key = "$day|${notice.hashCode()}", modifier = Modifier.animateItem(),
+                            title = "Informacja szkoły · " + pl.zse.bydgoszcz.elektron.presentation.dashboard.noticeDayLabel(day, today))
                     }
                 }
                 if (state.offline) {

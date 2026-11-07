@@ -110,4 +110,13 @@ class SchoolNoticesTest {
             assertTrue(name, result.incompleteDates.isEmpty())
         }
     }
+
+    @Test fun shortPublicationLineIsNotNoticeText() {
+        // Prawdziwa linia z 3.11.2026 - dawniej powiadomienie "Informacja szkoły · jutro" z samą godziną publikacji.
+        assertTrue(ZastepstwaParser.isPublicationLine("Publikacja dn. 03.11.26 godz. 17:22"))
+        assertTrue(ZastepstwaParser.isPublicationLine("Publikacja: wtorek, 03.11.2026 godz. 17:22"))
+        assertFalse(ZastepstwaParser.isPublicationLine("Publikacja wyników konkursu o 12:00 w auli"))
+        val doc = org.jsoup.Jsoup.parse("<table><tr><td>Zastępstwa w dniu 04.11.2026<br>Publikacja dn. 03.11.26 godz. 17:22</td></tr></table>")
+        assertTrue(ZastepstwaParser.notices(doc).values.none { it.hasContent })
+    }
 }

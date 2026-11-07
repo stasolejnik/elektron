@@ -140,15 +140,6 @@ fun DashboardScreen(
                         item(key = "syncing") { SyncingIndicator(Modifier.animateItem(placementSpec = null)) }
                     }
 
-                    // Informacja szkoły (np. o oddawaniu krwi) dla pokazywanego dnia - tylko gdy jest.
-                    state.schoolNotice?.let { (day, notice) ->
-                        item(key = "school_notice") {
-                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 2,
-                                key = "$day|${notice.hashCode()}", compact = true,
-                                title = "Informacja szkoły · " + noticeDayLabel(day, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()))
-                        }
-                    }
-
                     if (state.showNextLesson) {
                         val icon = when (state.nextLessonStatus) {
                             DashboardViewModel.LessonStatus.Now -> Icons.Filled.PlayArrow
@@ -195,16 +186,26 @@ fun DashboardScreen(
                     }
                 }
 
-                if (state.showAnnouncements) {
-                    if (state.latestAnnouncements.isNotEmpty()) {
-                        item(key = "h_anns") { SectionTitle("Najnowsze ogłoszenia", Icons.Filled.Campaign) }
-                        items(state.latestAnnouncements, key = { "ann_${it.id}" }) { ann ->
-                            AnnouncementRow(ann, Modifier.animateItem(placementSpec = null)) { onOpenAnnouncement(ann.id) }
-                        }
-                    } else if (state.loadingAnns) {
-                        item(key = "h_anns") { SectionTitle("Najnowsze ogłoszenia", Icons.Filled.Campaign) }
-                        item(key = "anns_loading") { DelayedLoading { LoadingCard("Ładowanie ogłoszeń…") } }
+                // Informacja szkoły (np. zamiana sal) dla pokazywanego dnia - pierwsza w ogłoszeniach (Ustawienia ->
+                // Strona główna). Dawniej osobna karta nad następną lekcją. Przy ukrytych ogłoszeniach zostaje sama.
+                val notice = state.schoolNotice
+                val anns = if (state.showAnnouncements) state.latestAnnouncements else emptyList()
+                val annsLoading = state.showAnnouncements && anns.isEmpty() && state.loadingAnns
+                if (notice != null || anns.isNotEmpty() || annsLoading) {
+                    item(key = "h_anns") {
+                        SectionTitle(if (state.showAnnouncements) "Najnowsze ogłoszenia" else "Informacje szkoły", Icons.Filled.Campaign)
                     }
+                    notice?.let { (day, n) ->
+                        item(key = "school_notice") {
+                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(n, collapsedLines = 2,
+                                key = "$day|${n.hashCode()}", compact = true, modifier = Modifier.animateItem(placementSpec = null),
+                                title = "Informacja szkoły · " + noticeDayLabel(day, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()))
+                        }
+                    }
+                    items(anns, key = { "ann_${it.id}" }) { ann ->
+                        AnnouncementRow(ann, Modifier.animateItem(placementSpec = null)) { onOpenAnnouncement(ann.id) }
+                    }
+                    if (annsLoading) item(key = "anns_loading") { DelayedLoading { LoadingCard("Ładowanie ogłoszeń…") } }
                 }
             }
         }
@@ -337,7 +338,7 @@ private fun NextLessonCard(state: DashboardViewModel.State, onClick: () -> Unit)
                         val subjectName = lesson.groups.mapNotNull { g -> personal.subjectName(g.subject) }
                             .distinct().joinToString(" / ").ifBlank { null }
                         if (sub != null) {
-                            // Zastępstwo: na pierwszym planie nauczyciel zastępujący, potem sala i uwagi.
+                            // Zastępstwo: na pierwszym planie lekcja (z uwag szkoły) albo nauczyciel zastępujący, potem nauczyciel i sala.
                             Text(SubstitutionDisplay.headline(sub), style = MaterialTheme.typography.headlineSmall,
                                 color = onContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(4.dp))

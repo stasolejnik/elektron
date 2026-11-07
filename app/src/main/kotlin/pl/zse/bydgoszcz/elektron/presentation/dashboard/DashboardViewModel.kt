@@ -123,7 +123,8 @@ class DashboardViewModel @Inject constructor(
         val showSubstitutions: Boolean = true,
         val showAnnouncements: Boolean = true,
         val notices: Map<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice> = emptyMap(),
-        val showDayEnd: Boolean = false
+        val showDayEnd: Boolean = false,
+        val showNotices: Boolean = true
     )
 
     private val refreshing = MutableStateFlow(false)
@@ -166,6 +167,7 @@ class DashboardViewModel @Inject constructor(
         .combine(updateRepo.availableUpdate) { core, u -> core.copy(update = u) }
         .combine(todayFlow.flatMapLatest { day -> substitutionsRepo.observeNotices(day) }) { core, n -> core.copy(notices = n) }
         .combine(settings.showDayEnd) { core, v -> core.copy(showDayEnd = v) }
+        .combine(settings.showNotices) { core, v -> core.copy(showNotices = v) }
         .combine(visibleMinuteTicker(visible)) { core, _ -> core }
         .map { core -> compute(core).copy(ready = true) }
         // Przeliczanie stanu (filtry grup, zastępstwa, odliczanie) poza wątkiem UI.
@@ -278,7 +280,8 @@ class DashboardViewModel @Inject constructor(
             showNextLesson = c.showNextLesson,
             showSubstitutions = c.showSubstitutions,
             showAnnouncements = c.showAnnouncements,
-            schoolNotice = pl.zse.bydgoszcz.elektron.domain.model.SchoolNotices.forDashboard(c.notices, lessons, nowDt, lesson?.date),
+            schoolNotice = if (!c.showNotices) null
+                else pl.zse.bydgoszcz.elektron.domain.model.SchoolNotices.forDashboard(c.notices, lessons, nowDt, lesson?.date),
             dayEnd = if (c.showDayEnd) pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.of(lessons, nowDt) else null
         )
     }
