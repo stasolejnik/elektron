@@ -149,7 +149,7 @@ fun SettingsScreen(
                         RowDivider()
                         SwitchRow("Przejazdy", transitSettings.preferences.showOnDashboard,
                             enabled = transitSettings.ready && !transitSettings.failed,
-                            supporting = "Dojazd rano i powrót po lekcjach (Ustawienia -> Przejazdy)") { transitViewModel.setShowOnDashboard(it) }
+                            supporting = "Dojazd rano i powrót po lekcjach (Ustawienia → Przejazdy)") { transitViewModel.setShowOnDashboard(it) }
                     }
                 }
                 SettingsPage.LOOK -> {
@@ -182,7 +182,7 @@ fun SettingsScreen(
                             }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 RowDivider()
-                                SwitchRow("Kolory z tapety", state.dynamicColor, supporting = "Material You zamiast koloru akcentu i koloru tła") { viewModel.setDynamicColor(it) }
+                                SwitchRow("Kolory z tapety", state.dynamicColor, supporting = "Barwy dopasowane do tapety telefonu zamiast koloru akcentu i koloru tła") { viewModel.setDynamicColor(it) }
                             }
                         }
                     }
@@ -205,6 +205,7 @@ fun SettingsScreen(
                         onTab = { transitViewModel.setTabVisible("transit", it) },
                         onCard = transitViewModel::setShowOnDashboard,
                         onTransfers = transitViewModel::setAllowTransfers,
+                        onNearby = transitViewModel::setNearbyStops,
                         onPick = { origin -> transitViewModel.query.value = ""; transitPicker = if (origin) 2 else 1 })
                 }
                 SettingsPage.BAR -> item(key = "bar") { pl.zse.bydgoszcz.elektron.presentation.transit.TransitVisibilitySection(transitViewModel) }

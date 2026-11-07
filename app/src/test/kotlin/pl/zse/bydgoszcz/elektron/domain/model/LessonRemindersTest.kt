@@ -76,7 +76,26 @@ class LessonRemindersTest {
             groups = listOf(LessonGroup("wf-j1", "Ko", null, "J. Kowalski", "sg", null, null, null)))
         val (what, body) = LessonReminders.describe(l, mapOf("wf" to SubjectStyle(name = "WF")))
         assertEquals("WF", what)
-        assertEquals("1. lekcja, 08:00–08:45 · s. sg · J. Kowalski", body)
+        assertEquals("1. lekcja, 08:00–08:45 · s.\u00A0sg · J. Kowalski", body)
+    }
+
+    @Test fun substitutionPutsTheLessonInTheTitle() {
+        val l = lesson(mon, 6, "12:45", "13:30").copy(
+            groups = listOf(LessonGroup("j.polski", "Wr", null, "D. Wróblewska", "111", null, null, null)))
+        fun sub(info: String, teacher: String?, notes: String? = null) =
+            Substitution("s", mon, 6, "1D", null, info, teacher, notes, "Dagmara Wróblewska")
+        // Prawdziwy wpis z 03.11.2026: lekcja z uwag.
+        assertEquals("edukacja zdrowotna (zastępstwo)" to "6. lekcja, 12:45–13:30 · D. Musierowicz · s.\u00A0111",
+            LessonReminders.describe(l.copy(substitution = sub("111", "D. Musierowicz", "edukacja zdrowotna")), emptyMap()))
+        // Zwykłe zastępstwo - przedmiot z planu, nie "zastępstwo – M. Zelek".
+        assertEquals("j.polski (zastępstwo)" to "6. lekcja, 12:45–13:30 · M. Zelek · s.\u00A0211 · za nieobecny oddział",
+            LessonReminders.describe(l.copy(substitution = sub("211", "M. Zelek", "za nieobecny oddział")), emptyMap()))
+        // Bez zastępcy - informacja szkoły zamiast lekcji, która się nie odbędzie.
+        assertEquals("Zajęcia Świetlicowe" to "6. lekcja, 12:45–13:30",
+            LessonReminders.describe(l.copy(substitution = sub("Zajęcia Świetlicowe", null)), emptyMap()))
+        // Bez zastępcy, ale z salą (lekcja przeniesiona tutaj) - przedmiot z planu i sala z zastępstwa.
+        assertEquals("j.polski" to "6. lekcja, 12:45–13:30 · s.\u00A0213 · przeniesione z 1h lek.",
+            LessonReminders.describe(l.copy(substitution = sub("213", null, "przeniesione z 1h lek.")), emptyMap()))
     }
 
     @Test fun exemptLessonsAreSkipped() {

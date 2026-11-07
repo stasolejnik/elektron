@@ -331,6 +331,14 @@ class SettingsViewModel @Inject constructor(
 
     /** Powrót z ustawień systemu (np. zgoda na powiadomienia) - pokaż albo usuń powiadomienie na żywo. */
     fun refreshLiveNotifications() = liveLessons.requestReschedule()
+    /** Tryb dewelopera: krótki czas w kapsule na każdym telefonie. */
+    val shortTextEverywhere = kotlinx.coroutines.flow.MutableStateFlow(
+        pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.shortTextEverywhere(appContext))
+    fun setShortTextEverywhere(enabled: Boolean) {
+        pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.setShortTextEverywhere(appContext, enabled)
+        shortTextEverywhere.value = enabled
+        liveLessons.requestReschedule()
+    }
 
     fun setNotifSubs(b: Boolean) = writeSetting { settings.setNotificationsSubstitutions(b) }
     fun setNotifNotices(b: Boolean) = writeSetting { settings.setNotifyNotices(b) }

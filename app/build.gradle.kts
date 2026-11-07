@@ -31,7 +31,7 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "pl.zse.bydgoszcz.elektron"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "pl.zse.bydgoszcz.elektron"

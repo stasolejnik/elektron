@@ -61,4 +61,22 @@ class TransitApiV2Test {
         assertEquals("Rycerska", refreshed.name)
         assertTrue("1128" in refreshed.stopIds && refreshed.stopIds.size == 8)
     }
+
+    @Test fun nearbySchoolStopsAddRidesToOtherStopsNearTheSchool() {
+        val platforms = TransitStopParser.platforms(resource("v2_stops_rycerska.json")).associateBy { it.stopIds.single() }
+        val home = TransitStopParser.parse(resource("v2_stops_rycerska.json")).single { it.name == "Rycerska" }
+        val jag = platforms.getValue("11")
+        val target = TransitDestination("Jagiellońska - Łużycka", listOf("11"), jag.latitude, jag.longitude)
+        val response = JSONObject(resource("v2_to_school_2026-11-07.json"))
+        val now = response.getLong("searchedFromMs")
+        val only = TransitJourneyParser.parseToSchool(response, home, platforms, now, allowTransfers = true, target = target)
+        val nearby = TransitJourneyParser.parseToSchool(response, home, platforms, now, allowTransfers = true, target = target, otherSchoolStops = true)
+        assertEquals(listOf("5"), only.map { it.rides.single().line })
+        // Np. 67 do "Skłodowskiej-Curie - Jurasza" - z dojściem do szkoły liczonym przez planer.
+        assertTrue(nearby.size > only.size)
+        assertTrue(nearby.any { it.rides.last().toName == "Skłodowskiej-Curie - Jurasza" && it.schoolArrivalMs != null })
+        assertTrue(nearby.any { it.rides.single().line == "5" })
+        // Inny klucz wyniku niż sam przystanek - bez pomieszania z zapisanym wynikiem.
+        assertTrue(pl.zse.bydgoszcz.elektron.domain.model.TransitStops.originKey(target, true) != target.key)
+    }
 }

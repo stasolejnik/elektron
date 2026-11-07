@@ -44,6 +44,26 @@ class TransitCatalogCacheTest {
         } finally { file.delete() }
     }
 
+    @Test fun unchangedCatalogComesBackAsNotModified() = runBlocking {
+        file.delete(); File(context.cacheDir, "transit_stops_v2.etag").delete()
+        val seen = mutableListOf<String?>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val tag = chain.request().header("If-None-Match")
+            seen += tag
+            val builder = Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
+            if (tag == "W/\"v1\"") builder.code(304).message("Not Modified").body("".toResponseBody()).build()
+            else builder.code(200).message("OK").header("ETag", "W/\"v1\"").body(json.toResponseBody()).build()
+        }.build()
+        try {
+            val first = TransitStopCatalog(context, client).load()
+            // Nowy proces (bez pamięci) - katalog z pliku i zapytanie warunkowe zamiast pełnego.
+            val second = TransitStopCatalog(context, client).load(force = true)
+            assertEquals(listOf(null, "W/\"v1\""), seen)
+            assertEquals(first.stops, second.stops)
+            assertFalse(second.stale)
+        } finally { file.delete(); File(context.cacheDir, "transit_stops_v2.etag").delete() }
+    }
+
     @Test fun missingCacheDoesNotCauseRepeatedRequestsAfterFailure() = runBlocking {
         file.delete()
         var requests = 0

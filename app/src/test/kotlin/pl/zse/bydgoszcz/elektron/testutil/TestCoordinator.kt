@@ -38,5 +38,7 @@ class TestCoordinator(
     ).apply {
         // Stała pora dnia: reguła nocna (BackgroundSyncPolicy) nie może zależeć od godziny uruchomienia testów.
         localTime = { java.time.LocalTime.NOON }
+        // Stały dzień lekcyjny (środa): w weekendy reguła dni bez lekcji zmieniałaby wyniki testów.
+        localDate = { java.time.LocalDate.of(2026, 11, 4) }
     }
 }

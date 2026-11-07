@@ -22,7 +22,7 @@ class SubstitutionDisplayTest {
     fun teacherIsHeadlineRoomBelow() {
         val s = sub("211", "M. Zelek", "za ostatnią lekcję")
         assertEquals("M. Zelek", SubstitutionDisplay.headline(s))
-        assertEquals("s. 211", SubstitutionDisplay.place(s))
+        assertEquals("s.\u00A0211", SubstitutionDisplay.place(s))
         assertEquals("za ostatnią lekcję", SubstitutionDisplay.notes(s))
     }
 
@@ -37,7 +37,7 @@ class SubstitutionDisplayTest {
         assertEquals("Zajęcia w auli", SubstitutionDisplay.place(s))
         // Sama sala: bez różnicy.
         assertEquals("M. Zelek", SubstitutionDisplay.headline(sub("211", "M. Zelek"), infoFirst = true))
-        assertEquals("s. 211", SubstitutionDisplay.place(sub("211", "M. Zelek"), infoFirst = true))
+        assertEquals("s.\u00A0211", SubstitutionDisplay.place(sub("211", "M. Zelek"), infoFirst = true))
         assertEquals("Zajęcia w auli", SubstitutionDisplay.info(s))
         assertNull(SubstitutionDisplay.info(sub("211", "M. Zelek")))
     }
@@ -81,6 +81,10 @@ class SubstitutionDisplayTest {
         assertFalse(SubstitutionDisplay.freesLesson(sub("Okienko dla uczniów", null, "okienko dla grupy 2/2")))
         assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null)))
         assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null, "II gr. zwolniona")))
+        // Prawdziwy wiersz z 06.11.2026 ("1 I - Zajęcia Świetlicowe", uwaga "I gr. - do domu"): druga grupa jest na świetlicy.
+        assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null, "I gr. - do domu")))
+        // Wpis z numerem grupy ("1 I|1") dotyczy tylko tej grupy - wtedy zwolnienie obowiązuje.
+        assertTrue(SubstitutionDisplay.freesLesson(sub("Uczniowie zwolnieni do domu", null, "I gr. - do domu").copy(groupNumber = 1)))
         assertFalse(SubstitutionDisplay.freesLesson(sub("213", null, "przeniesione z 1h lek.")))
         assertFalse(SubstitutionDisplay.freesLesson(sub("215", null, "Zajęcia przeniesione do sali 215")))
         assertFalse(SubstitutionDisplay.freesLesson(sub("215", null, "Lekcja przeniesiona na salę 215")))
@@ -94,7 +98,7 @@ class SubstitutionDisplayTest {
         val s = sub("111", "D. Musierowicz", "edukacja zdrowotna")
         assertEquals("edukacja zdrowotna", SubstitutionDisplay.headline(s))
         assertEquals("edukacja zdrowotna", SubstitutionDisplay.headline(s, infoFirst = true))
-        assertEquals("D. Musierowicz · s. 111", SubstitutionDisplay.place(s))
+        assertEquals("D. Musierowicz · s.\u00A0111", SubstitutionDisplay.place(s))
         assertNull(SubstitutionDisplay.notes(s))
         mapOf(
             "za nieobecny oddział; matematyka" to "matematyka",

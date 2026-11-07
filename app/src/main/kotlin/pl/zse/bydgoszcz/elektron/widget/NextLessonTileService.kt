@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.Rooms
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
@@ -69,9 +70,9 @@ class NextLessonTileService : TileService() {
                         "Przerwa · lekcja za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min"
                     state.isToday && now <= lesson.timeFrom &&
                         LessonClock.minutesCeil(now, lesson.timeFrom) <= LessonClock.COUNTDOWN_MINUTES ->
-                        "Za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min" + (lesson.room?.let { " · s. $it" } ?: "")
-                    state.isToday -> "Dziś ${lesson.timeFrom}" + (lesson.room?.let { " · s. $it" } ?: "")
-                    else -> "${state.dayLabel} ${lesson.timeFrom}" + (lesson.room?.let { " · s. $it" } ?: "")
+                        "Za ${LessonClock.minutesCeil(now, lesson.timeFrom)} min" + (lesson.room?.let { " · " + Rooms.label(it) } ?: "")
+                    state.isToday -> "Dziś ${lesson.timeFrom}" + (lesson.room?.let { " · " + Rooms.label(it) } ?: "")
+                    else -> "${state.dayLabel} ${lesson.timeFrom}" + (lesson.room?.let { " · " + Rooms.label(it) } ?: "")
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = sub
                 else tile.label = "${lesson.number}. ${lesson.title} · $sub"

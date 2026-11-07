@@ -73,7 +73,7 @@ class UpdateNotifier @Inject constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
             NotificationChannel(CHANNEL_UPDATES, "Aktualizacje", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Nowa wersja aplikacji (Ustawienia -> Powiadomienia)."
+                description = "Nowa wersja aplikacji (Ustawienia → Powiadomienia)."
                 group = LocalNotificationSink.GROUP_ELEKTRON
             })
     }

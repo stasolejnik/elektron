@@ -44,8 +44,11 @@ class TransitLiveRepository @Inject constructor(private val client: OkHttpClient
                 // Kurs kończy się na tym przystanku - nie da się nim odjechać.
                 if (o.optBoolean("arrivalOnly")) return@runCatching null
                 val delay = if (o.has("delayMinutes") && !o.isNull("delayMinutes")) o.getInt("delayMinutes").also { require(it in -60..240) } else null
+                // Pozycja tylko przy pojeździe potwierdzonym przez BUSearch (vehicleId) i nieprzestarzałej.
+                val meters = if (o.has("vehicleId") && !o.optBoolean("vehiclePositionStale") && o.has("distanceToStopM"))
+                    o.getDouble("distanceToStopM").takeIf { it.isFinite() && it in 0.0..50_000.0 }?.toInt() else null
                 LiveDeparture(o.getString("line").also { require(it.isNotBlank() && it.length <= 32) }, o.getLong("atMs"), delay,
-                    live = o.optString("source") == "live")
+                    live = o.optString("source") == "live", vehicleMeters = meters)
             }.getOrNull() }
         }
     }

@@ -93,6 +93,8 @@ class SyncCoordinator @Inject constructor(
     private val running = MutableStateFlow(0)
     /** Zegar do reguły nocnej synchronizacji w tle (testy podają stałą godzinę). */
     internal var localTime: () -> java.time.LocalTime = { java.time.LocalTime.now() }
+    /** Data do reguły dni bez lekcji (testy podają stały dzień lekcyjny). */
+    internal var localDate: () -> LocalDate = { LocalDate.now() }
     val operationError = MutableStateFlow<String?>(null)
     fun consumeOperationError() { operationError.value = null }
 
@@ -269,6 +271,7 @@ class SyncCoordinator @Inject constructor(
             else "source_$source"
         val loaded = notificationsRepo.observeLoadedResources().first()
         val time = localTime()
+        val restDay = BackgroundSyncPolicy.isRestDay(localDate(), time)
         val sources = request.sources.filterTo(mutableSetOf()) { source ->
             val last = db.syncStateDao().get(sourceKey(source))
             // Ogłoszenia: odstęp także od nieudanej próby - trwale nieczytelny kanał RSS był
@@ -281,7 +284,7 @@ class SyncCoordinator @Inject constructor(
                 else last?.takeIf { it.status == "ok" || IncompleteSchoolDataException.isWarning(it.message) }?.lastSyncEpochSeconds
             // Nigdy nie pobrane - od razu (także ogłoszenia, dopóki nie było nieudanej próby).
             val neverLoaded = source != SyncOutcome.SIDEBAR && source !in loaded && !(announcements && last?.status == "error")
-            !request.background || neverLoaded || BackgroundSyncPolicy.isDue(source, reference, now, time)
+            !request.background || neverLoaded || BackgroundSyncPolicy.isDue(source, reference, now, time, restDay)
         }
         val failed = ConcurrentHashMap<String, Throwable>()
         val ok = ConcurrentHashMap.newKeySet<String>()

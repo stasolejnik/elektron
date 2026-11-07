@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.model.Rooms
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 import kotlinx.coroutines.withTimeoutOrNull
@@ -277,18 +278,35 @@ private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifie
             .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Dodaj lub edytuj notatkę").semantics(mergeDescendants = true) { contentDescription = description }
     ) {
         Box(Modifier.width(3.dp).fillMaxHeight().background(bar))
-        Box(Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 3.dp)) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 3.dp)) {
             // Zastępstwo: zamiast samej strzałki - przedmiot i co się dzieje (zastępca albo informacja
             // szkoły) z salą. Sam numer sali bez zastępcy jako "s. 12", nie gołe "12".
             val tileText = if (sub != null) {
-                val headline = SubstitutionDisplay.headline(sub).let { if (SubstitutionDisplay.isRoom(it)) "s. $it" else it }
-                listOfNotNull(name, headline, SubstitutionDisplay.place(sub)).joinToString(" · ")
+                val headline = SubstitutionDisplay.headline(sub).let { if (SubstitutionDisplay.isRoom(it)) Rooms.label(it) else it }
+                // Lekcja z uwag ("edukacja zdrowotna") zastępuje przedmiot z planu - jak w widoku dnia; inaczej przedmiot i zmiana.
+                if (SubstitutionDisplay.lesson(sub) != null) listOfNotNull(headline, SubstitutionDisplay.place(sub)).joinToString(" · ")
+                else listOfNotNull(name, headline, SubstitutionDisplay.place(sub)).joinToString(" · ")
             } else name
+            // Nazwa przedmiotu bez przerwy w środku słowa ("e_zdrowot / na", "Zaj.Prakt_ / 1"): gdy jej najdłuższe
+            // słowo nie mieści się w kafelku (wąskie kolumny, duża czcionka), tekst lekko maleje - najwyżej do 9 sp.
+            val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+            val baseStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+            val available = constraints.maxWidth
+            // Pierwsza nazwa w kafelku: lekcja z zastępstwa albo przedmiot z planu (nazwiska mogą się uciąć).
+            val lead = sub?.let(SubstitutionDisplay::lesson) ?: name
+            val fontSize = remember(lead, hasNote, available, baseStyle) {
+                val widest = (if (hasNote) "✎ " else "").let { mark -> lead.split(' ', '/').filter { it.isNotBlank() }
+                    .mapIndexed { i, w -> if (i == 0) mark + w else w } }
+                    .maxOfOrNull { measurer.measure(it, baseStyle, maxLines = 1, softWrap = false).size.width } ?: 0
+                // 4% zapasu: słowo mierzone "na styk" bywało i tak łamane przy układzie ("Zaj.Prakt_ / 1").
+                val room = available * 0.96f
+                if (widest <= room || widest == 0) 12f else (12f * room / widest).coerceAtLeast(9f)
+            }
             Text(
                 listOfNotNull(if (hasNote) "✎" else null, tileText).joinToString(" "),
                 color = fg,
-                fontSize = 12.sp,
-                lineHeight = 14.sp,
+                fontSize = fontSize.sp,
+                lineHeight = (fontSize + 2f).sp,
                 maxLines = lines,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall.copy(

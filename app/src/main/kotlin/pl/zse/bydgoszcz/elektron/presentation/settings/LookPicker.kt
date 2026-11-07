@@ -111,7 +111,7 @@ internal fun LookPicker(current: LookSetting, accent: AccentSetting, wallpaperAc
                         .selectable(selected = selected, role = Role.RadioButton) {
                             if (isCustom) editing = true else onChange(current.copy(look = look))
                         }
-                        .semantics { contentDescription = if (isCustom && selected) "Własny kolor tła, stuknij, aby zmienić" else LOOK_LABELS[look].orEmpty() },
+                        .semantics { contentDescription = if (isCustom && selected) "Własny kolor tła, dotknij, aby zmienić" else LOOK_LABELS[look].orEmpty() },
                     contentAlignment = Alignment.Center
                 ) {
                     if (!neutral) Canvas(Modifier.fillMaxSize()) {

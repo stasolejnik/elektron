@@ -6,8 +6,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 object TimetableShare {
-    private val dateFormat = DateTimeFormatter.ofPattern("EEEE, d.MM.yyyy", Locale("pl", "PL"))
-    private val shortDateFormat = DateTimeFormatter.ofPattern("d.MM.yyyy")
+    private val dateFormat = DateTimeFormatter.ofPattern("EEEE, dd.MM.yyyy", Locale("pl", "PL"))
+    private val shortDateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
     fun text(date: LocalDate, lessons: List<Lesson>, styles: Map<String, SubjectStyle> = emptyMap()): String {
         val day = lessons.filter { it.date == date }.sortedBy { it.number }

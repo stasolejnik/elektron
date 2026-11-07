@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.Rooms
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 import androidx.glance.unit.ColorProvider
@@ -158,7 +159,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 modifier = GlanceModifier.clickable(openLessonAction(LocalContext.current, pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(state.date, lesson.number))),
                 style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = titleLines)
             Spacer(GlanceModifier.height(2.dp))
-            val where = listOfNotNull(lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
+            val where = listOfNotNull(lesson.timeRange, lesson.room?.let { Rooms.label(it) }).joinToString(" · ")
             Text(where, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
             // Przy trwającej lekcji miejsce zajmuje pasek postępu — nazwisko tylko przed lekcją
             // (i zawsze przy zastępstwie, bo to kluczowa informacja).
@@ -202,7 +203,7 @@ class NextLessonWidget : GlanceAppWidget() {
                     Text("Potem: ${following.number}. ${following.title}", modifier = click,
                         style = TextStyle(color = if (following.isSubstitution) WidgetColors.substitution else WidgetColors.textPrimary,
                             fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-                    Text(listOfNotNull(following.timeRange, following.room?.let { "s. $it" }, following.note).joinToString(" · "),
+                    Text(listOfNotNull(following.timeRange, following.room?.let { Rooms.label(it) }, following.note).joinToString(" · "),
                         style = TextStyle(color = color, fontSize = 11.sp), maxLines = 1)
                 } else {
                     Text(followingShort(following), modifier = click, style = TextStyle(color = color, fontSize = 11.sp), maxLines = 1)
@@ -227,7 +228,7 @@ class NextLessonWidget : GlanceAppWidget() {
                 pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(date, lesson.number))), style = TextStyle(color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = titleLines)
             Text(lesson.timeRange, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
             lesson.room?.let {
-                Text("s. $it", style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
+                Text(Rooms.label(it), style = TextStyle(color = WidgetColors.textSecondary, fontSize = 12.sp), maxLines = 1)
             }
             lesson.note?.let {
                 Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp), maxLines = 1)

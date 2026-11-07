@@ -31,16 +31,16 @@ object SubstitutionDisplay {
             ?: sub.roomOrInfo.trim().takeIf { it.isNotEmpty() }
             ?: "Zastępstwo"
 
+    /** Sama sala albo informacja szkoły ("s. 111", "Zajęcia Świetlicowe") - pole "Gdzie" obok osobno podanego zastępcy. */
+    fun where(sub: Substitution): String? =
+        sub.roomOrInfo.trim().takeIf { it.isNotEmpty() }?.let { if (isRoom(it)) Rooms.label(it) else it }
+
     /** Sala lub informacja pod nagłówkiem (przy [infoFirst] - nauczyciel pod informacją); null, gdy nie ma czego dodać. */
     fun place(sub: Substitution, infoFirst: Boolean = false): String? {
         val teacher = sub.substituteTeacher?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        if (lesson(sub) != null) {
-            val where = sub.roomOrInfo.trim().takeIf { it.isNotEmpty() }?.let { if (isRoom(it)) "s. $it" else it }
-            return listOfNotNull(teacher, where).joinToString(" · ")
-        }
+        if (lesson(sub) != null) return listOfNotNull(teacher, where(sub)).joinToString(" · ")
         if (infoFirst && info(sub) != null) return teacher
-        val text = sub.roomOrInfo.trim().takeIf { it.isNotEmpty() } ?: return null
-        return if (isRoom(text)) "s. $text" else text
+        return where(sub)
     }
 
     fun notes(sub: Substitution): String? {
@@ -90,14 +90,19 @@ object SubstitutionDisplay {
         RegexOption.IGNORE_CASE
     )
 
-    /** Okienko zwalnia lekcję, chyba że wpis dotyczy tylko grupy ("okienko dla grupy 2/2" przy "5 J" bez numeru grupy). */
+    /**
+     * Okienko i zwolnienie dotyczą całej klasy, chyba że uwaga mówi tylko o grupie, a wpis nie ma numeru grupy
+     * ("okienko dla grupy 2/2" albo "Zajęcia Świetlicowe" z "I gr. - do domu" przy "1 I"): reszta klasy
+     * ma wtedy zajęcia, a nie wiadomo, której grupy z planu to dotyczy - lekcja zostaje z informacją szkoły.
+     */
     private val WINDOW = Regex("okienk", RegexOption.IGNORE_CASE)
     private val GROUP = Regex("grup|\\bgr\\.", RegexOption.IGNORE_CASE)
 
     fun freesLesson(sub: Substitution): Boolean {
         if (!sub.substituteTeacher.isNullOrBlank()) return false
         val text = sub.roomOrInfo + " " + (sub.notes ?: "")
-        return FREES.containsMatchIn(text) || (WINDOW.containsMatchIn(text) && !GROUP.containsMatchIn(text))
+        if (sub.groupNumber == null && GROUP.containsMatchIn(text)) return false
+        return FREES.containsMatchIn(text) || WINDOW.containsMatchIn(text)
     }
 
     /**

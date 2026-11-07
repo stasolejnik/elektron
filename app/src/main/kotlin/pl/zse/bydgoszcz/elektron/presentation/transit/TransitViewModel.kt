@@ -117,7 +117,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     @Suppress("UNUSED_PARAMETER")
     private fun originFor(prefs: TransitPreferences, direction: TransitDirection = _commute.value.direction) = prefs.preferredOrigin
     private fun requestKey(prefs: TransitPreferences, direction: TransitDirection = _commute.value.direction) = prefs.takeIf { it.canLoadJourneys }?.let {
-        RequestKey(direction, it.destination?.key, originFor(it, direction)?.key, it.allowTransfers)
+        RequestKey(direction, it.destination?.key, it.originKey, it.allowTransfers)
     }
     private fun keyOf(result: TransitJourneyRepository.Result) = RequestKey(result.direction, result.destinationKey, result.originKey, result.allowTransfers)
     private fun matches(result: TransitJourneyRepository.Result, prefs: TransitPreferences) =
@@ -260,7 +260,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         val origin = originFor(prefs, commuteNow.direction)
         val fromMs = if (toSchool) commuteNow.searchFromMs ?: AppClock.millis() else null
         val old = journeys.value?.takeIf { matches(it, prefs) }
-        val reusable = !force && old?.canReuse(destination.key, AppClock.millis(), origin?.key, prefs.allowTransfers, commuteNow.direction, fromMs) == true
+        val reusable = !force && old?.canReuse(destination.key, AppClock.millis(), prefs.originKey, prefs.allowTransfers, commuteNow.direction, fromMs) == true
         val requestedCount = minimumCount.coerceIn(1, 300)
         val existingCount = old?.journeys?.count { it.departureMs > AppClock.millis() } ?: 0
         if (!more && reusable && (existingCount >= requestedCount || old?.nextWhenMs == null)) {
@@ -311,15 +311,15 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                                 if (journeyJob === thisJob && nothingShown && matches(partial, current)) journeys.value = partial
                             }
                         }
-                        val result = if (toSchool) journeyRepository.findToSchool(destination, fromMs!!, cursor, prefs.allowTransfers, origin)
-                            else journeyRepository.find(destination, origin, cursor, prefs.allowTransfers, cursors, onPartial)
+                        val result = if (toSchool) journeyRepository.findToSchool(destination, fromMs!!, cursor, prefs.allowTransfers, origin, prefs.nearbyStops)
+                            else journeyRepository.find(destination, origin, cursor, prefs.allowTransfers, cursors, onPartial, prefs.nearbyStops)
                         val current = settings.value.preferences
                         if (!matches(result, current)) return@runCatchingCancellable
                         val previous = journeys.value?.takeIf { matches(it, current) } ?: old
                         val published = if (merge && previous != null) result.copy(
                             journeys = kotlinx.coroutines.withContext(Dispatchers.Default) {
                                 if (toSchool) TransitJourneys.rankToSchool(previous.journeys + result.journeys, AppClock.millis(), current.allowTransfers)
-                                else TransitJourneys.rank(previous.journeys + result.journeys, AppClock.millis(), originFor(current, TransitDirection.FROM_SCHOOL), current.allowTransfers)
+                                else TransitJourneys.rank(previous.journeys + result.journeys, AppClock.millis(), current.strictOrigin, current.allowTransfers)
                             },
                             boardingStops = (previous.boardingStops + result.boardingStops).distinctBy { it.key },
                             partialFailure = previous.partialFailure || result.partialFailure,
@@ -419,6 +419,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     fun select(destination: TransitDestination, onSaved: () -> Unit) = write(onSaved) { preferencesRepository.select(destination) }
     fun selectOrigin(origin: TransitDestination?, onSaved: () -> Unit = {}) = write(onSaved) { preferencesRepository.selectOrigin(origin) }
     fun setAllowTransfers(allow: Boolean) = writePreference { preferencesRepository.setAllowTransfers(allow) }
+    fun setNearbyStops(enabled: Boolean) = writePreference { preferencesRepository.setNearbyStops(enabled) }
     fun setTabVisible(route: String, visible: Boolean) = writePreference { preferencesRepository.setTabVisible(route, visible) }
     fun setShowOnDashboard(show: Boolean) = writePreference { preferencesRepository.setShowOnDashboard(show) }
     fun setEnabled(enabled: Boolean) = writePreference { preferencesRepository.setEnabled(enabled) }

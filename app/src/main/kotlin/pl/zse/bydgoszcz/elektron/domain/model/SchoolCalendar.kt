@@ -27,9 +27,11 @@ object SchoolCalendar {
      * Ferie zimowe w kujawsko-pomorskim (od, do włącznie) wg komunikatów MEN na gov.pl.
      * Na kolejny rok szkolny trzeba dopisać nowy termin (MEN ogłasza je z wyprzedzeniem).
      * 2026/2027: https://www.gov.pl/web/edukacja/terminy-ferii-zimowych-w-roku-szkolnym-20262027
+     * 2027/2028: https://www.gov.pl/web/edukacja/terminy-ferii-zimowych-w-roku-szkolnym-20272028
      */
     private val WINTER_BREAKS = listOf(
-        LocalDate.of(2027, 2, 15) to LocalDate.of(2027, 2, 28)   // 2026/2027
+        LocalDate.of(2027, 2, 15) to LocalDate.of(2027, 2, 28),   // 2026/2027
+        LocalDate.of(2028, 1, 17) to LocalDate.of(2028, 1, 30)    // 2027/2028
     )
 
     /** Dlaczego tego dnia nie ma zajęć (np. "Święto Niepodległości"); null - zwykły dzień. Weekendy pomijane. */

@@ -53,4 +53,30 @@ class BackgroundSyncPolicyTest {
         // Przed północą bez wyjątku.
         assertFalse(BackgroundSyncPolicy.isDue(SyncOutcome.SUBSTITUTIONS, now - 45 * 60, now, java.time.LocalTime.of(23, 50)))
     }
+
+    @Test fun daysWithoutLessonsCheckSubstitutionsEveryFortyFiveMinutes() {
+        val noon = java.time.LocalTime.NOON
+        val before = pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.enabled
+        pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.enabled = true
+        try {
+            val saturday = java.time.LocalDate.of(2026, 11, 7)
+            val sunday = saturday.plusDays(1)
+            assertTrue(BackgroundSyncPolicy.isRestDay(saturday, noon))
+            assertTrue(BackgroundSyncPolicy.isRestDay(sunday, java.time.LocalTime.of(14, 59)))
+            // Niedziela po południu przed poniedziałkiem lekcyjnym - zastępstwa na jutro, jak w dzień lekcyjny.
+            assertFalse(BackgroundSyncPolicy.isRestDay(sunday, java.time.LocalTime.of(15, 0)))
+            assertFalse(BackgroundSyncPolicy.isRestDay(sunday.plusDays(1), noon))
+            // Święto w środku tygodnia (11.11) i wieczór przed nim - rzadziej; po nim lekcje.
+            assertTrue(BackgroundSyncPolicy.isRestDay(java.time.LocalDate.of(2026, 11, 11), java.time.LocalTime.of(10, 0)))
+            assertFalse(BackgroundSyncPolicy.isRestDay(java.time.LocalDate.of(2026, 11, 11), java.time.LocalTime.of(16, 0)))
+            assertFalse(BackgroundSyncPolicy.isRestDay(java.time.LocalDate.of(2026, 11, 10), java.time.LocalTime.of(16, 0)))
+        } finally { pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.enabled = before }
+        val interval = BackgroundSyncPolicy.REST_DAY_INTERVAL
+        assertFalse(BackgroundSyncPolicy.isDue(SyncOutcome.SUBSTITUTIONS, 100, 100 + 900, noon, restDay = true))
+        assertFalse(BackgroundSyncPolicy.isDue(SyncOutcome.SUBSTITUTIONS, 100, 100 + interval - 1, noon, restDay = true))
+        assertTrue(BackgroundSyncPolicy.isDue(SyncOutcome.SUBSTITUTIONS, 100, 100 + interval, noon, restDay = true))
+        assertTrue("pierwszy odczyt od razu", BackgroundSyncPolicy.isDue(SyncOutcome.SUBSTITUTIONS, null, 100, noon, restDay = true))
+        // W nocy dalej odstęp nocny (dłuższy).
+        assertFalse(BackgroundSyncPolicy.isDue(SyncOutcome.SUBSTITUTIONS, 100, 100 + interval, java.time.LocalTime.of(23, 30), restDay = true))
+    }
 }

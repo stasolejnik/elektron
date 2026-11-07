@@ -241,6 +241,8 @@ object OptivumTimetableParser {
     // Sala w komórce tekstowej: krótka i z cyfrą ("WP1", "211", "Hala2").
     private val ROOM_CODE = Regex("^(?=.*\\d)[\\p{L}\\d-]{1,6}$")
     // Lista oddziałów: "5B,5D".
+    /** Sala po liście oddziałów: numer, ewentualnie z literą ("105", "12a") - słowa nazwy zajęć cyfr nie mają. */
+    private val ROOM_NUMBER = Regex("^\\d{1,4}\\p{L}?$")
     private val CLASS_LIST = Regex("^\\d\\p{L}{1,2}(,\\d\\p{L}{1,2})+$")
 
     private fun isAbsentMark(text: String) = text.trim().equals("N", ignoreCase = true)
@@ -249,7 +251,8 @@ object OptivumTimetableParser {
      * Lekcja zapisana samym tekstem. "---" (i puste) = brak lekcji. Rozpoznajemy dwa wzory
      * spotykane na stronie ZSE, a resztę pokazujemy w całości jako nazwę zajęć:
      *  - "St WP1 zaj wojskowe" -> nauczyciel St, sala WP1, przedmiot "zaj wojskowe",
-     *  - "5B,5D zaj uni"       -> oddziały 5B,5D (classRef), przedmiot "zaj uni".
+     *  - "5B,5D zaj uni"       -> oddziały 5B,5D (classRef), przedmiot "zaj uni",
+     *  - "5B,5D 105 zaj uni"   -> jak wyżej, z salą 105 (zapis od listopada 2026).
      */
     internal fun parseTextCell(raw: String): LessonGroupDto? {
         val text = raw.replace('\u00A0', ' ').trim().replace(Regex("\\s+"), " ")
@@ -258,6 +261,8 @@ object OptivumTimetableParser {
         return when {
             w.size >= 3 && TEACHER_CODE.matches(w[0]) && ROOM_CODE.matches(w[1]) ->
                 LessonGroupDto(w.drop(2).joinToString(" "), w[0], null, w[1], null, null, null)
+            w.size >= 3 && CLASS_LIST.matches(w[0]) && ROOM_NUMBER.matches(w[1]) ->
+                LessonGroupDto(w.drop(2).joinToString(" "), null, null, w[1], null, w[0], null)
             w.size >= 2 && CLASS_LIST.matches(w[0]) ->
                 LessonGroupDto(w.drop(1).joinToString(" "), null, null, null, null, w[0], null)
             else -> LessonGroupDto(text, null, null, null, null, null, null)

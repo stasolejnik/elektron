@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SchoolNoticeCard(notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice, collapsedLines: Int, key: String,
     modifier: Modifier = Modifier, compact: Boolean = false, title: String = "Informacja szkoły") {
-    val text = notice.text
+    val text = notice.displayText
     val context = androidx.compose.ui.platform.LocalContext.current
     var expanded by rememberSaveable(key) { mutableStateOf(false) }
     var overflows by rememberSaveable(key) { mutableStateOf(false) }

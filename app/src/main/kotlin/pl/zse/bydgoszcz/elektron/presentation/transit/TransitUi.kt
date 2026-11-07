@@ -23,12 +23,13 @@ fun TransitVisibilitySection(viewModel: TransitViewModel) {
     val state by viewModel.settings.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
     val error by viewModel.settingsError.collectAsStateWithLifecycle()
-    // Zakładka Przejazdy ma własny przełącznik w sekcji Przejazdy.
+    // Wszystkie zakładki poza Ustawieniami, także Przejazdy (ten sam przełącznik co w sekcji Przejazdy -
+    // dawniej brakowało jej tutaj, choć była na pasku).
     GroupedSection("Pasek nawigacji", icon = androidx.compose.material.icons.Icons.Outlined.SpaceDashboard,
         footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność. Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów.") {
-        bottomDestinationsForTransit(true).filter { it.route != "settings" && it.route != "transit" }.forEachIndexed { index, destination ->
+        bottomDestinationsForTransit(true).filter { it.route != "settings" }.forEachIndexed { index, destination ->
             if (index > 0) pl.zse.bydgoszcz.elektron.presentation.settings.RowDivider()
-            val checked = destination.route !in state.preferences.hiddenTabs
+            val checked = if (destination.route == "transit") state.preferences.visible else destination.route !in state.preferences.hiddenTabs
             pl.zse.bydgoszcz.elektron.presentation.settings.SwitchRow(destination.label, checked,
                 enabled = state.ready && !state.failed && !saving) { viewModel.setTabVisible(destination.route, it) }
         }
@@ -91,7 +92,7 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                 if (origin) TextButton(onClick = { viewModel.selectOrigin(null, onDismiss) }, enabled = !saving) {
                     Text("Szkoła - najbliższe przystanki")
                 }
-                if (origin) Text("Przystanek, z którego wracasz i na którym wysiadasz w drodze do szkoły. Lista od najbliższego szkoły.", style = MaterialTheme.typography.bodySmall)
+                if (origin) Text("Przystanek, z którego wracasz i na którym wysiadasz w drodze do szkoły. Lista zaczyna się od przystanków najbliżej szkoły.", style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(value = query, onValueChange = { viewModel.query.value = it.take(200) },
                     label = { Text("Szukaj przystanku") }, placeholder = { Text("Wpisz nazwę, np. Rondo Jagiellonów") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = !saving,

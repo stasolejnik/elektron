@@ -51,7 +51,7 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
     }
     val visible = LocalScreenVisible.current
     val owner = LocalLifecycleOwner.current
-    val originKey = prefs.preferredOrigin?.key
+    val originKey = prefs.originKey
     DisposableEffect(viewModel, visible, direction, prefs.destination.key, originKey, prefs.allowTransfers, owner) {
         val consumer = Any()
         val observer = LifecycleEventObserver { _, event ->
@@ -75,8 +75,8 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
     val matching = result?.takeIf { viewModel.matchesCurrent(it) }
     val targetMs = if (toSchool) commute.targetMs else null
     val trip = remember(matching, now, originKey, prefs.allowTransfers, live, targetMs) {
-        val upcoming = TransitJourneys.upcoming(matching?.journeys.orEmpty(), now, if (toSchool) null else prefs.preferredOrigin, prefs.allowTransfers, live)
-            .let { if (prefs.preferredOrigin == null) TransitJourneys.walkable(it, now, live) else it }
+        val upcoming = TransitJourneys.upcoming(matching?.journeys.orEmpty(), now, if (toSchool) null else prefs.strictOrigin, prefs.allowTransfers, live)
+            .let { if (prefs.strictOrigin == null) TransitJourneys.walkable(it, now, live) else it }
         // Do szkoły: kurs, który jest w szkole ok. 10 min przed lekcją (jak pierwszy w zakładce); ze szkoły - najbliższy.
         if (toSchool) upcoming.getOrNull(TransitJourneys.anchorToSchool(upcoming, targetMs, live))
         else upcoming.minByOrNull { TransitLive.expected(it, live) }
@@ -89,7 +89,7 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
                 Text(if (error != null) "Nie udało się sprawdzić połączeń. Dotknij tutaj, aby ponowić." else "Brak nadchodzących połączeń. Dotknij tutaj, aby sprawdzić więcej.", Modifier.padding(16.dp))
             }
         }
-        matching?.let { Text("Ostatnio sprawdzono: ${formatTransitTime(it.fetchedAt, now)}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
+        matching?.let { Text("Sprawdzono ${formatTransitTime(it.fetchedAt, now)}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
         if (matching?.partialFailure == true) Text("Sprawdzono tylko część stanowisk. Lista może być niepełna.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (error != null && trip != null) Text("Nie udało się odświeżyć. Wyświetlam zapisane połączenie.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }

@@ -38,8 +38,8 @@ class LiveLessonTest {
         val c = at("07:45")!!
         assertEquals(LiveLesson.Phase.BEFORE, c.phase)
         assertEquals("Do lekcji", c.title)
-        assertEquals("Pierwsza lekcja: 1. mat · s. 105", c.text)
-        assertTrue(c.lines.contains("Pierwsza lekcja: 1. mat · s. 105 · J.Kowalski, od 08:00"))
+        assertEquals("Pierwsza lekcja: 1. mat · s.\u00A0105", c.text)
+        assertTrue(c.lines.contains("Pierwsza lekcja: 1. mat · s.\u00A0105 · J.Kowalski, od 08:00"))
         assertEquals(day.atTime(8, 0), c.countdownTo)
         assertEquals(LessonTarget(day, 1), c.target)
         assertEquals(0f, c.progress(day.atTime(7, 45)), 0.001f)
@@ -49,9 +49,9 @@ class LiveLessonTest {
         val c = at("08:33")!!
         assertEquals(LiveLesson.Phase.LESSON, c.phase)
         assertEquals("odliczanie do przerwy", "Do przerwy", c.title)
-        assertEquals("Teraz: 1. mat · s. 105", c.text)
+        assertEquals("Teraz: 1. mat · s.\u00A0105", c.text)
         assertEquals(day.atTime(8, 45), c.countdownTo)
-        assertTrue(c.lines.contains("Potem: 2. fiz · s. 12 · A.Nowak"))
+        assertTrue(c.lines.contains("Potem: 2. fiz · s.\u00A012 · A.Nowak"))
         assertEquals(LessonTarget(day, 1), c.target)
         assertTrue(c.progress(day.atTime(8, 33)) in 0.7f..0.75f)
     }
@@ -62,7 +62,7 @@ class LiveLessonTest {
         assertEquals("odliczanie do lekcji", "Do lekcji", c.title)
         assertEquals(day.atTime(8, 55), c.countdownTo)
         assertEquals(day.atTime(8, 45), c.progressFrom)
-        assertEquals("Przerwa, potem: 2. fiz · s. 12", c.text)
+        assertEquals("Przerwa, potem: 2. fiz · s.\u00A012", c.text)
         assertEquals(LessonTarget(day, 2), c.target)
     }
 
@@ -70,7 +70,7 @@ class LiveLessonTest {
         val c = at("10:00")!!
         assertEquals(LiveLesson.Phase.GAP, c.phase)
         assertEquals("Do lekcji", c.title)
-        assertEquals("Okienko, potem: 4. pol · s. 7", c.text)
+        assertEquals("Okienko, potem: 4. pol · s.\u00A07", c.text)
         assertEquals(day.atTime(9, 40), c.progressFrom)
         assertEquals(day.atTime(10, 45), c.countdownTo)
     }
@@ -78,7 +78,7 @@ class LiveLessonTest {
     @Test fun lastLessonAndAfterLessons() {
         val last = at("11:00")!!
         assertEquals("Do końca lekcji", last.title)
-        assertEquals("Teraz: 4. pol · s. 7", last.text)
+        assertEquals("Teraz: 4. pol · s.\u00A07", last.text)
         assertTrue(last.lines.contains("To ostatnia lekcja dzisiaj"))
         assertEquals(day.atTime(11, 30), last.windowEnd)
         assertNull("po lekcjach powiadomienie znika", at("11:30"))
@@ -93,21 +93,34 @@ class LiveLessonTest {
         // 1. lekcja zwolniona ("przychodzą później"): okno od 15 min przed 2. lekcją.
         val late = plan.map { if (it.number == 1) it.copy(substitution = sub(1, "Uczniowie przychodzą później")) else it }
         assertNull(at("08:00", late))
-        assertEquals("Pierwsza lekcja: 2. fiz · s. 12", at("08:40", late)!!.text)
+        assertEquals("Pierwsza lekcja: 2. fiz · s.\u00A012", at("08:40", late)!!.text)
     }
 
     @Test fun substitutionShowsTeacherFirstThenRoom() {
         val withSub = plan.map { if (it.number == 2) it.copy(substitution = sub(2, "211", "M.Zelek", "za ostatnią lekcję")) else it }
         val during = at("09:00", withSub)!!
-        assertEquals("Teraz: 2. fiz · s. 211", during.text)
-        assertTrue(during.lines.contains("Zastępstwo: M.Zelek · s. 211 · za ostatnią lekcję"))
+        assertEquals("Teraz: 2. fiz · s.\u00A0211", during.text)
+        assertTrue(during.lines.contains("Zastępstwo: M.Zelek · s.\u00A0211 · za ostatnią lekcję"))
         // Przed nią (w trakcie 1. lekcji) - "dalej" z zastępcą zamiast nauczyciela planu.
         val before = at("08:30", withSub)!!
-        assertTrue(before.lines.contains("Potem: 2. fiz · M.Zelek · s. 211"))
-        assertTrue(before.lines.contains("Potem zastępstwo: M.Zelek · s. 211 · za ostatnią lekcję"))
+        assertTrue(before.lines.contains("Potem: 2. fiz · M.Zelek · s.\u00A0211"))
+        assertTrue(before.lines.contains("Potem zastępstwo: M.Zelek · s.\u00A0211 · za ostatnią lekcję"))
         // Informacja szkoły bez zastępcy (np. zajęcia w auli) - w treści.
         val info = plan.map { if (it.number == 2) it.copy(substitution = sub(2, "Zajęcia w auli")) else it }
         assertTrue(at("09:00", info)!!.lines.contains("Zastępstwo: Zajęcia w auli"))
+    }
+
+    /** Prawdziwy wpis z 03.11.2026: 1D, 6. lekcja j.polski, zastępca D. Musierowicz, uwaga "edukacja zdrowotna". */
+    @Test fun lessonFromNotesReplacesThePlannedSubjectLikeOnTheStartScreen() {
+        val withSub = plan.map { if (it.number == 2) it.copy(substitution = sub(2, "111", "D. Musierowicz", "edukacja zdrowotna")) else it }
+        val during = at("09:00", withSub)!!
+        assertEquals("Teraz: 2. edukacja zdrowotna · s.\u00A0111", during.text)
+        assertTrue(during.lines.toString(), during.lines.contains("Teraz: 2. edukacja zdrowotna · D. Musierowicz · s.\u00A0111, do 09:40"))
+        // Bez powtórzenia lekcji, zastępcy i sali - tylko za co i za kogo.
+        assertTrue(during.lines.toString(), during.lines.contains("Zastępstwo za: fiz · J.Kowalski"))
+        val before = at("08:30", withSub)!!
+        assertTrue(before.lines.toString(), before.lines.contains("Potem: 2. edukacja zdrowotna · D. Musierowicz · s.\u00A0111"))
+        assertTrue(before.lines.toString(), before.lines.contains("Potem zastępstwo za: fiz · J.Kowalski"))
     }
 
     @Test fun noteOfCurrentOrNextLessonIsPreviewed() {
@@ -163,12 +176,12 @@ class LiveLessonTest {
 
     @Test fun smallTextSaysWhenTheSchoolDayEnds() {
         // Plan kończy się o 11:30.
-        assertEquals("Koniec lekcji o 11:30 · jeszcze 3 h 30 min", LiveLesson.dayLeft(at("08:00")!!, day.atTime(8, 0)))
-        assertEquals("Koniec lekcji o 11:30 · jeszcze 2 h", LiveLesson.dayLeft(at("09:30")!!, day.atTime(9, 30)))
-        assertEquals("Koniec lekcji o 11:30 · jeszcze 1 h 30 min", LiveLesson.dayLeft(at("10:00")!!, day.atTime(10, 0)))
-        assertEquals("Koniec lekcji o 11:30 · jeszcze 50 min", LiveLesson.dayLeft(at("10:40")!!, day.atTime(10, 40)))
+        assertEquals("Lekcje do 11:30 · 3 h 30 min", LiveLesson.dayLeft(at("08:00")!!, day.atTime(8, 0)))
+        assertEquals("Lekcje do 11:30 · 2 h", LiveLesson.dayLeft(at("09:30")!!, day.atTime(9, 30)))
+        assertEquals("Lekcje do 11:30 · 1 h 30 min", LiveLesson.dayLeft(at("10:00")!!, day.atTime(10, 0)))
+        assertEquals("Lekcje do 11:30 · 50 min", LiveLesson.dayLeft(at("10:40")!!, day.atTime(10, 40)))
         // Ostatnia lekcja - odliczanie i tak pokazuje koniec, bez powtórzenia.
-        assertEquals("Koniec lekcji o 11:30", LiveLesson.dayLeft(at("11:10")!!, day.atTime(11, 10)))
+        assertEquals("Lekcje do 11:30", LiveLesson.dayLeft(at("11:10")!!, day.atTime(11, 10)))
     }
 
     @Test fun progressIsRightInEveryPhaseIncludingLateFirstLesson() {

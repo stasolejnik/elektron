@@ -78,17 +78,23 @@ object LessonReminders {
      */
     fun describe(lesson: Lesson, styles: Map<String, SubjectStyle>): Pair<String, String> {
         val hours = "${lesson.number}. lekcja, ${lesson.timeFrom}–${lesson.timeTo}"
-        val sub = lesson.substitution
-        if (sub != null) {
-            return "zastępstwo – ${SubstitutionDisplay.headline(sub)}" to
-                listOfNotNull(hours, SubstitutionDisplay.place(sub), SubstitutionDisplay.notes(sub)).joinToString(" · ")
-        }
         val what = lesson.groups.mapNotNull { SubjectStyles.displayName(it.subject, styles) }
             .distinct().joinToString(" / ").ifBlank { lesson.note ?: "lekcja" }
+        val sub = lesson.substitution
+        if (sub != null) {
+            // Najpierw lekcja (jak w aplikacji): "fizyka (zastępstwo)" albo lekcja z uwag ("edukacja zdrowotna
+            // (zastępstwo)"); bez zastępcy - informacja szkoły ("Zajęcia Świetlicowe"). Dawniej "zastępstwo – M. Zelek".
+            val teacher = sub.substituteTeacher?.trim()?.takeIf { it.isNotEmpty() }
+            val info = if (teacher == null) SubstitutionDisplay.info(sub) else null
+            val name = SubstitutionDisplay.lesson(sub) ?: info ?: what
+            return (if (teacher != null) "$name (zastępstwo)" else name) to
+                listOfNotNull(hours, teacher, SubstitutionDisplay.where(sub).takeIf { info == null }, SubstitutionDisplay.notes(sub))
+                    .joinToString(" · ")
+        }
         val rooms = lesson.groups.mapNotNull { it.room }.distinct().joinToString(", ").ifBlank { null }
         val teacher = lesson.groups.firstOrNull()
             ?.let { it.teacherFullName ?: it.teacherCode ?: JointGroups.describe(it.classRef, lesson.className) }
-        return what to listOfNotNull(hours, rooms?.let { "s. $it" }, teacher).joinToString(" · ")
+        return what to listOfNotNull(hours, rooms?.let { Rooms.label(it) }, teacher).joinToString(" · ")
     }
 
     /** Tytuł powiadomienia liczony w chwili wyświetlenia (alarm bywa opóźniony). */

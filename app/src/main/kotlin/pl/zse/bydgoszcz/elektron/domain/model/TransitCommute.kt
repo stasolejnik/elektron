@@ -103,11 +103,14 @@ object TransitAutoLoad {
             (searchEndMs == null || nextWhenMs <= searchEndMs)
 }
 
-/** Odjazd z tablicy przystanku (BUSearch): opóźnienie na żywo, gdy pojazd jest śledzony. */
-data class LiveDeparture(val line: String, val atMs: Long, val delayMinutes: Int?, val live: Boolean)
+/**
+ * Odjazd z tablicy przystanku (BUSearch): opóźnienie na żywo, gdy pojazd jest śledzony, i odległość
+ * pojazdu od przystanku wzdłuż trasy ([vehicleMeters] - tylko przy potwierdzonym i aktualnym pojeździe).
+ */
+data class LiveDeparture(val line: String, val atMs: Long, val delayMinutes: Int?, val live: Boolean, val vehicleMeters: Int? = null)
 
-/** Stan kursu na żywo: o ile minut później (ujemne - wcześniej) i kiedy faktycznie odjedzie. */
-data class LiveStatus(val delayMinutes: Int, val expectedMs: Long)
+/** Stan kursu na żywo: o ile minut później (ujemne - wcześniej), kiedy faktycznie odjedzie i jak daleko jest pojazd. */
+data class LiveStatus(val delayMinutes: Int, val expectedMs: Long, val vehicleMeters: Int? = null)
 
 object TransitLive {
     /** Kursy odjeżdżające dalej niż za tyle minut nie mają jeszcze sensownych danych na żywo. */
@@ -125,13 +128,21 @@ object TransitLive {
             .map { it to kotlin.math.abs(it.atMs - it.delayMinutes!! * 60_000L - ride.departureMs) }
             .filter { it.second <= 90_000L }
             .minByOrNull { it.second }
-            ?.first?.let { LiveStatus(it.delayMinutes!!, ride.departureMs + it.delayMinutes * 60_000L) }
+            ?.first?.let { LiveStatus(it.delayMinutes!!, ride.departureMs + it.delayMinutes * 60_000L, it.vehicleMeters) }
 
     /** Kursy, o które warto zapytać tablice: odjazd w ciągu [WINDOW_MINUTES], po jednym na stanowisko i linię. */
     fun boards(journeys: List<TransitJourney>, nowMs: Long): List<Pair<String, String>> =
         journeys.asSequence().map { it.rides.first() }
             .filter { it.departureMs > nowMs - 15 * 60_000L && it.departureMs <= nowMs + WINDOW_MINUTES * 60_000L }
             .map { it.fromId to it.line }.distinct().take(MAX_BOARDS).toList()
+
+    /** "pojazd 650 m stąd", "pojazd 1,2 km stąd", "pojazd na przystanku"; null - brak pozycji. */
+    fun vehicleText(meters: Int?): String? = when {
+        meters == null || meters < 0 -> null
+        meters < 50 -> "pojazd na przystanku"
+        meters < 1000 -> "pojazd ${(meters + 25) / 50 * 50} m stąd"
+        else -> "pojazd ${"%.1f".format(java.util.Locale("pl", "PL"), meters / 1000.0)} km stąd"
+    }
 
     /** Odjazd z uwzględnieniem opóźnienia. */
     fun expected(journey: TransitJourney, live: Map<String, LiveStatus>): Long =

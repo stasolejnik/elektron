@@ -103,7 +103,7 @@ internal fun AccentPicker(
                             if (isCustom) editing = true else onChange(current.copy(color = accent))
                         }
                         .semantics {
-                            contentDescription = if (isCustom && selected) "Własny kolor, stuknij, aby zmienić"
+                            contentDescription = if (isCustom && selected) "Własny kolor, dotknij, aby zmienić"
                                 else ACCENT_LABELS[accent].orEmpty()
                         },
                     contentAlignment = Alignment.Center

@@ -47,4 +47,11 @@ class SchoolNoticesTest {
             today.plusDays(3) to SchoolNotice("Nowa"))
         assertEquals(listOf(today, today.plusDays(3)), SchoolNotices.toNotify(before, after, today).map { it.first })
     }
+
+    /** Prawdziwa informacja z 03.11.2026: "Uwaga! Od 0h lek. do 5h lek. zamiana sal pc2 <-> pc5". */
+    @Test fun asciiArrowsAreShownAsArrows() {
+        assertEquals("Uwaga! Od 0h lek. do 5h lek. zamiana sal pc2 ↔ pc5",
+            SchoolNotice("Uwaga! Od 0h lek. do 5h lek. zamiana sal pc2 <-> pc5").displayText)
+        assertEquals("sala 12 → sala 15, 3 ← 4", SchoolNotice("sala 12 -> sala 15, 3 <- 4").displayText)
+    }
 }

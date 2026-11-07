@@ -53,12 +53,12 @@ class LocalNotificationSink @Inject constructor(
         )
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_ANNOUNCEMENTS, "Ogłoszenia", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Powiadomienia o nowych ogłoszeniach z RSS szkoły."
+                description = "Nowe ogłoszenia na stronie szkoły (Ustawienia → Powiadomienia)."
                 group = GROUP_ELEKTRON
             }
         )
         mgr.createNotificationChannel(NotificationChannel(CHANNEL_NOTICES, "Informacje szkoły", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "Informacje dopisane na stronie zastępstw, np. skrócone lekcje albo apel (Ustawienia -> Powiadomienia)."
+            description = "Informacje dopisane na stronie zastępstw, np. skrócone lekcje albo apel (Ustawienia → Powiadomienia)."
             group = GROUP_ELEKTRON
         })
         mgr.createNotificationChannel(NotificationChannel(CHANNEL_NOTES, "Notatki do lekcji", NotificationManager.IMPORTANCE_DEFAULT).apply {
@@ -68,7 +68,7 @@ class LocalNotificationSink @Inject constructor(
         // Powiadomienie na żywo: ciche (bez dźwięku, wibracji i kropki na ikonie), stale widoczne w dni lekcyjne.
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_LIVE, "Na żywo: lekcje", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Co trwa teraz i co dalej - w dni lekcyjne (Ustawienia -> Powiadomienia)."
+                description = "Co trwa teraz i co dalej - w dni lekcyjne (Ustawienia → Powiadomienia)."
                 group = GROUP_ELEKTRON
                 setSound(null, null)
                 enableVibration(false)
@@ -78,7 +78,7 @@ class LocalNotificationSink @Inject constructor(
         )
         mgr.createNotificationChannel(
             NotificationChannel(CHANNEL_REMINDERS, "Przypomnienia o lekcjach", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Przypomnienia przed lekcją (Ustawienia -> Powiadomienia)."
+                description = "Przypomnienia przed lekcją (Ustawienia → Powiadomienia)."
                 group = GROUP_ELEKTRON
             }
         )
@@ -172,12 +172,9 @@ class LocalNotificationSink @Inject constructor(
     override suspend fun postSchoolNotice(date: java.time.LocalDate, notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice) {
         if (!canNotify()) return
         val today = pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()
-        val day = when (date) {
-            today -> "dziś"
-            today.plusDays(1) -> "jutro"
-            else -> date.format(java.time.format.DateTimeFormatter.ofPattern("d.MM"))
-        }
-        val text = notice.text.take(1000)
+        // Dzień jak w powiadomieniach o zastępstwach: "dziś", "jutro", "poniedziałek 12.10".
+        val day = pl.zse.bydgoszcz.elektron.domain.model.SubstitutionNotice.dayLabel(date, today).replaceFirstChar { it.lowercase() }
+        val text = notice.displayText.take(1000)
         val pi = PendingIntent.getActivity(context, NOTICE_ID_BASE + (date.toEpochDay() % 1000).toInt(), deepLinkIntent("substitutions"),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(context, CHANNEL_NOTICES)
@@ -207,7 +204,9 @@ class LocalNotificationSink @Inject constructor(
         }
         val pi = PendingIntent.getActivity(context, note.key.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val body = "${note.date.format(java.time.format.DateTimeFormatter.ofPattern("d.MM"))}, ${note.number}. lekcja\n" +
+        val day = pl.zse.bydgoszcz.elektron.domain.model.SubstitutionNotice.dayLabel(note.date,
+            pl.zse.bydgoszcz.elektron.domain.util.AppClock.today())
+        val body = "$day, ${note.number}. lekcja\n" +
             (if (changed) "Plan się zmienił. Notatka zapisana dla: ${note.subject}.\n" else "") + note.text
         val n = NotificationCompat.Builder(context, CHANNEL_NOTES).setSmallIcon(R.drawable.ic_stat_elektron)
             .setContentTitle("Notatka: $subject").setContentText(body)

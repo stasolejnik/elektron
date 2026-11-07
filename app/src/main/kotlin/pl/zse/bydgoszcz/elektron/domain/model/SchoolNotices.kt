@@ -11,6 +11,9 @@ import java.time.LocalDateTime
 data class SchoolNotice(val text: String, val images: List<String> = emptyList(), val updated: String? = null) {
     /** Jest co pokazać na karcie (treść albo obrazek); sama godzina aktualizacji - nie. */
     val hasContent: Boolean get() = text.isNotBlank() || images.isNotEmpty()
+
+    /** Treść do pokazania: strzałki pisane na stronie szkoły znakami ("pc2 <-> pc5") jako "↔", "→", "←". */
+    val displayText: String get() = text.replace("<->", "↔").replace("<=>", "⇔").replace("->", "→").replace("<-", "←")
 }
 
 /** Informacje szkoły ze strony zastępstw (np. o oddawaniu krwi) - który dzień pokazać na stronie głównej. */

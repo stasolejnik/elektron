@@ -10,7 +10,7 @@ class TransitTimeTest {
         val now = at("2026-10-05T23:50:00+02:00")
         assertEquals("23:55", formatTransitTime(at("2026-10-05T23:55:00+02:00"), now))
         assertEquals("jutro 00:15", formatTransitTime(at("2026-10-06T00:15:00+02:00"), now))
-        assertEquals("4.10 22:00", formatTransitTime(at("2026-10-04T22:00:00+02:00"), now))
+        assertEquals("04.10 22:00", formatTransitTime(at("2026-10-04T22:00:00+02:00"), now))
     }
     @Test fun dstShowsLocalWallClockTime() {
         val now = at("2026-10-25T00:10:00+02:00")

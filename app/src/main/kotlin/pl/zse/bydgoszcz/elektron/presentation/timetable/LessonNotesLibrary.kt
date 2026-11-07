@@ -36,7 +36,7 @@ internal fun LessonNotesLibrary(notes: List<LessonNote>, viewModel: LessonNotesV
             items(sortedNotes, key = { it.key }) { note ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("${note.date.format(DateTimeFormatter.ofPattern("d.MM.yyyy"))} · ${note.number}. lekcja", style = MaterialTheme.typography.titleMedium)
+                        Text("${note.date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))} · ${note.number}. lekcja", style = MaterialTheme.typography.titleMedium)
                         Text(note.subject, style = MaterialTheme.typography.bodySmall)
                         SelectionContainer { Text(note.text) }
                         Row {

@@ -179,20 +179,25 @@ class LiveLessonScheduler @Inject constructor(
             .setTimeoutAfter((java.time.Duration.between(now, content.windowEnd).toMillis() + 60_000L).coerceAtLeast(60_000L))
             .apply {
                 // Android 16: prośba o "Live Update" (promowane powiadomienie na pasku i ekranie blokady).
-                // Starsze systemy ignorują ten klucz; nie wymaga compileSdk 36.
+                // Starsze systemy ignorują ten klucz (setRequestPromotedOngoing jest dopiero w API 36.1).
                 extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
-                // realme/OPPO/OnePlus: kapsuła na pasku stanu nie pokazuje chronometru, tylko krótki tekst.
-                // Na zwykłym Androidzie 16 krótki tekst zastąpiłby odliczanie co do sekundy - tam bez niego.
-                if (usesShortCriticalText()) extras.putString(EXTRA_SHORT_CRITICAL_TEXT, LiveLesson.shortCountdown(content, now))
             }
             .build()
+            .let { built ->
+                // realme/OPPO/OnePlus (albo przełącznik w trybie dewelopera): kapsuła na pasku stanu nie pokazuje
+                // chronometru, tylko krótki tekst. Na zwykłym Androidzie 16 krótki tekst zastąpiłby odliczanie
+                // co do sekundy - tam bez niego. Oficjalne Notification.Builder#setShortCriticalText (API 36).
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA && usesShortCriticalText(context))
+                    android.app.Notification.Builder.recoverBuilder(context, built)
+                        .setShortCriticalText(LiveLesson.shortCountdown(content, now)).build()
+                else built
+            }
         // "Wyczyść wszystko" nie usuwa powiadomienia (dawniej znikało i ukrywało się do jutra);
         // pojedyncze odsunięcie na Androidzie 14+ nadal działa i ukrywa je do jutra.
         n.flags = n.flags or android.app.Notification.FLAG_NO_CLEAR
         try { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, n) }
         catch (e: SecurityException) { Log.w(TAG, "Brak uprawnień do powiadomień", e) }
-        return if (Build.VERSION.SDK_INT < 36) null
-            else runCatching { n.javaClass.getMethod("hasPromotableCharacteristics").invoke(n) as Boolean }.getOrNull()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) n.hasPromotableCharacteristics() else null
     }
 
     private fun broadcast(request: Int, action: String): PendingIntent =
@@ -247,13 +252,24 @@ class LiveLessonScheduler @Inject constructor(
         const val ACTION_DISMISSED = "pl.zse.bydgoszcz.elektron.live.DISMISSED"
         /** Notification.EXTRA_REQUEST_PROMOTED_ONGOING (API 36). */
         private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
-        /** Notification.EXTRA_SHORT_CRITICAL_TEXT (API 36): tekst kapsuły Live Update na pasku stanu. */
-        private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
         private val SHORT_TEXT_MANUFACTURERS = setOf("realme", "oppo", "oneplus")
+        private const val DEV_PREFS = "live_lesson_dev"
+        private const val KEY_SHORT_TEXT_EVERYWHERE = "short_text_everywhere"
 
         /** Telefony z nakładką ColorOS (realme, OPPO, OnePlus): czas w kapsule tylko z krótkiego tekstu. */
         fun usesShortCriticalText(manufacturer: String? = Build.MANUFACTURER): Boolean =
             manufacturer?.trim()?.lowercase() in SHORT_TEXT_MANUFACTURERS
+
+        /** Jak wyżej albo wymuszone w trybie dewelopera (sprawdzenie kapsuły na innych telefonach). */
+        fun usesShortCriticalText(context: Context): Boolean = usesShortCriticalText() || shortTextEverywhere(context)
+
+        /** Tryb dewelopera: krótki czas w kapsule na każdym telefonie (np. Xiaomi, Samsung) - do sprawdzenia nakładek. */
+        fun shortTextEverywhere(context: Context): Boolean =
+            context.getSharedPreferences(DEV_PREFS, Context.MODE_PRIVATE).getBoolean(KEY_SHORT_TEXT_EVERYWHERE, false)
+
+        fun setShortTextEverywhere(context: Context, enabled: Boolean) {
+            context.getSharedPreferences(DEV_PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_SHORT_TEXT_EVERYWHERE, enabled).apply()
+        }
 
         /** Ekran blokady: tylko rodzaj odliczania, bez przedmiotów i sal. */
         private val PUBLIC_TITLES = mapOf(
@@ -266,12 +282,11 @@ class LiveLessonScheduler @Inject constructor(
         /**
          * Android 16+: czy system pozwala promować powiadomienia eLektronu (Live Updates - odliczanie
          * na pasku stanu). Użytkownik może to wyłączyć w ustawieniach aplikacji; null - starszy Android.
-         * Przez refleksję: NotificationManager.canPostPromotedNotifications() jest od API 36.
          */
         fun canPostPromoted(context: Context): Boolean? {
-            if (Build.VERSION.SDK_INT < 36) return null
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return null
             val nm = context.getSystemService(NotificationManager::class.java) ?: return null
-            return runCatching { nm.javaClass.getMethod("canPostPromotedNotifications").invoke(nm) as Boolean }.getOrNull()
+            return runCatching { nm.canPostPromotedNotifications() }.getOrNull()
         }
 
         /**
@@ -279,11 +294,11 @@ class LiveLessonScheduler @Inject constructor(
          * czyli czy odliczanie może być na pasku stanu. null - starszy Android, brak powiadomienia albo flagi.
          */
         fun isPromoted(context: Context): Boolean? {
-            if (Build.VERSION.SDK_INT < 36) return null
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return null
             val nm = context.getSystemService(NotificationManager::class.java) ?: return null
             return runCatching {
-                val flag = android.app.Notification::class.java.getField("FLAG_PROMOTED_ONGOING").getInt(null)
-                nm.activeNotifications.firstOrNull { it.id == NOTIFICATION_ID }?.let { it.notification.flags and flag != 0 }
+                nm.activeNotifications.firstOrNull { it.id == NOTIFICATION_ID }
+                    ?.let { it.notification.flags and android.app.Notification.FLAG_PROMOTED_ONGOING != 0 }
             }.getOrNull()
         }
 

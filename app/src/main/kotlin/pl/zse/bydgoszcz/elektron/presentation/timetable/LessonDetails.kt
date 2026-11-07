@@ -85,7 +85,11 @@ internal fun LessonDetailsSheet(lesson: Lesson, userNote: LessonNote? = null, on
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Field("Zmiana", SubstitutionDisplay.headline(sub), MaterialTheme.colorScheme.tertiary)
-                SubstitutionDisplay.place(sub)?.let { Field("Gdzie", it) }
+                // Lekcja z uwag w nagłówku ("edukacja zdrowotna") - zastępca i sala osobno, nie "D. Musierowicz · s. 111" jako "Gdzie".
+                if (SubstitutionDisplay.lesson(sub) != null) {
+                    sub.substituteTeacher?.trim()?.let { Field("Zastępca", it) }
+                    SubstitutionDisplay.where(sub)?.let { Field("Gdzie", it) }
+                } else SubstitutionDisplay.place(sub)?.let { Field("Gdzie", it) }
                 Field("Za nauczyciela", sub.originalTeacher)
                 SubstitutionDisplay.notes(sub)?.let { Field("Uwagi", it) }
             }

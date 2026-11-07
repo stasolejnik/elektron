@@ -66,18 +66,28 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
      * zapytanie zamiast dwóch (bez drugiego okna czasowego).
      */
     suspend fun find(destination: TransitDestination, origin: TransitDestination? = null, afterMs: Long? = null, allowTransfers: Boolean = false, platformCursors: Map<String, Long>? = null,
-        onPartial: (suspend (Result) -> Unit)? = null): Result = withContext(Dispatchers.IO) {
+        onPartial: (suspend (Result) -> Unit)? = null,
+        /** Przy wybranym przystanku [origin] także stanowiska do 1 km od szkoły (najpierw wybrany przystanek). */
+        includeNearby: Boolean = false): Result = withContext(Dispatchers.IO) {
         val now = AppClock.millis()
         val platforms = catalog.load().platforms.associateBy { it.stopIds.single() }
-        val knowledgeKey = Triple(destination.key, origin?.key, allowTransfers)
+        val originKey = origin?.let { TransitStops.originKey(it, includeNearby) }
+        // Filtr kursów: tylko z wybranego przystanku (bez pobliskich).
+        val strictOrigin = origin?.takeUnless { includeNearby }
+        val knowledgeKey = Triple(destination.key, originKey, allowTransfers)
         val known = synchronized(knowledge) { knowledge[knowledgeKey] }?.takeIf { now - it.at in 0 until knowledgeTtlMs }
         // A selected stop is a constraint, not just a coordinate near other stops.
         // Query each platform of the selected stop using the API's documented stopId.
         // Query boarding platforms, not a walking journey starting at school. Otherwise
         // the server itself hides rides that depart before the student can walk there.
-        val nearby = origin?.stopIds ?: platforms.values.filter {
+        val aroundSchool = platforms.values.filter {
             SchoolTransit.distance(it.latitude, it.longitude) <= 1000
         }.sortedBy { SchoolTransit.distance(it.latitude, it.longitude) }.map { it.stopIds.single() }
+        val nearby = when {
+            origin == null -> aroundSchool
+            includeNearby -> origin.stopIds + aroundSchool.filterNot { it in origin.stopIds }
+            else -> origin.stopIds
+        }
         // Stabilne sortowanie: w obrębie grupy zostaje kolejność od najbliższego szkoły.
         val originIds = if (known == null) nearby else nearby.sortedBy { if (it in known.useful) 0 else 1 }
         val startingPoints = originIds.map { JSONObject().put("stopId", it) }
@@ -92,7 +102,7 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
                 else trip.copy(walkAvailable = false, walkPending = true)
             }
             val at = AppClock.millis()
-            return Result(destination.key, TransitJourneys.rank(withPaths, at, origin, allowTransfers), at, origin?.key,
+            return Result(destination.key, TransitJourneys.rank(withPaths, at, strictOrigin, allowTransfers), at, originKey,
                 nextCursors.values.minOrNull(), allowTransfers, boardingStops, nextCursors,
                 partialFailure = batches.any { it.failed }, complete = complete)
         }
@@ -127,7 +137,7 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
                             // więc jego dalsze stanowisko może leżeć tuż za 1 km - jego kursy znikały bez śladu.
                             trips += TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers,
                                 if (origin != null) TransitJourneyParser.MAX_CHOSEN_ORIGIN_METERS else TransitJourneyParser.MAX_BOARDING_METERS)
-                                .filter { origin == null || it.rides.first().fromId in origin.stopIds }
+                                .filter { strictOrigin == null || it.rides.first().fromId in strictOrigin.stopIds }
                             cursor = TransitJourneyParser.nextCursor(response, whenMs, matched = trips.isNotEmpty())?.takeIf { it <= now + 24 * 60 * 60_000L }
                             if (trips.isNotEmpty() || cursor == null) return@runCatchingCancellable Batch(platform, trips.toList(), cursor)
                             whenMs = cursor!!
@@ -157,7 +167,9 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
      * planer sam wybiera stanowisko; zostają kursy ze stanowisk tego przystanku.
      */
     suspend fun findToSchool(home: TransitDestination, fromMs: Long, afterMs: Long? = null, allowTransfers: Boolean = false,
-        schoolStop: TransitDestination? = null): Result = withContext(Dispatchers.IO) {
+        schoolStop: TransitDestination? = null,
+        /** Przy wybranym [schoolStop] także kursy na inne przystanki pod szkołą (z dojściem liczonym przez planer). */
+        includeNearby: Boolean = false): Result = withContext(Dispatchers.IO) {
         val now = AppClock.millis()
         val platforms = catalog.load().platforms.associateBy { it.stopIds.single() }
         val whenMs = afterMs ?: fromMs
@@ -171,7 +183,9 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
                 path?.minutes ?: SchoolTransit.walkMinutes(SchoolTransit.distance(stop.latitude, stop.longitude))
             } ?: 0
         }
-        val target = schoolStop?.let { JSONObject().put("lat", it.latitude).put("lon", it.longitude) }
+        // Z pobliskimi przystankami - planer szuka do szkoły (dojście z każdego przystanku), a kursy
+        // przez wybrany przystanek i tak kończą się na nim.
+        val target = schoolStop?.takeUnless { includeNearby }?.let { JSONObject().put("lat", it.latitude).put("lon", it.longitude) }
             ?: JSONObject().put("lat", SchoolTransit.LATITUDE).put("lon", SchoolTransit.LONGITUDE)
         val body = JSONObject().put("from", JSONObject().put("lat", home.latitude).put("lon", home.longitude))
             .put("to", target)
@@ -186,10 +200,10 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
             JSONObject(source.readUtf8())
         }
         val journeys = TransitJourneyParser.parseToSchool(response, home, platforms, minOf(now, whenMs), allowTransfers, schoolStop,
-            targetWalkAsync.await(), searchFromMs = whenMs)
+            targetWalkAsync.await(), searchFromMs = whenMs, otherSchoolStops = includeNearby)
         val cursor = TransitJourneyParser.nextCursor(response, whenMs, matched = journeys.isNotEmpty())?.takeIf { it <= whenMs + 24 * 60 * 60_000L }
         val at = AppClock.millis()
-        Result(home.key, TransitJourneys.rankToSchool(journeys, at, allowTransfers), at, schoolStop?.key, cursor, allowTransfers,
+        Result(home.key, TransitJourneys.rankToSchool(journeys, at, allowTransfers), at, schoolStop?.let { TransitStops.originKey(it, includeNearby) }, cursor, allowTransfers,
             direction = TransitDirection.TO_SCHOOL, searchFromMs = fromMs)
         }
     }
@@ -313,7 +327,9 @@ internal object TransitJourneyParser {
     fun parseToSchool(response: JSONObject, home: TransitDestination, platforms: Map<String, TransitDestination>, nowMs: Long,
         allowTransfers: Boolean = true, target: TransitDestination? = null, targetWalkMinutes: Int = 0,
         /** Od kiedy szukano - przy lekcji za kilka dni (piątek wieczorem -> poniedziałek) dawniej limit 36 h od teraz odrzucał wszystko. */
-        searchFromMs: Long = nowMs): List<TransitJourney> {
+        searchFromMs: Long = nowMs,
+        /** Kurs, który nie dojeżdża do [target], liczy się jak przy "Szkoła" (do 1200 m od szkoły, dojście z planera). */
+        otherSchoolStops: Boolean = false): List<TransitJourney> {
         val horizon = maxOf(nowMs, searchFromMs) + 36 * 60 * 60_000L
         require(response.has("journeys")) { "Planer nie zwrócił poprawnych danych" }
         val options = response.getJSONArray("journeys")
@@ -363,11 +379,12 @@ internal object TransitJourneyParser {
             // sąsiednie stanowisko po drugiej stronie ulicy) - karta i tak pokazuje, skąd odjeżdża kurs.
             require(rides.first().fromId in home.stopIds || platforms[rides.first().fromId]?.let {
                 SchoolTransit.distanceBetween(it.latitude, it.longitude, home.latitude, home.longitude) <= NEAR_HOME_METERS } == true)
-            if (target != null) {
+            val targetGap = if (target != null && !reached) platforms[rides.last().toId]?.let {
+                SchoolTransit.distanceBetween(it.latitude, it.longitude, target.latitude, target.longitude) } else null
+            if (target != null && (reached || !otherSchoolStops || (targetGap != null && targetGap <= NEAR_TARGET_METERS))) {
                 // Planer bywa, że kończy na sąsiednim stanowisku i dochodzi pieszo - też się liczy (z dojściem).
                 val extraWalk = if (reached) 0 else {
-                    val end = platforms[rides.last().toId] ?: return@runCatching null
-                    val gap = SchoolTransit.distanceBetween(end.latitude, end.longitude, target.latitude, target.longitude)
+                    val gap = targetGap ?: return@runCatching null
                     require(gap <= NEAR_TARGET_METERS)
                     SchoolTransit.walkMinutes(gap)
                 }

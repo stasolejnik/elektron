@@ -35,7 +35,7 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
             Text("Notatka do lekcji", style = MaterialTheme.typography.headlineSmall)
             Text(lesson.groups.mapNotNull { LocalPersonalization.current.subjectName(it.subject) }.distinct().joinToString(" / ").ifBlank { "Lekcja" },
                 style = MaterialTheme.typography.titleMedium)
-            Text("${lesson.date.format(DateTimeFormatter.ofPattern("d.MM.yyyy"))} · ${lesson.number}. lekcja · ${lesson.timeFrom}",
+            Text("${lesson.date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))} · ${lesson.number}. lekcja · ${lesson.timeFrom}",
                 style = MaterialTheme.typography.bodyMedium)
             if (note != null && note.subject != LessonNote.subject(lesson)) Text(
                 "Plan tej lekcji się zmienił. Notatka była zapisana dla: ${note.subject}.", color = MaterialTheme.colorScheme.tertiary)

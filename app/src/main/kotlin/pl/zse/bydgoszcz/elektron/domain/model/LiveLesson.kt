@@ -89,10 +89,10 @@ object LiveLesson {
                 }
                 val lines = buildList {
                     add("Teraz: ${describe(l, styles)}, do ${l.timeTo}")
-                    substitutionLine(l)?.let(::add)
+                    substitutionLine(l, styles)?.let(::add)
                     note?.let { add("Notatka: ${preview(it)}") }
                     add(next?.let { "Potem: ${describe(it, styles)}" } ?: "To ostatnia lekcja dzisiaj")
-                    next?.let { substitutionLine(it, "Potem zastępstwo") }?.let(::add)
+                    next?.let { substitutionLine(it, styles, "Potem zastępstwo") }?.let(::add)
                     nextNote?.let { add("Notatka do następnej: ${preview(it)}") }
                 }
                 Content(
@@ -134,7 +134,7 @@ object LiveLesson {
         val later = after(next)
         val lines = buildList {
             add("$what: ${describe(next, styles)}, od ${next.timeFrom}")
-            substitutionLine(next)?.let(::add)
+            substitutionLine(next, styles)?.let(::add)
             note?.let { add("Notatka: ${preview(it)}") }
             later?.let { add("Później: ${describe(it, styles)}") }
         }
@@ -152,14 +152,15 @@ object LiveLesson {
     }
 
     /**
-     * Mały napis: koniec lekcji całego dnia i ile jeszcze, np. "Koniec lekcji o 14:25 · jeszcze 2 h 10 min"
-     * (minuty w górę, jak w LessonClock). Przy ostatniej lekcji - tylko godzina końca.
+     * Mały napis: koniec lekcji całego dnia i ile jeszcze, np. "Lekcje do 14:25 · 2 h 10 min" (minuty w górę,
+     * jak w LessonClock). Przy ostatniej lekcji - tylko godzina końca. Krótko, bo w zwiniętym powiadomieniu
+     * dzieli wiersz z tytułem i odliczaniem (dawniej "Koniec lekcji o 14:25 · jeszcze …" ucinało się).
      */
     fun dayLeft(content: Content, now: LocalDateTime): String {
         val end = content.windowEnd
         val minutes = LessonClock.minutesCeil(now.toLocalTime(), end.toLocalTime()).takeIf { now.toLocalDate() == end.toLocalDate() } ?: 0
         val left = if (minutes <= 0) null else SchoolDayEnd.format(minutes)
-        return "Koniec lekcji o ${end.toLocalTime()}" + (left?.takeIf { content.countdownTo != end }?.let { " · jeszcze $it" } ?: "")
+        return "Lekcje do ${end.toLocalTime()}" + (left?.takeIf { content.countdownTo != end }?.let { " · $it" } ?: "")
     }
 
     /** Pełne minuty do [Content.countdownTo], w górę (12:30 zostało = 13), najmniej 1. */
@@ -183,7 +184,7 @@ object LiveLesson {
 
     /** Krótko do zwiniętej treści: "8. wf · s. Hala3". */
     private fun short(l: Lesson, styles: Map<String, SubjectStyle>): String =
-        listOfNotNull("${l.number}. ${subject(l, styles)}", room(l)?.let { "s. $it" }).joinToString(" · ")
+        listOfNotNull("${l.number}. ${subject(l, styles)}", room(l)?.let { Rooms.label(it) }).joinToString(" · ")
 
     /**
      * Najbliższa chwila po [now], w której treść się zmienia: początek okna, początek i koniec każdej
@@ -197,7 +198,7 @@ object LiveLesson {
 
     /** "Matematyka · s. 105" (przy zastępstwie sala z zastępstwa). */
     private fun headline(l: Lesson, styles: Map<String, SubjectStyle>): String =
-        listOfNotNull(subject(l, styles), room(l)?.let { "s. $it" }).joinToString(" · ")
+        listOfNotNull(subject(l, styles), room(l)?.let { Rooms.label(it) }).joinToString(" · ")
 
     /**
      * "4. Fizyka · s. 12 · J. Kowalski"; przy zastępstwie najpierw zastępca (albo informacja szkoły),
@@ -207,13 +208,17 @@ object LiveLesson {
         val sub = l.substitution
         val who = if (sub != null) sub.substituteTeacher?.trim()?.takeIf { it.isNotEmpty() } ?: SubstitutionDisplay.info(sub)
             else l.groups.firstOrNull()?.let { it.teacherFullName ?: it.teacherCode ?: JointGroups.describe(it.classRef, l.className) }
-        val roomText = room(l)?.let { "s. $it" }
+        val roomText = room(l)?.let { Rooms.label(it) }
         val parts = listOfNotNull(if (withSubject) "${l.number}. ${subject(l, styles)}" else null,
             *(if (sub != null) arrayOf(who, roomText) else arrayOf(roomText, who)))
         return parts.joinToString(" · ")
     }
 
+    /** Lekcja, która się odbywa: przy zastępstwie z lekcją w uwagach ("edukacja zdrowotna") ta lekcja - jak na stronie głównej i w widżecie. */
     private fun subject(l: Lesson, styles: Map<String, SubjectStyle>): String =
+        l.substitution?.let(SubstitutionDisplay::lesson) ?: plannedSubject(l, styles)
+
+    private fun plannedSubject(l: Lesson, styles: Map<String, SubjectStyle>): String =
         l.groups.mapNotNull { SubjectStyles.displayName(it.subject, styles) }.distinct().joinToString(" / ")
             .ifBlank { l.note ?: "Lekcja" }
 
@@ -227,8 +232,14 @@ object LiveLesson {
     }
 
     /** "Zastępstwo: J. Nowak · s. 211 · za ostatnią lekcję" - nauczyciel pierwszy, potem sala albo informacja. */
-    private fun substitutionLine(l: Lesson, prefix: String = "Zastępstwo"): String? {
+    private fun substitutionLine(l: Lesson, styles: Map<String, SubjectStyle>, prefix: String = "Zastępstwo"): String? {
         val sub = l.substitution ?: return null
+        // Lekcja, zastępca i sala są już w linii "Teraz"/"Potem" - tu tylko, za co i za kogo (jak "Za:" na stronie głównej).
+        if (SubstitutionDisplay.lesson(sub) != null) {
+            val forWhom = listOfNotNull(plannedSubject(l, styles).takeIf { l.groups.isNotEmpty() },
+                sub.originalTeacher.trim().takeIf { it.isNotEmpty() }, SubstitutionDisplay.notes(sub))
+            return if (forWhom.isEmpty()) null else "$prefix za: " + forWhom.joinToString(" · ")
+        }
         val parts = listOfNotNull(SubstitutionDisplay.headline(sub), SubstitutionDisplay.place(sub), SubstitutionDisplay.notes(sub))
         return "$prefix: " + parts.joinToString(" · ")
     }

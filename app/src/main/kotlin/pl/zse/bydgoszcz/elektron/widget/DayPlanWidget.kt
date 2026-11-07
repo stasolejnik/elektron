@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.Rooms
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 import java.time.LocalTime
@@ -212,7 +213,7 @@ class DayPlanWidget : GlanceAppWidget() {
                     style = TextStyle(color = numberColor, fontSize = 15.sp, fontWeight = FontWeight.Bold))
                 Column(GlanceModifier.defaultWeight()) {
                     Text(lesson.title, style = TextStyle(color = titleColor, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-                    val meta = listOfNotNull(remaining ?: lesson.timeRange, lesson.room?.let { "s. $it" }).joinToString(" · ")
+                    val meta = listOfNotNull(remaining ?: lesson.timeRange, lesson.room?.let { Rooms.label(it) }).joinToString(" · ")
                     Text(meta, style = TextStyle(color = if (past) WidgetColors.textFaded else WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
                     lesson.note?.let {
                         Text(it, style = TextStyle(color = WidgetColors.substitution, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1)

@@ -24,30 +24,25 @@ object SubstitutionNotice {
             " " + date.format(DATE)
     }
 
-    /** [subject] - nazwa przedmiotu do wyświetlenia (po personalizacji), jeśli znana. */
+    /**
+     * [subject] - nazwa przedmiotu do wyświetlenia (po personalizacji), jeśli znana.
+     *
+     * Układ jak wiersz w zakładce Zastępstwa: tytuł "Dziś, 6. lekcja: edukacja zdrowotna" (dzień, lekcja i to,
+     * co się zmieniło), pod nim zastępca z salą, potem "Za: przedmiot · nieobecny" i uwagi - każda informacja raz.
+     * Zwinięte powiadomienie: tytuł i pierwsza linia (zastępca z salą albo, przy zwolnieniu, "Za: …").
+     */
     fun content(sub: Substitution, subject: String?, today: LocalDate): Content {
         val day = dayLabel(sub.date, today)
-        val what = listOfNotNull(SubstitutionDisplay.headline(sub), SubstitutionDisplay.place(sub)).joinToString(" · ")
-        val forWhom = "Za: " + listOfNotNull(subject?.takeIf { it.isNotBlank() }, sub.originalTeacher.takeIf { it.isNotBlank() })
-            .joinToString(" · ")
+        val group = sub.groupNumber?.let { " (grupa $it)" } ?: ""
+        val place = SubstitutionDisplay.place(sub)
+        val forWhom = listOfNotNull(subject?.takeIf { it.isNotBlank() }, sub.originalTeacher.trim().takeIf { it.isNotEmpty() })
+            .takeIf { it.isNotEmpty() }?.joinToString(" · ", prefix = "Za: ")
         val notes = SubstitutionDisplay.notes(sub)
-        val expanded = buildString {
-            append("Kiedy: $day, ${sub.lessonNumber}. lekcja")
-            sub.groupNumber?.let { append(" (grupa $it)") }
-            append("\nZa nauczyciela: ${sub.originalTeacher}")
-            subject?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
-            if (sub.substituteTeacher.isNullOrBlank()) {
-                sub.roomOrInfo.trim().takeIf { it.isNotEmpty() }?.let { append("\nInformacja: $it") }
-            } else {
-                append("\nZastępca: ${sub.substituteTeacher.trim()}")
-                SubstitutionDisplay.place(sub)?.let { append("\nGdzie: $it") }
-            }
-            notes?.let { append("\nUwagi: $it") }
-        }
+        val lines = listOfNotNull(place, forWhom, notes?.let { "Uwagi: $it" })
         return Content(
-            title = "$day, ${sub.lessonNumber}. lekcja: $what",
-            text = listOfNotNull(forWhom, notes).joinToString(" · "),
-            expanded = expanded
+            title = "$day, ${sub.lessonNumber}. lekcja$group: ${SubstitutionDisplay.headline(sub)}",
+            text = lines.firstOrNull() ?: "",
+            expanded = lines.joinToString("\n")
         )
     }
 

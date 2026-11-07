@@ -128,8 +128,9 @@ fun SubstitutionsScreen(
                         modifier = Modifier.padding(top = 12.dp))
                 } }
                 lastSuccess?.let { at -> item(key = "freshness") {
-                    Text("Zastępstwa sprawdzono: " + at.atZone(java.time.ZoneId.systemDefault())
-                        .format(java.time.format.DateTimeFormatter.ofPattern("d.MM, HH:mm")),
+                    // Jak "Sprawdzono 12:50" w Przejazdach (dawniej "Zastępstwa sprawdzono: 3.11, 12:49" w zakładce Zastępstwa).
+                    Text("Sprawdzono " + pl.zse.bydgoszcz.elektron.domain.model.DateTexts.past(
+                        java.time.LocalDateTime.ofInstant(at, java.time.ZoneId.systemDefault()), pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } }
                 if (groups.isEmpty() && isLoading && !isRefreshing) {

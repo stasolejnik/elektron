@@ -28,6 +28,8 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
     // Katalog z API v2 (inny format niż dawny plik transit_stops.json, który jest usuwany).
     private val file = AtomicFile(File(context.cacheDir, "transit_stops_v2.json"))
     private val legacyFile = File(context.cacheDir, "transit_stops.json")
+    /** ETag zapisanego katalogu: niezmieniony katalog przychodzi jako 304 bez treści (ok. 300 kB mniej). */
+    private val etagFile = File(context.cacheDir, "transit_stops_v2.etag")
     private val mutex = Mutex()
     private var cached: Catalog? = null
     private var lastFailure: Throwable? = null
@@ -55,14 +57,24 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
                 }
             }
             runCatchingCancellable {
+                val etag = if (previous != null) runCatching { etagFile.readText().trim() }.getOrNull()?.takeIf { it.isNotEmpty() && it.length <= 200 } else null
                 val request = Request.Builder().url(STOPS_URL)
-                    .header("Accept", "application/json").build()
+                    .header("Accept", "application/json")
+                    .apply { if (etag != null) header("If-None-Match", etag) }.build()
+                var newEtag: String? = null
                 val json = client.newCall(request).readCancellable { response ->
+                    // Bez zmian od ostatniego pobrania - zapisany katalog jest aktualny.
+                    if (response.code == 304 && previous != null) return@readCancellable null
                     if (!response.isSuccessful) throw IOException("Katalog: HTTP ${response.code}")
+                    newEtag = response.header("ETag")
                     val source = response.body?.source() ?: throw IOException("Pusta odpowiedź")
                     source.request(maxCatalogBytes + 1)
                     if (source.buffer.size > maxCatalogBytes) throw IOException("Zbyt duży katalog")
                     source.readUtf8()
+                }
+                if (json == null) {
+                    runCatching { file.baseFile.setLastModified(now) }
+                    return@runCatchingCancellable previous!!.copy(stale = false, updatedAt = now).also { cached = it; lastFailure = null }
                 }
                 val result = decodeCatalog(json, now)
                 // A failed cache write must not discard an otherwise valid result.
@@ -70,6 +82,7 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
                     val output = file.startWrite()
                     try { output.write(json.toByteArray(Charsets.UTF_8)); file.finishWrite(output) }
                     catch (e: Exception) { file.failWrite(output); throw e }
+                    newEtag?.takeIf { it.length <= 200 }?.let { etagFile.writeText(it) } ?: etagFile.delete()
                 }
                 result.also { cached = it; lastFailure = null }
             }.getOrElse { error ->

@@ -57,8 +57,8 @@ internal class TransitLiveTracker(
         val (result, prefs) = current() ?: run { clear(); return }
         val now = AppClock.millis()
         // Tylko kursy pokazywane na ekranie (przystanek, przesiadki, dojście przy "Szkoła").
-        val shown = TransitJourneys.upcoming(result.journeys, now, if (result.direction == TransitDirection.TO_SCHOOL) null else prefs.preferredOrigin,
-            prefs.allowTransfers, _live.value).let { if (prefs.preferredOrigin == null) TransitJourneys.walkable(it, now, _live.value) else it }
+        val shown = TransitJourneys.upcoming(result.journeys, now, if (result.direction == TransitDirection.TO_SCHOOL) null else prefs.strictOrigin,
+            prefs.allowTransfers, _live.value).let { if (prefs.strictOrigin == null) TransitJourneys.walkable(it, now, _live.value) else it }
         val boards = TransitLive.boards(shown, now)
         val fetched = kotlinx.coroutines.coroutineScope {
             boards.map { board -> async { board to runCatchingCancellable { repository.departures(board.first, board.second) }.getOrNull() } }

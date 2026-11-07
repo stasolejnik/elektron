@@ -48,7 +48,7 @@ internal fun formatTransitTime(timeMs: Long, referenceMs: Long = AppClock.millis
     val prefix = when (time.toLocalDate()) {
         today -> ""
         today.plusDays(1) -> "jutro "
-        else -> time.format(DateTimeFormatter.ofPattern("d.MM")) + " "
+        else -> time.format(pl.zse.bydgoszcz.elektron.domain.model.DateTexts.DAY_MONTH) + " "
     }
     return prefix + time.format(transitTime)
 }
@@ -65,7 +65,7 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     var picker by rememberSaveable { mutableIntStateOf(0) }
     val toSchool = commute.toSchool
     // Przystanek przy szkole liczy się w obu kierunkach (do szkoły - gdzie wysiadasz).
-    val originKey = state.preferences.preferredOrigin?.key
+    val originKey = state.preferences.originKey
     var visibleCount by rememberSaveable(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableIntStateOf(3) }
     // Do szkoły: ile wcześniejszych kursów pokazać nad tym z zapasem ok. 10 min ("Pokaż wcześniejsze").
     var earlierCount by rememberSaveable(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableIntStateOf(0) }
@@ -93,9 +93,9 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     val nowMs = remember(tick) { AppClock.millis() }
     val matching = result?.takeIf { viewModel.matchesCurrent(it) }
     val journeys = remember(matching, nowMs, originKey, state.preferences.allowTransfers, live) {
-        TransitJourneys.upcoming(matching?.journeys.orEmpty(), nowMs, if (toSchool) null else state.preferences.preferredOrigin,
+        TransitJourneys.upcoming(matching?.journeys.orEmpty(), nowMs, if (toSchool) null else state.preferences.strictOrigin,
             state.preferences.allowTransfers, live)
-            .let { if (state.preferences.preferredOrigin == null) TransitJourneys.walkable(it, nowMs, live) else it }
+            .let { if (state.preferences.strictOrigin == null) TransitJourneys.walkable(it, nowMs, live) else it }
     }
     // Po odrzuceniu kursów, na które nie da się dojść, lista bywa krótsza niż żądana - dociągamy
     // kolejne okno planera sami (z limitem, żeby nie pytać w kółko), zamiast pokazywać jeden kurs.
@@ -320,8 +320,11 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, onClick: (() -> Unit
                 fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = colors.primary, maxLines = 1)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("z ${first.fromName}", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
-                modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            // Pozycja pojazdu na żywo (tablica przystanku BUSearch): "Odjazd: Rycerska · pojazd 650 m stąd".
+            // "Odjazd:" zamiast "z Rycerska" (nazw przystanków się nie odmienia); do dwóch linii, by nie ucinać pojazdu.
+            val vehicle = pl.zse.bydgoszcz.elektron.domain.model.TransitLive.vehicleText(live?.vehicleMeters)
+            Text(listOfNotNull("Odjazd: ${first.fromName}", vehicle).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
+                modifier = Modifier.weight(1f), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             live?.let { LiveChip(it); Spacer(Modifier.width(6.dp)) }
             Text(formatTransitTime(departure, nowMs), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1)
         }
@@ -396,6 +399,8 @@ private fun LiveChip(status: LiveStatus) {
     }
 }
 
+private val WORD_HYPHEN = Regex("(?<=\\p{L})-(?=\\p{L})")
+
 /** Linia i przystanek, na którym wysiadasz (nie kierunek pojazdu - ten bywa daleko za celem). */
 @Composable
 private fun RideTo(line: String, stop: String) {
@@ -404,7 +409,8 @@ private fun RideTo(line: String, stop: String) {
             Text(line, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
         }
         Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-        Text(stop, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 2,
+        // Miejsce na złamanie po łączniku w nazwie ("Skłodowskiej-|Curie") - przy dużej czcionce dawniej "Skłodowskiej-Cur / ie".
+        Text(stop.replace(WORD_HYPHEN, "-\u200B"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 2,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }

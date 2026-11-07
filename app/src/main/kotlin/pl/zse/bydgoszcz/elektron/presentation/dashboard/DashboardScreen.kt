@@ -112,7 +112,7 @@ fun DashboardScreen(
             ) {
                 if (state.selectedClassId == null) {
                     item {
-                        InfoCard("Witaj w eLektron",
+                        InfoCard("Witaj w eLektronie",
                             "Nie wybrano jeszcze klasy. Przejdź do Ustawień i wybierz swoją klasę.")
                     }
                 } else {
@@ -354,8 +354,9 @@ private fun NextLessonCard(state: DashboardViewModel.State, onClick: () -> Unit)
                             Text(subjectName ?: "Lekcja", style = MaterialTheme.typography.headlineSmall,
                                 color = onContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(4.dp))
-                            val room = lesson.groups.firstOrNull()?.room ?: "—"
-                            Text("${lesson.timeFrom}–${lesson.timeTo} · sala $room",
+                            // Sala jak wszędzie ("s. 105"); bez sali tylko godziny, nie "sala —".
+                            val room = lesson.groups.mapNotNull { it.room }.distinct().joinToString(", ").ifBlank { null }
+                            Text(listOfNotNull("${lesson.timeFrom}–${lesson.timeTo}", room?.let(pl.zse.bydgoszcz.elektron.domain.model.Rooms::label)).joinToString(" · "),
                                 style = MaterialTheme.typography.bodyLarge, color = onContainer)
                             val teacher = lesson.groups.firstOrNull()?.teacherFullName
                                 ?: lesson.groups.firstOrNull()?.teacherCode
@@ -492,7 +493,7 @@ private fun InfoCard(title: String, body: String) {
 
 @Composable
 private fun AnnouncementRow(a: Announcement, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val fmt = DateTimeFormatter.ofPattern("d.MM.yyyy")
+    val fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy")
     val date = a.publishedAt.atZone(ZoneId.systemDefault()).toLocalDate().format(fmt)
     ElektronCard(modifier = modifier, onClick = onClick) {
         pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls.schoolImage(a.coverImageUrl)?.let { url ->

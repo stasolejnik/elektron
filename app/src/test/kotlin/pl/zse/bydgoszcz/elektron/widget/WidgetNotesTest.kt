@@ -34,7 +34,7 @@ class WidgetNotesTest {
         assertNull(state(emptyList()).focus.userNote)
     }
     private fun sub(userNote: String? = null, schoolNote: String? = null) =
-        WidgetSubstitution(LessonTarget(date, 1), "Dziś", 1, "Nauczyciel", "s. 211", schoolNote, userNote)
+        WidgetSubstitution(LessonTarget(date, 1), "Dziś", 1, "Nauczyciel", "s.\u00A0211", schoolNote, userNote)
 
     @Test fun noteBudgetGrowsWithHeightAndShrinksWithFontScale() {
         assertEquals(0, WidgetNoteLayout.lines(100f, 100f))

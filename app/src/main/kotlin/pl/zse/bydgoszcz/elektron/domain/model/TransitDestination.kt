@@ -20,9 +20,15 @@ data class TransitPreferences(
     val recentOrigins: List<TransitDestination> = emptyList(),
     val hiddenTabs: Set<String> = emptySet(),
     val showOnDashboard: Boolean = false,
-    val navigationOrder: List<String> = NavigationOrder.DEFAULT
+    val navigationOrder: List<String> = NavigationOrder.DEFAULT,
+    /** Przy wybranym przystanku przy szkole także kursy z innych przystanków do 1 km od szkoły (domyślnie nie). */
+    val nearbyStops: Boolean = false
 ) {
     val visible: Boolean get() = enabled
+    /** Wybrany przystanek przy szkole jako filtr kursów; null - "Szkoła" albo włączone pobliskie przystanki. */
+    val strictOrigin: TransitDestination? get() = preferredOrigin?.takeUnless { nearbyStops }
+    /** Klucz wyboru przy szkole w wynikach - z pobliskimi przystankami inny niż sam przystanek. */
+    val originKey: String? get() = preferredOrigin?.let { TransitStops.originKey(it, nearbyStops) }
     val canLoadJourneys: Boolean get() = destination != null && (enabled || showOnDashboard)
 }
 
@@ -30,6 +36,9 @@ internal fun rememberTransitStop(previous: List<TransitDestination>, selected: T
     (listOf(selected) + previous.filterNot { it.key == selected.key }).take(5)
 
 internal object TransitStops {
+    /** Klucz przystanku przy szkole w wyniku: z pobliskimi przystankami ("+okolica") inny niż sam przystanek. */
+    fun originKey(origin: TransitDestination, nearby: Boolean): String = if (nearby) "${origin.key}+okolica" else origin.key
+
     private val POLE_NUMBER = Regex("\\s+#\\d+$")
 
     /** Nazwa bez numeru słupka BUSearch ("Rycerska #2" -> "Rycerska"). */

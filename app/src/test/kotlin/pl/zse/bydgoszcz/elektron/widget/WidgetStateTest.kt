@@ -282,7 +282,7 @@ class WidgetStateTest {
         val st = WidgetDataLoader.buildState(day, LocalDateTime.of(friday, LocalTime.of(10, 0))) as WidgetState.Ready
         assertEquals(3, st.focus.number)
         assertEquals(5, st.following?.number)
-        assertEquals("Potem: 5. fiz · 11:40 · s. 105", followingShort(st.following!!))
+        assertEquals("Potem: 5. fiz · 11:40 · s.\u00A0105", followingShort(st.following!!))
         // Ostatnia lekcja - nie ma kolejnej.
         assertNull((WidgetDataLoader.buildState(day, LocalDateTime.of(friday, LocalTime.of(12, 0))) as WidgetState.Ready).following)
     }

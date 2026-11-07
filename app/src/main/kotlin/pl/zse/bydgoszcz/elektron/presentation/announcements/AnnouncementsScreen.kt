@@ -105,7 +105,7 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
     val snackbar = remember { SnackbarHostState() }
     val message by viewModel.message.collectAsStateWithLifecycle()
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); viewModel.consumeMessage(it) } }
-    val fmt = DateTimeFormatter.ofPattern("d.MM.yyyy, HH:mm")
+    val fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy, HH:mm")
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(

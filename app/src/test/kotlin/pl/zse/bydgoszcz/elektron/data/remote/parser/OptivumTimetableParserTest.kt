@@ -140,6 +140,11 @@ class OptivumTimetableParserTest {
         // Podwójna spacja jak na stronie ("Cd  WP1 zaj wojskowe").
         assertEquals("Cd", OptivumTimetableParser.parseTextCell("Cd  WP1 zaj wojskowe")!!.teacherCode)
 
+        // Od listopada 2026 szkoła dopisuje salę po liście oddziałów.
+        val withRoom = OptivumTimetableParser.parseTextCell("5B,5D 105 zaj uni")!!
+        assertEquals("zaj uni", withRoom.subject)
+        assertEquals("105", withRoom.room)
+        assertEquals("5B,5D", withRoom.classRef)
         val uni = OptivumTimetableParser.parseTextCell("5B,5D zaj uni")!!
         assertEquals("zaj uni", uni.subject)
         assertEquals("5B,5D", uni.classRef)

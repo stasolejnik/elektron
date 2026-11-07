@@ -16,11 +16,19 @@ class SubstitutionNoticeTest {
     @Test
     fun absentTeacherIsMarkedAsReplacedNotAsSubstitute() {
         val c = SubstitutionNotice.content(sub("Kowalski", "211"), "Matematyka", today)
-        assertEquals("Jutro, 3. lekcja: Kowalski · s. 211", c.title)
-        assertEquals("Za: Matematyka · Nowak", c.text)
-        assertTrue(c.expanded.contains("Za nauczyciela: Nowak · Matematyka"))
-        assertTrue(c.expanded.contains("Zastępca: Kowalski"))
+        assertEquals("Jutro, 3. lekcja: Kowalski", c.title)
+        assertEquals("s.\u00A0211", c.text)
+        assertEquals("s.\u00A0211\nZa: Matematyka · Nowak", c.expanded)
         assertFalse("Dawniej 'Zastępuje: <nieobecny>' sugerowało odwrotną rolę", (c.title + c.text + c.expanded).contains("Zastępuje"))
+    }
+
+    /** Prawdziwy wpis z 03.11.2026 ("1 D - 111", D. Musierowicz, uwaga "edukacja zdrowotna"). */
+    @Test
+    fun lessonFromNotesIsTheTitleAndEachDetailAppearsOnce() {
+        val c = SubstitutionNotice.content(sub("D. Musierowicz", "111", "edukacja zdrowotna", today), "j.polski", today)
+        assertEquals("Dziś, 3. lekcja: edukacja zdrowotna", c.title)
+        assertEquals("D. Musierowicz · s.\u00A0111", c.text)
+        assertEquals("D. Musierowicz · s.\u00A0111\nZa: j.polski · Nowak", c.expanded)
     }
 
     @Test
@@ -28,17 +36,16 @@ class SubstitutionNoticeTest {
         val c = SubstitutionNotice.content(sub(null, "Uczniowie przychodzą później"), null, today)
         assertEquals("Jutro, 3. lekcja: Uczniowie przychodzą później", c.title)
         assertEquals("Za: Nowak", c.text)
-        assertTrue(c.expanded.contains("Informacja: Uczniowie przychodzą później"))
+        assertEquals("Za: Nowak", c.expanded)
         assertFalse(c.title.contains("Nowe zastępstwo"))
     }
 
     @Test
     fun notesGroupAndDayLabels() {
         val c = SubstitutionNotice.content(sub("Kowalski", "Zajęcia w auli", "za ostatnią lekcję", today, group = 2), null, today)
-        assertEquals("Dziś, 3. lekcja: Kowalski · Zajęcia w auli", c.title)
-        assertEquals("Za: Nowak · za ostatnią lekcję", c.text)
-        assertTrue(c.expanded.contains("(grupa 2)"))
-        assertTrue(c.expanded.contains("Uwagi: za ostatnią lekcję"))
+        assertEquals("Dziś, 3. lekcja (grupa 2): Kowalski", c.title)
+        assertEquals("Zajęcia w auli", c.text)
+        assertEquals("Zajęcia w auli\nZa: Nowak\nUwagi: za ostatnią lekcję", c.expanded)
         assertEquals("Poniedziałek 12.10", SubstitutionNotice.dayLabel(LocalDate.of(2026, 10, 12), today))
     }
 

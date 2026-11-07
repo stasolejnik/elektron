@@ -87,7 +87,7 @@ class LiveLessonSchedulerTest {
         assertEquals(LocalNotificationSink.CHANNEL_LIVE, n.channelId)
         assertTrue(n.flags and Notification.FLAG_ONGOING_EVENT != 0)
         assertEquals("Do przerwy", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
-        assertEquals("Teraz: 1. mat · s. 105", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals("Teraz: 1. mat · s.\u00A0105", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertTrue(n.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
         assertTrue(n.extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN))
         assertEquals(day.atTime(8, 45).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(), n.`when`)
@@ -97,7 +97,7 @@ class LiveLessonSchedulerTest {
         assertNotNull("alarm na najbliższy dzwonek", alarms.peekNextScheduledAlarm())
         // "Wyczyść wszystko" go nie usuwa; mały napis o końcu dnia (plan do 09:40).
         assertTrue(n.flags and Notification.FLAG_NO_CLEAR != 0)
-        assertEquals("Koniec lekcji o 09:40 · jeszcze 1 h 30 min", n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
+        assertEquals("Lekcje do 09:40 · 1 h 30 min", n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
         // Pasek i napis odświeżane co minutę alarmem bez budzenia telefonu.
         val progress = alarms.scheduledAlarms.single { it.type == AlarmManager.RTC }
         assertEquals(day.atTime(8, 11).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() + 1_000L, progress.triggerAtTime)
@@ -149,7 +149,7 @@ class LiveLessonSchedulerTest {
             scheduler.reschedule()                 // czas aplikacji (symulowany)
             val n = requireNotNull(live())
             assertEquals("Do przerwy", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
-        assertEquals("Teraz: 1. mat · s. 105", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals("Teraz: 1. mat · s.\u00A0105", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
             // Chronometr i alarm w czasie telefonu: koniec lekcji za ok. 35 min od teraz.
             val left = n.`when` - System.currentTimeMillis()
             assertTrue("odliczanie ok. 35 min, było ${left / 60000} min", left in 34 * 60_000L..36 * 60_000L)

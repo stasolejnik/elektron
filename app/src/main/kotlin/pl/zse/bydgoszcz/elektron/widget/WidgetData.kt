@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.Rooms
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 import android.util.Log
@@ -344,7 +345,10 @@ object WidgetDataLoader {
             return WidgetLesson(
                 number = l.number,
                 title = SubstitutionDisplay.headline(sub),
-                detail = "Zastępstwo za ${sub.originalTeacher}",
+                // Lekcja z uwag w tytule ("edukacja zdrowotna") - pod nią zastępca (dawniej brakowało go w widżecie);
+                // inaczej "Za: <nieobecny>" jak w aplikacji (bez "Zastępstwo za Dagmara Wróblewska" - nazwisk się nie odmienia).
+                detail = if (SubstitutionDisplay.lesson(sub) != null) sub.substituteTeacher?.trim()
+                    else sub.originalTeacher.trim().takeIf { it.isNotEmpty() }?.let { "Za: $it" },
                 room = info.takeIf { isRoom },
                 timeFrom = l.timeFrom, timeTo = l.timeTo,
                 isSubstitution = true,
@@ -412,7 +416,7 @@ internal fun widgetCompactLabel(state: WidgetState.Ready, now: LocalTime, fallba
 /** Kolejna lekcja w jednej linii (mały widżet): "Potem: 4. fizyka · 10:45 · s. 12". */
 internal fun followingShort(lesson: WidgetLesson): String =
     listOfNotNull("Potem: ${lesson.number}. ${lesson.title}", lesson.timeFrom.toString(),
-        lesson.room?.let { "s. $it" } ?: lesson.note).joinToString(" · ")
+        lesson.room?.let { Rooms.label(it) } ?: lesson.note).joinToString(" · ")
 
 /** Midnight updates date labels; today's known lesson ends remove completed substitutions. */
 internal fun nextSubstitutionChange(now: LocalDateTime, targets: List<LessonTarget>, ends: Map<Int, LocalTime>): LocalDateTime =

@@ -126,14 +126,23 @@ class TransitToSchoolTest {
         } finally { AppClock.reset() }
     }
 
+    @Test fun vehiclePositionText() {
+        assertEquals("pojazd na przystanku", TransitLive.vehicleText(20))
+        assertEquals("pojazd 650 m stąd", TransitLive.vehicleText(648))
+        assertEquals("pojazd 1,2 km stąd", TransitLive.vehicleText(1234))
+        assertNull(TransitLive.vehicleText(null))
+    }
+
     @Test fun liveBoardParsesDelaysAndSkipsBrokenEntries() {
         val board = TransitLiveRepository.parse("""{"departures":[
-            {"line":"10","destination":"Zajezdnia","atMs":1792789529124,"delayMinutes":-1,"source":"live"},
+            {"line":"10","destination":"Zajezdnia","atMs":1792789529124,"delayMinutes":-1,"source":"live","vehicleId":"ISKA7025","distanceToStopM":648.4},
+            {"line":"10","destination":"Zajezdnia","atMs":1792789600000,"delayMinutes":1,"source":"live","vehicleId":"X","vehiclePositionStale":true,"distanceToStopM":300},
             {"line":"10","destination":"Zajezdnia","atMs":1792791060000,"source":"timetable"},
             {"line":"","atMs":1},
             {"line":"5","destination":"Rycerska","atMs":1792789000000,"delayMinutes":2,"source":"live","arrivalOnly":true},
             {"line":"4","atMs":1792789410659,"source":"live"}]}""")
-        assertEquals(listOf(LiveDeparture("10", 1792789529124, -1, true), LiveDeparture("10", 1792791060000, null, false),
+        assertEquals(listOf(LiveDeparture("10", 1792789529124, -1, true, vehicleMeters = 648), LiveDeparture("10", 1792789600000, 1, true),
+            LiveDeparture("10", 1792791060000, null, false),
             LiveDeparture("4", 1792789410659, null, true)), board)
     }
 }

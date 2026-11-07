@@ -126,7 +126,7 @@ internal fun TransitSection(
     settings: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel.Settings,
     saving: Boolean, error: String?,
     onTab: (Boolean) -> Unit, onCard: (Boolean) -> Unit, onTransfers: (Boolean) -> Unit,
-    onPick: (origin: Boolean) -> Unit
+    onPick: (origin: Boolean) -> Unit, onNearby: (Boolean) -> Unit = {}
 ) {
     val prefs = settings.preferences
     val ready = settings.ready && !settings.failed && !saving
@@ -142,6 +142,12 @@ internal fun TransitSection(
             ValueRow("Twój przystanek", prefs.destination?.name ?: "Wybierz", enabled = ready) { onPick(false) }
             RowDivider()
             ValueRow("Przystanek przy szkole", prefs.preferredOrigin?.name ?: "Szkoła", enabled = ready) { onPick(true) }
+            // Przy "Szkoła" kursy i tak są z wszystkich przystanków pod szkołą - przełącznik tylko przy wybranym.
+            if (prefs.preferredOrigin != null) {
+                RowDivider()
+                SwitchRow("Także inne przystanki przy szkole", prefs.nearbyStops, enabled = ready,
+                    supporting = "Oprócz wybranego przystanku - kursy z przystanków do 1 km od szkoły i na nie", onChange = onNearby)
+            }
             RowDivider()
             SwitchRow("Połączenia z przesiadką", prefs.allowTransfers, enabled = ready, onChange = onTransfers)
         }
@@ -313,7 +319,7 @@ internal fun RemindersSection(current: ReminderSettings, status: LessonReminderS
                     !notificationsOn -> "Powiadomienia zablokowane w systemie"
                     status.error -> "Nie udało się ustawić przypomnienia"
                     !status.ready -> "Sprawdzam…"
-                    status.at != null -> "Najbliższe: ${status.at.format(java.time.format.DateTimeFormatter.ofPattern("d.MM, HH:mm"))}"
+                    status.at != null -> "Najbliższe: ${pl.zse.bydgoszcz.elektron.domain.model.DateTexts.upcoming(status.at, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today())}"
                     else -> "Brak nadchodzącej lekcji w zapisanym planie na najbliższe 7 dni"
                 }, style = MaterialTheme.typography.bodyMedium)
                 if (notificationsOn && !status.error && status.at != null) {

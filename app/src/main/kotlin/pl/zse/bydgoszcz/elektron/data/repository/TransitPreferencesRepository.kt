@@ -31,6 +31,7 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     private val destinationKey = stringPreferencesKey("destination")
     private val originKey = stringPreferencesKey("preferred_origin")
     private val transfersKey = booleanPreferencesKey("allow_transfers")
+    private val nearbyKey = booleanPreferencesKey("nearby_school_stops")
     private val recentDestinationsKey = stringPreferencesKey("recent_destinations")
     private val recentOriginsKey = stringPreferencesKey("recent_origins")
     private val hiddenTabsKey = stringSetPreferencesKey("hidden_navigation_tabs")
@@ -42,7 +43,8 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
         val origin = decode(it[originKey])
         TransitPreferences(destination, it[enabledKey] ?: false, origin,
             it[transfersKey] == true, history(it[recentDestinationsKey], destination), history(it[recentOriginsKey], origin), it[hiddenTabsKey].orEmpty(), it[dashboardKey] ?: false,
-            pl.zse.bydgoszcz.elektron.domain.model.NavigationOrder.normalize(it[orderKey]?.split(',').orEmpty()))
+            pl.zse.bydgoszcz.elektron.domain.model.NavigationOrder.normalize(it[orderKey]?.split(',').orEmpty()),
+            nearbyStops = it[nearbyKey] == true)
     }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     suspend fun select(destination: TransitDestination) = withContext(Dispatchers.IO) {
@@ -66,6 +68,9 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     }
     suspend fun setAllowTransfers(allow: Boolean) = withContext(Dispatchers.IO) {
         store.edit { it[transfersKey] = allow }; Unit
+    }
+    suspend fun setNearbyStops(enabled: Boolean) = withContext(Dispatchers.IO) {
+        store.edit { it[nearbyKey] = enabled }; Unit
     }
     suspend fun setEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
         store.edit {

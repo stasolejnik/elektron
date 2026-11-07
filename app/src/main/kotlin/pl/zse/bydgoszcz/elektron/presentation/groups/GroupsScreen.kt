@@ -192,7 +192,7 @@ private fun SubjectList(
         item(key = "intro") {
             Text(
                 "Wybierz grupy, do których należysz. W planie i na stronie głównej zobaczysz tylko swoje " +
-                    "zajęcia — lekcje bez podziału są widoczne zawsze." +
+                    "zajęcia - lekcje bez podziału są widoczne zawsze." +
                     (state.className?.let { "\nKlasa: $it" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

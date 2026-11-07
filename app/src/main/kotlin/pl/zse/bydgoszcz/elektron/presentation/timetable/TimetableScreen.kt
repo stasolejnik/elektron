@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.presentation.timetable
 
+import pl.zse.bydgoszcz.elektron.domain.model.Rooms
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
 import android.content.Intent
@@ -671,7 +672,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                         val teacherOrJoint = (g.teacherFullName ?: g.teacherCode)
                             ?: JointGroups.describe(g.classRef, lesson.className)
                         val meta = listOfNotNull(
-                            g.room?.takeIf { look.showRoom }?.let { "s. $it" },
+                            g.room?.takeIf { look.showRoom }?.let { Rooms.label(it) },
                             teacherOrJoint?.takeIf { look.showTeacher }
                         ).joinToString(" · ")
                         if (meta.isNotBlank()) {

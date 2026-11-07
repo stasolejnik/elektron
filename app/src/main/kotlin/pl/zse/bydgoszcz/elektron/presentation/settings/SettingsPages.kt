@@ -215,6 +215,11 @@ internal fun DevSection(viewModel: SettingsViewModel) {
         RowDivider()
         ActionRow("Odśwież widżety") { viewModel.devRefreshWidgets() }
         RowDivider()
+        val shortText by viewModel.shortTextEverywhere.collectAsStateWithLifecycle()
+        SwitchRow("Krótki czas w kapsule na każdym telefonie", shortText,
+            supporting = "Android 16: odliczanie jako krótki tekst (jak na realme/OPPO/OnePlus) zamiast chronometru",
+            onChange = viewModel::setShortTextEverywhere)
+        RowDivider()
         ActionRow("Raport błędu (bez awarii)") { viewModel.openFeedback() }
         RowDivider()
         ActionRow("Symuluj awarię aplikacji", destructive = true) { confirmCrash = true }

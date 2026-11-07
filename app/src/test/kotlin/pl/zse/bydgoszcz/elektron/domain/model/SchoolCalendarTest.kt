@@ -47,6 +47,14 @@ class SchoolCalendarTest {
         assertNull(SchoolCalendar.dayOff(d(2027, 2, 13)))
     }
 
+    @Test fun winterBreak2027To2028() {
+        // gov.pl: kujawsko-pomorskie 17-30 stycznia 2028.
+        assertNull(SchoolCalendar.dayOff(d(2028, 1, 14)))
+        assertEquals("Ferie zimowe", SchoolCalendar.dayOff(d(2028, 1, 17)))
+        assertEquals("Ferie zimowe", SchoolCalendar.dayOff(d(2028, 1, 28)))
+        assertNull(SchoolCalendar.dayOff(d(2028, 1, 31)))
+    }
+
     @Test fun lessonsEndOnTheFridayAfterTwentiethOfJune() {
         assertEquals(d(2024, 6, 21), SchoolCalendar.schoolYearEnd(2024))
         assertEquals(d(2025, 6, 27), SchoolCalendar.schoolYearEnd(2025))   // 20.06.2025 to piątek - następny
