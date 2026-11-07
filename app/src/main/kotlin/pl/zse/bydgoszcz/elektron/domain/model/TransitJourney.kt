@@ -63,16 +63,6 @@ object TransitJourneys {
             }.sortedWith(compareBy<TransitJourney> { it.departureMs }.thenBy { it.schoolArrivalMs ?: it.arrivalMs }
                 .thenBy { it.rides.first().line })
 
-    /**
-     * Do szkoły: ostatni kurs, którym zdążysz na lekcję (najpóźniejszy odjazd z dotarciem do szkoły
-     * przed jej początkiem). null - żaden z listy nie zdąży albo brak lekcji.
-     */
-    fun lastOnTime(journeys: List<TransitJourney>, lessonStartMs: Long?, live: Map<String, LiveStatus> = emptyMap()): TransitJourney? {
-        lessonStartMs ?: return null
-        return journeys.filter { trip -> trip.schoolArrivalMs?.let { it + delayMs(trip, live) <= lessonStartMs } == true }
-            .maxByOrNull { TransitLive.expected(it, live) }
-    }
-
     /** Zapas, z jakim dojazd ma być w szkole przed lekcją - od tego kursu zaczyna się lista. */
     const val SCHOOL_MARGIN_MINUTES = 10L
 

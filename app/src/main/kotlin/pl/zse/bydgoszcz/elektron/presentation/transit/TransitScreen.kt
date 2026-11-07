@@ -100,7 +100,6 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     // Po odrzuceniu kursów, na które nie da się dojść, lista bywa krótsza niż żądana - dociągamy
     // kolejne okno planera sami (z limitem, żeby nie pytać w kółko), zamiast pokazywać jeden kurs.
     val targetMs = if (toSchool) commute.targetMs else null
-    val lastOnTime = remember(journeys, targetMs, live) { TransitJourneys.lastOnTime(journeys, targetMs, live) }
     // Do szkoły lista zaczyna się od kursu, który jest w szkole ok. 10 min przed lekcją.
     val anchor = remember(journeys, targetMs, live) { if (toSchool) TransitJourneys.anchorToSchool(journeys, targetMs, live) else 0 }
     val firstShown = (anchor - earlierCount).coerceAtLeast(0)
@@ -225,10 +224,9 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                     Text("Pokaż wcześniejsze", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            itemsIndexed(shown, key = { _, trip -> trip.key }) { index, trip ->
+            itemsIndexed(shown, key = { _, trip -> trip.key }) { _, trip ->
                 Box(Modifier.animateItem()) {
-                    val label = if (trip === lastOnTime && index > 0) "Ostatni, którym zdążysz" else ""
-                    JourneyCard(trip, nowMs, label, live = live[trip.key], lessonStartMs = targetMs)
+                    JourneyCard(trip, nowMs, live = live[trip.key], lessonStartMs = targetMs)
                 }
             }
             if (canShowMore) item(key = "more") {
@@ -304,10 +302,10 @@ private fun RoutePoint(label: String, stop: RouteStop, enabled: Boolean) {
 /**
  * Połączenie w trzech wierszach: linia i przystanek, na którym wysiadasz (z "za ile"), skąd
  * odjeżdża (z godziną i opóźnieniem na żywo) oraz jedna najważniejsza informacja - do szkoły:
- * kiedy będziesz w szkole i ile zapasu, ze szkoły: kiedy wyjść.
+ * o której będziesz na przystanku przy szkole i ile zapasu do lekcji (z dojściem), ze szkoły: kiedy wyjść.
  */
 @Composable
-internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onClick: (() -> Unit)? = null,
+internal fun JourneyCard(trip: TransitJourney, nowMs: Long, onClick: (() -> Unit)? = null,
     live: LiveStatus? = null, lessonStartMs: Long? = null) {
     val first = trip.rides.first()
     val colors = MaterialTheme.colorScheme
@@ -315,7 +313,6 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onCli
     val departure = live?.expectedMs ?: trip.departureMs
     val shift = departure - trip.departureMs
     ElektronCard(onClick = onClick) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (label.isNotBlank()) Text(label, style = MaterialTheme.typography.labelMedium, color = colors.primary)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { RideTo(first.line, first.toName) }
             Spacer(Modifier.width(12.dp))
@@ -339,9 +336,10 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, label: String, onCli
         }
         val atSchool = trip.schoolArrivalMs
         if (atSchool != null) {
-            val at = atSchool + shift
-            val slack = lessonStartMs?.let { pl.zse.bydgoszcz.elektron.domain.model.TransitCommute.slackMinutes(at, it) }
-            val text = "W szkole ${if (shift != 0L) "ok. " else ""}${formatTransitTime(at, nowMs)}" + when {
+            // Godzina na przystanku (wysiadka), a zapas - do lekcji, razem z dojściem do szkoły.
+            val atStop = trip.rides.last().arrivalMs + shift
+            val slack = lessonStartMs?.let { pl.zse.bydgoszcz.elektron.domain.model.TransitCommute.slackMinutes(atSchool + shift, it) }
+            val text = "Na przystanku ${if (shift != 0L) "ok. " else ""}${formatTransitTime(atStop, nowMs)}" + when {
                 slack == null -> ""
                 slack < 0 -> " · spóźnienie ${TransitTimes.duration(-slack)}"
                 slack == 0L -> " · na styk"

@@ -98,17 +98,6 @@ class TransitCommuteTest {
         assertEquals(listOf(sameBoard, later), TransitJourneys.upcoming(listOf(soon, sameBoard, later), now))
     }
 
-    @Test fun lastTripOnTimeAccountsForDelay() {
-        val lesson = base + 60 * 60_000L
-        fun trip(dep: Long, atSchool: Long) = TransitJourney(listOf(ride("8", dep)), 4, 300.0, schoolArrivalMs = atSchool)
-        val a = trip(base, base + 20 * 60_000L)
-        val b = trip(base + 20 * 60_000L, base + 55 * 60_000L)
-        val c = trip(base + 40 * 60_000L, base + 70 * 60_000L)
-        assertSame(b, TransitJourneys.lastOnTime(listOf(a, b, c), lesson))
-        assertSame(a, TransitJourneys.lastOnTime(listOf(a, b, c), lesson, mapOf(b.key to LiveStatus(6, b.departureMs + 6 * 60_000L))))
-        assertNull(TransitJourneys.lastOnTime(listOf(a, b, c), null))
-    }
-
     @Test fun leaveSchoolTimeIncludesWalkAndBuffer() {
         val trip = TransitJourney(listOf(ride("8", base)), 5, 300.0)
         assertEquals(base - 7 * 60_000L, trip.leaveSchoolMs())
