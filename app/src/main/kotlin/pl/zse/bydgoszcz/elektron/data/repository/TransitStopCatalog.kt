@@ -130,7 +130,10 @@ internal object TransitStopParser {
      * dostawał punkt daleko od obu i nie znajdował połączeń.
      */
     fun group(platforms: List<TransitDestination>): List<TransitDestination> {
-        val destinations = platforms.groupBy { it.name }.flatMap { (name, stops) -> clusters(stops).map { cluster ->
+        // Nazwy różniące się tylko polskimi znakami ("Rondo Fordonskie" - stanowisko linii nocnej obok "Rondo Fordońskie")
+        // to jeden przystanek pod nazwą ze znakami; dawniej dwa wpisy w wyborze.
+        val destinations = platforms.groupBy { pl.zse.bydgoszcz.elektron.domain.model.TransitStops.nameKey(it.name) }.flatMap { (_, stops) -> clusters(stops).map { cluster ->
+            val name = pl.zse.bydgoszcz.elektron.domain.model.TransitStops.preferredName(cluster.map { it.name })
             TransitDestination(name, cluster.flatMap { it.stopIds }, cluster.map { it.latitude }.average(), cluster.map { it.longitude }.average())
         } }.sortedWith(compareBy<TransitDestination> { it.name }.thenBy { SchoolTransit.distance(it.latitude, it.longitude) })
         require(destinations.isNotEmpty()) { "Katalog nie zawiera przystanków" }

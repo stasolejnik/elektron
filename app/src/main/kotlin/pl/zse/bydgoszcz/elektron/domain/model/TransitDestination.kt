@@ -56,6 +56,18 @@ internal object TransitStops {
     fun baseName(name: String): String = name.trim().replace(POLE_NUMBER, "")
 
     /**
+     * Klucz nazwy przystanku bez polskich znaków i wielkości liter: katalog BUSearch ma część stanowisk
+     * zapisanych bez znaków ("Rondo Fordonskie" obok "Rondo Fordońskie", "Przyłeki - Cicha") - to ten sam przystanek.
+     */
+    fun nameKey(name: String): String = java.text.Normalizer.normalize(baseName(name).replace('ł', 'l').replace('Ł', 'L'),
+        java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT)
+
+    /** Z wariantów jednej nazwy ten z polskimi znakami ("Rondo Fordońskie", nie "Rondo Fordonskie"). */
+    fun preferredName(names: Collection<String>): String =
+        names.groupingBy { it }.eachCount().entries.maxWith(compareBy<Map.Entry<String, Int>> { e -> e.key.count { it.code > 127 } }
+            .thenBy { it.value }.thenByDescending { it.key }).key
+
+    /**
      * Zapisany cel albo przystanek początkowy, którego numerów stanowisk nie ma już w odświeżonym
      * katalogu (zmiana numeracji, nowe stanowisko, rozdzielenie przystanków o tej samej nazwie):
      * ten sam przystanek z katalogu - po nazwie, najwięcej wspólnych stanowisk, potem najbliżej.
@@ -68,7 +80,7 @@ internal object TransitStops {
         saved ?: return null
         if (catalog.isEmpty() || catalog.any { it.key == saved.key }) return null
         // Przystanek początkowy: tylko taki, jaki oferuje wybór (do 1 km od szkoły).
-        val sameName = catalog.filter { baseName(it.name).equals(baseName(saved.name), ignoreCase = true) &&
+        val sameName = catalog.filter { nameKey(it.name) == nameKey(saved.name) &&
             (maxFromSchoolMeters == null || SchoolTransit.distance(it.latitude, it.longitude) <= maxFromSchoolMeters) }
         if (sameName.isEmpty()) return null
         return sameName.maxWith(compareBy<TransitDestination> { stop -> stop.stopIds.count { it in saved.stopIds } }

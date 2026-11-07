@@ -35,6 +35,20 @@ class TransitTest {
         assertEquals(53.1205, complex.latitude, 0.00001)
         assertEquals("10,9", complex.key)
     }
+    /** Prawdziwe dane BUSearch (listopad 2026): stanowisko nocnej 32N "Rondo Fordonskie" na tym samym rondzie co "Rondo Fordońskie". */
+    @Test fun namesDifferingOnlyByPolishLettersAreOneStop() {
+        val stops = TransitStopParser.parse("""{"stops":[
+            {"id":"23","name":"Rondo Fordońskie #1","baseName":"Rondo Fordońskie","lat":53.12097,"lon":18.03367},
+            {"id":"92","name":"Rondo Fordońskie #3","baseName":"Rondo Fordońskie","lat":53.12100,"lon":18.03602},
+            {"id":"212","name":"Rondo Fordonskie","lat":53.12103,"lon":18.03323},
+            {"id":"300","name":"Przyłeki - Cicha","lat":53.20,"lon":18.10},
+            {"id":"301","name":"Przyłęki - Cicha #1","baseName":"Przyłęki - Cicha","lat":53.2001,"lon":18.1001}
+        ]}""")
+        assertEquals(listOf("Przyłęki - Cicha", "Rondo Fordońskie"), stops.map { it.name })
+        assertEquals(setOf("23", "92", "212"), stops.first { it.name == "Rondo Fordońskie" }.stopIds.toSet())
+        assertEquals(pl.zse.bydgoszcz.elektron.domain.model.TransitStops.nameKey("Rondo Fordońskie #2"),
+            pl.zse.bydgoszcz.elektron.domain.model.TransitStops.nameKey("rondo  Fordonskie"))
+    }
     @Test fun emptyOrMalformedCatalogIsAnError() {
         for (json in listOf("[]", "{}", "{\"stops\":[]}", "{\"stops\":[{\"id\":\"1\"}]}")) {
             try { TransitStopParser.parse(json); fail("Invalid catalog must not replace a cached catalog") }

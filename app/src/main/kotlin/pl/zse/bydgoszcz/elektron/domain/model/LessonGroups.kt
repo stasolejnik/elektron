@@ -60,11 +60,11 @@ object LessonGroups {
         return all.filter { it in next }.joinToString(",")
     }
 
-    /** Opis wyboru: "Grupa 1", "Grupa 1 i 2", "j1, j2". */
+    /** Opis wyboru: "Grupa 1", "Grupy 1 i 2" (także WF "j1,j2"); inne etykiety po przecinku. */
     fun describeChoice(choice: String): String {
         val labels = labelsOf(choice).sortedWith(compareBy({ labelNumber(it) ?: Int.MAX_VALUE }, { it }))
         if (labels.size <= 1) return labels.firstOrNull()?.let(::displayLabel).orEmpty()
-        return if (labels.all { '/' in it }) "Grupy " + labels.map { it.substringBefore('/') }.let { it.dropLast(1).joinToString(", ") + " i " + it.last() }
+        return if (labels.all { '/' in it || SHORT_NUMBERED.matches(it) }) "Grupy " + labels.map { labelNumber(it)!! }.let { it.dropLast(1).joinToString(", ") + " i " + it.last() }
         else labels.joinToString(", ")
     }
 
@@ -73,9 +73,18 @@ object LessonGroups {
         if ('/' in label) label.substringBefore('/').toIntOrNull()
         else TRAILING_DIGITS.find(label)?.groupValues?.get(1)?.toIntOrNull()
 
-    /** Czytelna nazwa opcji: "2/3" -> "Grupa 2", "j1" -> "j1". */
-    fun displayLabel(label: String): String =
-        if ('/' in label) "Grupa ${label.substringBefore('/')}" else label
+    /** Krótka etykieta z numerem ze strony szkoły ("j2" w "wf-j2"). */
+    private val SHORT_NUMBERED = Regex("^[A-Za-z]{0,3}(\\d{1,2})$")
+
+    /**
+     * Czytelna nazwa opcji: "2/3" -> "Grupa 2", "j1" -> "Grupa 1" (WF; dawniej "j1" w wyborze grup i planie,
+     * a "1" w szybkim wyborze), inne bez zmian.
+     */
+    fun displayLabel(label: String): String = when {
+        '/' in label -> "Grupa ${label.substringBefore('/')}"
+        SHORT_NUMBERED.matches(label) -> "Grupa ${SHORT_NUMBERED.find(label)!!.groupValues[1].toInt()}"
+        else -> label
+    }
 
     /** Wszystkie przedmioty z podziałem na grupy w podanych lekcjach (np. tydzień planu). */
     fun detect(lessons: List<Lesson>): List<DividedSubject> {

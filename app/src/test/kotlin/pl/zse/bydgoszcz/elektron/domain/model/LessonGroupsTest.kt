@@ -177,7 +177,11 @@ class LessonGroupsTest {
         assertEquals(null, LessonGroups.toggleLabel("1/3", "1/3", all))           // ostatnia odznaczona
         assertEquals("Grupa 2", LessonGroups.describeChoice("2/3"))
         assertEquals("Grupy 1 i 2", LessonGroups.describeChoice("1/3,2/3"))
-        assertEquals("j1, j2", LessonGroups.describeChoice("j1,j2"))
+        // WF ze strony szkoły ("wf-j1", "wf-j2") - jak w szybkim wyborze i przy innych przedmiotach.
+        assertEquals("Grupy 1 i 2", LessonGroups.describeChoice("j1,j2"))
+        assertEquals("Grupa 2", LessonGroups.displayLabel("j2"))
+        assertEquals("Grupa 2", LessonGroups.displayLabel("2/3"))
+        assertEquals("rozsz", LessonGroups.displayLabel("rozsz"))
     }
 
     @Test fun severalGroupsAreStaleOnlyWhenNoneIsLeft() {

@@ -155,6 +155,14 @@ fun DashboardScreen(
                         }
                         item(key = "h_next") { SectionTitle(title, icon) }
                         item(key = "next") {
+                            // Dziś święto, przerwa albo ferie: bez tego strona główna pokazywała tylko "Następna lekcja · Jutro".
+                            val dayOff = androidx.compose.runtime.remember(state.nextLesson, state.nextLessonStatus) {
+                                pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.dayOff(pl.zse.bydgoszcz.elektron.domain.util.AppClock.today())
+                            }
+                            if (dayOff != null && state.nextLessonStatus != DashboardViewModel.LessonStatus.Now) {
+                                Text("Dziś wolne · $dayOff", style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+                            }
                             if (state.loadingTimetable) DelayedLoading { LoadingCard("Ładowanie planu lekcji…") }
                             else NextLessonCard(state) { onOpenTimetable(state.nextLesson?.date) }
                         }

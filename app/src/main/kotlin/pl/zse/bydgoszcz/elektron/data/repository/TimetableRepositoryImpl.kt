@@ -256,7 +256,8 @@ class TimetableRepositoryImpl @Inject constructor(
             val byCode = teacherDao.getByCodes(codes).associateBy { it.code }
             lessons.map { l ->
                 l.copy(groups = l.groups.map { g ->
-                    val full = g.teacherCode?.let { byCode[it]?.fullName }
+                    // Inicjał ze spacją ("M. Kucharska") - jak nauczyciele na stronie zastępstw.
+                    val full = g.teacherCode?.let { byCode[it]?.fullName }?.let(pl.zse.bydgoszcz.elektron.domain.model.TeacherNames::display)
                     if (full == null) g else LessonGroup(
                         g.subject, g.teacherCode, g.teacherUrl, full,
                         g.room, g.roomUrl, g.groupLabel, g.classRef
