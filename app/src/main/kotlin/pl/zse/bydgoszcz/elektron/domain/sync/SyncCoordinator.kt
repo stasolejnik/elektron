@@ -303,8 +303,9 @@ class SyncCoordinator @Inject constructor(
             else null
         try {
             coroutineScope {
-                val sidebarJob = if (SyncOutcome.SIDEBAR in sources) launch {
-                    timetableRepo.syncSidebar().record(SyncOutcome.SIDEBAR)
+                // Wynik listy klas (udana?) - plan innej klasy wolno zapisać tylko po świeżo pobranej liście.
+                val sidebarJob = if (SyncOutcome.SIDEBAR in sources) async {
+                    timetableRepo.syncSidebar().also { it.record(SyncOutcome.SIDEBAR) }.isSuccess
                 } else null
                 val timetableJob = if (SyncOutcome.TIMETABLE in sources && classId != null) launch {
                     // Plan dopiero po liście klas: pod identyfikatorem, który dostała inna klasa, pobrałby się jej plan.
@@ -313,7 +314,8 @@ class SyncCoordinator @Inject constructor(
                     var plan = timetableRepo.syncTimetable(classId, request.anchorDate, classBefore)
                     if (plan.exceptionOrNull() is ClassMismatchException) {
                         // Plan innej klasy: w tle listy klas mogło nie być w żądaniu (co 24 h, plan co 6 h).
-                        val listOk = sidebarJob != null || timetableRepo.syncSidebar().also { it.record(SyncOutcome.SIDEBAR) }.isSuccess
+                        // Nieudana lista w tym żądaniu też się nie liczy: zapamiętana lista może być sprzed zmiany numeracji.
+                        val listOk = sidebarJob?.await() ?: timetableRepo.syncSidebar().also { it.record(SyncOutcome.SIDEBAR) }.isSuccess
                         if (listOk) {
                             if (classListChanged(classId, classBefore, notify)) return@launch
                             // Lista potwierdza klasę - nietypowy tytuł strony, a nie cudzy plan.

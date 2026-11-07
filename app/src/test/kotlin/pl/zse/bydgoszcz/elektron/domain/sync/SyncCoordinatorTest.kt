@@ -76,7 +76,9 @@ class SyncCoordinatorTest {
 
         /** Lista klas po zmianie na stronie szkoły (null - zwykła). */
         @Volatile var sidebar: List<ClassListItemDto>? = null
-        override suspend fun fetchSidebar() = sidebar ?: listOf(
+        /** Błąd pobierania listy klas (null - lista się pobiera). */
+        @Volatile var sidebarError: Exception? = null
+        override suspend fun fetchSidebar() = sidebarError?.let { throw it } ?: sidebar ?: listOf(
             ClassListItemDto("o3", ClassListItemDto.Kind.CLASS, "1D 1D PBŚ", "1D", "https://plan.zse.bydgoszcz.pl/plany/o3.html"),
             ClassListItemDto("o4", ClassListItemDto.Kind.CLASS, "1E 1E PBŚ", "1E", "https://plan.zse.bydgoszcz.pl/plany/o4.html")
         )
@@ -240,6 +242,20 @@ class SyncCoordinatorTest {
         val outcome = coordinator.sync(SyncRequest.full(background = true))
         assertEquals("o3", settings.classIdFlow.value)
         assertTrue(SyncOutcome.TIMETABLE in outcome.succeeded)
+    }
+
+    /** Plan innej klasy, a lista klas w tym samym żądaniu się nie pobrała: bez zapisu, bo nic nie potwierdza klasy. */
+    @Test
+    fun planOfAnotherClassIsNotSavedWhenTheClassListFetchFails() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        val callsBefore = timetable.calls.get()
+        timetable.planName = "3D 3D PBŚ"
+        timetable.sidebarError = java.io.IOException("timeout")
+        val outcome = coordinator.sync(SyncRequest.full())
+        assertEquals("bez ponownego pobrania planu bez sprawdzenia klasy", callsBefore + 1, timetable.calls.get())
+        assertTrue(SyncOutcome.TIMETABLE in outcome.failures)
+        assertTrue(SyncOutcome.SIDEBAR in outcome.failures)
+        assertEquals("o3", settings.classIdFlow.value)
     }
 
     @Test
