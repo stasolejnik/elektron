@@ -26,7 +26,8 @@ object Changelog {
             "Zwolnienie do domu tylko jednej grupy nie odwołuje lekcji całej klasie",
             "Jednolite daty, numer sali bez łamania linii, plan tygodnia bez dzielenia słów",
             "W dni bez lekcji zastępstwa sprawdzane rzadziej (co 45 min)",
-            "Ferie zimowe 2027/2028: 17-30 stycznia"
+            "Ferie zimowe 2027/2028: 17-30 stycznia",
+            "Strona główna mówi, że dziś jest dzień wolny; nauczyciele i grupy WF zapisane jednolicie"
         )),
         Entry(38, "1.0.2", listOfNotNull(
             "Przejazdy (dawniej Odjazdy): rano dojazd z Twojego przystanku na najbliższą lekcję - kiedy będziesz w szkole, ile zapasu i ostatni kurs, którym zdążysz; od połowy dnia lekcji powrót ze szkoły z godziną wyjścia",
