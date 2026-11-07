@@ -39,7 +39,8 @@ class TransitWidgetRefresher @Inject constructor(
     @ApplicationContext private val context: Context,
     private val preferences: TransitPreferencesRepository,
     private val journeys: TransitJourneyRepository,
-    private val schoolDay: TransitSchoolDay
+    private val schoolDay: TransitSchoolDay,
+    private val updater: WidgetUpdater
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -49,10 +50,32 @@ class TransitWidgetRefresher @Inject constructor(
         scope.launch { refresh(force) }
     }
 
-    /** true - zapisano nowy wynik. [force] - dotknięcie ↻: także poza porą dojazdu i bez czekania na świeżość. */
+    /**
+     * Stan dla widżetu: sprawdzanie trwa (najwyżej [REFRESHING_MAX_MS] - po przerwanym procesie znacznik wygasa)
+     * albo ostatnie sprawdzenie się nie udało i nie ma nowszego wyniku ([resultFetchedAt], także z aplikacji).
+     */
+    internal fun status(resultFetchedAt: Long?): TransitWidgetData.Status {
+        val store = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val since = store.getLong(KEY_REFRESHING_SINCE, 0L)
+        val failedAt = store.getLong(KEY_FAILED_AT, 0L)
+        return TransitWidgetData.Status(refreshing = since > 0L && now - since in 0 until REFRESHING_MAX_MS,
+            failed = failedAt > 0L && failedAt > (resultFetchedAt ?: 0L))
+    }
+
+    /** true - zapisano nowy wynik. [force] - dotknięcie ikony odświeżania: także poza porą dojazdu i bez czekania na świeżość. */
     suspend fun refresh(force: Boolean): Boolean = mutex.withLock {
+        val store = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         runCatchingCancellable { refreshLocked(force) }
-            .onFailure { Log.w(TAG, "Nie udało się odświeżyć Przejazdów dla widżetu", it) }
+            .onFailure {
+                Log.w(TAG, "Nie udało się odświeżyć Przejazdów dla widżetu", it)
+                store.edit().putLong(KEY_FAILED_AT, System.currentTimeMillis()).apply()
+            }
+            .onSuccess { saved -> if (saved) store.edit().remove(KEY_FAILED_AT).apply() }
+            .also {
+                // Koniec sprawdzania (także nieudanego) - widżet bez "sprawdzam…".
+                if (store.contains(KEY_REFRESHING_SINCE)) { store.edit().remove(KEY_REFRESHING_SINCE).apply(); updater.updateTransit() }
+            }
             .getOrDefault(false)
     }
 
@@ -82,7 +105,9 @@ class TransitWidgetRefresher @Inject constructor(
         if (!force && (fresh || sinceLast in 0 until MIN_INTERVAL_MS)) return false
         // Dotknięcie ↻ kilka razy pod rząd - jedno zapytanie.
         if (force && sinceLast in 0 until FORCE_INTERVAL_MS) return false
-        store.edit().putLong(KEY_LAST_FETCH, System.currentTimeMillis()).apply()
+        // "sprawdzam…" w widżecie od razu, zanim odpowie planer (kilka sekund przy wielu stanowiskach).
+        store.edit().putLong(KEY_LAST_FETCH, System.currentTimeMillis()).putLong(KEY_REFRESHING_SINCE, System.currentTimeMillis()).apply()
+        updater.updateTransit()
         val origin = prefs.preferredOrigin
         var result = if (toSchool) journeys.findToSchool(destination, fromMs!!, null, prefs.allowTransfers, origin, prefs.nearbyStops)
             else journeys.find(destination, origin, null, prefs.allowTransfers, null, null, prefs.nearbyStops)
@@ -116,6 +141,9 @@ class TransitWidgetRefresher @Inject constructor(
         private const val TAG = "TransitWidget"
         private const val PREFS = "transit_widget"
         private const val KEY_LAST_FETCH = "last_fetch"
+        private const val KEY_REFRESHING_SINCE = "refreshing_since"
+        private const val KEY_FAILED_AT = "failed_at"
+        private const val REFRESHING_MAX_MS = 90_000L
         /** Odświeżenie w tle najwyżej co tyle (wynik i tak jest świeży 10 min). */
         const val MIN_INTERVAL_MS = 5 * 60_000L
         /** Mniej kursów do pokazania - odświeżenie przed upływem 10 min. */

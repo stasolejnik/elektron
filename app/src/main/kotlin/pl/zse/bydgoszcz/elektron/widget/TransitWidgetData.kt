@@ -8,7 +8,6 @@ import pl.zse.bydgoszcz.elektron.domain.model.TransitDirection
 import pl.zse.bydgoszcz.elektron.domain.model.TransitJourney
 import pl.zse.bydgoszcz.elektron.domain.model.TransitJourneys
 import pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences
-import pl.zse.bydgoszcz.elektron.domain.model.TransitTimes
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -20,7 +19,16 @@ import java.time.format.DateTimeFormatter
  * (zakładka, karta albo odświeżenie widżetu); czysta logika bez Androida - testowalna.
  */
 internal object TransitWidgetData {
-    data class Row(val key: String, val line: String, val toName: String, val until: String, val detail: String, val description: String)
+    /**
+     * Kurs w widżecie. [stop] - do szkoły przystanek, na którym wysiadasz (przy strzałce), ze szkoły - na którym
+     * wsiadasz (cel jest jeden i stoi w podtytule). Po prawej [until] i [time] odjazdu, pod spodem [detail]
+     * jak w karcie zakładki; [urgent] - "wyjdź teraz", "pospiesz się" (pogrubione).
+     */
+    data class Row(val key: String, val line: String, val stop: String, val toSchool: Boolean, val until: String,
+        val time: String, val detail: String?, val urgent: Boolean, val description: String)
+
+    /** Stan odświeżania widżetu (TransitWidgetRefresher): trwa albo ostatnie się nie udało. */
+    data class Status(val refreshing: Boolean = false, val failed: Boolean = false)
 
     sealed interface State {
         data object Failed : State
@@ -29,8 +37,8 @@ internal object TransitWidgetData {
         data class Ready(
             val toSchool: Boolean,
             val title: String,
-            /** "Sprawdzono 12:15"; null - jeszcze nie sprawdzano (brak pasującego wyniku). */
-            val checked: String?,
+            /** "Do: Dworzec Główny · sprawdzono 15:02" (albo "sprawdzam…", "nie udało się odświeżyć"). */
+            val subtitle: String,
             val rows: List<Row>,
             /** Tekst zamiast kursów, gdy [rows] puste. */
             val empty: String?,
@@ -51,7 +59,7 @@ internal object TransitWidgetData {
             result.originKey == prefs.originKey && result.allowTransfers == prefs.allowTransfers
 
     fun build(prefs: TransitPreferences, lessons: List<Lesson>, result: TransitJourneyRepository.Result?, now: LocalDateTime,
-        zone: ZoneId = ZoneId.systemDefault()): State {
+        zone: ZoneId = ZoneId.systemDefault(), status: Status = Status()): State {
         val target = if (prefs.visible) "transit" else "dashboard"
         val destination = prefs.destination
         if (!prefs.canLoadJourneys || destination == null)
@@ -60,16 +68,26 @@ internal object TransitWidgetData {
         val direction = direction(lessons, now)
         val toSchool = direction == TransitDirection.TO_SCHOOL
         val title = if (toSchool) "Do szkoły" else "Ze szkoły"
+        // Twój przystanek raz, w podtytule ("Z:" / "Do:" - nazw przystanków się nie odmienia).
+        val route = (if (toSchool) "Z: " else "Do: ") + destination.name
         val nowMs = now.atZone(zone).toInstant().toEpochMilli()
         val matching = result?.takeIf { matches(it, prefs, direction) }
-            ?: return State.Ready(toSchool, title, null, emptyList(), "Dotknij, aby sprawdzić połączenia.", target)
+        val state = when {
+            status.refreshing -> "sprawdzam…"
+            status.failed -> "nie udało się odświeżyć"
+            matching != null -> "sprawdzono " + DateTexts.past(LocalDateTime.ofInstant(Instant.ofEpochMilli(matching.fetchedAt), zone), now.toLocalDate())
+            else -> null
+        }
+        val subtitle = listOfNotNull(route, state).joinToString(" · ")
+        if (matching == null)
+            return State.Ready(toSchool, title, subtitle, emptyList(), if (status.refreshing) null else "Dotknij, aby sprawdzić połączenia.", target)
         val upcoming = visible(matching.journeys, prefs, toSchool, nowMs)
         // Od najbliższego kursu; z ustawieniem "Kursy na czas przed lekcją" do szkoły - od kursu z zapasem (jak w zakładce).
         val lessonStartMs = if (toSchool) TransitCommute.target(lessons, now)?.start?.atZone(zone)?.toInstant()?.toEpochMilli() else null
         val first = if (toSchool) TransitJourneys.anchorToSchool(upcoming, lessonStartMs, marginMinutes = prefs.arrivalMarginMinutes) else 0
-        val rows = upcoming.drop(first).take(MAX_ROWS).map { row(it, toSchool, nowMs, zone) }
-        val checked = "Sprawdzono " + DateTexts.past(LocalDateTime.ofInstant(Instant.ofEpochMilli(matching.fetchedAt), zone), now.toLocalDate())
-        return State.Ready(toSchool, title, checked, rows, if (rows.isEmpty()) "Brak nadchodzących połączeń. Dotknij, aby sprawdzić." else null, target)
+        val rows = upcoming.drop(first).take(MAX_ROWS).map { row(it, toSchool, nowMs, lessonStartMs, zone) }
+        return State.Ready(toSchool, title, subtitle, rows,
+            if (rows.isEmpty() && !status.refreshing) "Brak nadchodzących połączeń. Dotknij, aby sprawdzić." else null, target)
     }
 
     /** Kursy, które widżet może pokazać: jeszcze nie odjechały, a ze szkoły (przy "Szkoła") - zdążysz do nich dojść. */
@@ -81,19 +99,48 @@ internal object TransitWidgetData {
 
     private fun time(ms: Long, zone: ZoneId) = Instant.ofEpochMilli(ms).atZone(zone).format(TIME)
 
-    /**
-     * Wiersz jak karta w zakładce, krócej: linia → przystanek, na którym wysiadasz, "za X min";
-     * pod spodem do szkoły - odjazd i o której jesteś na przystanku przy szkole, ze szkoły - skąd i o której.
-     */
-    private fun row(trip: TransitJourney, toSchool: Boolean, nowMs: Long, zone: ZoneId): Row {
+    /** "za 11 min", "za 1 h 23 min" - krócej niż w zakładce ("godz."), bo kolumna widżetu jest wąska. */
+    fun until(departureMs: Long, nowMs: Long): String {
+        if (departureMs <= nowMs) return "teraz"
+        return "za " + short((departureMs - nowMs + 59_999L) / 60_000L)
+    }
+
+    /** "12 min", "1 h 12 min", "2 h". */
+    private fun short(minutes: Long): String {
+        val m = minutes.coerceAtLeast(0)
+        return if (m < 60) "$m min" else "${m / 60} h" + (m % 60).let { if (it == 0L) "" else " $it min" }
+    }
+
+    private fun row(trip: TransitJourney, toSchool: Boolean, nowMs: Long, lessonStartMs: Long?, zone: ZoneId): Row {
         val ride = trip.rides.first()
-        val until = TransitTimes.until(trip.departureMs, nowMs)
-        val transfers = if (trip.transfers > 0) " · przesiadka" else ""
-        // Jak karta w zakładce: godzina wysiadki na przystanku przy szkole (zapas do lekcji liczy się z dojściem).
-        val detail = if (toSchool) "Odjazd ${time(trip.departureMs, zone)} · na przystanku ${time(trip.arrivalMs, zone)}$transfers"
-            else "${ride.fromName} · ${time(trip.departureMs, zone)}$transfers"
-        val description = "Linia ${ride.line} do przystanku ${ride.toName}, $until, $detail"
-        return Row(trip.key, ride.line, ride.toName, until, detail, description)
+        val until = until(trip.departureMs, nowMs)
+        val transfer = if (trip.transfers > 0) "przesiadka" else null
+        var urgent = false
+        val detail = if (toSchool) {
+            // Jak karta w zakładce: godzina wysiadki na przystanku przy szkole, zapas do lekcji z dojściem.
+            val slack = lessonStartMs?.let { start -> trip.schoolArrivalMs?.let { TransitCommute.slackMinutes(it, start) } }
+            listOfNotNull("na przystanku ${time(trip.arrivalMs, zone)}", when {
+                slack == null -> null
+                slack < 0 -> "spóźnienie ${short(-slack)}".also { urgent = true }
+                slack == 0L -> "na styk"
+                else -> "zapas ${short(slack)}"
+            }, transfer).joinToString(" · ")
+        } else {
+            // Ze szkoły - kiedy wyjść (dojście i 2 min zapasu), jak w zakładce.
+            val leave = trip.leaveSchoolMs()
+            val walk = if (trip.walkAvailable) "dojście ${short(trip.walkMinutes.toLong())}" else null
+            val action = when {
+                !trip.walkAvailable -> null
+                leave - nowMs > 60_000L -> "wyjdź o ${time(leave, zone)}"
+                leave >= nowMs - 60_000L -> "wyjdź teraz".also { urgent = true }
+                else -> "pospiesz się".also { urgent = true }
+            }
+            listOfNotNull(action, walk, transfer).joinToString(" · ").ifEmpty { null }
+        }
+        val time = time(trip.departureMs, zone)
+        val where = if (toSchool) "do przystanku ${ride.toName}" else "z przystanku ${ride.fromName}"
+        val description = listOfNotNull("Linia ${ride.line} $where", "$until, o $time", detail).joinToString(", ")
+        return Row(trip.key, ride.line, if (toSchool) ride.toName else ride.fromName, toSchool, until, time, detail, urgent, description)
     }
 
     /**

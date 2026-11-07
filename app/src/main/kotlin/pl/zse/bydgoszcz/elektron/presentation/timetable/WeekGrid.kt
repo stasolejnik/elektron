@@ -294,20 +294,22 @@ private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifie
             val available = constraints.maxWidth
             // Pierwsza nazwa w kafelku: lekcja z zastępstwa albo przedmiot z planu (nazwiska mogą się uciąć).
             val lead = sub?.let(SubstitutionDisplay::lesson) ?: name
-            val fontSize = remember(lead, hasNote, available, baseStyle) {
-                val widest = (if (hasNote) "✎ " else "").let { mark -> lead.split(' ', '/').filter { it.isNotBlank() }
-                    .mapIndexed { i, w -> if (i == 0) mark + w else w } }
+            val fontSize = remember(lead, available, baseStyle) {
+                val widest = lead.split(' ', '/').filter { it.isNotBlank() }
                     .maxOfOrNull { measurer.measure(it, baseStyle, maxLines = 1, softWrap = false).size.width } ?: 0
                 // 4% zapasu: słowo mierzone "na styk" bywało i tak łamane przy układzie ("Zaj.Prakt_ / 1").
                 val room = available * 0.96f
                 if (widest <= room || widest == 0) 12f else (12f * room / widest).coerceAtLeast(9f)
             }
+            // Notatka (✎) i kolejne grupy (+1) w prawym dolnym rogu, nie przed nazwą: "✎ matematyka" w wąskiej
+            // kolumnie nie mieściło się nawet przy 9 sp i dzieliło się na "✎ matematy-ka". Nazwa ma wtedy linię mniej.
+            val corner = listOfNotNull(if (hasNote) "✎" else null, more?.let { "+$it" }).joinToString(" ").ifEmpty { null }
             Text(
-                listOfNotNull(if (hasNote) "✎" else null, tileText).joinToString(" "),
+                tileText,
                 color = fg,
                 fontSize = fontSize.sp,
                 lineHeight = (fontSize + 2f).sp,
-                maxLines = lines,
+                maxLines = if (corner != null) (lines - 1).coerceAtLeast(1) else lines,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall.copy(
                     // Dzielenie wyrazów ("Infor-matyka") zamiast ucinania w połowie słowa.
@@ -315,8 +317,8 @@ private fun LessonTile(lesson: Lesson, lengthMin: Int, ongoing: Boolean, modifie
                     lineBreak = LineBreak.Paragraph
                 )
             )
-            if (more != null) {
-                Text("+$more", color = fg, fontSize = 11.sp, modifier = Modifier.align(Alignment.BottomEnd))
+            if (corner != null) {
+                Text(corner, color = fg, fontSize = 11.sp, lineHeight = 13.sp, maxLines = 1, modifier = Modifier.align(Alignment.BottomEnd))
             }
         }
     }
