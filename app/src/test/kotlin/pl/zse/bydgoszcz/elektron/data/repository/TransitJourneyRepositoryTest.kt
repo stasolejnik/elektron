@@ -34,7 +34,7 @@ class TransitJourneyRepositoryTest {
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops")) {
                 catalogs.incrementAndGet()
-                """[{"id":24,"nazwa":"Jagiellońska - Łużycka","lat":53.12194,"lon":18.02764}]"""
+                """{"stops":[{"id":24,"name":"Jagiellońska - Łużycka","lat":53.12194,"lon":18.02764}]}"""
             } else if (request.url.host == "routing.openstreetmap.de") {
                 walks.incrementAndGet()
                 assertTrue(request.url.encodedPath.contains("routed-foot/table/v1/foot"))
@@ -42,19 +42,19 @@ class TransitJourneyRepositoryTest {
             } else {
                 plans.incrementAndGet()
                 assertEquals("POST", request.method)
-                assertEquals("/bydgoszcz/api/polaczenia", request.url.encodedPath)
+                assertEquals("/v2/cities/bydgoszcz/journeys", request.url.encodedPath)
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                 val body = JSONObject(buffer.readUtf8())
                 assertEquals(24, body.getJSONObject("from").getInt("stopId"))
                 assertFalse(body.getJSONObject("from").has("lat"))
                 assertEquals(target.longitude, body.getJSONObject("to").getDouble("lon"), 0.0)
-                assertEquals(plans.get() - 1, body.getInt("maxPrzesiadki")); assertFalse(body.getBoolean("ksztalt"))
+                assertEquals(plans.get() - 1, body.getInt("maxTransfers")); assertFalse(body.getBoolean("shape"))
                 assertTrue(body.getLong("whenMs") in System.currentTimeMillis() - 60_000L..System.currentTimeMillis())
                 val depart = System.currentTimeMillis() + 600_000L
-                """{"ok":true,"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Bielawy",
-                    "zPrzystanku":{"id":24,"nazwa":"Jagiellońska - Łużycka"},
-                    "doPrzystanku":{"id":26,"nazwa":"Rondo Jagiellonów"},
-                    "odjazdMs":$depart,"przyjazdMs":${depart + 240_000L}}]}]}"""
+                """{"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Bielawy",
+                    "fromStop":{"id":24,"name":"Jagiellońska - Łużycka"},
+                    "toStop":{"id":26,"name":"Rondo Jagiellonów"},
+                    "departureMs":$depart,"arrivalMs":${depart + 240_000L}}]}]}"""
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
                 .body(json.toResponseBody("application/json".toMediaType())).build()
@@ -94,14 +94,14 @@ class TransitJourneyRepositoryTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val json = when {
-                request.url.encodedPath.endsWith("/stops") -> """[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]"""
+                request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
                 request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[192]],"distances":[[240.2]]}"""
                 else -> {
                     val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                     val body = JSONObject(buffer.readUtf8())
                     assertEquals(24, body.getJSONObject("from").getInt("stopId"))
                     assertEquals(cursor, body.getLong("whenMs"))
-                    """{"ok":true,"nastepneWhenMs":${cursor + 600_000L},"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Bielawy","zPrzystanku":{"id":24,"nazwa":"Start"},"doPrzystanku":{"id":26,"nazwa":"Cel"},"odjazdMs":${cursor + 60_000L},"przyjazdMs":${cursor + 300_000L}}]}]}"""
+                    """{"nextWhenMs":${cursor + 600_000L},"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Bielawy","fromStop":{"id":24,"name":"Start"},"toStop":{"id":26,"name":"Cel"},"departureMs":${cursor + 60_000L},"arrivalMs":${cursor + 300_000L}}]}]}"""
                 }
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody("application/json".toMediaType())).build()
@@ -109,7 +109,8 @@ class TransitJourneyRepositoryTest {
         try {
             val result = TransitJourneyRepository(client, TransitStopCatalog(context, client)).find(target, origin, cursor)
             assertEquals(origin.key, result.originKey)
-            assertEquals(cursor + 600_000L, result.nextWhenMs)
+            // Następne szukanie minutę po odjeździe, a nie od nextWhenMs planera (cursor + 10 min).
+            assertEquals(cursor + 120_000L, result.nextWhenMs)
             assertEquals(cursor + 60_000L, result.journeys.single().departureMs)
         } finally { client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll(); directory.deleteRecursively() }
     }
@@ -124,15 +125,15 @@ class TransitJourneyRepositoryTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops")) {
-                """[{"id":24,"nazwa":"Wybrany","lat":53.123,"lon":18.027},{"id":25,"nazwa":"Wybrany","lat":53.1231,"lon":18.0271},{"id":26,"nazwa":"Inny","lat":53.1232,"lon":18.0272}]"""
+                """{"stops":[{"id":24,"name":"Wybrany","lat":53.123,"lon":18.027},{"id":25,"name":"Wybrany","lat":53.1231,"lon":18.0271},{"id":26,"name":"Inny","lat":53.1232,"lon":18.0272}]}"""
             } else {
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                 val body = JSONObject(buffer.readUtf8())
                 val from = body.getJSONObject("from").getInt("stopId")
                 requested += from
                 assertTrue(body.getLong("whenMs") <= System.currentTimeMillis())
-                fun trip(id: Int, depart: Long) = """{"odcinki":[{"rodzaj":"przejazd","linia":"5","cel":"Cel","zPrzystanku":{"id":$id,"nazwa":"Przystanek"},"doPrzystanku":{"id":27,"nazwa":"Cel"},"odjazdMs":$depart,"przyjazdMs":${depart + 300_000L}}]}"""
-                """{"ok":true,"polaczenia":[${trip(from, now + (if (from == 24) 60_000L else 180_000L))},${trip(26, now + 30_000L)}]}"""
+                fun trip(id: Int, depart: Long) = """{"legs":[{"mode":"transit","line":"5","destination":"Cel","fromStop":{"id":$id,"name":"Przystanek"},"toStop":{"id":27,"name":"Cel"},"departureMs":$depart,"arrivalMs":${depart + 300_000L}}]}"""
+                """{"journeys":[${trip(from, now + (if (from == 24) 60_000L else 180_000L))},${trip(26, now + 30_000L)}]}"""
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
         }.build()
@@ -155,30 +156,29 @@ class TransitJourneyRepositoryTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops")) {
-                """[{"id":24,"nazwa":"Start","lat":53.123,"lon":18.027},{"id":25,"nazwa":"Start","lat":53.1231,"lon":18.0271}]"""
+                """{"stops":[{"id":24,"name":"Start","lat":53.123,"lon":18.027},{"id":25,"name":"Start","lat":53.1231,"lon":18.0271}]}"""
             } else {
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                 val body = JSONObject(buffer.readUtf8())
                 val id = body.getJSONObject("from").getInt("stopId")
                 val call = counts.computeIfAbsent(id) { AtomicInteger() }.incrementAndGet()
                 val whenMs = body.getLong("whenMs")
-                if (call == 2) assertEquals(now + if (id == 24) 600_000L else 900_000L, whenMs)
-                if (call == 3) { assertEquals(25, id); assertEquals(now + 1_200_000L, whenMs) }
-                val next = when {
-                    call == 1 -> now + if (id == 24) 600_000L else 900_000L
-                    id == 25 && call == 2 -> now + 1_200_000L
-                    else -> 0L
-                }
-                """{"ok":true,"nastepneWhenMs":$next,"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"5","cel":"Cel","zPrzystanku":{"id":$id,"nazwa":"Start"},"doPrzystanku":{"id":27,"nazwa":"Cel"},"odjazdMs":${whenMs + 60_000L},"przyjazdMs":${whenMs + 300_000L}}]}]}"""
+                // Dalej szuka się minutę po odjeździe z odpowiedzi (nie od nextWhenMs planera, który przeskakuje kursy).
+                if (call == 2) assertEquals(now + if (id == 24) 660_000L else 960_000L, whenMs)
+                if (call == 3) { assertEquals(25, id); assertEquals(now + 1_080_000L, whenMs) }
+                val departure = if (call == 1) now + if (id == 24) 600_000L else 900_000L else whenMs + 60_000L
+                // Bez nextWhenMs (0) planer nie ma dalszych połączeń z tego stanowiska.
+                val next = if (call == 1 || (id == 25 && call == 2)) departure + 20 * 60_000L else 0L
+                """{"nextWhenMs":$next,"journeys":[{"legs":[{"mode":"transit","line":"5","destination":"Cel","fromStop":{"id":$id,"name":"Start"},"toStop":{"id":27,"name":"Cel"},"departureMs":$departure,"arrivalMs":${departure + 240_000L}}]}]}"""
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
         }.build()
         try {
             val repo = TransitJourneyRepository(client, TransitStopCatalog(context, client))
             val first = repo.find(target, origin)
-            assertEquals(mapOf("24" to now + 600_000L, "25" to now + 900_000L), first.platformCursors)
+            assertEquals(mapOf("24" to now + 660_000L, "25" to now + 960_000L), first.platformCursors)
             val second = repo.find(target, origin, first.nextWhenMs, platformCursors = first.platformCursors)
-            assertEquals(mapOf("25" to now + 1_200_000L), second.platformCursors)
+            assertEquals(mapOf("25" to now + 1_080_000L), second.platformCursors)
             val third = repo.find(target, origin, second.nextWhenMs, platformCursors = second.platformCursors)
             assertEquals(listOf("25"), third.journeys.map { it.rides.first().fromId })
             assertNull(third.nextWhenMs)
@@ -206,7 +206,7 @@ class TransitJourneyRepositoryTest {
             val request = chain.request()
             var code = 200
             val json = if (request.url.encodedPath.endsWith("/stops")) {
-                """[{"id":24,"nazwa":"Start","lat":53.123,"lon":18.027},{"id":25,"nazwa":"Start","lat":53.1231,"lon":18.0271}]"""
+                """{"stops":[{"id":24,"name":"Start","lat":53.123,"lon":18.027},{"id":25,"name":"Start","lat":53.1231,"lon":18.0271}]}"""
             } else {
                 plans.incrementAndGet()
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
@@ -215,7 +215,7 @@ class TransitJourneyRepositoryTest {
                     if (!malformed) code = 503
                     "niepoprawna odpowiedź"
                 } else {
-                    """{"ok":true,"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"5","cel":"Cel","zPrzystanku":{"id":24,"nazwa":"Start"},"doPrzystanku":{"id":27,"nazwa":"Cel"},"odjazdMs":${now + 60_000L},"przyjazdMs":${now + 300_000L}}]}]}"""
+                    """{"journeys":[{"legs":[{"mode":"transit","line":"5","destination":"Cel","fromStop":{"id":24,"name":"Start"},"toStop":{"id":27,"name":"Cel"},"departureMs":${now + 60_000L},"arrivalMs":${now + 300_000L}}]}]}"""
                 }
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("Test").body(json.toResponseBody()).build()

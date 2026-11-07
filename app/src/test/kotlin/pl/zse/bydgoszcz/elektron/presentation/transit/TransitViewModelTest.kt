@@ -142,13 +142,13 @@ class TransitViewModelTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val json = when {
-                request.url.encodedPath.endsWith("/stops") -> """[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]"""
+                request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
                 request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[192]],"distances":[[240.2]]}"""
                 else -> {
                     val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                     assertEquals(cursor, org.json.JSONObject(buffer.readUtf8()).getLong("whenMs"))
-                    fun leg(depart: Long) = """{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Bielawy","zPrzystanku":{"id":24,"nazwa":"Start"},"doPrzystanku":{"id":26,"nazwa":"Cel"},"odjazdMs":$depart,"przyjazdMs":${depart + 300_000L}}]}"""
-                    """{"ok":true,"polaczenia":[${leg(now + 600_000L)},${leg(cursor + 60_000L)},${leg(cursor + 60_000L)}]}"""
+                    fun leg(depart: Long) = """{"legs":[{"mode":"transit","line":"6","destination":"Bielawy","fromStop":{"id":24,"name":"Start"},"toStop":{"id":26,"name":"Cel"},"departureMs":$depart,"arrivalMs":${depart + 300_000L}}]}"""
+                    """{"journeys":[${leg(now + 600_000L)},${leg(cursor + 60_000L)},${leg(cursor + 60_000L)}]}"""
                 }
             }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
@@ -196,7 +196,7 @@ class TransitViewModelTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val json = when {
-                request.url.encodedPath.endsWith("/stops") -> """[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]"""
+                request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
                 request.url.host == "routing.openstreetmap.de" -> {
                     walkingCalls.incrementAndGet(); walkingStarted.countDown()
                     check(releaseWalking.await(10, java.util.concurrent.TimeUnit.SECONDS))
@@ -206,7 +206,7 @@ class TransitViewModelTest {
                     pageStarted.countDown()
                     check(releasePage.await(10, java.util.concurrent.TimeUnit.SECONDS))
                     if (failPage) throw java.io.IOException("Offline")
-                    """{"ok":true,"polaczenia":[]}"""
+                    """{"journeys":[]}"""
                 }
             }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
@@ -268,10 +268,10 @@ class TransitViewModelTest {
         val release = java.util.concurrent.CountDownLatch(1)
         val requests = java.util.concurrent.atomic.AtomicInteger()
         val client = OkHttpClient.Builder().addInterceptor { chain ->
-            val body = if (chain.request().url.encodedPath.endsWith("/stops")) """[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]""" else {
+            val body = if (chain.request().url.encodedPath.endsWith("/stops")) """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}""" else {
                 requests.incrementAndGet(); started.countDown()
                 check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
-                """{"ok":true,"polaczenia":[]}"""
+                """{"journeys":[]}"""
             }
             okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(body.toResponseBody()).build()
         }.build()
@@ -313,7 +313,7 @@ class TransitViewModelTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val json = when {
-                request.url.encodedPath.endsWith("/stops") -> """[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]"""
+                request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
                 request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[480]],"distances":[[600]]}"""
                 else -> {
                     val n = plans.incrementAndGet()
@@ -329,7 +329,7 @@ class TransitViewModelTest {
                     // walking queries would hide before the student can reach the platform.
                     assertEquals(24, body.getJSONObject("from").getInt("stopId"))
                     val whenMs = body.getLong("whenMs")
-                    """{"ok":true,"nastepneWhenMs":${whenMs + 300_000L},"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Cel","zPrzystanku":{"id":24,"nazwa":"Start"},"doPrzystanku":{"id":26,"nazwa":"Cel"},"odjazdMs":${whenMs + 60_000L},"przyjazdMs":${whenMs + 240_000L}}]}]}"""
+                    """{"nextWhenMs":${whenMs + 300_000L},"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Cel","fromStop":{"id":24,"name":"Start"},"toStop":{"id":26,"name":"Cel"},"departureMs":${whenMs + 60_000L},"arrivalMs":${whenMs + 240_000L}}]}]}"""
                 }
             }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
@@ -389,7 +389,7 @@ class TransitViewModelTest {
             val request = chain.request()
             if (!request.url.encodedPath.endsWith("/stops")) { plans.incrementAndGet(); throw java.io.IOException("Offline") }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
-                .body("""[{"id":24,"nazwa":"Start","lat":53.12194,"lon":18.02764}]""".toResponseBody()).build()
+                .body("""{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}""".toResponseBody()).build()
         }.build()
         val catalog = TransitStopCatalog(context, client)
         val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog))

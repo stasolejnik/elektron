@@ -36,9 +36,9 @@ class TransitJourneyTest {
     @Test fun nearbyStopAndOppositeDirectionDoNotCountAsDestination() {
         assertTrue(parse(target = destination.copy(stopIds = listOf("9"))).isEmpty())
         val reverse = fixture()
-        val leg = reverse.getJSONArray("polaczenia").getJSONObject(0).getJSONArray("odcinki").getJSONObject(1)
-        leg.put("doPrzystanku", JSONObject().put("id", "11").put("nazwa", "Inny kierunek"))
-        leg.remove("poDrodze")
+        val leg = reverse.getJSONArray("journeys").getJSONObject(0).getJSONArray("legs").getJSONObject(1)
+        leg.put("toStop", JSONObject().put("id", "11").put("name", "Inny kierunek"))
+        leg.remove("intermediateStops")
         assertTrue(parse(reverse).isEmpty())
     }
     @Test fun departuresRemainVisibleAfterWalkingDeadlineUntilTheyLeave() {
@@ -51,8 +51,8 @@ class TransitJourneyTest {
     }
     @Test fun malformedTimesAndUnknownBoardingStopAreRejected() {
         val invalid = fixture()
-        invalid.getJSONArray("polaczenia").getJSONObject(0).getJSONArray("odcinki").getJSONObject(1)
-            .getJSONArray("poDrodze").getJSONObject(2).put("at", now - 1)
+        invalid.getJSONArray("journeys").getJSONObject(0).getJSONArray("legs").getJSONObject(1)
+            .getJSONArray("intermediateStops").getJSONObject(2).put("atMs", now - 1)
         assertTrue(parse(invalid).isEmpty())
         assertTrue(TransitJourneyParser.parse(fixture(), destination, emptyMap(), now).isEmpty())
     }
@@ -87,21 +87,21 @@ class TransitJourneyTest {
     }
     @Test fun distantTransferNeedsWalkingTimeAndKnownPlatforms() {
         val response = fixture()
-        val legs = response.getJSONArray("polaczenia").getJSONObject(0).getJSONArray("odcinki")
+        val legs = response.getJSONArray("journeys").getJSONObject(0).getJSONArray("legs")
         val first = legs.getJSONObject(1)
-        first.put("doPrzystanku", JSONObject().put("id", "27").put("nazwa", "Przesiadka"))
-        first.remove("poDrodze")
-        val second = JSONObject(first.toString()).put("odjazdMs", first.getLong("przyjazdMs") + 60_000L)
-            .put("przyjazdMs", first.getLong("przyjazdMs") + 600_000L)
-            .put("zPrzystanku", JSONObject().put("id", "28").put("nazwa", "Drugi przystanek"))
-            .put("doPrzystanku", JSONObject().put("id", "26").put("nazwa", "Rondo Jagiellonów"))
+        first.put("toStop", JSONObject().put("id", "27").put("name", "Przesiadka"))
+        first.remove("intermediateStops")
+        val second = JSONObject(first.toString()).put("departureMs", first.getLong("arrivalMs") + 60_000L)
+            .put("arrivalMs", first.getLong("arrivalMs") + 600_000L)
+            .put("fromStop", JSONObject().put("id", "28").put("name", "Drugi przystanek"))
+            .put("toStop", JSONObject().put("id", "26").put("name", "Rondo Jagiellonów"))
         legs.put(second)
         assertTrue(parse(response).isEmpty())
         val known = platforms + mapOf(
             "27" to TransitDestination("Przesiadka", listOf("27"), 53.123, 18.020),
             "28" to TransitDestination("Drugi przystanek", listOf("28"), 53.123, 18.024))
         assertTrue(TransitJourneyParser.parse(response, destination, known, now).isEmpty())
-        second.put("odjazdMs", first.getLong("przyjazdMs") + 360_000L)
+        second.put("departureMs", first.getLong("arrivalMs") + 360_000L)
         assertEquals(1, TransitJourneyParser.parse(response, destination, known, now).size)
         val far = known + ("28" to TransitDestination("Daleko", listOf("28"), 53.2, 18.2))
         assertTrue(TransitJourneyParser.parse(response, destination, far, now).isEmpty())
@@ -115,18 +115,18 @@ class TransitJourneyTest {
     }
     @Test fun transferArrivingAfterDepartureOfSecondLegIsRejected() {
         val response = fixture()
-        val option = response.getJSONArray("polaczenia").getJSONObject(0)
-        val legs = option.getJSONArray("odcinki")
+        val option = response.getJSONArray("journeys").getJSONObject(0)
+        val legs = option.getJSONArray("legs")
         val first = legs.getJSONObject(1)
-        first.put("doPrzystanku", JSONObject().put("id", "27").put("nazwa", "Przesiadka"))
-        first.remove("poDrodze")
-        val second = JSONObject(first.toString()).put("odjazdMs", first.getLong("przyjazdMs") - 60_000L)
-            .put("przyjazdMs", first.getLong("przyjazdMs") + 600_000L)
-            .put("zPrzystanku", JSONObject().put("id", "27").put("nazwa", "Przesiadka"))
-            .put("doPrzystanku", JSONObject().put("id", "26").put("nazwa", "Rondo Jagiellonów"))
+        first.put("toStop", JSONObject().put("id", "27").put("name", "Przesiadka"))
+        first.remove("intermediateStops")
+        val second = JSONObject(first.toString()).put("departureMs", first.getLong("arrivalMs") - 60_000L)
+            .put("arrivalMs", first.getLong("arrivalMs") + 600_000L)
+            .put("fromStop", JSONObject().put("id", "27").put("name", "Przesiadka"))
+            .put("toStop", JSONObject().put("id", "26").put("name", "Rondo Jagiellonów"))
         legs.put(second)
         assertTrue(parse(response).isEmpty())
-        second.put("odjazdMs", first.getLong("przyjazdMs") + 180_000L)
+        second.put("departureMs", first.getLong("arrivalMs") + 180_000L)
         assertEquals(1, parse(response).single().transfers)
         assertTrue(TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers = false).isEmpty())
         assertTrue(TransitJourneys.rank(parse(response), now, allowTransfers = false).isEmpty())

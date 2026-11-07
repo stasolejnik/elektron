@@ -80,7 +80,7 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
         }.sortedBy { SchoolTransit.distance(it.latitude, it.longitude) }.map { it.stopIds.single() }
         // Stabilne sortowanie: w obrębie grupy zostaje kolejność od najbliższego szkoły.
         val originIds = if (known == null) nearby else nearby.sortedBy { if (it in known.useful) 0 else 1 }
-        val startingPoints = originIds.map { JSONObject().put("stopId", it.toLongOrNull() ?: it) }
+        val startingPoints = originIds.map { JSONObject().put("stopId", it) }
         suspend fun assemble(batches: List<Batch>, complete: Boolean): Result {
             val journeys = batches.flatMap { it.journeys }
             val nextCursors = batches.mapNotNull { batch -> batch.cursor?.let { batch.platform to it } }.toMap()
@@ -113,8 +113,8 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
                         repeat(windows) {
                             val body = JSONObject().put("from", from)
                                 .put("to", JSONObject().put("lat", destination.latitude).put("lon", destination.longitude))
-                                .put("maxPrzesiadki", if (allowTransfers) 1 else 0).put("ksztalt", false).put("whenMs", whenMs)
-                            val request = Request.Builder().url("https://api.busearch.pl/bydgoszcz/api/polaczenia")
+                                .put("maxTransfers", if (allowTransfers) 1 else 0).put("shape", false).put("whenMs", whenMs).put("limit", 8)
+                            val request = Request.Builder().url("$JOURNEYS_URL")
                                 .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
                             val response = client.newCall(request).readCancellable {
                                 if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
@@ -128,7 +128,7 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
                             trips += TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers,
                                 if (origin != null) TransitJourneyParser.MAX_CHOSEN_ORIGIN_METERS else TransitJourneyParser.MAX_BOARDING_METERS)
                                 .filter { origin == null || it.rides.first().fromId in origin.stopIds }
-                            cursor = response.optLong("nastepneWhenMs", 0).takeIf { it > whenMs && it <= now + 24 * 60 * 60_000L }
+                            cursor = TransitJourneyParser.nextCursor(response, whenMs, matched = trips.isNotEmpty())?.takeIf { it <= now + 24 * 60 * 60_000L }
                             if (trips.isNotEmpty() || cursor == null) return@runCatchingCancellable Batch(platform, trips.toList(), cursor)
                             whenMs = cursor!!
                         }
@@ -175,8 +175,8 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
             ?: JSONObject().put("lat", SchoolTransit.LATITUDE).put("lon", SchoolTransit.LONGITUDE)
         val body = JSONObject().put("from", JSONObject().put("lat", home.latitude).put("lon", home.longitude))
             .put("to", target)
-            .put("maxPrzesiadki", if (allowTransfers) 1 else 0).put("ksztalt", false).put("whenMs", whenMs).put("limit", 8)
-        val request = Request.Builder().url("https://api.busearch.pl/bydgoszcz/api/polaczenia")
+            .put("maxTransfers", if (allowTransfers) 1 else 0).put("shape", false).put("whenMs", whenMs).put("limit", 8)
+        val request = Request.Builder().url("$JOURNEYS_URL")
             .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
         val response = client.newCall(request).readCancellable {
             if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
@@ -187,7 +187,7 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
         }
         val journeys = TransitJourneyParser.parseToSchool(response, home, platforms, minOf(now, whenMs), allowTransfers, schoolStop,
             targetWalkAsync.await(), searchFromMs = whenMs)
-        val cursor = response.optLong("nastepneWhenMs", 0).takeIf { it > whenMs && it <= whenMs + 24 * 60 * 60_000L }
+        val cursor = TransitJourneyParser.nextCursor(response, whenMs, matched = journeys.isNotEmpty())?.takeIf { it <= whenMs + 24 * 60 * 60_000L }
         val at = AppClock.millis()
         Result(home.key, TransitJourneys.rankToSchool(journeys, at, allowTransfers), at, schoolStop?.key, cursor, allowTransfers,
             direction = TransitDirection.TO_SCHOOL, searchFromMs = fromMs)
@@ -237,6 +237,8 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
     }
 
     companion object {
+        /** BUSearch API v2 (dawne /bydgoszcz/api/polaczenia działa do końca 2026 r.). */
+        const val JOURNEYS_URL = "https://api.busearch.pl/v2/cities/bydgoszcz/journeys"
         const val PARALLEL_REQUESTS = 3
         const val KNOWLEDGE_TTL_MS = 60 * 60_000L
         const val CACHE_MAX_AGE_MS = 12 * 60 * 60_000L
@@ -267,6 +269,29 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
 }
 
 internal object TransitJourneyParser {
+    /**
+     * Od kiedy szukać dalej: minutę po najwcześniejszym odjeździe z odpowiedzi. Planer zwraca tylko kilka
+     * najbliższych połączeń, a jego nextWhenMs przeskakuje o 15-20 min (albo stoi w miejscu) - idąc za nim,
+     * lista gubiła kursy pomiędzy (np. linię 5 co 10 min). Strona bez żadnego pasującego kursu ([matched]
+     * false, np. same kursy z innych przystanków) - dalej o nextWhenMs, inaczej szukanie szłoby minuta po minucie.
+     * Bez nextWhenMs planer nie ma dalszych połączeń - koniec (null).
+     */
+    fun nextCursor(response: JSONObject, whenMs: Long, matched: Boolean = true): Long? {
+        val options = response.optJSONArray("journeys")
+        val earliest = (0 until (options?.length() ?: 0)).mapNotNull { i ->
+            val legs = options!!.getJSONObject(i).optJSONArray("legs") ?: return@mapNotNull null
+            (0 until legs.length()).map { legs.getJSONObject(it) }.firstOrNull { it.optString("mode") == "transit" }
+                ?.optLong("departureMs", 0)?.takeIf { it > 0 }
+        }.minOrNull()
+        val planner = response.optLong("nextWhenMs", 0).takeIf { it > 0 } ?: return null
+        val next = when {
+            earliest == null -> planner
+            matched -> earliest + 60_000L
+            else -> maxOf(earliest + 60_000L, planner)
+        }
+        return next.takeIf { it > whenMs }
+    }
+
     /** Limit odległości stanowiska od szkoły (sanity); przy wybranym przystanku początkowym luźniejszy. */
     const val MAX_BOARDING_METERS = 1000.0
     /** Wybrany przystanek przy szkole może być dowolnie daleko (np. pętla, z której jest więcej kursów). */
@@ -290,30 +315,30 @@ internal object TransitJourneyParser {
         /** Od kiedy szukano - przy lekcji za kilka dni (piątek wieczorem -> poniedziałek) dawniej limit 36 h od teraz odrzucał wszystko. */
         searchFromMs: Long = nowMs): List<TransitJourney> {
         val horizon = maxOf(nowMs, searchFromMs) + 36 * 60 * 60_000L
-        require(response.getBoolean("ok")) { "Planer nie zwrócił poprawnych danych" }
-        val options = response.getJSONArray("polaczenia")
+        require(response.has("journeys")) { "Planer nie zwrócił poprawnych danych" }
+        val options = response.getJSONArray("journeys")
         require(options.length() <= 200)
         return (0 until options.length()).mapNotNull { index -> runCatching {
             val option = options.getJSONObject(index)
-            val segments = option.getJSONArray("odcinki")
+            val segments = option.getJSONArray("legs")
             val rides = mutableListOf<TransitRide>()
             var end = 0L
             var reached = false
             for (i in 0 until segments.length()) {
                 val leg = segments.getJSONObject(i)
-                end = maxOf(end, leg.getLong("przyjazdMs"))
-                if (leg.optString("rodzaj") != "przejazd") continue
-                val from = leg.getJSONObject("zPrzystanku")
-                val to = leg.getJSONObject("doPrzystanku")
+                end = maxOf(end, leg.getLong("arrivalMs"))
+                if (leg.optString("mode") != "transit") continue
+                val from = leg.getJSONObject("fromStop")
+                val to = leg.getJSONObject("toStop")
                 val fromId = from.getString("id")
                 if (target != null && fromId in target.stopIds) break // już na wybranym przystanku
-                val departure = leg.getLong("odjazdMs")
-                var arrival = leg.getLong("przyjazdMs")
+                val departure = leg.getLong("departureMs")
+                var arrival = leg.getLong("arrivalMs")
                 var toId = to.getString("id")
-                var toName = to.getString("nazwa")
+                var toName = to.getString("name")
                 // Wybrany przystanek po drodze - wysiadka na nim, nie na końcu przejazdu.
                 if (target != null) {
-                    val calls = leg.optJSONArray("poDrodze")
+                    val calls = leg.optJSONArray("intermediateStops")
                     if (calls != null) {
                         val fromIndex = (0 until calls.length()).firstOrNull { calls.getJSONObject(it).optString("id") == fromId }
                         val targetIndex = fromIndex?.let { start -> (start + 1 until calls.length()).firstOrNull {
@@ -321,16 +346,16 @@ internal object TransitJourneyParser {
                         } }
                         if (targetIndex != null) {
                             val call = calls.getJSONObject(targetIndex)
-                            toId = call.getString("id"); arrival = call.getLong("at")
+                            toId = call.getString("id"); arrival = call.getLong("atMs")
                         }
                     }
                     if (toId in target.stopIds) { reached = true; toName = target.name }
                 }
                 require(departure >= nowMs && arrival >= departure && arrival <= horizon)
-                val line = leg.getString("linia"); val direction = leg.getString("cel")
+                val line = leg.getString("line"); val direction = leg.getString("destination")
                 require(line.isNotBlank() && line.length <= 32 && direction.isNotBlank() && direction.length <= 200)
                 rides.lastOrNull()?.let { require(departure >= it.arrivalMs + 60_000L) }
-                rides += TransitRide(line, direction, fromId, from.getString("nazwa"), toId, toName, departure, arrival)
+                rides += TransitRide(line, direction, fromId, from.getString("name"), toId, toName, departure, arrival)
                 if (reached) break
             }
             require(rides.size in 1..(if (allowTransfers) 2 else 1))
@@ -353,7 +378,7 @@ internal object TransitJourneyParser {
             val last = platforms[rides.last().toId] ?: return@runCatching null
             val distance = SchoolTransit.distance(last.latitude, last.longitude)
             require(distance <= MAX_SCHOOL_STOP_METERS)
-            val atSchool = option.optLong("przyjazdMs", end).takeIf { it > 0 } ?: end
+            val atSchool = option.optLong("arrivalMs", end).takeIf { it > 0 } ?: end
             require(atSchool >= rides.last().arrivalMs && atSchool <= rides.last().arrivalMs + 30 * 60_000L)
             val walk = ((atSchool - rides.last().arrivalMs + 59_999L) / 60_000L).toInt()
             TransitJourney(rides, walk, distance, walkAvailable = true, walkPending = false, schoolArrivalMs = atSchool)
@@ -362,25 +387,25 @@ internal object TransitJourneyParser {
 
     fun parse(response: JSONObject, destination: TransitDestination, platforms: Map<String, TransitDestination>, nowMs: Long, allowTransfers: Boolean = true,
         maxBoardingMeters: Double = MAX_BOARDING_METERS): List<TransitJourney> {
-        require(response.getBoolean("ok")) { "Planer nie zwrócił poprawnych danych" }
-        val options = response.getJSONArray("polaczenia")
+        require(response.has("journeys")) { "Planer nie zwrócił poprawnych danych" }
+        val options = response.getJSONArray("journeys")
         require(options.length() <= 200)
         return (0 until options.length()).mapNotNull { index -> runCatching {
-            val segments = options.getJSONObject(index).getJSONArray("odcinki")
+            val segments = options.getJSONObject(index).getJSONArray("legs")
             val rides = mutableListOf<TransitRide>()
             var reached = false
             for (i in 0 until segments.length()) {
                 val leg = segments.getJSONObject(i)
-                if (leg.optString("rodzaj") != "przejazd") continue
-                val from = leg.getJSONObject("zPrzystanku")
-                val to = leg.getJSONObject("doPrzystanku")
+                if (leg.optString("mode") != "transit") continue
+                val from = leg.getJSONObject("fromStop")
+                val to = leg.getJSONObject("toStop")
                 val fromId = from.getString("id")
-                val departure = leg.getLong("odjazdMs")
+                val departure = leg.getLong("departureMs")
                 var toId = to.getString("id")
-                var arrival = leg.getLong("przyjazdMs")
-                var toName = to.getString("nazwa")
+                var arrival = leg.getLong("arrivalMs")
+                var toName = to.getString("name")
                 if (fromId in destination.stopIds) break // already at the chosen stop
-                val calls = leg.optJSONArray("poDrodze")
+                val calls = leg.optJSONArray("intermediateStops")
                 if (calls != null) {
                     val fromIndex = (0 until calls.length()).firstOrNull { calls.getJSONObject(it).optString("id") == fromId }
                     val targetIndex = fromIndex?.let { start -> (start + 1 until calls.length()).firstOrNull {
@@ -388,12 +413,12 @@ internal object TransitJourneyParser {
                     } }
                     if (targetIndex != null) {
                         val target = calls.getJSONObject(targetIndex)
-                        toId = target.getString("id"); arrival = target.getLong("at"); toName = destination.name; reached = true
+                        toId = target.getString("id"); arrival = target.getLong("atMs"); toName = destination.name; reached = true
                     }
                 }
                 if (toId in destination.stopIds) reached = true
                 require(departure >= nowMs && arrival >= departure && arrival <= nowMs + 24 * 60 * 60_000L)
-                val line = leg.getString("linia"); val direction = leg.getString("cel")
+                val line = leg.getString("line"); val direction = leg.getString("destination")
                 require(line.isNotBlank() && line.length <= 32 && direction.isNotBlank() && direction.length <= 200)
                 if (rides.isNotEmpty()) {
                     val previous = rides.last()
@@ -406,7 +431,7 @@ internal object TransitJourneyParser {
                     }
                     require(departure >= previous.arrivalMs + walkMs + 60_000L)
                 }
-                rides += TransitRide(line, direction, fromId, from.getString("nazwa"), toId, toName, departure, arrival)
+                rides += TransitRide(line, direction, fromId, from.getString("name"), toId, toName, departure, arrival)
                 if (reached) break
             }
             require(reached && rides.size in 1..(if (allowTransfers) 2 else 1))

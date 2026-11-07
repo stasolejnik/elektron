@@ -31,7 +31,7 @@ class TransitSmartQueriesTest {
         val request = chain.request()
         val json = when {
             request.url.encodedPath.endsWith("/stops") ->
-                """[{"id":24,"nazwa":"A","lat":53.12340,"lon":18.02664},{"id":25,"nazwa":"B","lat":53.12360,"lon":18.02664},{"id":26,"nazwa":"C","lat":53.12380,"lon":18.02664}]"""
+                """{"stops":[{"id":24,"name":"A","lat":53.12340,"lon":18.02664},{"id":25,"name":"B","lat":53.12360,"lon":18.02664},{"id":26,"name":"C","lat":53.12380,"lon":18.02664}]}"""
             request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[120]],"distances":[[100]]}"""
             else -> {
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
@@ -41,9 +41,9 @@ class TransitSmartQueriesTest {
                 requests += stop
                 // Tylko stanowisko 25 ma kurs do celu; pozostałe zwracają puste okno z kursorem.
                 if (stop == 25) {
-                    """{"ok":true,"nastepneWhenMs":${whenMs + 600_000L},"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Kierunek",
-                        "zPrzystanku":{"id":25,"nazwa":"B"},"doPrzystanku":{"id":99,"nazwa":"Cel"},"odjazdMs":$depart,"przyjazdMs":${depart + 300_000L}}]}]}"""
-                } else """{"ok":true,"nastepneWhenMs":${whenMs + 600_000L},"polaczenia":[]}"""
+                    """{"nextWhenMs":${whenMs + 600_000L},"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Kierunek",
+                        "fromStop":{"id":25,"name":"B"},"toStop":{"id":99,"name":"Cel"},"departureMs":$depart,"arrivalMs":${depart + 300_000L}}]}]}"""
+                } else """{"nextWhenMs":${whenMs + 600_000L},"journeys":[]}"""
             }
         }
         Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")

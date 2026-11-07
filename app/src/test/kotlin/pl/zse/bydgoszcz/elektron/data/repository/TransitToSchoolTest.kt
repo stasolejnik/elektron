@@ -100,7 +100,7 @@ class TransitToSchoolTest {
                 assertEquals(home.latitude, body.getJSONObject("from").getDouble("lat"), 1e-9)
                 assertEquals(SchoolTransit.LATITUDE, body.getJSONObject("to").getDouble("lat"), 1e-9)
                 assertEquals(searchedAt, body.getLong("whenMs"))
-                assertEquals(0, body.getInt("maxPrzesiadki"))
+                assertEquals(0, body.getInt("maxTransfers"))
                 resource("planner_to_school.json")
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
@@ -114,7 +114,8 @@ class TransitToSchoolTest {
             assertEquals(TransitDirection.TO_SCHOOL, result.direction)
             assertEquals(home.key, result.destinationKey)
             assertNull(result.originKey)
-            assertEquals(1792995181197L, result.nextWhenMs)
+            // Minutę po najwcześniejszym odjeździe z odpowiedzi (nie nextWhenMs planera, który przeskakuje kursy).
+            assertEquals(1792994520000L, result.nextWhenMs)
             assertTrue(result.journeys.isNotEmpty() && result.journeys.all { it.transfers == 0 && it.schoolArrivalMs != null && !it.walkPending })
             // Zapis i odczyt z kierunkiem.
             val decoded = TransitResultCodec.decode(TransitResultCodec.encode(result))!!
@@ -126,11 +127,12 @@ class TransitToSchoolTest {
     }
 
     @Test fun liveBoardParsesDelaysAndSkipsBrokenEntries() {
-        val board = TransitLiveRepository.parse("""[
-            {"linia":"10","cel":"Zajezdnia","atMs":1792789529124,"delayMin":-1,"source":"live"},
-            {"linia":"10","cel":"Zajezdnia","atMs":1792791060000,"source":"municipal_schedule"},
-            {"linia":"","atMs":1},
-            {"linia":"4","atMs":1792789410659,"source":"live"}]""")
+        val board = TransitLiveRepository.parse("""{"departures":[
+            {"line":"10","destination":"Zajezdnia","atMs":1792789529124,"delayMinutes":-1,"source":"live"},
+            {"line":"10","destination":"Zajezdnia","atMs":1792791060000,"source":"timetable"},
+            {"line":"","atMs":1},
+            {"line":"5","destination":"Rycerska","atMs":1792789000000,"delayMinutes":2,"source":"live","arrivalOnly":true},
+            {"line":"4","atMs":1792789410659,"source":"live"}]}""")
         assertEquals(listOf(LiveDeparture("10", 1792789529124, -1, true), LiveDeparture("10", 1792791060000, null, false),
             LiveDeparture("4", 1792789410659, null, true)), board)
     }

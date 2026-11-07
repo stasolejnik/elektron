@@ -19,8 +19,8 @@ import java.io.IOException
 @Config(sdk = [26, 34])
 class TransitCatalogCacheTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val file get() = File(context.cacheDir, "transit_stops.json")
-    private val json = """[{"id":"24","nazwa":"Szkoła","lat":53.123,"lon":18.027}]"""
+    private val file get() = File(context.cacheDir, "transit_stops_v2.json")
+    private val json = """{"stops":[{"id":"24","name":"Szkoła","lat":53.123,"lon":18.027}]}"""
 
     @Test fun staleCacheSurvivesFailureAndExplicitRefreshBypassesCooldown() = runBlocking {
         file.writeText(json)

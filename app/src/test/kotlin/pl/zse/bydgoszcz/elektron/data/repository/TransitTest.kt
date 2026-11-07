@@ -19,22 +19,24 @@ import java.io.File
 @Config(sdk = [34])
 class TransitTest {
     @Test fun catalogGroupsPlatformsAndRejectsInvalidCoordinates() {
-        val stops = TransitStopParser.parse("""[
-            {"id":9,"nazwa":"Rondo Jagiellonów","lat":53.12,"lon":18.00},
-            {"id":10,"nazwa":"Rondo Jagiellonów","lat":53.121,"lon":18.001},
-            {"id":9,"nazwa":"Duplikat","lat":53.12,"lon":18.00},
-            {"id":11,"nazwa":"UKW","lat":53.14,"lon":18.02},
-            {"id":12,"nazwa":"Błąd","lat":153,"lon":18.00}
-        ]""")
+        val stops = TransitStopParser.parse("""{"stops":[
+            {"id":"9","name":"Rondo Jagiellonów #1","baseName":"Rondo Jagiellonów","lat":53.12,"lon":18.00},
+            {"id":"10","name":"Rondo Jagiellonów #2","lat":53.121,"lon":18.001},
+            {"id":"9","name":"Duplikat","lat":53.12,"lon":18.00},
+            {"id":"11","name":"UKW","lat":53.14,"lon":18.02},
+            {"id":"12","name":"Błąd","lat":153,"lon":18.00}
+        ]}""")
         assertEquals(2, stops.size)
         val complex = stops.first { it.name == "Rondo Jagiellonów" }
         assertEquals(listOf("9", "10"), complex.stopIds)
+        // Numer słupka BUSearch ("#2") nie dzieli przystanku - bez baseName też.
+        assertEquals("Rondo Jagiellonów", TransitStopParser.baseName("Rondo Jagiellonów #12"))
         // Stanowiska zespołu leżą blisko siebie (te same nazwy daleko od siebie to osobne przystanki - TransitStopsRefreshTest).
         assertEquals(53.1205, complex.latitude, 0.00001)
         assertEquals("10,9", complex.key)
     }
     @Test fun emptyOrMalformedCatalogIsAnError() {
-        for (json in listOf("[]", "{}", "[{\"id\":1}]")) {
+        for (json in listOf("[]", "{}", "{\"stops\":[]}", "{\"stops\":[{\"id\":\"1\"}]}")) {
             try { TransitStopParser.parse(json); fail("Invalid catalog must not replace a cached catalog") }
             catch (_: Exception) { }
         }

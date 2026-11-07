@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.buffer
 import okio.source
-import org.json.JSONArray
+import org.json.JSONObject
 import pl.zse.bydgoszcz.elektron.data.remote.http.readCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolTransit
 import pl.zse.bydgoszcz.elektron.domain.model.TransitDestination
@@ -25,7 +25,9 @@ import javax.inject.Singleton
 @Singleton
 class TransitStopCatalog @Inject constructor(@ApplicationContext context: Context, private val client: OkHttpClient) {
     data class Catalog(val stops: List<TransitDestination>, val stale: Boolean, val updatedAt: Long, val platforms: List<TransitDestination>)
-    private val file = AtomicFile(File(context.cacheDir, "transit_stops.json"))
+    // Katalog z API v2 (inny format niż dawny plik transit_stops.json, który jest usuwany).
+    private val file = AtomicFile(File(context.cacheDir, "transit_stops_v2.json"))
+    private val legacyFile = File(context.cacheDir, "transit_stops.json")
     private val mutex = Mutex()
     private var cached: Catalog? = null
     private var lastFailure: Throwable? = null
@@ -36,6 +38,7 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
     suspend fun load(force: Boolean = false): Catalog = withContext(Dispatchers.IO) {
         mutex.withLock {
             val now = System.currentTimeMillis()
+            if (legacyFile.exists()) runCatching { legacyFile.delete() }
             val previous = cached ?: runCatching {
                 decodeCatalog(file.openRead().source().buffer().use { source ->
                     source.request(maxCatalogBytes + 1)
@@ -52,7 +55,7 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
                 }
             }
             runCatchingCancellable {
-                val request = Request.Builder().url("https://api.busearch.pl/bydgoszcz/api/stops")
+                val request = Request.Builder().url(STOPS_URL)
                     .header("Accept", "application/json").build()
                 val json = client.newCall(request).readCancellable { response ->
                     if (!response.isSuccessful) throw IOException("Katalog: HTTP ${response.code}")
@@ -76,6 +79,11 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
             }
         }
     }
+    companion object {
+        /** BUSearch API v2 (dawne /bydgoszcz/api/stops działa do końca 2026 r.). */
+        const val STOPS_URL = "https://api.busearch.pl/v2/cities/bydgoszcz/stops"
+    }
+
     private fun decodeCatalog(json: String, updatedAt: Long): Catalog {
         val platforms = TransitStopParser.platforms(json)
         return Catalog(TransitStopParser.group(platforms), false, updatedAt, platforms)
@@ -83,13 +91,22 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
 }
 
 internal object TransitStopParser {
+    fun baseName(name: String): String = pl.zse.bydgoszcz.elektron.domain.model.TransitStops.baseName(name)
+
     fun parse(json: String): List<TransitDestination> = group(platforms(json))
+    /**
+     * Stanowiska z API v2 ({"stops": [...]}). Nazwa bez numeru słupka BUSearch ("Rycerska #2" -> "Rycerska"):
+     * stanowiska jednego przystanku tworzą jeden wybór. Dawniej numer trafiał do nazwy i każde
+     * stanowisko było osobnym przystankiem z jedną-dwiema liniami - część kursów znikała.
+     */
     fun platforms(json: String): List<TransitDestination> {
-        val array = JSONArray(json)
+        val array = JSONObject(json).getJSONArray("stops")
         require(array.length() in 1..10000) { "Nieprawidłowy katalog przystanków" }
         val platforms = (0 until array.length()).mapNotNull { i -> runCatching {
             val obj = array.getJSONObject(i)
-            TransitDestination(obj.getString("nazwa").trim(), listOf(obj.getString("id")), obj.getDouble("lat"), obj.getDouble("lon"))
+            val name = obj.optString("baseName").trim().ifEmpty { baseName(obj.getString("name")) }
+            require(name.isNotEmpty())
+            TransitDestination(name, listOf(obj.getString("id")), obj.getDouble("lat"), obj.getDouble("lon"))
         }.getOrNull() }.distinctBy { it.stopIds.single() }
         require(platforms.isNotEmpty()) { "Katalog nie zawiera przystanków" }
         return platforms

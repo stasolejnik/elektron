@@ -58,18 +58,18 @@ class TransitDirectionTest {
                     boards.incrementAndGet()
                     assertEquals("8", request.url.queryParameter("line"))
                     val dep = bodies.first().getLong("whenMs") + 5 * 60_000L
-                    """[{"linia":"8","atMs":${dep + 3 * 60_000L},"delayMin":3,"source":"live"}]"""
+                    """{"departures":[{"line":"8","atMs":${dep + 3 * 60_000L},"delayMinutes":3,"source":"live"}]}"""
                 }
                 request.url.encodedPath.endsWith("/stops") ->
-                    """[{"id":41,"nazwa":"Dom","lat":53.108,"lon":18.045},{"id":11,"nazwa":"Szkoła","lat":53.1225,"lon":18.0264},{"id":24,"nazwa":"Przy szkole","lat":53.12194,"lon":18.02764}]"""
+                    """{"stops":[{"id":41,"name":"Dom","lat":53.108,"lon":18.045},{"id":11,"name":"Szkoła","lat":53.1225,"lon":18.0264},{"id":24,"name":"Przy szkole","lat":53.12194,"lon":18.02764}]}"""
                 request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[180]],"distances":[[250]]}"""
                 else -> {
                     val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                     val body = JSONObject(buffer.readUtf8()); bodies += body
                     val w = body.getLong("whenMs")
                     if (body.getJSONObject("from").has("lat"))
-                        """{"ok":true,"polaczenia":[{"przyjazdMs":${w + 20 * 60_000L},"odcinki":[{"rodzaj":"przejazd","linia":"8","cel":"Rycerska","zPrzystanku":{"id":41,"nazwa":"Dom"},"doPrzystanku":{"id":11,"nazwa":"Szkoła"},"odjazdMs":${w + 5 * 60_000L},"przyjazdMs":${w + 17 * 60_000L}},{"rodzaj":"pieszo","zPrzystanku":{"id":11,"nazwa":"Szkoła"},"doPrzystanku":{"id":null,"nazwa":"Miejsce docelowe"},"odjazdMs":${w + 17 * 60_000L},"przyjazdMs":${w + 20 * 60_000L}}]}]}"""
-                    else """{"ok":true,"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Dom","zPrzystanku":{"id":24,"nazwa":"Przy szkole"},"doPrzystanku":{"id":41,"nazwa":"Dom"},"odjazdMs":${w + 60_000L},"przyjazdMs":${w + 600_000L}}]}]}"""
+                        """{"journeys":[{"arrivalMs":${w + 20 * 60_000L},"legs":[{"mode":"transit","line":"8","destination":"Rycerska","fromStop":{"id":41,"name":"Dom"},"toStop":{"id":11,"name":"Szkoła"},"departureMs":${w + 5 * 60_000L},"arrivalMs":${w + 17 * 60_000L}},{"mode":"walk","fromStop":{"id":11,"name":"Szkoła"},"toStop":{"id":null,"name":"Miejsce docelowe"},"departureMs":${w + 17 * 60_000L},"arrivalMs":${w + 20 * 60_000L}}]}]}"""
+                    else """{"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Dom","fromStop":{"id":24,"name":"Przy szkole"},"toStop":{"id":41,"name":"Dom"},"departureMs":${w + 60_000L},"arrivalMs":${w + 600_000L}}]}]}"""
                 }
             }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
@@ -171,13 +171,13 @@ class TransitDirectionTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops"))
-                """[{"id":41,"nazwa":"Dom","lat":53.108,"lon":18.045},{"id":77,"nazwa":"Daleko","lat":53.2,"lon":18.2},{"id":11,"nazwa":"Szkoła","lat":53.1225,"lon":18.0264}]"""
+                """{"stops":[{"id":41,"name":"Dom","lat":53.108,"lon":18.045},{"id":77,"name":"Daleko","lat":53.2,"lon":18.2},{"id":11,"name":"Szkoła","lat":53.1225,"lon":18.0264}]}"""
             else {
                 plans.incrementAndGet()
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                 val w = JSONObject(buffer.readUtf8()).getLong("whenMs")
                 // Każda strona: kurs z innego przystanku (odrzucany) i następne okno za 20 min.
-                """{"ok":true,"nastepneWhenMs":${w + 20 * 60_000L},"polaczenia":[{"przyjazdMs":${w + 20 * 60_000L},"odcinki":[{"rodzaj":"przejazd","linia":"8","cel":"X","zPrzystanku":{"id":77,"nazwa":"Daleko"},"doPrzystanku":{"id":11,"nazwa":"Szkoła"},"odjazdMs":${w + 60_000L},"przyjazdMs":${w + 15 * 60_000L}}]}]}"""
+                """{"nextWhenMs":${w + 20 * 60_000L},"journeys":[{"arrivalMs":${w + 20 * 60_000L},"legs":[{"mode":"transit","line":"8","destination":"X","fromStop":{"id":77,"name":"Daleko"},"toStop":{"id":11,"name":"Szkoła"},"departureMs":${w + 60_000L},"arrivalMs":${w + 15 * 60_000L}}]}]}"""
             }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
         }.build()
@@ -217,12 +217,12 @@ class TransitDirectionTest {
             val request = chain.request()
             val json = when {
                 request.url.encodedPath.contains("/departures") -> {
-                    assertEquals("/v1/cities/bydgoszcz/stops/24/departures", request.url.encodedPath)
-                    """[{"linia":"6","atMs":${departure + 2 * 60_000L},"delayMin":2,"source":"live"}]"""
+                    assertEquals("/v2/cities/bydgoszcz/stops/24/departures", request.url.encodedPath)
+                    """{"departures":[{"line":"6","atMs":${departure + 2 * 60_000L},"delayMinutes":2,"source":"live"}]}"""
                 }
-                request.url.encodedPath.endsWith("/stops") -> """[{"id":24,"nazwa":"Przy szkole","lat":53.12194,"lon":18.02764}]"""
+                request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Przy szkole","lat":53.12194,"lon":18.02764}]}"""
                 request.url.host == "routing.openstreetmap.de" -> """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[180]],"distances":[[250]]}"""
-                else -> """{"ok":true,"polaczenia":[{"odcinki":[{"rodzaj":"przejazd","linia":"6","cel":"Dom","zPrzystanku":{"id":24,"nazwa":"Przy szkole"},"doPrzystanku":{"id":41,"nazwa":"Dom"},"odjazdMs":$departure,"przyjazdMs":${departure + 600_000L}}]}]}"""
+                else -> """{"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Dom","fromStop":{"id":24,"name":"Przy szkole"},"toStop":{"id":41,"name":"Dom"},"departureMs":$departure,"arrivalMs":${departure + 600_000L}}]}]}"""
             }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
         }.build()
