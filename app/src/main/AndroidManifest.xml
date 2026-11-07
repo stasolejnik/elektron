@@ -54,6 +54,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <!-- Jasna (cyjanowa) ikona; nazwa aliasu z dawnej ikony "Białe tło". -->
         <activity-alias
             android:name=".IconLight"
             android:targetActivity=".ElektronActivity"

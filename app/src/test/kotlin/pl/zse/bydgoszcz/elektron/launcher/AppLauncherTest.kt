@@ -22,9 +22,9 @@ class AppLauncherTest {
 
     @Test fun defaultIconUntilChangedAndExactlyOneLauncherEntryAfterChange() {
         assertEquals(AppIcon.DEFAULT, AppIcons.current(context))
-        AppIcons.set(context, AppIcon.LIGHT)
-        assertEquals(AppIcon.LIGHT, AppIcons.current(context))
-        assertEquals(listOf(AppIcon.LIGHT), enabledAliases())
+        AppIcons.set(context, AppIcon.CYAN)
+        assertEquals(AppIcon.CYAN, AppIcons.current(context))
+        assertEquals(listOf(AppIcon.CYAN), enabledAliases())
         AppIcons.set(context, AppIcon.DEFAULT)
         assertEquals(AppIcon.DEFAULT, AppIcons.current(context))
         assertEquals(listOf(AppIcon.DEFAULT), enabledAliases())
@@ -42,8 +42,8 @@ class AppLauncherTest {
 
     @Test fun shortcutsFollowTheChosenIcon() {
         AppShortcuts.update(context, transitTabVisible = false)
-        AppIcons.set(context, AppIcon.LIGHT)
-        assertEquals(setOf(AppIcons.component(context, AppIcon.LIGHT)), shortcuts.map { it.activity }.toSet())
+        AppIcons.set(context, AppIcon.CYAN)
+        assertEquals(setOf(AppIcons.component(context, AppIcon.CYAN)), shortcuts.map { it.activity }.toSet())
         AppIcons.set(context, AppIcon.DEFAULT)
     }
 

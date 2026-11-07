@@ -74,9 +74,9 @@ private fun AppIconDialog(selected: AppIcon, onSelect: (AppIcon) -> Unit, onDism
 @Composable
 private fun IconPreview(icon: AppIcon, selected: Boolean) {
     val colors = MaterialTheme.colorScheme
-    val background = when (icon) {
-        AppIcon.DEFAULT -> Color.Black
-        AppIcon.LIGHT -> Color.White
+    val (background, foreground) = when (icon) {
+        AppIcon.DEFAULT -> Color(0xFF0B2545) to R.drawable.ic_launcher_foreground
+        AppIcon.CYAN -> Color(0xFF00B6DD) to R.drawable.ic_launcher_foreground_cyan
     }
     Box(
         Modifier.size(64.dp)
@@ -86,6 +86,6 @@ private fun IconPreview(icon: AppIcon, selected: Boolean) {
             .background(background),
         contentAlignment = Alignment.Center
     ) {
-        Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.requiredSize(84.dp))
+        Image(painterResource(foreground), contentDescription = null, modifier = Modifier.requiredSize(84.dp))
     }
 }

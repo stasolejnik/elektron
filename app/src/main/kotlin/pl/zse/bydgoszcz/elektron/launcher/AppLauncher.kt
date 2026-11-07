@@ -14,11 +14,12 @@ import pl.zse.bydgoszcz.elektron.R
 /**
  * Ikona aplikacji do wyboru w Ustawieniach. Każda to osobny wpis launchera (activity-alias
  * w manifeście), włączony jest dokładnie jeden. Domyślny nosi dawną nazwę MainActivity, więc ikona
- * dodana na ekran główny przed aktualizacją zostaje.
+ * dodana na ekran główny przed aktualizacją zostaje. Jasna ikona ma dawny alias .IconLight (dawniej
+ * "Białe tło") - kto ją wybrał, po aktualizacji ma jasną ikonę z nowym logo.
  */
 enum class AppIcon(val alias: String, val label: String, val iconRes: Int) {
-    DEFAULT("pl.zse.bydgoszcz.elektron.MainActivity", "Domyślna", R.mipmap.ic_launcher),
-    LIGHT("pl.zse.bydgoszcz.elektron.IconLight", "Białe tło", R.mipmap.ic_launcher_light)
+    DEFAULT("pl.zse.bydgoszcz.elektron.MainActivity", "Granatowa", R.mipmap.ic_launcher),
+    CYAN("pl.zse.bydgoszcz.elektron.IconLight", "Cyjanowa", R.mipmap.ic_launcher_light)
 }
 
 object AppIcons {
