@@ -1,6 +1,7 @@
-Okienka i przeniesione lekcje nie liczą się jako lekcje: bez przypomnień, z właściwym końcem lekcji.
-Po przenumerowaniu klas prośba o ponowny wybór także w tle i po kopii zapasowej.
-Powiadomienie na żywo: czas w kapsule na pasku stanu także na realme, OPPO i OnePlus (Android 16+).
-„Wybierz klasę ponownie” otwiera aplikację.
+Nowe logo: ikona granatowa albo cyjanowa.
+Przejazdy: wszystkie kursy z Twojego przystanku, nowe API BUSearch, karta „Na przystanku 07:39 · zapas 16 min”.
+Zastępstwa: najpierw lekcja na zastępstwie, potem nauczyciel.
+Informacje szkoły w ogłoszeniach, powiadomienia o nich domyślnie wyłączone.
+Okienka i przeniesione lekcje nie liczą się jako lekcje.
 Bez przypomnień o notatkach w dni wolne.
-Wakacje od piątku po 20 czerwca, jak w rozporządzeniu.
+Czas w kapsule na pasku stanu na realme, OPPO i OnePlus.

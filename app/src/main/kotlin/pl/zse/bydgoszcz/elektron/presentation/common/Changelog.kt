@@ -6,6 +6,12 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(39, "1.0.3", listOf(
+            "Nowe logo - ikona granatowa albo cyjanowa (Ustawienia → Wygląd)",
+            "Przejazdy pokazują wszystkie kursy z Twojego przystanku i korzystają z nowego API BUSearch",
+            "Karta dojazdu: o której jesteś na przystanku przy szkole i ile zapasu do lekcji",
+            "Zastępstwa: najpierw lekcja na zastępstwie, pod nią nauczyciel zastępujący",
+            "Informacje szkoły (np. zamiana sal) w ogłoszeniach; powiadomienia o nich domyślnie wyłączone",
+            "Bez powiadomień o samej godzinie publikacji informacji szkoły",
             "Okienka i przeniesione lekcje nie liczą się jako lekcje: bez przypomnień, z właściwym końcem lekcji",
             "Po przenumerowaniu klas aplikacja poprosi o ponowny wybór także przy planie pobieranym w tle",
             "Powiadomienie na żywo: czas w kapsule na pasku stanu także na telefonach realme, OPPO i OnePlus",

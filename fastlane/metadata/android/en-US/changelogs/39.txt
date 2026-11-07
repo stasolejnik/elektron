@@ -1,6 +1,7 @@
-Free periods and moved lessons no longer count as lessons: no reminders, correct end of the day.
-After classes are renumbered, the app asks for your class again, also in the background and after a restore.
-Live notification: time left in the status bar capsule also on realme, OPPO and OnePlus (Android 16+).
-The "choose your class again" notification opens the app.
+New logo: navy or cyan app icon.
+Commute: all rides from your stop, new BUSearch API, "At the stop 07:39 · 16 min to spare".
+Substitutions: the substituted lesson first, then the teacher.
+School notices among the news, notifications off by default.
+Free periods and moved lessons no longer count as lessons.
 No note reminders on days off.
-Summer break follows the Friday after 20 June, as in the regulation.
+Time left in the status bar capsule on realme, OPPO and OnePlus.

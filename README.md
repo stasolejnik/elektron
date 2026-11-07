@@ -52,13 +52,14 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   wybór własnych grup zajęciowych oraz udostępnianie dnia lub tygodnia.
 - **Notatki do lekcji:** przytrzymaj przyszłą lekcję, aby dodać notatkę. Możesz ustawić
   przypomnienie przed lekcją albo dzień wcześniej. Notatki są też widoczne w widżetach.
-- **Zastępstwa:** zmiany dotyczące Twojej klasy i grup, informacje szkoły dopisane pod datą
+- **Zastępstwa:** zmiany dotyczące Twojej klasy i grup - na pierwszym planie lekcja na zastępstwie
+  (gdy szkoła ją poda), pod nią nauczyciel zastępujący - informacje szkoły dopisane pod datą
   (np. o oddawaniu krwi, także z obrazkiem) z godziną ostatniej aktualizacji strony, przejście do lekcji w planie oraz udostępnianie pojedynczego
   zastępstwa lub całej widocznej listy.
-- **Ogłoszenia:** wyszukiwanie, czytanie treści w aplikacji i ulubione z zapisem do odczytu
-  bez internetu.
+- **Ogłoszenia:** informacje szkoły na dziś i kolejne dni (np. zamiana sal) na górze listy,
+  wyszukiwanie, czytanie treści w aplikacji i ulubione z zapisem do odczytu bez internetu.
 - **Przejazdy:** autobusy i tramwaje między Twoim przystankiem a szkołą. Rano dojazd na
-  najbliższą lekcję (kiedy będziesz w szkole, ile zapasu, ostatni kurs, którym zdążysz),
+  najbliższą lekcję (o której będziesz na przystanku przy szkole i ile zapasu do lekcji),
   od połowy dnia lekcji powrót ze szkoły (kiedy wyjść, żeby zdążyć dojść). Opóźnienia na żywo,
   gdy pojazd jest śledzony, linia, kierunek i czas dojścia. Przystanki wybierzesz przez
   wyszukiwarkę lub mapę OpenStreetMap, bez GPS; kierunek zmienisz też ręcznie.
@@ -85,9 +86,9 @@ własną stronę, a po powrocie lista jest przewinięta tam, gdzie była. Kolejn
 | Kategoria | Co ustawisz |
 |---|---|
 | **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały; przy przedmiotach z trzema grupami i więcej można wybrać kilka („Wybierz kilka grup”). Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
-| **Powiadomienia** | Nowe zastępstwa, nowe ogłoszenia (domyślnie wyłączone) i **informacje szkoły** dopisane na stronie zastępstw, np. skrócone lekcje (domyślnie włączone). W wersji z GitHuba także **nowa wersja aplikacji** (domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. **Przypomnienia o lekcjach** (domyślnie wyłączone; punktualne wymagają zgody na alarmy o czasie) oraz **notatki do lekcji**: lista notatek i przypomnienia dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
-| **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Przejazdy. Karty na stronie głównej, w tym **Czas do końca lekcji** (domyślnie wyłączony, także linia w widżecie Plan dnia) i **Przejazdy**. |
-| **Wygląd** | Motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **kolor tła** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i nasycenie tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: domyślna albo logo na białym tle. Po zmianie ikony aplikacja się zamyka. |
+| **Powiadomienia** | Nowe zastępstwa, nowe ogłoszenia (domyślnie wyłączone) i **informacje szkoły** dopisane na stronie zastępstw, np. skrócone lekcje (domyślnie wyłączone). W wersji z GitHuba także **nowa wersja aplikacji** (domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. **Przypomnienia o lekcjach** (domyślnie wyłączone; punktualne wymagają zgody na alarmy o czasie) oraz **notatki do lekcji**: lista notatek i przypomnienia dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
+| **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Przejazdy. Karty na stronie głównej, w tym **Czas do końca lekcji** (domyślnie wyłączony, także linia w widżecie Plan dnia), **Przejazdy** oraz **Informacje szkoły w ogłoszeniach** (np. zamiana sal - w sekcji ogłoszeń na stronie głównej i na górze zakładki Ogłoszenia, domyślnie włączone). |
+| **Wygląd** | Motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **kolor tła** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i nasycenie tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: granatowa (domyślna) albo cyjanowa. Po zmianie ikony aplikacja się zamyka. |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, pokazywanie sali i nauczyciela. |
 | **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie „Szkoła” - najbliższe przystanki; można wybrać dowolny, lista od najbliższego szkoły) i połączenia z przesiadką. |
 | **Pasek nawigacji** | Które zakładki są na dolnym pasku i w jakiej kolejności (przytrzymaj i przeciągnij). |
