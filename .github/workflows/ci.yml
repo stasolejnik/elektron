@@ -23,15 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           # Jak serwer budujący F-Droid (projekt kompiluje pod Javę 17 niezależnie od JDK).
           java-version: "21"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Testy i build wersji F-Droid
         run: |
@@ -40,14 +40,14 @@ jobs:
 
       - name: Raport testów (przy błędzie)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: raport-testow
           path: app/build/reports/tests/
           retention-days: 7
 
       - name: APK (debug, foss)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eLektron-foss-debug
           path: app/build/outputs/apk/foss/debug/*.apk
