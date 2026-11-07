@@ -5,7 +5,7 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
-        Entry(39, "1.0.3-beta1", listOf(
+        Entry(39, "1.0.3", listOf(
             "Okienka i przeniesione lekcje nie liczą się jako lekcje: bez przypomnień, z właściwym końcem lekcji",
             "Po przenumerowaniu klas aplikacja poprosi o ponowny wybór także przy planie pobieranym w tle",
             "Powiadomienie na żywo: czas w kapsule na pasku stanu także na telefonach realme, OPPO i OnePlus",

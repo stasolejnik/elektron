@@ -4,9 +4,9 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
-## [1.0.3-beta1] - niewydane (39)
+## [1.0.3] - niewydane (39)
 
-Wersja testowa (kanał „Beta”). Szczegóły: [release-notes/1.0.3-beta1.md](release-notes/1.0.3-beta1.md).
+Krótki opis do wydania na GitHubie: [release-notes/1.0.3.md](release-notes/1.0.3.md).
 
 - Okienka i przeniesione lekcje nie liczą się jako lekcje, które się odbywają: bez przypomnienia, „Teraz” w powiadomieniu na żywo i widżecie, z właściwym końcem lekcji i powrotem w Przejazdach. Wpisy bez zastępcy typu „Okienko dla uczniów” i „przeniesiona na 22.10.2026 (0)”. Okienko tylko dla jednej grupy („okienko dla grupy 2/2” przy wpisie bez numeru grupy) dalej liczy się jako lekcja, a zmiana sali („przeniesione do sali 215”) i lekcja przeniesiona na tę godzinę bez zmian. Przeniesiona lekcja nie pojawia się w nowym terminie (np. 0. lekcja) - to tylko informacja w planie.
 - Przenumerowane klasy: strona planu innej klasy pod identyfikatorem wybranej klasy nie jest zapisywana, także w tle, gdy listy klas nie ma w żądaniu (lista co 24 h, plan co 6 h) - aplikacja pobiera wtedy listę i prosi o ponowny wybór klasy. Skrót nazwy klasy zapisywany w ustawieniach (`selected_class_name`), więc to samo działa po przywróceniu kopii zapasowej, w której baza nie wraca.
@@ -511,6 +511,7 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[1.0.3]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.3
 [1.0.2]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.2
 [1.0.1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.1
 [1.0.1-beta1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.1-beta1

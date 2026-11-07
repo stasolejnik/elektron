@@ -11,7 +11,7 @@
 [![Licencja: GPL v3+](https://img.shields.io/badge/licencja-GPL--3.0--or--later-blue)](LICENSE)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
-### [Pobierz eLektron 1.0.2 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk)
+### [Pobierz eLektron 1.0.3 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.3/eLektron-1.0.3.apk)
 
 Zalecane, z powiadomieniami push.
 
@@ -113,7 +113,7 @@ Sprawdza to także przy pobieraniu samego planu i po przywróceniu ustawień z k
 
 **Z GitHuba (zalecane):** powiadomienia push o zastępstwach i nowe wersje od razu, z aktualizacją w aplikacji.
 
-1. Pobierz [**eLektron-1.0.2.apk**](https://github.com/stasolejnik/elektron/releases/download/v1.0.2/eLektron-1.0.2.apk) (wszystkie wersje: [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)).
+1. Pobierz [**eLektron-1.0.3.apk**](https://github.com/stasolejnik/elektron/releases/download/v1.0.3/eLektron-1.0.3.apk) (wszystkie wersje: [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)).
 2. Otwórz pobrany plik na telefonie.
 3. Jeśli Android poprosi o zgodę na instalację z przeglądarki lub menedżera plików,
    zezwól na instalowanie z tego źródła.

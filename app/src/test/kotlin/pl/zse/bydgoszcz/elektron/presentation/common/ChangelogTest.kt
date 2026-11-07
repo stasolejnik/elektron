@@ -6,13 +6,13 @@ import org.junit.Test
 
 class ChangelogTest {
     @Test fun stableUpdateFrom100ShowsOnlyStableEntries() {
-        assertEquals(listOf("1.0.2", "1.0.1"), Changelog.newerThan(35, "1.0.2").map { it.versionName })
-        assertEquals(listOf("1.0.2", "1.0.1"), Changelog.newerThan(35, "1.0.2-debug").map { it.versionName })
+        assertEquals(listOf("1.0.3", "1.0.2", "1.0.1"), Changelog.newerThan(35, "1.0.3").map { it.versionName })
+        assertEquals(listOf("1.0.3", "1.0.2", "1.0.1"), Changelog.newerThan(35, "1.0.3-debug").map { it.versionName })
     }
 
     @Test fun betaBuildsStillShowBetaEntries() {
         assertTrue(Changelog.newerThan(35, "1.0.3-beta1").any { it.versionName == "1.0.1-beta1" })
-        assertEquals(listOf("1.0.2"), Changelog.newerThan(37, "1.0.2").map { it.versionName })
+        assertEquals(listOf("1.0.3", "1.0.2"), Changelog.newerThan(37, "1.0.3").map { it.versionName })
     }
 
     @Test fun newestEntryMatchesBuildVersion() {
