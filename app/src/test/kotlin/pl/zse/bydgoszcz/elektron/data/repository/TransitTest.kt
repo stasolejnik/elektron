@@ -152,4 +152,22 @@ class TransitTest {
         } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
     }
 
+    /** "Kursy na czas przed lekcją": domyślnie wyłączone (od najbliższego), wybór minut przetrwa restart. */
+    @Test fun arrivalMarginDefaultsToNearestAndPersists() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "transit-margin-${System.nanoTime()}.preferences_pb")
+        var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        var repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
+        try {
+            assertEquals(null, repo.preferences.first().arrivalMarginMinutes)
+            repo.setArrivalMargin(15)
+            scope.cancel(); scope.coroutineContext[Job]!!.join()
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
+            assertEquals(15, repo.preferences.first().arrivalMarginMinutes)
+            repo.setArrivalMargin(null)
+            assertEquals(null, repo.preferences.first().arrivalMarginMinutes)
+            assertTrue(runCatching { repo.setArrivalMargin(7) }.isFailure)
+        } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
+    }
 }

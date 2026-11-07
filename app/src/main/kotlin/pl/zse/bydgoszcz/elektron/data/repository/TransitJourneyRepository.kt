@@ -210,6 +210,11 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
 
     private val cacheLock = kotlinx.coroutines.sync.Mutex()
 
+    /** Zapisano nowy wynik (czas zapisu) - widżet Przejazdy przerysowuje się bez osobnego zapytania. */
+    private val _saved = kotlinx.coroutines.flow.MutableSharedFlow<Long>(extraBufferCapacity = 1,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    val saved: kotlinx.coroutines.flow.SharedFlow<Long> = _saved
+
     /**
      * Ostatni pełny wynik (rozkład się nie zmienia z minuty na minutę) - po ponownym uruchomieniu
      * aplikacji karta i zakładka pokazują go od razu, a nowe sprawdzenie idzie w tle.
@@ -223,6 +228,7 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
                 val output = atomic.startWrite()
                 try { output.write(TransitResultCodec.encode(result).toByteArray(Charsets.UTF_8)); atomic.finishWrite(output) }
                 catch (e: Exception) { atomic.failWrite(output); throw e }
+                _saved.tryEmit(result.fetchedAt)
             }.onFailure { android.util.Log.w("TransitJourneys", "Nie udało się zapisać ostatnich połączeń", it) }
         } }
     }

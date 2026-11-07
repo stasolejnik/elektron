@@ -120,7 +120,8 @@ fun ElektronBottomBar(
                 val byRoute = destinations.associateBy { it.route }
                 // Jedna wielkość podpisów dla całego paska: najdłuższy ("Zastępstwa") mieści się w jednej
                 // linii. Przy 6 zakładkach dawniej łamał się w środku słowa ("Zastępstw / a").
-                // Najwyżej do 62% (cały podpis jeszcze przy czcionce systemowej ok. 145%) - dalej wielokropek, bez łamania słowa.
+                // Najwyżej do 50% - "Zastępstwa" mieści się w całości do czcionki systemowej ok. 160% (wtedy ok. 9,7 sp,
+                // jak przy 130%); dalej wielokropek, bez łamania słowa. 3% zapasu - pomiar "na styk" kończył się wielokropkiem.
                 val baseLabelStyle = MaterialTheme.typography.labelSmall
                 val labelMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
                 val captions = destinations.map { if (it.route == ElektronRoutes.DASHBOARD) "Start" else it.label }
@@ -129,7 +130,7 @@ fun ElektronBottomBar(
                     val widest = captions.maxOfOrNull {
                         labelMeasurer.measure(it, baseLabelStyle, maxLines = 1, softWrap = false).size.width
                     } ?: 0
-                    val scale = if (widest <= 0 || widest <= labelWidthPx) 1f else (labelWidthPx / widest).coerceAtLeast(0.62f)
+                    val scale = if (widest <= 0 || widest <= labelWidthPx * 0.97f) 1f else (labelWidthPx * 0.97f / widest).coerceAtLeast(0.5f)
                     fun androidx.compose.ui.unit.TextUnit.scaled() = if (isSpecified) this * scale else this
                     if (scale == 1f) baseLabelStyle
                     else baseLabelStyle.copy(fontSize = baseLabelStyle.fontSize.scaled(), letterSpacing = baseLabelStyle.letterSpacing.scaled())

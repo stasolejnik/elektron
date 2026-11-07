@@ -6,5 +6,7 @@
     <string name="widget_day_plan_desc">Lekcje na dziś lub najbliższy dzień z zajęciami.</string>
     <string name="widget_substitutions_name">Zastępstwa</string>
     <string name="widget_substitutions_desc">Nadchodzące zastępstwa Twojej klasy i grup.</string>
+    <string name="widget_transit_name">Przejazdy</string>
+    <string name="widget_transit_desc">Najbliższe autobusy i tramwaje: rano do szkoły, po lekcjach ze szkoły.</string>
     <string name="tile_next_lesson">Następna lekcja</string>
 </resources>

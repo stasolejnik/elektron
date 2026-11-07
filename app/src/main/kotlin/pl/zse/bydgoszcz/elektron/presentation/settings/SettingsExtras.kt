@@ -126,14 +126,20 @@ internal fun TransitSection(
     settings: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel.Settings,
     saving: Boolean, error: String?,
     onTab: (Boolean) -> Unit, onCard: (Boolean) -> Unit, onTransfers: (Boolean) -> Unit,
-    onPick: (origin: Boolean) -> Unit, onNearby: (Boolean) -> Unit = {}
+    onPick: (origin: Boolean) -> Unit, onNearby: (Boolean) -> Unit = {},
+    /** null - od najbliższego kursu; minuty - kursy na czas przed lekcją. */
+    onArrivalMargin: (Int?) -> Unit = {}
 ) {
     val prefs = settings.preferences
     val ready = settings.ready && !settings.failed && !saving
+    var choosingMargin by remember { mutableStateOf(false) }
+    if (choosingMargin) ChoiceDialog("Ile przed lekcją",
+        pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences.ARRIVAL_MARGINS.map { it to "$it min przed lekcją" },
+        prefs.arrivalMarginMinutes ?: pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences.DEFAULT_ARRIVAL_MARGIN,
+        onSelect = { onArrivalMargin(it); choosingMargin = false }, onDismiss = { choosingMargin = false })
     GroupedSection("Przejazdy", icon = Icons.Outlined.DirectionsBus,
-        footer = "Autobusy i tramwaje Bydgoszczy (BUSearch): rano dojazd z Twojego przystanku do szkoły na pierwszą lekcję, " +
-            "od połowy dnia lekcji powrót ze szkoły. Kierunek zmienisz też ręcznie w zakładce. Opóźnienia na żywo, gdy pojazd jest śledzony." +
-            if (prefs.showOnDashboard) " Karta na stronie głównej: od 2 godzin przed lekcjami do ich początku i od ostatniej lekcji do godziny po zajęciach." else "") {
+        footer = "Autobusy i tramwaje (BUSearch): rano dojazd do szkoły, od połowy dnia lekcji powrót." +
+            if (prefs.showOnDashboard) " Karta na stronie głównej: 2 h przed lekcjami i do godziny po nich." else "") {
         SwitchRow("Zakładka Przejazdy", prefs.visible, enabled = ready, supporting = "Na dolnym pasku", onChange = onTab)
         RowDivider()
         SwitchRow("Karta na stronie głównej", prefs.showOnDashboard, enabled = ready, supporting = "Najbliższy dojazd rano i powrót po lekcjach", onChange = onCard)
@@ -150,6 +156,17 @@ internal fun TransitSection(
             }
             RowDivider()
             SwitchRow("Połączenia z przesiadką", prefs.allowTransfers, enabled = ready, onChange = onTransfers)
+            // Domyślnie od najbliższego kursu; opcjonalnie od tego, który jest na miejscu ok. X min przed lekcją.
+            RowDivider()
+            val margin = prefs.arrivalMarginMinutes
+            SwitchRow("Kursy na czas przed lekcją", margin != null, enabled = ready,
+                supporting = if (margin == null) "Dojazd do szkoły od najbliższego kursu"
+                    else "Dojazd do szkoły od kursu, który jest na miejscu najbliżej $margin min przed lekcją",
+                onChange = { onArrivalMargin(if (it) pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences.DEFAULT_ARRIVAL_MARGIN else null) })
+            if (margin != null) {
+                RowDivider()
+                ValueRow("Ile przed lekcją", "$margin min", enabled = ready) { choosingMargin = true }
+            }
         }
         if (settings.failed) Text("Nie udało się odczytać ustawień Przejazdów.", modifier = Modifier.padding(16.dp),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)

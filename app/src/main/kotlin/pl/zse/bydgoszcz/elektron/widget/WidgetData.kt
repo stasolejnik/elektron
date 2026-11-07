@@ -48,6 +48,10 @@ interface WidgetEntryPoint {
     fun widgetUpdater(): WidgetUpdater
     fun lessonNotes(): LessonNotesRepository
     fun syncCoordinator(): pl.zse.bydgoszcz.elektron.domain.sync.SyncCoordinator
+    fun transitPreferences(): pl.zse.bydgoszcz.elektron.data.repository.TransitPreferencesRepository
+    fun transitJourneys(): pl.zse.bydgoszcz.elektron.data.repository.TransitJourneyRepository
+    fun transitSchoolDay(): pl.zse.bydgoszcz.elektron.data.repository.TransitSchoolDay
+    fun transitWidgetRefresher(): TransitWidgetRefresher
 }
 
 /** Lekcja przygotowana do wyświetlenia w widżecie. */
@@ -84,7 +88,7 @@ sealed interface SubsWidgetState {
     data object NoClass : SubsWidgetState
     data object Failed : SubsWidgetState
     data class Ready(val className: String?, val items: List<WidgetSubstitution>, val refreshAt: LocalDateTime? = null, val readError: Boolean = false,
-        /** "Sprawdzono: wczoraj 21:40", gdy dane zastępstw nie są świeże (null - aktualne). */
+        /** "Sprawdzono wczoraj, 21:40", gdy dane zastępstw nie są świeże (null - aktualne). */
         val checked: String? = null) : SubsWidgetState
 }
 
@@ -471,11 +475,12 @@ internal object SubstitutionsFreshness {
         val staleAt = lastSuccess.plusHours(STALE_HOURS)
         val today = now.toLocalDate()
         if (lastSuccess.toLocalDate() == today && now < staleAt) return Result(null, staleAt)
+        // Jak "Sprawdzono 12:49" w aplikacji, z "dziś" - napis pojawia się tylko przy danych sprzed kilku godzin.
         val day = when (lastSuccess.toLocalDate()) {
             today -> "dziś"
             today.minusDays(1) -> "wczoraj"
             else -> lastSuccess.format(DATE)
         }
-        return Result("Sprawdzono: $day ${lastSuccess.format(TIME)}", null)
+        return Result("Sprawdzono $day, ${lastSuccess.format(TIME)}", null)
     }
 }

@@ -11,19 +11,19 @@ object TimetableShare {
 
     fun text(date: LocalDate, lessons: List<Lesson>, styles: Map<String, SubjectStyle> = emptyMap()): String {
         val day = lessons.filter { it.date == date }.sortedBy { it.number }
-        return buildString {
+        return Rooms.plain(buildString {
             append("Plan dnia")
             day.firstOrNull()?.className?.let { append(" · $it") }
             append("\n${date.format(dateFormat)}\n")
             appendLessons(day, styles)
-        }.trimEnd()
+        }.trimEnd())
     }
 
     fun weekText(anchor: LocalDate, lessons: List<Lesson>, styles: Map<String, SubjectStyle> = emptyMap()): String {
         val monday = anchor.with(DayOfWeek.MONDAY)
         val week = lessons.filter { it.date >= monday && it.date <= monday.plusDays(4) }
             .sortedWith(compareBy({ it.date }, { it.number }))
-        return buildString {
+        return Rooms.plain(buildString {
             append("Plan tygodnia")
             week.firstOrNull()?.className?.let { append(" · $it") }
             append("\n${monday.format(shortDateFormat)}–${monday.plusDays(4).format(shortDateFormat)}\n")
@@ -32,7 +32,7 @@ object TimetableShare {
                 append("\n${date.format(dateFormat)}\n")
                 appendLessons(week.filter { it.date == date }, styles)
             }
-        }.trimEnd()
+        }.trimEnd())
     }
 
     private fun StringBuilder.appendLessons(lessons: List<Lesson>, styles: Map<String, SubjectStyle>) {

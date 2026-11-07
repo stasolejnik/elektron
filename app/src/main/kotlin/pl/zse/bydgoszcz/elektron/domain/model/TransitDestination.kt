@@ -22,7 +22,12 @@ data class TransitPreferences(
     val showOnDashboard: Boolean = false,
     val navigationOrder: List<String> = NavigationOrder.DEFAULT,
     /** Przy wybranym przystanku przy szkole także kursy z innych przystanków do 1 km od szkoły (domyślnie nie). */
-    val nearbyStops: Boolean = false
+    val nearbyStops: Boolean = false,
+    /**
+     * Do szkoły: lista zaczyna się od kursu, który jest na miejscu najbliżej tylu minut przed lekcją
+     * (wcześniejsze po "Pokaż wcześniejsze"); null (domyślnie) - od najbliższego kursu.
+     */
+    val arrivalMarginMinutes: Int? = null
 ) {
     val visible: Boolean get() = enabled
     /** Wybrany przystanek przy szkole jako filtr kursów; null - "Szkoła" albo włączone pobliskie przystanki. */
@@ -30,6 +35,12 @@ data class TransitPreferences(
     /** Klucz wyboru przy szkole w wynikach - z pobliskimi przystankami inny niż sam przystanek. */
     val originKey: String? get() = preferredOrigin?.let { TransitStops.originKey(it, nearbyStops) }
     val canLoadJourneys: Boolean get() = destination != null && (enabled || showOnDashboard)
+
+    companion object {
+        /** Do wyboru w Ustawieniach → Przejazdy ("Kursy na czas przed lekcją"). */
+        val ARRIVAL_MARGINS = listOf(5, 10, 15, 20, 30)
+        const val DEFAULT_ARRIVAL_MARGIN = 10
+    }
 }
 
 internal fun rememberTransitStop(previous: List<TransitDestination>, selected: TransitDestination): List<TransitDestination> =

@@ -67,7 +67,7 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
     // Przystanek przy szkole liczy się w obu kierunkach (do szkoły - gdzie wysiadasz).
     val originKey = state.preferences.originKey
     var visibleCount by rememberSaveable(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableIntStateOf(3) }
-    // Do szkoły: ile wcześniejszych kursów pokazać nad tym z zapasem ok. 10 min ("Pokaż wcześniejsze").
+    // Do szkoły z ustawieniem "Kursy na czas przed lekcją": ile wcześniejszych kursów pokazać nad pierwszym ("Pokaż wcześniejsze").
     var earlierCount by rememberSaveable(commute.direction, state.preferences.destination?.key, originKey, state.preferences.allowTransfers) { mutableIntStateOf(0) }
     val error by viewModel.journeyError.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
@@ -96,12 +96,17 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
         TransitJourneys.upcoming(matching?.journeys.orEmpty(), nowMs, if (toSchool) null else state.preferences.strictOrigin,
             state.preferences.allowTransfers, live)
             .let { if (state.preferences.strictOrigin == null) TransitJourneys.walkable(it, nowMs, live) else it }
+            // Ze szkoły od najbliższego odjazdu (z opóźnieniem na żywo) - dawniej według przyjazdu do celu, więc
+            // kurs "za 14 min" bywał nad "za 11 min". Do szkoły lista już jest według odjazdu.
+            .let { if (toSchool) it else it.sortedBy { trip -> pl.zse.bydgoszcz.elektron.domain.model.TransitLive.expected(trip, live) } }
     }
     // Po odrzuceniu kursów, na które nie da się dojść, lista bywa krótsza niż żądana - dociągamy
     // kolejne okno planera sami (z limitem, żeby nie pytać w kółko), zamiast pokazywać jeden kurs.
     val targetMs = if (toSchool) commute.targetMs else null
-    // Do szkoły lista zaczyna się od kursu, który jest w szkole ok. 10 min przed lekcją.
-    val anchor = remember(journeys, targetMs, live) { if (toSchool) TransitJourneys.anchorToSchool(journeys, targetMs, live) else 0 }
+    // Do szkoły: domyślnie od najbliższego kursu; z ustawieniem "Kursy na czas przed lekcją" od kursu, który jest
+    // na miejscu najbliżej tylu minut przed lekcją (wcześniejsze po "Pokaż wcześniejsze").
+    val margin = state.preferences.arrivalMarginMinutes
+    val anchor = remember(journeys, targetMs, live, margin) { if (toSchool) TransitJourneys.anchorToSchool(journeys, targetMs, live, margin) else 0 }
     val firstShown = (anchor - earlierCount).coerceAtLeast(0)
     val shown = journeys.subList(firstShown, minOf(journeys.size, anchor + visibleCount).coerceAtLeast(firstShown))
     // Dociąganie kolejnego okna planera (z limitem, żeby nie pytać w kółko): po odrzuceniu kursów, na które
@@ -320,11 +325,9 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, onClick: (() -> Unit
                 fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = colors.primary, maxLines = 1)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Pozycja pojazdu na żywo (tablica przystanku BUSearch): "Odjazd: Rycerska · pojazd 650 m stąd".
-            // "Odjazd:" zamiast "z Rycerska" (nazw przystanków się nie odmienia); do dwóch linii, by nie ucinać pojazdu.
-            val vehicle = pl.zse.bydgoszcz.elektron.domain.model.TransitLive.vehicleText(live?.vehicleMeters)
-            Text(listOfNotNull("Odjazd: ${first.fromName}", vehicle).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
-                modifier = Modifier.weight(1f), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            // "Odjazd: Rycerska" zamiast "z Rycerska" (nazw przystanków się nie odmienia).
+            Text("Odjazd: ${first.fromName}", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
+                modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             live?.let { LiveChip(it); Spacer(Modifier.width(6.dp)) }
             Text(formatTransitTime(departure, nowMs), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1)
         }

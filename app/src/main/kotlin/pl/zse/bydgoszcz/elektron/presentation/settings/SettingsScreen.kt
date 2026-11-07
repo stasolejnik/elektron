@@ -206,6 +206,7 @@ fun SettingsScreen(
                         onCard = transitViewModel::setShowOnDashboard,
                         onTransfers = transitViewModel::setAllowTransfers,
                         onNearby = transitViewModel::setNearbyStops,
+                        onArrivalMargin = transitViewModel::setArrivalMargin,
                         onPick = { origin -> transitViewModel.query.value = ""; transitPicker = if (origin) 2 else 1 })
                 }
                 SettingsPage.BAR -> item(key = "bar") { pl.zse.bydgoszcz.elektron.presentation.transit.TransitVisibilitySection(transitViewModel) }

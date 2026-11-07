@@ -23,6 +23,7 @@ class ElektronApplication : Application(), Configuration.Provider, coil.ImageLoa
     @Inject lateinit var widgetUpdater: pl.zse.bydgoszcz.elektron.widget.WidgetUpdater
     @Inject lateinit var liveLessons: pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler
     @Inject lateinit var transitPreferences: pl.zse.bydgoszcz.elektron.data.repository.TransitPreferencesRepository
+    @Inject lateinit var transitJourneys: pl.zse.bydgoszcz.elektron.data.repository.TransitJourneyRepository
     private var nightMode = -1
 
 
@@ -73,6 +74,12 @@ class ElektronApplication : Application(), Configuration.Provider, coil.ImageLoa
                     if (!known || now != darkText) { known = true; darkText = now; widgetUpdater.requestUpdate() }
                 }
             }, android.os.Handler(android.os.Looper.getMainLooper()))
+        }
+        // Nowy wynik Przejazdów (zakładka, karta, odświeżenie widżetu) - widżet Przejazdy od razu go pokazuje.
+        kotlinx.coroutines.MainScope().launch {
+            transitJourneys.saved.collect {
+                runCatching { widgetUpdater.updateTransit() }
+            }
         }
         // Skróty po przytrzymaniu ikony: Odjazdy tylko z włączoną zakładką.
         kotlinx.coroutines.MainScope().launch {

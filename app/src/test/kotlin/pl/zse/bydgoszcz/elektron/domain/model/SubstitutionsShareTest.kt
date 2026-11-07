@@ -11,6 +11,9 @@ class SubstitutionsShareTest {
         val t = SubstitutionsShare.text(listOf(sub()))
         listOf("05.10.2026", "1D", "2. lekcja", "grupa 2", "Anna Nowak", "Jan Kowalski", "211", "Przynieść zeszyt", "matematyka").forEach { assertTrue(t, t.contains(it)) }
         assertFalse(t.contains("Udostępniono"))
+        // Udostępniany tekst bez niewidocznych znaków z zapisu sali w interfejsie (Rooms.label).
+        assertTrue(t, t.contains("s. 211"))
+        assertFalse(t.contains("\u2060") || t.contains("\u00A0"))
     }
     @Test fun allSortsAndDeduplicatesWhilePreservingCanceledLessonsAndDifferentDays() {
         val first = sub("a", 1).copy(roomOrInfo = "Uczniowie zwolnieni", substituteTeacher = null)

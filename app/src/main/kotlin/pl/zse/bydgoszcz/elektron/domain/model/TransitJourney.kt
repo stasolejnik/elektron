@@ -67,14 +67,17 @@ object TransitJourneys {
     const val SCHOOL_MARGIN_MINUTES = 10L
 
     /**
-     * Do szkoły: od którego kursu (indeks w liście po odjeździe) zacząć - ostatni, który dociera
-     * co najmniej [SCHOOL_MARGIN_MINUTES] przed lekcją; gdy żaden - ostatni na czas; gdy i takiego
-     * nie ma albo brak lekcji - pierwszy. Wcześniejsze kursy są nad nim, po "Pokaż wcześniejsze".
+     * Do szkoły: od którego kursu (indeks w liście po odjeździe) zacząć. [marginMinutes] null (domyślnie,
+     * Ustawienia → Przejazdy) - od najbliższego. Inaczej ostatni, który dociera co najmniej tyle minut
+     * przed lekcją; gdy żaden - ostatni na czas; gdy i takiego nie ma albo brak lekcji - pierwszy.
+     * Wcześniejsze kursy są nad nim, po "Pokaż wcześniejsze".
      */
-    fun anchorToSchool(journeys: List<TransitJourney>, lessonStartMs: Long?, live: Map<String, LiveStatus> = emptyMap()): Int {
+    fun anchorToSchool(journeys: List<TransitJourney>, lessonStartMs: Long?, live: Map<String, LiveStatus> = emptyMap(),
+        marginMinutes: Int? = SCHOOL_MARGIN_MINUTES.toInt()): Int {
         lessonStartMs ?: return 0
+        marginMinutes ?: return 0
         fun at(trip: TransitJourney) = (trip.schoolArrivalMs ?: trip.arrivalMs) + delayMs(trip, live)
-        val margin = journeys.indexOfLast { at(it) <= lessonStartMs - SCHOOL_MARGIN_MINUTES * 60_000L }
+        val margin = journeys.indexOfLast { at(it) <= lessonStartMs - marginMinutes * 60_000L }
         if (margin >= 0) return margin
         return journeys.indexOfLast { at(it) <= lessonStartMs }.coerceAtLeast(0)
     }

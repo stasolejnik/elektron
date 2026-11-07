@@ -136,6 +136,17 @@ class TransitCommuteTest {
         assertEquals(1, TransitJourneys.anchorToSchool(listOf(trip(30, 52), trip(40, 55), trip(45, 63)), lesson))
     }
 
+    /** Ustawienia → Przejazdy: domyślnie od najbliższego kursu; "Kursy na czas przed lekcją" - z wybranym zapasem. */
+    @Test fun toSchoolListStartsWithTheNearestRideUnlessAMarginIsChosen() {
+        val lesson = base + 60 * 60_000L
+        fun trip(depMin: Long, atMin: Long) = TransitJourney(listOf(ride("8", base + depMin * 60_000L)), 3, 300.0, schoolArrivalMs = base + atMin * 60_000L)
+        val trips = listOf(trip(0, 20), trip(15, 35), trip(30, 48), trip(35, 53), trip(45, 63))
+        assertEquals(0, TransitJourneys.anchorToSchool(trips, lesson, marginMinutes = null))
+        assertEquals(3, TransitJourneys.anchorToSchool(trips, lesson, marginMinutes = 5))
+        assertEquals(1, TransitJourneys.anchorToSchool(trips, lesson, marginMinutes = 20))
+        assertEquals(0, TransitJourneys.anchorToSchool(trips, lesson, marginMinutes = 30))
+    }
+
     @Test fun searchEndsHalfAnHourAfterTheLessonOrThreeHoursWithoutOne() {
         assertEquals(base + 30 * 60_000L, TransitCommute.searchEndMs(base, base - 90 * 60_000L))
         // Ferie - bez lekcji: 3 h od początku szukania (dawniej bez limitu, 12 stron naraz).

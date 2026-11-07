@@ -118,6 +118,18 @@
                 android:resource="@xml/widget_substitutions_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.TransitWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_transit_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_transit_info" />
+        </receiver>
+
         <!-- Restart, aktualizacja aplikacji, zmiana czasu/strefy: przypomnienie i widżety od nowa.
              exported - te komunikaty wysyła tylko system (chronione akcje). -->
         <receiver

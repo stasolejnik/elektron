@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Podgląd widżetu "Przejazdy" w pickerze launchera (Android 12+). Dane przykładowe. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="14dp"
+    android:background="@drawable/widget_preview_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:layout_width="18dp" android:layout_height="18dp" android:src="@drawable/ic_logo" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="6dp" android:text="Ze szkoły" android:textSize="15sp"
+            android:textStyle="bold" android:textColor="@color/widget_text" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="↻" android:textSize="20sp" android:textColor="@color/widget_accent" />
+    </LinearLayout>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="6dp"
+        android:text="Sprawdzono 14:32" android:textSize="11sp" android:textColor="@color/widget_text2" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="5"
+            android:paddingStart="6dp" android:paddingEnd="6dp" android:background="@drawable/widget_preview_row_bg"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="@color/widget_accent" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="6dp" android:text="→ Dworzec Główny" android:textSize="13sp"
+            android:textColor="@color/widget_text" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="za 6 min"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="@color/widget_accent" />
+    </LinearLayout>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="8dp"
+        android:text="Rycerska · 14:38" android:textSize="11sp" android:textColor="@color/widget_text2" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="67"
+            android:paddingStart="6dp" android:paddingEnd="6dp" android:background="@drawable/widget_preview_row_bg"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="@color/widget_accent" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="6dp" android:text="→ Dworzec Główny" android:textSize="13sp"
+            android:textColor="@color/widget_text" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="za 14 min"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="@color/widget_accent" />
+    </LinearLayout>
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Rondo Wielkopolskie · 14:46" android:textSize="11sp" android:textColor="@color/widget_text2" />
+</LinearLayout>

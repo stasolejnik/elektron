@@ -62,8 +62,17 @@ class WidgetUpdater @Inject constructor(
             { NextLessonWidget().updateAll(context) },
             { DayPlanWidget().updateAll(context) },
             { SubstitutionsWidget().updateAll(context) },
+            { TransitWidget().updateAll(context) },
             { NextLessonTileService.requestUpdate(context) }
         ).forEach { result -> result.onFailure { Log.w(TAG, "Nie udało się odświeżyć jednego z widżetów", it) } }
+    }
+
+    /** Tylko widżet Przejazdy (nowy wynik połączeń) - bez przerysowywania pozostałych. */
+    suspend fun updateTransit() {
+        // Otwarta sesja Glance wczytuje dane od nowa tylko po nowej wersji - bez tego widżet zostawał przy starym stanie.
+        WidgetDataVersion.bump()
+        runCatchingCancellable { TransitWidget().updateAll(context) }
+            .onFailure { Log.w(TAG, "Nie udało się odświeżyć widżetu Przejazdy", it) }
     }
 
     /**

@@ -420,6 +420,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     fun selectOrigin(origin: TransitDestination?, onSaved: () -> Unit = {}) = write(onSaved) { preferencesRepository.selectOrigin(origin) }
     fun setAllowTransfers(allow: Boolean) = writePreference { preferencesRepository.setAllowTransfers(allow) }
     fun setNearbyStops(enabled: Boolean) = writePreference { preferencesRepository.setNearbyStops(enabled) }
+    fun setArrivalMargin(minutes: Int?) = writePreference { preferencesRepository.setArrivalMargin(minutes) }
     fun setTabVisible(route: String, visible: Boolean) = writePreference { preferencesRepository.setTabVisible(route, visible) }
     fun setShowOnDashboard(show: Boolean) = writePreference { preferencesRepository.setShowOnDashboard(show) }
     fun setEnabled(enabled: Boolean) = writePreference { preferencesRepository.setEnabled(enabled) }

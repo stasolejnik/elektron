@@ -74,11 +74,11 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
     val error by viewModel.journeyError.collectAsStateWithLifecycle()
     val matching = result?.takeIf { viewModel.matchesCurrent(it) }
     val targetMs = if (toSchool) commute.targetMs else null
-    val trip = remember(matching, now, originKey, prefs.allowTransfers, live, targetMs) {
+    val trip = remember(matching, now, originKey, prefs.allowTransfers, live, targetMs, prefs.arrivalMarginMinutes) {
         val upcoming = TransitJourneys.upcoming(matching?.journeys.orEmpty(), now, if (toSchool) null else prefs.strictOrigin, prefs.allowTransfers, live)
             .let { if (prefs.strictOrigin == null) TransitJourneys.walkable(it, now, live) else it }
-        // Do szkoły: kurs, który jest w szkole ok. 10 min przed lekcją (jak pierwszy w zakładce); ze szkoły - najbliższy.
-        if (toSchool) upcoming.getOrNull(TransitJourneys.anchorToSchool(upcoming, targetMs, live))
+        // Do szkoły: pierwszy kurs z zakładki - najbliższy albo (z ustawieniem) ten na czas przed lekcją; ze szkoły - najbliższy.
+        if (toSchool) upcoming.getOrNull(TransitJourneys.anchorToSchool(upcoming, targetMs, live, prefs.arrivalMarginMinutes))
         else upcoming.minByOrNull { TransitLive.expected(it, live) }
     }
     Column {

@@ -32,6 +32,7 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     private val originKey = stringPreferencesKey("preferred_origin")
     private val transfersKey = booleanPreferencesKey("allow_transfers")
     private val nearbyKey = booleanPreferencesKey("nearby_school_stops")
+    private val arrivalMarginKey = androidx.datastore.preferences.core.intPreferencesKey("arrival_margin_minutes")
     private val recentDestinationsKey = stringPreferencesKey("recent_destinations")
     private val recentOriginsKey = stringPreferencesKey("recent_origins")
     private val hiddenTabsKey = stringSetPreferencesKey("hidden_navigation_tabs")
@@ -44,7 +45,8 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
         TransitPreferences(destination, it[enabledKey] ?: false, origin,
             it[transfersKey] == true, history(it[recentDestinationsKey], destination), history(it[recentOriginsKey], origin), it[hiddenTabsKey].orEmpty(), it[dashboardKey] ?: false,
             pl.zse.bydgoszcz.elektron.domain.model.NavigationOrder.normalize(it[orderKey]?.split(',').orEmpty()),
-            nearbyStops = it[nearbyKey] == true)
+            nearbyStops = it[nearbyKey] == true,
+            arrivalMarginMinutes = it[arrivalMarginKey]?.takeIf { m -> m in TransitPreferences.ARRIVAL_MARGINS })
     }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     suspend fun select(destination: TransitDestination) = withContext(Dispatchers.IO) {
@@ -68,6 +70,11 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     }
     suspend fun setAllowTransfers(allow: Boolean) = withContext(Dispatchers.IO) {
         store.edit { it[transfersKey] = allow }; Unit
+    }
+    /** null - od najbliższego kursu; inaczej jedna z [TransitPreferences.ARRIVAL_MARGINS]. */
+    suspend fun setArrivalMargin(minutes: Int?) = withContext(Dispatchers.IO) {
+        require(minutes == null || minutes in TransitPreferences.ARRIVAL_MARGINS)
+        store.edit { if (minutes == null) it.remove(arrivalMarginKey) else it[arrivalMarginKey] = minutes }; Unit
     }
     suspend fun setNearbyStops(enabled: Boolean) = withContext(Dispatchers.IO) {
         store.edit { it[nearbyKey] = enabled }; Unit

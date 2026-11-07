@@ -17,8 +17,8 @@ class SubstitutionNoticeTest {
     fun absentTeacherIsMarkedAsReplacedNotAsSubstitute() {
         val c = SubstitutionNotice.content(sub("Kowalski", "211"), "Matematyka", today)
         assertEquals("Jutro, 3. lekcja: Kowalski", c.title)
-        assertEquals("s.\u00A0211", c.text)
-        assertEquals("s.\u00A0211\nZa: Matematyka · Nowak", c.expanded)
+        assertEquals("s.\u2060\u00A0\u2060211", c.text)
+        assertEquals("s.\u2060\u00A0\u2060211\nZa: Matematyka · Nowak", c.expanded)
         assertFalse("Dawniej 'Zastępuje: <nieobecny>' sugerowało odwrotną rolę", (c.title + c.text + c.expanded).contains("Zastępuje"))
     }
 
@@ -27,8 +27,8 @@ class SubstitutionNoticeTest {
     fun lessonFromNotesIsTheTitleAndEachDetailAppearsOnce() {
         val c = SubstitutionNotice.content(sub("D. Musierowicz", "111", "edukacja zdrowotna", today), "j.polski", today)
         assertEquals("Dziś, 3. lekcja: edukacja zdrowotna", c.title)
-        assertEquals("D. Musierowicz · s.\u00A0111", c.text)
-        assertEquals("D. Musierowicz · s.\u00A0111\nZa: j.polski · Nowak", c.expanded)
+        assertEquals("D. Musierowicz · s.\u2060\u00A0\u2060111", c.text)
+        assertEquals("D. Musierowicz · s.\u2060\u00A0\u2060111\nZa: j.polski · Nowak", c.expanded)
     }
 
     @Test
