@@ -50,7 +50,7 @@ class CrashReportTest {
 
     @Test fun mailtoGoesToContactAddressAndIsBounded() {
         val uri = CrashReport.mailtoUri("eLektron: test", "x".repeat(20_000))
-        assertTrue(uri.startsWith("mailto:kontakt.elektron@pm.me?subject=eLektron%3A%20test&body="))
+        assertTrue(uri.startsWith("mailto:elektron@tuta.com?subject=eLektron%3A%20test&body="))
         assertTrue(uri.length < 20_000)
     }
 

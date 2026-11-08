@@ -1,6 +1,6 @@
 # Polityka prywatności - eLektron
 
-Ostatnia aktualizacja: październik 2026
+Ostatnia aktualizacja: listopad 2026
 
 eLektron to nieoficjalna aplikacja z planem lekcji, zastępstwami i ogłoszeniami
 Zespołu Szkół Elektronicznych w Bydgoszczy. Poniżej opisujemy, jakie dane przetwarza.
@@ -125,5 +125,5 @@ o imię, nazwisko, adres e-mail ani numer telefonu i nie tworzy profili użytkow
 eLektron jest wolnym oprogramowaniem - każdy może sprawdzić, co robi aplikacja:
 https://github.com/stasolejnik/elektron
 
-Kontakt z deweloperem: **kontakt.elektron@pm.me**
+Kontakt z deweloperem: **elektron@tuta.com**
 Zgłoszenia błędów: https://github.com/stasolejnik/elektron/issues

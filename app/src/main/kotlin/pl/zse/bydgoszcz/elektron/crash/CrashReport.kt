@@ -12,7 +12,7 @@ object CrashReport {
     const val ISSUES_URL = "https://github.com/stasolejnik/elektron/issues/new"
 
     /** Oficjalny adres kontaktowy dewelopera (raporty błędów, pytania). */
-    const val CONTACT_EMAIL = "kontakt.elektron@pm.me"
+    const val CONTACT_EMAIL = "elektron@tuta.com"
 
     /** Dłuższe ślady stosu są przycinane (w e-mailu jest pełny raport z logami). */
     private const val MAX_STACK_CHARS = 8_000

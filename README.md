@@ -162,7 +162,7 @@ o urządzeniu i ostatnimi logami. Po awarii aplikacja może zaproponować raport
 uruchomieniu. Raport wysyłasz samodzielnie.
 
 Opisz, co się stało i jak odtworzyć problem, w [Issues](https://github.com/stasolejnik/elektron/issues)
-lub napisz na [kontakt.elektron@pm.me](mailto:kontakt.elektron@pm.me).
+lub napisz na [elektron@tuta.com](mailto:elektron@tuta.com).
 
 ## Dla osób rozwijających projekt
 
