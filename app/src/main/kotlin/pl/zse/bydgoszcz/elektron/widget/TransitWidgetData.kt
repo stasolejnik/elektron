@@ -126,16 +126,16 @@ internal object TransitWidgetData {
                 else -> "zapas ${short(slack)}"
             }, transfer).joinToString(" · ")
         } else {
-            // Ze szkoły - kiedy wyjść (dojście i 2 min zapasu), jak w zakładce.
+            // Ze szkoły - kiedy wyjść (dojście i 2 min zapasu są w godzinie), jak w zakładce; bez dopisku o dojściu.
             val leave = trip.leaveSchoolMs()
-            val walk = if (trip.walkAvailable) "dojście ${short(trip.walkMinutes.toLong())}" else null
             val action = when {
                 !trip.walkAvailable -> null
                 leave - nowMs > 60_000L -> "wyjdź o ${time(leave, zone)}"
                 leave >= nowMs - 60_000L -> "wyjdź teraz".also { urgent = true }
-                else -> "pospiesz się".also { urgent = true }
+                trip.departureMs - trip.walkMinutes * 60_000L >= nowMs -> "pospiesz się".also { urgent = true }
+                else -> null
             }
-            listOfNotNull(action, walk, transfer).joinToString(" · ").ifEmpty { null }
+            listOfNotNull(action, transfer).joinToString(" · ").ifEmpty { null }
         }
         val time = time(trip.departureMs, zone)
         val where = if (toSchool) "do przystanku ${ride.toName}" else "z przystanku ${ride.fromName}"

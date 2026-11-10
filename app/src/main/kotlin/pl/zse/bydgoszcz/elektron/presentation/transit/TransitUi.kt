@@ -62,6 +62,12 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
         }.take(5)
     }
     val results = mapStops.filterNot { candidate -> recent.any { it.key == candidate.key } }.take(80)
+    // "Szkoła" na liście, gdy wyszukiwanie jest puste albo pasuje do tej nazwy.
+    val schoolMatches = remember(query) {
+        val words = pl.zse.bydgoszcz.elektron.presentation.announcements.SearchText.normalize(query).split(' ').filter { it.isNotBlank() }
+        val name = pl.zse.bydgoszcz.elektron.presentation.announcements.SearchText.normalize("Szkoła najbliższe przystanki")
+        words.all { it in name }
+    }
     val choose: (pl.zse.bydgoszcz.elektron.domain.model.TransitDestination) -> Unit = {
         if (origin) viewModel.selectOrigin(it, onDismiss) else viewModel.select(it, onDismiss)
     }
@@ -89,10 +95,8 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                     Tab(selected = !mapMode, onClick = { mapMode = false }, text = { Text("Lista") })
                     Tab(selected = mapMode, onClick = { focus.clearFocus(); keyboard?.hide(); mapMode = true }, text = { Text("Mapa") })
                 }
-                if (origin) TextButton(onClick = { viewModel.selectOrigin(null, onDismiss) }, enabled = !saving) {
-                    Text("Szkoła - najbliższe przystanki")
-                }
-                if (origin) Text("Przystanek, z którego wracasz i na którym wysiadasz w drodze do szkoły. Lista zaczyna się od przystanków najbliżej szkoły.", style = MaterialTheme.typography.bodySmall)
+                if (origin) Text("Przystanek, z którego wracasz i na którym wysiadasz w drodze do szkoły. „Szkoła” to wszystkie przystanki najbliżej szkoły.",
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 OutlinedTextField(value = query, onValueChange = { viewModel.query.value = it.take(200) },
                     label = { Text("Szukaj przystanku") }, placeholder = { Text("Wpisz nazwę, np. Rondo Jagiellonów") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = !saving,
@@ -109,7 +113,7 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                     TextButton(onClick = { viewModel.loadStops(force = true) }, enabled = !loading && !saving) { Text("Spróbuj ponownie") }
                 }
                 writeError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
-                if (!loading && mapStops.isEmpty() && recent.isEmpty() && error == null) Text("Nie znaleziono przystanku. Spróbuj krótszej nazwy.", Modifier.padding(vertical = 16.dp))
+                if (!loading && mapStops.isEmpty() && recent.isEmpty() && !(origin && schoolMatches) && error == null) Text("Nie znaleziono przystanku. Spróbuj krótszej nazwy.", Modifier.padding(vertical = 16.dp))
                 if (mapMode) {
                     Text(if (origin) "Dotknij znacznika, aby wybrać przystanek przy szkole. Mapa działa bez GPS."
                         else "Wybierz przystanek, z którego dojeżdżasz do szkoły i do którego wracasz (np. przy domu). Dotknij znacznika; przesuń mapę, aby zobaczyć dalsze. Mapa działa bez GPS.",
@@ -125,7 +129,19 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                                 Text(stop.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(16.dp))
                             }
                         }
-                        item(key = "all-header") { Text(if (origin) "Od najbliższego szkoły" else "Wszystkie przystanki", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface) }
+                    }
+                    if (origin || recent.isNotEmpty()) item(key = "all-header") {
+                        Text(if (origin) "Najbliżej szkoły" else "Wszystkie przystanki", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    // "Szkoła" (wszystkie przystanki najbliżej szkoły) jak zwykły przystanek - pierwszy na liście (dawniej osobny przycisk).
+                    if (origin && schoolMatches) item(key = "school") {
+                        ElektronCard(onClick = if (saving) null else ({ viewModel.selectOrigin(null, onDismiss) }), onClickLabel = "Wybierz najbliższe przystanki szkoły") {
+                            Column(Modifier.padding(16.dp)) {
+                                Text("Szkoła", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                                Text("Najbliższe przystanki szkoły" + if (settings.preferences.preferredOrigin == null) " · wybrane" else "",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                     items(results, key = { it.key }) { stop ->
                         ElektronCard(onClick = if (saving) null else ({ choose(stop) }), onClickLabel = "Wybierz przystanek") {

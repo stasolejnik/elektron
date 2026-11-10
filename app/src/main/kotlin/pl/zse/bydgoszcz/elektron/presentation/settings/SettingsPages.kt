@@ -218,7 +218,7 @@ internal fun DevSection(viewModel: SettingsViewModel) {
         RowDivider()
         val shortText by viewModel.shortTextEverywhere.collectAsStateWithLifecycle()
         SwitchRow("Krótki czas w kapsule na każdym telefonie", shortText,
-            supporting = "Android 16: odliczanie jako krótki tekst (jak na realme/OPPO/OnePlus) zamiast chronometru",
+            supporting = "Android 16: odliczanie jako krótki tekst (jak na realme/OPPO/OnePlus/Xiaomi) zamiast chronometru",
             onChange = viewModel::setShortTextEverywhere)
         RowDivider()
         ActionRow("Raport błędu (bez awarii)") { viewModel.openFeedback() }

@@ -5,7 +5,8 @@ object TransitTimes {
         val value = minutes.coerceAtLeast(0)
         if (value < 60) return "$value min"
         val rest = value % 60
-        return "${value / 60} godz." + if (rest == 0L) "" else " $rest min"
+        // "1 h 17 min" (jak w widżecie): "za 1 godz. 17 min" zabierało miejsce nazwie przystanku na karcie.
+        return "${value / 60} h" + if (rest == 0L) "" else " $rest min"
     }
 
     fun until(departureMs: Long, nowMs: Long): String {

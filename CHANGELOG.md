@@ -26,6 +26,15 @@ Wersja testowa (kanał „Beta”) z poprawkami po przeglądzie kodu i stron szk
 - Ustawienia: okna wyboru (kanał aktualizacji, minuty przypomnień, ikona, ciche godziny, potwierdzenia) nie zamykają się po obróceniu ekranu (`rememberSaveable`).
 - Widżety: odświeżenie widżetu Przejazdy nie każe pozostałym widżetom wczytywać danych od nowa (osobna wersja danych).
 - Testy: prawdziwa lista klas i strona zastępstw z literówką jako dane testowe; test pilnuje, czy w `SchoolCalendar` jest termin ferii zimowych na bieżący rok szkolny.
+- Powiadomienie na żywo na telefonach Xiaomi, Redmi i POCO (HyperOS): czas na wyspie jako krótki tekst (`shortCriticalText`, np. „12 min”), jak na realme/OPPO/OnePlus. Powiadomienie było promowane (Live Update), ale wyspa nie pokazywała chronometru.
+- Przejazdy: odświeżanie przeciągnięciem listy w dół, jak w innych zakładkach (bez przycisku na pasku). „Pokaż wcześniejsze” zostaje jako napis; gest przeciągnięcia na górze listy odświeża teraz wyniki.
+- Przejazdy: „Pokaż więcej” jak w Ogłoszeniach (przycisk na środku, w trakcie kółko „Wczytuję kolejne kursy…”); kolejne kursy wczytują się też same, gdy po przewinięciu listy przycisk pojawi się na ekranie. Dawny gest przeciągnięcia w górę na końcu listy usunięty.
+- Przejazdy: źródła danych na samym końcu listy zamiast stałego paska na dole ekranu: „Połączenia i opóźnienia na żywo: BUSearch (Szymon Czaja)” oraz „Trasy piesze i mapa: © OpenStreetMap, FOSSGIS”.
+- Przejazdy: karta powrotu z jedną wskazówką - „Wyjdź o 15:07”, „Wyjdź teraz” albo „Pospiesz się”, bez dopisków „dojście 4 min”, „Raczej nie zdążysz”, „Dojście niedostępne” i „Sprawdzam dojście…”. Tak samo na stronie głównej i w widżecie.
+- Przejazdy: czas do odjazdu krócej, „za 1 h 17 min” zamiast „za 1 godz. 17 min” (nazwa przystanku nie łamała się wtedy na dwie linie), także w zapasie przed lekcją.
+- Przejazdy, wybór przystanku przy szkole: „Szkoła” (wszystkie przystanki najbliżej szkoły) jako pierwszy przystanek na liście, z dopiskiem „wybrane”, zamiast osobnego przycisku „Szkoła - najbliższe przystanki”; sekcja nazywa się „Najbliżej szkoły”.
+- Strona główna: po dzisiejszych lekcjach także jutrzejszy dzień wolny („Jutro wolne · Święto Niepodległości”).
+- Zastępstwa: podpis z godziną publikacji z poprawionym słowem („Aktualizacja godz. 8:00” zamiast literówki ze strony szkoły).
 
 ## [1.0.3] - 2026-11-07 (39)
 

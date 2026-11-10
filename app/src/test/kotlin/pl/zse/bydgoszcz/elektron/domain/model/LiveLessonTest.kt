@@ -216,7 +216,9 @@ class LiveLessonTest {
         assertEquals(LocalDateTime.of(day, LocalTime.of(8, 46)), LiveLesson.nextMinuteTick(c, LocalDateTime.of(day, LocalTime.of(8, 45))))
     }
 
-    @Test fun shortCriticalTextOnlyOnColorOsPhones() {
+    @Test fun shortCriticalTextOnlyOnColorOsAndHyperOsPhones() {
+        assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("Xiaomi"))
+        assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("POCO"))
         assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("realme"))
         assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("OPPO"))
         assertTrue(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.usesShortCriticalText("OnePlus"))

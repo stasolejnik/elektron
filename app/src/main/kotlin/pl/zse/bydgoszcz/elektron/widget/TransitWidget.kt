@@ -133,7 +133,7 @@ class TransitWidget : GlanceAppWidget() {
 
     /**
      * Kurs: po lewej linia i przystanek (do szkoły ze strzałką - gdzie wysiadasz, ze szkoły - gdzie wsiadasz),
-     * pod spodem jak w zakładce ("wyjdź o 15:07 · dojście 4 min", "na przystanku 07:40 · zapas 15 min");
+     * pod spodem jak w zakładce ("wyjdź o 15:07", "na przystanku 07:40 · zapas 15 min");
      * po prawej "za 11 min" i godzina odjazdu.
      */
     @Composable

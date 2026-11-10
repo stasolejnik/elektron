@@ -1,4 +1,5 @@
 Wersja testowa 1.0.4-beta1.
+Czas na wyspie Xiaomi; Przejazdy: odświeżanie gestem, wczytywanie przy przewijaniu.
 Nowy adres kontaktowy: elektron@tuta.com.
 Zastępstwa bez sali i zwolnienia części klasy poprawnie w planie.
 Niepełna lista klas nie odznacza Twojej klasy.

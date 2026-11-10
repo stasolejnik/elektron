@@ -76,7 +76,7 @@ object ZastepstwaParser {
                 .dropLastWhile { it.isEmpty() }
             val images = cells[0].select("img[src]").mapNotNull { schoolImage(it.absUrl("src").ifBlank { it.attr("src") }) }.distinct()
             if (body.isEmpty() && images.isEmpty() && meta.isEmpty()) continue
-            val notice = SchoolNotice(body.joinToString("\n"), images, meta.lastOrNull()?.trimEnd('.', ',', ';'))
+            val notice = SchoolNotice(body.joinToString("\n"), images, meta.lastOrNull()?.let(::cleanPublicationLine)?.trimEnd('.', ',', ';'))
             out[date] = out[date]?.let { SchoolNotice(listOf(it.text, notice.text).filter(String::isNotBlank).joinToString("\n"),
                 (it.images + notice.images).distinct(), notice.updated ?: it.updated) } ?: notice
         }
@@ -100,6 +100,15 @@ object ZastepstwaParser {
         val first = KEYWORD_RE.find(trimmed)?.value ?: return false
         val fixed = PUBLICATION_KEYWORDS.firstOrNull { editDistance(first.lowercase(), it) in 1..2 } ?: return false
         return PUBLICATION_RE.matches(fixed + trimmed.substring(first.length))
+    }
+
+    /** Znacznik publikacji do pokazania: literówka w słowie kluczowym poprawiona ("Atkualizacja" -> "Aktualizacja"). */
+    internal fun cleanPublicationLine(line: String): String {
+        val trimmed = line.trim()
+        if (PUBLICATION_RE.matches(trimmed)) return trimmed
+        val first = KEYWORD_RE.find(trimmed)?.value ?: return trimmed
+        val fixed = PUBLICATION_KEYWORDS.firstOrNull { editDistance(first.lowercase(), it) in 1..2 } ?: return trimmed
+        return fixed.replaceFirstChar { if (first.first().isUpperCase()) it.titlecase() else it.toString() } + trimmed.substring(first.length)
     }
 
     private val KEYWORD_RE = Regex("^\\p{L}{8,}")

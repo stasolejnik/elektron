@@ -156,11 +156,15 @@ fun DashboardScreen(
                         item(key = "h_next") { SectionTitle(title, icon) }
                         item(key = "next") {
                             // Dziś święto, przerwa albo ferie: bez tego strona główna pokazywała tylko "Następna lekcja · Jutro".
+                            // Po dzisiejszych lekcjach także jutrzejszy dzień wolny ("Jutro wolne · Święto Niepodległości").
                             val dayOff = androidx.compose.runtime.remember(state.nextLesson, state.nextLessonStatus) {
-                                pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar.dayOff(pl.zse.bydgoszcz.elektron.domain.util.AppClock.today())
+                                val today = pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()
+                                val calendar = pl.zse.bydgoszcz.elektron.domain.model.SchoolCalendar
+                                calendar.dayOff(today)?.let { "Dziś wolne · $it" }
+                                    ?: calendar.dayOff(today.plusDays(1))?.takeIf { state.nextLesson?.date != today }?.let { "Jutro wolne · $it" }
                             }
                             if (dayOff != null && state.nextLessonStatus != DashboardViewModel.LessonStatus.Now) {
-                                Text("Dziś wolne · $dayOff", style = MaterialTheme.typography.bodyMedium,
+                                Text(dayOff, style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
                             }
                             if (state.loadingTimetable) DelayedLoading { LoadingCard("Ładowanie planu lekcji…") }

@@ -184,7 +184,7 @@ class LiveLessonScheduler @Inject constructor(
             }
             .build()
             .let { built ->
-                // realme/OPPO/OnePlus (albo przełącznik w trybie dewelopera): kapsuła na pasku stanu nie pokazuje
+                // realme/OPPO/OnePlus, Xiaomi (albo przełącznik w trybie dewelopera): kapsuła/wyspa nie pokazuje
                 // chronometru, tylko krótki tekst. Na zwykłym Androidzie 16 krótki tekst zastąpiłby odliczanie
                 // co do sekundy - tam bez niego. Oficjalne Notification.Builder#setShortCriticalText (API 36).
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA && usesShortCriticalText(context))
@@ -252,11 +252,12 @@ class LiveLessonScheduler @Inject constructor(
         const val ACTION_DISMISSED = "pl.zse.bydgoszcz.elektron.live.DISMISSED"
         /** Notification.EXTRA_REQUEST_PROMOTED_ONGOING (API 36). */
         private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
-        private val SHORT_TEXT_MANUFACTURERS = setOf("realme", "oppo", "oneplus")
+        // Xiaomi, Redmi, POCO (HyperOS): wyspa pokazuje promowane powiadomienie, ale bez chronometru - czasu nie było widać.
+        private val SHORT_TEXT_MANUFACTURERS = setOf("realme", "oppo", "oneplus", "xiaomi", "redmi", "poco")
         private const val DEV_PREFS = "live_lesson_dev"
         private const val KEY_SHORT_TEXT_EVERYWHERE = "short_text_everywhere"
 
-        /** Telefony z nakładką ColorOS (realme, OPPO, OnePlus): czas w kapsule tylko z krótkiego tekstu. */
+        /** Nakładki ColorOS (realme, OPPO, OnePlus) i HyperOS (Xiaomi, Redmi, POCO): czas w kapsule/na wyspie tylko z krótkiego tekstu. */
         fun usesShortCriticalText(manufacturer: String? = Build.MANUFACTURER): Boolean =
             manufacturer?.trim()?.lowercase() in SHORT_TEXT_MANUFACTURERS
 

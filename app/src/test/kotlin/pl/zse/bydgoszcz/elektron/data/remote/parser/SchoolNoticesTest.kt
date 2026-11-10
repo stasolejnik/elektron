@@ -69,7 +69,8 @@ class SchoolNoticesTest {
     @Test fun publicationLineWithATypoIsNotTheNotice() {
         val n = ZastepstwaParser.notices(page("2026-11-10_171800")).getValue("10.11.2026")
         assertTrue(n.text.startsWith("O godz. 10:50 zapraszamy"))
-        assertEquals("Atkualizacja godz. 8:00", n.updated)
+        // Pokazywany podpis z poprawionym słowem.
+        assertEquals("Aktualizacja godz. 8:00", n.updated)
         assertTrue(ZastepstwaParser.isPublicationLine("Publikacja poniedziałek godz. 17:15"))
         // Krótkie słowo albo treść z godziną - to nie znacznik.
         assertFalse(ZastepstwaParser.isPublicationLine("Lekcje skrócone do godz. 12:00"))

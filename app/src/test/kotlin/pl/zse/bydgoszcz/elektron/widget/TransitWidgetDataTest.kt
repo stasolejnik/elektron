@@ -57,11 +57,11 @@ class TransitWidgetDataTest {
         assertEquals("Ze szkoły", afternoon.title)
         assertEquals("Do: Dworzec Główny · sprawdzono 14:30", afternoon.subtitle)
         val row = afternoon.rows.single()
-        assertEquals(listOf("5", "Rycerska", "za 20 min", "15:00", "wyjdź o 14:54 · dojście 4 min"),
+        assertEquals(listOf("5", "Rycerska", "za 20 min", "15:00", "wyjdź o 14:54"),
             listOf(row.line, row.stop, row.until, row.time, row.detail))
         // Czas na wyjście minął, ale do odjazdu jeszcze da się dojść - pogrubione "wyjdź teraz".
         val late = ready(TransitWidgetData.build(prefs, lessons, fromSchool, at("14:54:30"), zone)).rows.single()
-        assertEquals("wyjdź teraz · dojście 4 min", late.detail)
+        assertEquals("wyjdź teraz", late.detail)
         assertTrue(late.urgent)
     }
 

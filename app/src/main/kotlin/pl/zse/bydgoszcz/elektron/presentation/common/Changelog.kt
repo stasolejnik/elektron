@@ -6,6 +6,10 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(40, "1.0.4-beta1", listOf(
+            "Powiadomienie na żywo: czas na wyspie na telefonach Xiaomi, Redmi i POCO",
+            "Przejazdy: odświeżanie przeciągnięciem w dół, kolejne kursy przy przewijaniu",
+            "Przejazdy: krótsze wskazówki na karcie i „Szkoła” na liście przystanków",
+            "Strona główna: „Jutro wolne” przed świętem",
             "Nowy adres kontaktowy: elektron@tuta.com",
             "Zastępstwa bez sali (np. przy złączeniu grup) nie znikają",
             "Gdy część klasy idzie do domu, a część zostaje w szkole, lekcja nie znika z planu",
