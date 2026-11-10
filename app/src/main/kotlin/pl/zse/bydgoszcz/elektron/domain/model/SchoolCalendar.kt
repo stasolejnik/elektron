@@ -54,6 +54,24 @@ object SchoolCalendar {
 
     fun isDayOff(date: LocalDate): Boolean = enabled && dayOff(date) != null
 
+    /**
+     * Klasy programowo najwyższe technikum (w ZSE piąte, "5A", "5D"...): zajęcia kończą się w ostatni piątek
+     * kwietnia (rozporządzenie MEN), potem matury. Strona szkoły pokazuje ich plan dalej - bez tego maturzyści
+     * dostawali w maju i czerwcu przypomnienia i powiadomienie na żywo.
+     */
+    fun finalYearEnd(year: Int): LocalDate = LocalDate.of(year, 4, 30).with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY))
+
+    private val FINAL_CLASS = Regex("^5\\p{L}")
+
+    /** Klasa [className] skończyła już zajęcia w tym roku szkolnym (maturzyści po ostatnim piątku kwietnia). */
+    fun classFinished(className: String?, date: LocalDate): Boolean =
+        enabled && className != null && FINAL_CLASS.containsMatchIn(className.trim()) &&
+            date.isAfter(finalYearEnd(date.year)) && date.isBefore(schoolYearStart(date.year))
+
+    /** Czy tabela ferii ma termin na rok szkolny zaczynający się we wrześniu [startYear] (test pilnuje dopisania). */
+    internal fun hasWinterBreak(startYear: Int): Boolean =
+        WINTER_BREAKS.any { (from, _) -> from.isAfter(LocalDate.of(startYear, 9, 1)) && from.isBefore(LocalDate.of(startYear + 1, 6, 1)) }
+
     /** Święta ustawowo wolne od pracy w dni robocze. */
     private fun holiday(date: LocalDate): String? {
         val easter = easter(date.year)

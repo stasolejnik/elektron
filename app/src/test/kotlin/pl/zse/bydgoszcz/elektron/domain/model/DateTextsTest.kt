@@ -8,6 +8,15 @@ import java.time.LocalDateTime
 class DateTextsTest {
     private val today = LocalDate.of(2026, 11, 3) // wtorek
 
+    /** Pierwsza sobota ferii: następna lekcja za 16 dni - z datą, nie sam "Poniedziałek". */
+    @Test fun lessonDayHasADateBeyondAWeek() {
+        val saturday = LocalDate.of(2027, 1, 30)
+        assertEquals("Dziś", DateTexts.lessonDay(saturday, saturday))
+        assertEquals("Jutro", DateTexts.lessonDay(saturday.plusDays(1), saturday))
+        assertEquals("Poniedziałek", DateTexts.lessonDay(LocalDate.of(2027, 2, 1), saturday))
+        assertEquals("Poniedziałek 15.02", DateTexts.lessonDay(LocalDate.of(2027, 2, 15), saturday))
+    }
+
     @Test fun pastMomentsDropTheDateForToday() {
         assertEquals("12:49", DateTexts.past(LocalDateTime.of(2026, 11, 3, 12, 49), today))
         assertEquals("wczoraj, 18:05", DateTexts.past(LocalDateTime.of(2026, 11, 2, 18, 5), today))

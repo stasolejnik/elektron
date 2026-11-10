@@ -12,6 +12,15 @@ class SubstitutionDisplayTest {
     private fun sub(info: String, teacher: String?, notes: String? = null) =
         Substitution("x", LocalDate.of(2026, 9, 29), 3, "2H", null, info, teacher, notes, "J.Siepniewska-Stańczyk")
 
+    /** Wiersz z archiwum: świetlica dla chodzących na religię, reszta do domu - lekcja zostaje (nie wiadomo, kogo dotyczy). */
+    @Test
+    fun partOfTheClassSentHomeKeepsTheLesson() {
+        assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null,
+            "dot. uczęszczających na religię, reszta zwolniona do domu")))
+        assertFalse(SubstitutionDisplay.freesLesson(sub("Zajęcia Świetlicowe", null, "pozostali uczniowie zwolnieni do domu")))
+        assertTrue(SubstitutionDisplay.freesLesson(sub("Uczniowie zwolnieni do domu", null)))
+    }
+
     @Test
     fun rooms() {
         listOf("211", "pc2", "W-6", "105", "PC3").forEach { assertTrue(it, SubstitutionDisplay.isRoom(it)) }

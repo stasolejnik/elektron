@@ -80,12 +80,13 @@ class LessonNotesRepository internal constructor(private val store: DataStore<Pr
             .put("number", n.number).put("subject", n.subject).put("text", n.text)
             .put("revision", n.revision).put("reminded", n.reminded)) }
     }.toString()
+    /** Nieczytelny pojedynczy wpis jest pomijany - dawniej jeden zły wpis ukrywał wszystkie notatki. */
     private fun decode(value: String?): List<LessonNote> {
         if (value == null) return emptyList()
         val array = JSONArray(value)
-        return (0 until array.length()).map { i -> array.getJSONObject(i).let {
+        return (0 until array.length()).mapNotNull { i -> runCatching { array.getJSONObject(i).let {
             LessonNote(it.getString("class"), LocalDate.parse(it.getString("date")), it.getInt("number"),
                 it.getString("subject"), it.getString("text"), it.getLong("revision"), it.optBoolean("reminded"))
-        } }
+        } }.onFailure { android.util.Log.w("LessonNotes", "Pomijam nieczytelną notatkę nr $i", it) }.getOrNull() }
     }
 }

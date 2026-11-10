@@ -40,8 +40,6 @@ import pl.zse.bydgoszcz.elektron.presentation.common.visibleMinuteTicker
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.format.TextStyle
-import java.util.Locale
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -206,14 +204,7 @@ class DashboardViewModel @Inject constructor(
             LessonClock.Nothing -> null to LessonStatus.None
         }
 
-        val dayLabel = lesson?.date?.let { d: LocalDate ->
-            when (d) {
-                today -> "Dziś"
-                today.plusDays(1) -> "Jutro"
-                else -> d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pl", "PL"))
-                    .replaceFirstChar { it.titlecase(Locale("pl", "PL")) }
-            }
-        }
+        val dayLabel = lesson?.date?.let { d: LocalDate -> pl.zse.bydgoszcz.elektron.domain.model.DateTexts.lessonDay(d, today) }
 
         val countdownMinutes: Long? = (clock as? LessonClock.Before)?.minutesUntil
 

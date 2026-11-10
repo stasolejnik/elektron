@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
+import pl.zse.bydgoszcz.elektron.domain.model.DateTexts
 import pl.zse.bydgoszcz.elektron.domain.model.Rooms
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 
@@ -35,8 +36,6 @@ import pl.zse.bydgoszcz.elektron.domain.repository.TimetableRepository
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.time.format.TextStyle
-import java.util.Locale
 
 /** Dostęp do repozytoriów z widżetów (Glance nie wspiera wstrzykiwania przez konstruktor). */
 @EntryPoint
@@ -159,7 +158,6 @@ object WidgetTargets {
 
 object WidgetDataLoader {
 
-    private val PL = Locale("pl", "PL")
     private val subsLog = pl.zse.bydgoszcz.elektron.domain.util.LogOnChange()
 
     fun entryPoint(context: Context): WidgetEntryPoint =
@@ -329,11 +327,7 @@ object WidgetDataLoader {
         return SubsWidgetState.Ready(ClassNames.clean(short), subs, refreshAt, checked = freshness.label)
     }
 
-    private fun dayLabel(day: LocalDate, today: LocalDate): String = when (day) {
-        today -> "Dziś"
-        today.plusDays(1) -> "Jutro"
-        else -> day.dayOfWeek.getDisplayName(TextStyle.FULL, PL).replaceFirstChar { it.titlecase(PL) }
-    }
+    private fun dayLabel(day: LocalDate, today: LocalDate): String = DateTexts.lessonDay(day, today)
 
     internal fun userNote(lesson: Lesson, notesByKey: Map<String, LessonNote>): String? =
         notesByKey[LessonNote.key(lesson)]?.takeIf { NoteReminders.matchesGroups(it, lesson) }

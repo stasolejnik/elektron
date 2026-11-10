@@ -77,6 +77,30 @@ class SchoolCalendarTest {
         assertEquals("Wakacje", SchoolCalendar.dayOff(d(2028, 9, 1)))
     }
 
+    /** Maturzyści (klasy piąte) kończą zajęcia w ostatni piątek kwietnia; inne klasy uczą się dalej. */
+    @Test fun finalClassesEndOnTheLastFridayOfApril() {
+        assertEquals(d(2027, 4, 30), SchoolCalendar.finalYearEnd(2027))
+        assertEquals(d(2028, 4, 28), SchoolCalendar.finalYearEnd(2028))
+        val before = SchoolCalendar.enabled
+        SchoolCalendar.enabled = true
+        try {
+            fun lesson(className: String, date: LocalDate) = Lesson("x", "o3", className, date, DayOfWeek.WTOREK, 1,
+                LocalTime.of(8, 0), LocalTime.of(8, 45), emptyList(), null, null)
+            assertTrue(SubstitutionDisplay.takesPlace(lesson("5D", d(2027, 4, 29))))
+            assertFalse(SubstitutionDisplay.takesPlace(lesson("5D", d(2027, 5, 4))))
+            assertTrue(SubstitutionDisplay.takesPlace(lesson("4D", d(2027, 5, 4))))
+            assertTrue(SubstitutionDisplay.takesPlace(lesson("5D", d(2027, 9, 7))))
+        } finally { SchoolCalendar.enabled = before }
+    }
+
+    /** Ferie ustala MEN co roku - test zaczyna padać, gdy w tabeli brakuje terminu na bieżący rok szkolny. */
+    @Test fun winterBreakIsKnownForTheCurrentSchoolYear() {
+        val today = LocalDate.now()
+        val startYear = if (today.monthValue >= 9) today.year else today.year - 1
+        assertTrue("Dopisz ferie zimowe $startYear/${startYear + 1} do SchoolCalendar.WINTER_BREAKS",
+            SchoolCalendar.hasWinterBreak(startYear))
+    }
+
     @Test fun lessonsOnDaysOffDoNotTakePlace() {
         val before = SchoolCalendar.enabled
         SchoolCalendar.enabled = true

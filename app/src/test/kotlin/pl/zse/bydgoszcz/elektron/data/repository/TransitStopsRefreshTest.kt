@@ -36,6 +36,14 @@ class TransitStopsRefreshTest {
         assertTrue(SchoolTransit.distance(school[0].latitude, school[0].longitude) < SchoolTransit.distance(school[1].latitude, school[1].longitude))
     }
 
+    /** Zapis sprzed API v2 z jednym stanowiskiem i numerem słupka: te same stanowiska, nazwa już bez "#1". */
+    @Test fun savedSinglePlatformLosesThePoleNumber() {
+        val catalog = listOf(TransitDestination("Rycerska", listOf("7"), 53.12, 18.0))
+        assertEquals("Rycerska", TransitStops.refreshed(TransitDestination("Rycerska #1", listOf("7"), 53.12, 18.0), catalog)?.name)
+        // Ta sama nazwa bez numeru - bez zmian (także nazwa bez polskich znaków nie zastępuje zapisanej).
+        assertNull(TransitStops.refreshed(TransitDestination("Rycerska", listOf("7"), 53.12, 18.0), catalog))
+    }
+
     @Test fun savedStopWithChangedPlatformNumbersIsReplacedByTheSameStop() {
         val catalog = listOf(TransitDestination("Rondo Jagiellonów", listOf("9", "27"), 53.1236, 18.007),
             TransitDestination("Szkoła", listOf("40"), 53.12, 18.0), TransitDestination("Szkoła", listOf("41"), 53.2, 18.2))

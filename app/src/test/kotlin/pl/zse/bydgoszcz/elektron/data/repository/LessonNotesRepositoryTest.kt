@@ -1,6 +1,7 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
@@ -31,6 +32,20 @@ class LessonNotesRepositoryTest {
         } catch (_: java.io.IOException) { }
         assertTrue(repo.notes.first().isEmpty())
     }
+    /** Jeden nieczytelny wpis (np. zła data) nie ukrywa pozostałych notatek. */
+    @Test fun oneUnreadableNoteDoesNotHideTheOthers() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "note-bad.preferences_pb").apply { delete() }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val store = PreferenceDataStoreFactory.create(scope = scope, produceFile = { file })
+        try {
+            store.edit { it[androidx.datastore.preferences.core.stringPreferencesKey("notes")] =
+                """[{"class":"o3","date":"2026-13-45","number":2,"subject":"mat","text":"zła","revision":1},
+                    {"class":"o3","date":"2026-11-10","number":3,"subject":"fiz","text":"dobra","revision":2}]""" }
+            assertEquals(listOf("dobra"), LessonNotesRepository(store).notes.first().map { it.text })
+        } finally { scope.cancel(); file.delete() }
+    }
+
     @Test fun preservesTextAcrossRestartAndClassesAndClaimsOnlyCurrentRevisionOnce() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val file = File(context.cacheDir, "note-test.preferences_pb").apply { delete() }

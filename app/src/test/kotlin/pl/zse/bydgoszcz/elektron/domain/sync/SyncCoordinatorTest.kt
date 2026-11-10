@@ -78,10 +78,17 @@ class SyncCoordinatorTest {
         @Volatile var sidebar: List<ClassListItemDto>? = null
         /** Błąd pobierania listy klas (null - lista się pobiera). */
         @Volatile var sidebarError: Exception? = null
-        override suspend fun fetchSidebar() = sidebarError?.let { throw it } ?: sidebar ?: listOf(
+        override suspend fun fetchSidebar() = sidebarError?.let { throw it } ?: (sidebar ?: listOf(
             ClassListItemDto("o3", ClassListItemDto.Kind.CLASS, "1D 1D PBŚ", "1D", "https://plan.zse.bydgoszcz.pl/plany/o3.html"),
             ClassListItemDto("o4", ClassListItemDto.Kind.CLASS, "1E 1E PBŚ", "1E", "https://plan.zse.bydgoszcz.pl/plany/o4.html")
-        )
+        )) + (if (truncated) emptyList() else STAFF)
+
+        /** Plik listy ucięty w trakcie eksportu: same klasy, bez nauczycieli i sal. */
+        @Volatile var truncated = false
+        /** Pełna lista ma też nauczycieli i sale (bez nich - plik ucięty). */
+        val STAFF = listOf(
+            ClassListItemDto("n99", ClassListItemDto.Kind.TEACHER, "Z.Zielony (Zz)", "Zz", "https://plan.zse.bydgoszcz.pl/plany/n1.html"),
+            ClassListItemDto("s1", ClassListItemDto.Kind.ROOM, "105 Pracownia", "105", "https://plan.zse.bydgoszcz.pl/plany/s1.html"))
 
         override suspend fun fetchTimetable(classId: String): TimetableDto {
             calls.incrementAndGet()
@@ -242,6 +249,48 @@ class SyncCoordinatorTest {
         val outcome = coordinator.sync(SyncRequest.full(background = true))
         assertEquals("o3", settings.classIdFlow.value)
         assertTrue(SyncOutcome.TIMETABLE in outcome.succeeded)
+    }
+
+    /** Nowy układ strony planu: w tle ponowna próba najwyżej co godzinę, ręczne odświeżenie od razu. */
+    @Test
+    fun changedPageLayoutIsRetriedHourlyInBackground() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        val old = Instant.now().epochSecond - 7 * 60 * 60
+        db.syncStateDao().upsert(pl.zse.bydgoszcz.elektron.data.local.SyncStateEntity("source_${SyncOutcome.TIMETABLE}_o3", old, "ok", null))
+        timetable.error = pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException("plan lekcji")
+        val before = timetable.calls.get()
+        coordinator.sync(SyncRequest.full(background = true))
+        assertEquals(before + 1, timetable.calls.get())
+        coordinator.sync(SyncRequest.full(background = true))
+        assertEquals("w tle bez ponownego pobierania przez godzinę", before + 1, timetable.calls.get())
+        coordinator.sync(SyncRequest.full())
+        assertEquals(before + 2, timetable.calls.get())
+    }
+
+    /** Ucięta lista (bez nauczycieli i sal) bez wybranej klasy: klasa i plan zostają, lista liczy się jako nieudana. */
+    @Test
+    fun truncatedClassListDoesNotDeselectTheClass() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        timetable.truncated = true
+        timetable.sidebar = list("o4" to "1E", "o5" to "2D", "o6" to "3A")
+        val outcome = coordinator.sync(SyncRequest.full())
+        assertEquals("o3", settings.classIdFlow.value)
+        assertNull(settings.classListChangedFlow.value)
+        assertTrue(sink.generic.isEmpty())
+        assertTrue(SyncOutcome.SIDEBAR in outcome.failures)
+        assertEquals(listOf("o3"), db.lessonDao().classIds())
+    }
+
+    /** Lista zmieniła nazwę klasy w bazie, ale synchronizację przerwano: o zmianie decyduje nazwa z ustawień. */
+    @Test
+    fun renumberingIsDetectedAfterAnInterruptedSync() = runBlocking<Unit> {
+        coordinator.sync(SyncRequest.full())
+        // Ustawienia pamiętają 3D, baza ma już nową nazwę "1D" z przerwanej synchronizacji listy.
+        settings.classNameFlow.value = "3D"
+        timetable.sidebar = list("o3" to "1D", "o4" to "1E", "o5" to "2D")
+        coordinator.sync(SyncRequest.full())
+        assertNull(settings.classIdFlow.value)
+        assertEquals("3D", settings.classListChangedFlow.value)
     }
 
     /** Plan innej klasy, a lista klas w tym samym żądaniu się nie pobrała: bez zapisu, bo nic nie potwierdza klasy. */

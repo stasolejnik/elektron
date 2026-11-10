@@ -8,6 +8,20 @@ import pl.zse.bydgoszcz.elektron.data.remote.dto.ClassListItemDto
 
 class OptivumListaParserTest {
 
+    /** Prawdziwa lista z 10.11.2026: klasy, nauczyciele i sale w tej kolejności; plik ucięty w sekcji klas nie ma reszty. */
+    @Test
+    fun realListHasAllThreeSectionsAndATruncatedOneHasOnlyClasses() {
+        val html = javaClass.getResourceAsStream("/lista/2026-11-10.html")!!.use { it.readBytes().toString(Charsets.UTF_8) }
+        val items = OptivumListaParser.parse(Jsoup.parse(html, "https://plan.zse.bydgoszcz.pl/"), "https://plan.zse.bydgoszcz.pl/")
+        val counts = items.groupingBy { it.kind }.eachCount()
+        assertEquals(mapOf(ClassListItemDto.Kind.CLASS to 29, ClassListItemDto.Kind.TEACHER to 100, ClassListItemDto.Kind.ROOM to 72), counts)
+        assertTrue(items.any { it.kind == ClassListItemDto.Kind.CLASS && it.shortName == "5D" })
+        // Ucięty po kilku klasach (eksport w toku): same klasy - repozytorium nie usuwa wtedy brakujących.
+        val cut = html.substring(0, html.indexOf("plany/o6.html"))
+        val partial = OptivumListaParser.parse(Jsoup.parse(cut, "https://plan.zse.bydgoszcz.pl/"), "https://plan.zse.bydgoszcz.pl/")
+        assertTrue(partial.isNotEmpty() && partial.all { it.kind == ClassListItemDto.Kind.CLASS })
+    }
+
     @Test
     fun parsesClassesFromSidebarAndSanitizesDuplicates() {
         val html = """

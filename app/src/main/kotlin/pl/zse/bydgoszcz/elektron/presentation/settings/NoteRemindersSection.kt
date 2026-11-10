@@ -6,6 +6,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.NoteReminderSettings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import pl.zse.bydgoszcz.elektron.presentation.common.*
 import pl.zse.bydgoszcz.elektron.work.LocalNotificationSink
@@ -16,9 +17,9 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun NoteRemindersSection(enabled: Boolean, ready: Boolean, timing: NoteReminderSettings, onTimingChange: (NoteReminderSettings) -> Unit, onResume: () -> Unit, onChange: (Boolean) -> Unit, onOpenNotes: () -> Unit) {
-    var choosingMode by remember { mutableStateOf(false) }
-    var choosingTime by remember { mutableStateOf(false) }
-    var choosingMinutes by remember { mutableStateOf(false) }
+    var choosingMode by rememberSaveable { mutableStateOf(false) }
+    var choosingTime by rememberSaveable { mutableStateOf(false) }
+    var choosingMinutes by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     fun canNotify() = NotificationManagerCompat.from(context).areNotificationsEnabled() &&
         (Build.VERSION.SDK_INT < 26 || context.getSystemService(NotificationManager::class.java)

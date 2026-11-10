@@ -263,6 +263,20 @@ class AnnouncementsRepositoryImplTest {
             assertTrue(repo.observeAll().first().isEmpty())
         } finally { file.delete() }
     }
+    /** Uszkodzony plik ulubionych: odłożony obok, ulubione z bazy zostają, a ogłoszenia dalej się pobierają. */
+    @Test fun corruptFavoritesFileDoesNotBlockAnnouncements() = kotlinx.coroutines.runBlocking {
+        val file = java.io.File.createTempFile("favorites-corrupt", ".json")
+        file.writeText("[{\"id\": \"ucięte")
+        val id = "https://zse/fav"
+        db.announcementDao().upsertAll(listOf(AnnouncementEntity(id, "Zapisane", id, 1_800_000_000, null, null, null, false, "RSS_NEWS", true)))
+        try {
+            repo = AnnouncementsRepositoryImpl(source, db.announcementDao(), db, FavoriteAnnouncementsStore(file))
+            assertTrue(repo.syncAll().isSuccess)
+            assertTrue(java.io.File(file.path + ".corrupt").exists())
+            assertEquals(listOf(id), FavoriteAnnouncementsStore(file).read()!!.map { it.id })
+        } finally { file.delete(); java.io.File(file.path + ".corrupt").delete() }
+    }
+
     @Test fun resetArchiveRestartsPaginationEvenAfterExhaustion() = kotlinx.coroutines.runBlocking {
         source.archive = mapOf(1 to listOf(archiveItem("https://zse/1")), 2 to listOf(archiveItem("https://zse/2")))
         assertEquals(1, repo.loadOlder().getOrThrow().added)

@@ -78,7 +78,11 @@ internal object TransitStops {
      */
     fun refreshed(saved: TransitDestination?, catalog: List<TransitDestination>, maxFromSchoolMeters: Double? = null): TransitDestination? {
         saved ?: return null
-        if (catalog.isEmpty() || catalog.any { it.key == saved.key }) return null
+        if (catalog.isEmpty()) return null
+        // Te same stanowiska, ale zapis z numerem słupka ("Foo #1" z jednym stanowiskiem, sprzed API v2) - nazwa z katalogu.
+        catalog.firstOrNull { it.key == saved.key }?.let { same ->
+            return same.takeIf { baseName(saved.name) != saved.name && same.name != saved.name }
+        }
         // Przystanek początkowy: tylko taki, jaki oferuje wybór (do 1 km od szkoły).
         val sameName = catalog.filter { nameKey(it.name) == nameKey(saved.name) &&
             (maxFromSchoolMeters == null || SchoolTransit.distance(it.latitude, it.longitude) <= maxFromSchoolMeters) }

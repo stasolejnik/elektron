@@ -33,6 +33,8 @@ class ZseRssAnnouncementsSource @Inject constructor(
         fetchFeed(SchoolEndpoints.School.RSS_LATEST, RssItemDto.Source.RSS_LATEST)
 
     override suspend fun fetchArticleHtml(url: String): String? = withContext(Dispatchers.IO) {
+        // Tylko strony szkoły: adres może przyjść z pusha (wariant gms) - aplikacja nie pobiera dowolnych stron.
+        if (!SchoolEndpoints.isSchoolUrl(url)) throw java.io.IOException("Ogłoszenie spoza strony szkoły")
         val req = Request.Builder().url(url).get().build()
         client.newCall(req).readCancellable { resp ->
             if (!resp.isSuccessful) throw java.io.IOException("Ogłoszenie: HTTP ${resp.code}")
@@ -51,6 +53,7 @@ class ZseRssAnnouncementsSource @Inject constructor(
     }
 
     override suspend fun fetchArticleDate(url: String): Instant? = withContext(Dispatchers.IO) {
+        if (!SchoolEndpoints.isSchoolUrl(url)) return@withContext null
         client.newCall(Request.Builder().url(url).get().build()).readCancellable { resp ->
             if (!resp.isSuccessful) return@readCancellable null
             NewsArchiveParser.parseArticleDate(EncodingAwareBody.asDocument(resp))

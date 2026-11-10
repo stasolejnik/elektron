@@ -59,9 +59,9 @@ class TransitWidget : GlanceAppWidget() {
             TransitWidgetData.nextTick(state, AppClock.now())?.let { WidgetDataLoader.entryPoint(context).widgetUpdater().scheduleTick(it) }
             state to WidgetDataLoader.palette(context)
         }
-        val initial = loadSnapshot(load)
+        val initial = loadSnapshot(load, WidgetDataVersion.transit)
         provideContent {
-            val (state, palette) = rememberLiveWidgetData(initial, load) { _, fresh -> fresh }
+            val (state, palette) = rememberLiveWidgetData(initial, load, WidgetDataVersion.transit) { _, fresh -> fresh }
             CompositionLocalProvider(LocalWidgetPalette provides palette) { Content(state) }
         }
     }

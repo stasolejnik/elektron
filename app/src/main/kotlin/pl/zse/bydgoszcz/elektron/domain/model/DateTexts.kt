@@ -21,6 +21,17 @@ object DateTexts {
         else -> at.format(DAY_MONTH) + ", " + at.format(TIME)
     }
 
+    /**
+     * Dzień lekcji ("Następna lekcja · …"): "Dziś", "Jutro", w najbliższym tygodniu "Poniedziałek", dalej z datą
+     * ("Poniedziałek 23.11") - po feriach sama nazwa dnia sugerowała najbliższy poniedziałek.
+     */
+    fun lessonDay(date: LocalDate, today: LocalDate): String = when {
+        date == today -> "Dziś"
+        date == today.plusDays(1) -> "Jutro"
+        else -> date.dayOfWeek.getDisplayName(TextStyle.FULL, PL).replaceFirstChar { it.titlecase(PL) } +
+            if (date.isAfter(today) && date.isBefore(today.plusDays(7))) "" else " " + date.format(DAY_MONTH)
+    }
+
     /** Przyszłe chwile ("Najbliższe: …"): "dziś, 07:50", "jutro, 07:50", w tym tygodniu "czwartek, 07:50", dalej "12.11, 07:50". */
     fun upcoming(at: LocalDateTime, today: LocalDate): String {
         val date = at.toLocalDate()

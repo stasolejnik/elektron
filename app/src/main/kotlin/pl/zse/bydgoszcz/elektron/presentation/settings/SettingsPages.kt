@@ -2,6 +2,7 @@ package pl.zse.bydgoszcz.elektron.presentation.settings
 
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -60,7 +61,7 @@ import androidx.compose.material.icons.outlined.SystemUpdate
 @Composable
 internal fun UpdatesSection(state: SettingsViewModel.State, viewModel: SettingsViewModel) {
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
-    var choosingChannel by remember { mutableStateOf(false) }
+    var choosingChannel by rememberSaveable { mutableStateOf(false) }
     GroupedSection("Aktualizacje", icon = Icons.Outlined.SystemUpdate,
         footer = if (state.updateChannel == UpdateChannel.BETA)
             "Wersje beta są testowe i mogą zawierać błędy. Gdy ukaże się wersja stabilna, też ją dostaniesz."
@@ -93,7 +94,7 @@ internal fun UpdatesSection(state: SettingsViewModel.State, viewModel: SettingsV
 
 @Composable
 internal fun DataSection(viewModel: SettingsViewModel) {
-    var confirmReset by remember { mutableStateOf(false) }
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
     GroupedSection("Dane", icon = Icons.Outlined.Storage,
         footer = "Pobiera plan, zastępstwa i ogłoszenia od nowa. Klasa, grupy, notatki i ustawienia zostają.") {
         ActionRow("Wyczyść dane podręczne", destructive = true) { confirmReset = true }
@@ -179,7 +180,7 @@ internal fun AboutSection(viewModel: SettingsViewModel, devMode: Boolean, showTo
 
 @Composable
 internal fun DevSection(viewModel: SettingsViewModel) {
-    var confirmCrash by remember { mutableStateOf(false) }
+    var confirmCrash by rememberSaveable { mutableStateOf(false) }
     if (confirmCrash) {
         AlertDialog(
             onDismissRequest = { confirmCrash = false },

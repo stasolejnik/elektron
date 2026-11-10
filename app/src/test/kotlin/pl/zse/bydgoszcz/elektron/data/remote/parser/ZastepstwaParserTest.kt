@@ -7,6 +7,23 @@ import org.junit.Test
 
 class ZastepstwaParserTest {
 
+    /** Wiersz z archiwum strony: "4 B(1) -" bez sali, z zastępcą i "złączenie grup" - dawniej przepadał, a dzień był niepełny. */
+    @Test
+    fun emptyDescriptionIsStillASubstitution() {
+        val html = """
+            <table>
+              <tr><td>Zastępstwa w dniu 05.11.2026 czwartek</td></tr>
+              <tr><td>Jan Kowalski</td></tr>
+              <tr><td>lekcja</td><td>opis</td><td>zastępca</td><td>uwagi</td></tr>
+              <tr><td>2</td><td>4 B(1) -</td><td>Anna Nowak</td><td>złączenie grup</td></tr>
+            </table>
+        """.trimIndent()
+        val result = ZastepstwaParser.parseDetailed(Jsoup.parse(html))
+        assertEquals(emptySet<String>(), result.incompleteDates)
+        val sub = result.items.single()
+        assertEquals(listOf("4B", 1, "", "Anna Nowak"), listOf(sub.classShortName, sub.groupNumber, sub.roomOrInfo, sub.substituteTeacher))
+    }
+
     @Test
     fun parsesTeacherSectionWithSubstitutions() {
         val html = """

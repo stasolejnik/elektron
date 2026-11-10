@@ -12,6 +12,14 @@ package pl.zse.bydgoszcz.elektron.data.remote.sources.zse
  */
 object SchoolEndpoints {
 
+    /** Adres https/http na serwerach szkoły (zse.bydgoszcz.pl, zse.edu.bydgoszcz.pl i ich subdomeny). Bez Androida - testy JVM. */
+    fun isSchoolUrl(url: String?): Boolean {
+        val uri = runCatching { java.net.URI(url?.trim().orEmpty()) }.getOrNull() ?: return false
+        if (uri.scheme?.lowercase() !in setOf("http", "https")) return false
+        val host = uri.host?.lowercase() ?: return false
+        return listOf("zse.bydgoszcz.pl", "zse.edu.bydgoszcz.pl").any { host == it || host.endsWith(".$it") }
+    }
+
     object Timetable {
         const val BASE = "https://plan.zse.bydgoszcz.pl/"
         const val SIDEBAR = "${BASE}lista.html"

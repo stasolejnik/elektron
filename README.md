@@ -145,7 +145,8 @@ Przypomnienia o lekcjach korzystają także z uprawnienia do dokładnych alarmó
 Dane szkolne są sprawdzane w tle przez WorkManager (zastępstwa co 15 min, w nocy i w dni bez lekcji
 rzadziej); wariant z GitHuba korzysta również
 z powiadomień Firebase Cloud Messaging. Informacje o zastępstwach i ogłoszeniach pochodzą
-ze stron szkoły. Przejazdy są sprawdzane podczas korzystania z tej funkcji.
+ze stron szkoły. Przejazdy są sprawdzane podczas korzystania z tej funkcji, a widżet Przejazdy
+odświeża je także w tle w porze dojazdu (najwyżej co 5 minut).
 
 ## Prywatność
 

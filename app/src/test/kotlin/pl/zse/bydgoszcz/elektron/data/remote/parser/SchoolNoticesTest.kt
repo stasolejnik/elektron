@@ -65,6 +65,18 @@ class SchoolNoticesTest {
     private fun page(name: String): Document = javaClass.getResourceAsStream("/zastepstwa/$name.html")!!
         .use { Jsoup.parse(it, "ISO-8859-2", "https://zastepstwa.zse.bydgoszcz.pl/") }
 
+    /** 10.11.2026: szkoła przestawiła litery ("Atkualizacja godz. 8:00") - to wciąż znacznik, nie treść informacji. */
+    @Test fun publicationLineWithATypoIsNotTheNotice() {
+        val n = ZastepstwaParser.notices(page("2026-11-10_171800")).getValue("10.11.2026")
+        assertTrue(n.text.startsWith("O godz. 10:50 zapraszamy"))
+        assertEquals("Atkualizacja godz. 8:00", n.updated)
+        assertTrue(ZastepstwaParser.isPublicationLine("Publikacja poniedziałek godz. 17:15"))
+        // Krótkie słowo albo treść z godziną - to nie znacznik.
+        assertFalse(ZastepstwaParser.isPublicationLine("Lekcje skrócone do godz. 12:00"))
+        assertFalse(ZastepstwaParser.isPublicationLine("Aktualizacja planu: od 14:00 lekcje skrócone"))
+        assertFalse(ZastepstwaParser.isPublicationLine("Odwołanie zajęć godz. 12:00"))
+    }
+
     @Test fun publicationLinesAreNotNotices() {
         // 05.10: same linie "Publikacja / Aktualizacja" - bez treści informacji, ostatnia jako podpis.
         val n = ZastepstwaParser.notices(page("2026-10-05_112158")).getValue("05.10.2026")

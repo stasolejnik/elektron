@@ -82,8 +82,11 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   wejść do systemowej kopii zapasowej Androida. Ostatni wynik wyszukiwania połączeń (linie,
   godziny i przystanki) jest zapisywany w pamięci podręcznej aplikacji, poza kopią zapasową,
   żeby po ponownym otwarciu był widoczny od razu; nowe sprawdzenie odbywa się najwyżej co
-  10 minut (opóźnienia co minutę), gdy karta lub zakładka jest na ekranie. Funkcja nie korzysta
-  z GPS ani cyklicznych połączeń w tle.
+  10 minut (opóźnienia co minutę), gdy karta lub zakładka jest na ekranie. Widżet Przejazdy
+  na ekranie głównym sprawdza połączenia także przy zamkniętej aplikacji, ale tylko w porze
+  dojazdu (2 godziny przed lekcjami i do godziny po nich), najwyżej co 5 minut i tylko gdy
+  zapisany wynik jest nieaktualny; wysyła wtedy to samo co wyszukiwanie w zakładce. Bez widżetu
+  Przejazdy nie łączą się z planerem w tle. Funkcja nie korzysta z GPS.
 - **Trasy piesze (FOSSGIS / OpenStreetMap):** przy sprawdzaniu powrotu ze szkoły aplikacja może
   wysłać do routing.openstreetmap.de stały punkt szkoły i współrzędne przystanków początkowych,
   aby obliczyć dojście ulicami i ścieżkami. Serwer widzi IP i wersję aplikacji; nie otrzymuje

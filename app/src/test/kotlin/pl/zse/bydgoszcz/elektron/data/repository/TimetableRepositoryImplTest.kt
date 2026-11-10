@@ -226,7 +226,8 @@ class TimetableRepositoryImplTest {
     @Test fun classesAndTeachersRemovedFromTheSchoolListDisappearExceptTheStoredClass() = runTest {
         fun cls(id: String, short: String) = ClassListItemDto(id, ClassListItemDto.Kind.CLASS, "$short $short", short, "https://plan.zse.bydgoszcz.pl/plany/$id.html")
         fun teacher(code: String) = ClassListItemDto("n$code", ClassListItemDto.Kind.TEACHER, "Nauczyciel ($code)", code, "https://plan.zse.bydgoszcz.pl/plany/n$code.html")
-        var sidebar = listOf(cls("o3", "1D"), cls("o4", "2A"), cls("o45", "4Z"), teacher("Ch"), teacher("Ab"))
+        val room = ClassListItemDto("s1", ClassListItemDto.Kind.ROOM, "105 Pracownia", "105", "https://plan.zse.bydgoszcz.pl/plany/s1.html")
+        var sidebar = listOf(cls("o3", "1D"), cls("o4", "2A"), cls("o45", "4Z"), teacher("Ch"), teacher("Ab"), room)
         val source = object : TimetableSource by FakeSource() {
             override suspend fun fetchSidebar() = sidebar
         }
@@ -235,14 +236,16 @@ class TimetableRepositoryImplTest {
         assertTrue(repo.syncSidebar().isSuccess)
         assertTrue(repo.syncTimetable("o4", monday).isSuccess)   // wybrana klasa z zapisanym planem
         // Nowy rok szkolny: bez 4Z, 2A (wybrana) chwilowo poza listą, jeden nauczyciel odszedł.
-        sidebar = listOf(cls("o3", "1D"), cls("o50", "1A"), teacher("Ch"))
+        sidebar = listOf(cls("o3", "1D"), cls("o50", "1A"), teacher("Ch"), room)
         assertTrue(repo.syncSidebar().isSuccess)
         assertEquals(listOf("o3", "o4", "o50"), db.schoolClassDao().getAll().map { it.id })
         assertEquals(listOf("Ch"), db.teacherDao().getAll().map { it.code })
-        // Lista bez nauczycieli (zmiana strony) nikogo nie usuwa.
+        // Lista bez nauczycieli i sal (plik ucięty w trakcie eksportu) nikogo nie usuwa i nie liczy się jako pobrana.
         sidebar = listOf(cls("o3", "1D"))
-        assertTrue(repo.syncSidebar().isSuccess)
+        assertTrue(repo.syncSidebar().isFailure)
         assertEquals(listOf("Ch"), db.teacherDao().getAll().map { it.code })
+        assertEquals(listOf("o3", "o4", "o50"), db.schoolClassDao().getAll().map { it.id })
+        assertEquals("1A", repo.lastSidebarClasses()?.firstOrNull { it.id == "o50" }?.shortName)
     }
 
     @Test fun identicalSyncDoesNotRewriteTables() = runTest {

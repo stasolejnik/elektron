@@ -70,7 +70,7 @@ class WidgetUpdater @Inject constructor(
     /** Tylko widżet Przejazdy (nowy wynik połączeń) - bez przerysowywania pozostałych. */
     suspend fun updateTransit() {
         // Otwarta sesja Glance wczytuje dane od nowa tylko po nowej wersji - bez tego widżet zostawał przy starym stanie.
-        WidgetDataVersion.bump()
+        WidgetDataVersion.bumpTransit()
         runCatchingCancellable { TransitWidget().updateAll(context) }
             .onFailure { Log.w(TAG, "Nie udało się odświeżyć widżetu Przejazdy", it) }
     }

@@ -12,6 +12,9 @@ object BackgroundSyncPolicy {
 
     fun isNight(time: LocalTime): Boolean = time >= NIGHT_FROM || time < NIGHT_TO
 
+    /** Strona szkoły w nowym układzie (SchoolPageChangedException): ponowna próba w tle najwyżej co tyle sekund. */
+    const val PAGE_CHANGED_INTERVAL = 60 * 60L
+
     /** Dzień bez lekcji (weekend, święto, ferie, wakacje): zastępstwa najwyżej co tyle sekund. */
     const val REST_DAY_INTERVAL = 45 * 60L
     /** Od tej godziny dnia bez lekcji przed dniem lekcyjnym - znów co przebieg (zastępstwa i informacje na jutro). */

@@ -97,12 +97,13 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
     private suspend fun handleAnnouncement(data: Map<String, String>) {
         val id = data["id"] ?: return
         val title = data["title"] ?: return
-        val url = data["url"] ?: return
+        // Ogłoszenie tylko ze strony szkoły (jak w RSS) - inny adres z pusha jest pomijany.
+        val url = data["url"]?.takeIf(pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls::isSchoolUrl) ?: return
         val publishedAt = runCatching { Instant.parse(data["publishedAt"]) }.getOrDefault(Instant.now())
         val source = runCatching { AnnouncementSource.valueOf(data["source"] ?: "") }.getOrDefault(AnnouncementSource.RSS_NEWS)
         val ann = Announcement(
             id = id, title = title, url = url, publishedAt = publishedAt,
-            excerpt = data["excerpt"], coverImageUrl = data["coverImageUrl"],
+            excerpt = data["excerpt"], coverImageUrl = pl.zse.bydgoszcz.elektron.presentation.common.SafeUrls.schoolImage(data["coverImageUrl"]),
             fullHtml = null, source = source
         )
         announcementsRepo.upsertOne(ann)

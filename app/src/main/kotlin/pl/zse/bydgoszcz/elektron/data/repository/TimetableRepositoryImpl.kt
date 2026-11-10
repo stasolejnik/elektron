@@ -60,6 +60,11 @@ class TimetableRepositoryImpl @Inject constructor(
         runCatchingCancellable {
             val items = source.fetchSidebar()
             if (items.isEmpty()) return@runCatchingCancellable
+            // Lista idzie w kolejności klasy, nauczyciele, sale. Bez nauczycieli albo sal to najpewniej plik
+            // ucięty w trakcie eksportu: brakujące klasy nie znikają (dawniej wybrana klasa była odznaczana,
+            // a plan kasowany), a przy zapisanych danych synchronizacja listy kończy się błędem.
+            val complete = items.any { it.kind == ClassListItemDto.Kind.TEACHER } && items.any { it.kind == ClassListItemDto.Kind.ROOM }
+            val firstList = !complete && classDao.getAll().isEmpty()
             db.withTransaction {
                 val classes = classDao.getAll().associateBy { it.id }
                 val teachers = teacherDao.getAll().associateBy { it.code }
@@ -67,7 +72,7 @@ class TimetableRepositoryImpl @Inject constructor(
                 val freshClasses = items.filter { it.kind == ClassListItemDto.Kind.CLASS }.map(SidebarMapper::toClassEntity)
                 val freshTeachers = items.filter { it.kind == ClassListItemDto.Kind.TEACHER }.map(SidebarMapper::toTeacherEntity)
                 val freshRooms = items.filter { it.kind == ClassListItemDto.Kind.ROOM }.map(SidebarMapper::toRoomEntity)
-                lastSidebar = freshClasses.map { SchoolClass(it.id, it.fullName, it.shortName, it.url) }
+                if (complete || firstList) lastSidebar = freshClasses.map { SchoolClass(it.id, it.fullName, it.shortName, it.url) }
                 classDao.upsertAll(freshClasses.filter { classes[it.id] != it })
                 teacherDao.upsertAll(freshTeachers.filter { teachers[it.code] != it })
                 roomDao.upsertAll(freshRooms.filter { rooms[it.id] != it })
@@ -75,13 +80,14 @@ class TimetableRepositoryImpl @Inject constructor(
                 // z wyboru - dawniej zostawały na zawsze, a wybór takiej klasy kończył się HTTP 404.
                 // Pusta grupa na liście to raczej zmiana strony niż brak klas - wtedy nic nie usuwamy.
                 // Klasa z zapisanym planem (wybrana) zostaje, dopóki użytkownik nie wybierze innej.
-                if (freshClasses.isNotEmpty() && classes.keys.any { id -> freshClasses.none { it.id == id } })
+                if (complete && freshClasses.isNotEmpty() && classes.keys.any { id -> freshClasses.none { it.id == id } })
                     classDao.deleteExcept(freshClasses.map { it.id } + lessonDao.classIds())
                 if (freshTeachers.isNotEmpty() && teachers.keys.any { code -> freshTeachers.none { it.code == code } })
                     teacherDao.deleteExcept(freshTeachers.map { it.code })
                 if (freshRooms.isNotEmpty() && rooms.keys.any { id -> freshRooms.none { it.id == id } })
                     roomDao.deleteExcept(freshRooms.map { it.id })
             }
+            if (!complete && !firstList) throw java.io.IOException("Lista klas niepełna (bez nauczycieli albo sal)")
         }
     }
 

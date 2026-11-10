@@ -23,21 +23,29 @@ import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 object WidgetDataVersion {
     private val _value = MutableStateFlow(0L)
     val value: StateFlow<Long> = _value
+    private val _transit = MutableStateFlow(0L)
+    /** Osobna wersja widżetu Przejazdy: jego odświeżanie co minutę nie każe pozostałym widżetom czytać bazy od nowa. */
+    val transit: StateFlow<Long> = _transit
 
-    fun bump() = _value.update { it + 1 }
+    /** Wszystkie widżety (także Przejazdy - np. zmiana koloru czy planu). */
+    fun bump() { _value.update { it + 1 }; _transit.update { it + 1 } }
+
+    /** Tylko widżet Przejazdy (nowy wynik połączeń). */
+    fun bumpTransit() = _transit.update { it + 1 }
 }
 
 /** Dane widżetu wczytane przed provideContent, wczytywane ponownie przy każdej nowej wersji. */
 class WidgetSnapshot<T>(val data: T, val version: Long)
 
-suspend fun <T> loadSnapshot(load: suspend () -> T): WidgetSnapshot<T> {
-    val version = WidgetDataVersion.value.value   // przed wczytaniem - zmiana w trakcie nie przepadnie
+suspend fun <T> loadSnapshot(load: suspend () -> T, versions: StateFlow<Long> = WidgetDataVersion.value): WidgetSnapshot<T> {
+    val version = versions.value   // przed wczytaniem - zmiana w trakcie nie przepadnie
     return WidgetSnapshot(load(), version)
 }
 
 @Composable
-fun <T> rememberLiveWidgetData(initial: WidgetSnapshot<T>, load: suspend () -> T, reconcile: (T, T) -> T = { _, fresh -> fresh }): T {
-    val version by WidgetDataVersion.value.collectAsState()
+fun <T> rememberLiveWidgetData(initial: WidgetSnapshot<T>, load: suspend () -> T,
+    versions: StateFlow<Long> = WidgetDataVersion.value, reconcile: (T, T) -> T = { _, fresh -> fresh }): T {
+    val version by versions.collectAsState()
     var data by remember { mutableStateOf(initial.data) }
     var loadedVersion by remember { mutableLongStateOf(initial.version) }
     LaunchedEffect(version) {

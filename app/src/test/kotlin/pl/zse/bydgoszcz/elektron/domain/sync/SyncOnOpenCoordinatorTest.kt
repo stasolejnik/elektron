@@ -67,6 +67,13 @@ class SyncOnOpenCoordinatorTest {
             assertEquals(1, fetches)
             assertNotNull(t.coordinator.syncOnOpen(Instant.now().plusSeconds(180)))
             assertEquals(2, fetches)
+            // Niedziela w południe i noc: w tle zastępstwa rzadziej, ale otwarcie aplikacji pobiera je zawsze.
+            t.coordinator.localDate = { LocalDate.of(2026, 11, 8) }
+            assertNotNull(t.coordinator.syncOnOpen(Instant.now().plusSeconds(360)))
+            assertEquals(3, fetches)
+            t.coordinator.localTime = { java.time.LocalTime.of(23, 30) }
+            assertNotNull(t.coordinator.syncOnOpen(Instant.now().plusSeconds(540)))
+            assertEquals(4, fetches)
         } finally { db.close() }
     }
 }

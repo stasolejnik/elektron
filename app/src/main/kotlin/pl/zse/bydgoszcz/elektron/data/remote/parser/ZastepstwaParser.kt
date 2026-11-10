@@ -29,7 +29,8 @@ import pl.zse.bydgoszcz.elektron.data.remote.dto.SubstitutionDto
 object ZastepstwaParser {
     private const val TAG = "ZastepstwaParser"
     private val DATE_RE = Regex("Zastępstwa w dniu\\s+(\\d{2}\\.\\d{2}\\.\\d{4})")
-    private val DESC_RE = Regex("^(\\d+)\\s*([A-Z])(?:\\((\\d+)\\))?\\s*-\\s*(.+)$")
+    // Opis może być pusty ("4 B(1) -" przy złączeniu grup) - dawniej wiersz przepadał, a dzień był "niepełny".
+    private val DESC_RE = Regex("^(\\d+)\\s*([A-Z])(?:\\((\\d+)\\))?\\s*-\\s*(.*)$")
     /**
      * Wpis bez klasy, np. "Wychowanie fizyczne - Zajęcia Świetlicowe": zajęcia łączone kilku klas,
      * dla których Optivum podaje przedmiot zamiast klasy (9.10.2026). Nie da się go przypisać żadnej
@@ -91,7 +92,29 @@ object ZastepstwaParser {
         "^(publikacja|opublikowan[oy]|aktualizacja|zaktualizowan[oy])\\s*:?\\s*" +
             "(\\p{L}+\\.?\\s*,?\\s*){0,2}(\\d{1,2}\\.\\d{1,2}(\\.\\d{2,4})?\\s*,?\\s*)?(godz\\.?\\s*)?\\d{1,2}[:.]\\d{2}\\s*[.,;]?$",
         RegexOption.IGNORE_CASE)
-    internal fun isPublicationLine(line: String): Boolean = PUBLICATION_RE.matches(line.trim())
+    internal fun isPublicationLine(line: String): Boolean {
+        val trimmed = line.trim()
+        if (PUBLICATION_RE.matches(trimmed)) return true
+        // Literówka w słowie kluczowym ("Atkualizacja godz. 8:00", 10.11.2026): pierwsze słowo podobne do słowa
+        // kluczowego (najwyżej 2 zmiany liter), reszta jak w znaczniku publikacji. Krótkie słowa ("Lekcje") nie pasują.
+        val first = KEYWORD_RE.find(trimmed)?.value ?: return false
+        val fixed = PUBLICATION_KEYWORDS.firstOrNull { editDistance(first.lowercase(), it) in 1..2 } ?: return false
+        return PUBLICATION_RE.matches(fixed + trimmed.substring(first.length))
+    }
+
+    private val KEYWORD_RE = Regex("^\\p{L}{8,}")
+    private val PUBLICATION_KEYWORDS = listOf("publikacja", "opublikowano", "opublikowany", "aktualizacja", "zaktualizowano", "zaktualizowany")
+
+    /** Odległość Damerau-Levenshteina (zamiana sąsiednich liter to jedna zmiana). */
+    private fun editDistance(a: String, b: String): Int {
+        val d = Array(a.length + 1) { i -> IntArray(b.length + 1) { j -> if (i == 0) j else if (j == 0) i else 0 } }
+        for (i in 1..a.length) for (j in 1..b.length) {
+            val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+            d[i][j] = minOf(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) d[i][j] = minOf(d[i][j], d[i - 2][j - 2] + 1)
+        }
+        return d[a.length][b.length]
+    }
 
     /** Obrazek tylko z serwerów szkoły, przez https (jak miniatury ogłoszeń); inny adres - pomijany. */
     private fun schoolImage(url: String): String? {
@@ -225,24 +248,22 @@ object ZastepstwaParser {
             val m = DESC_RE.find(texts[1])
             val joined = if (m == null) CLASSLESS_RE.find(texts[1]) else null
             if (joined != null) {
-                Log.i(TAG, "Wpis bez klasy (zajęcia łączone): '${texts[1]}' (nauczyciel=$teacher, lekcja $lessonNo)")
+                // Bez nazwiska nauczyciela: logi trafiają do raportu "Zgłoś problem" (polityka prywatności).
+                Log.i(TAG, "Wpis bez klasy (zajęcia łączone): $date, lekcja $lessonNo")
                 // Bez klasy (""), przedmiot ze strony w subject - repozytorium dopasuje lekcję z planu.
                 classless += SubstitutionDto(date, teacher, lessonNo, "", null, joined.groupValues[2].trim(),
                     texts[2].takeIf { it.isNotBlank() }, texts[3].takeIf { it.isNotBlank() }, subject = joined.groupValues[1].trim())
                 continue
             }
             if (m == null) {
-                Log.w(TAG, "Nie udało się sparsować opisu: '${texts[1]}' (nauczyciel=$teacher)")
+                Log.w(TAG, "Nie udało się sparsować opisu: $date, lekcja $lessonNo")
                 warnings++
                 continue
             }
             val classShort = "${m.groupValues[1]}${m.groupValues[2]}"
             val group = m.groupValues[3].takeIf { it.isNotBlank() }?.toIntOrNull()
             val roomOrInfo = m.groupValues[4].trim()
-            if (roomOrInfo.isEmpty()) {
-                Log.w(TAG, "Pusty opis sali/info dla $classShort lekcja $lessonNo")
-                warnings++
-            }
+            if (roomOrInfo.isEmpty()) Log.i(TAG, "Pusty opis sali/info dla $classShort lekcja $lessonNo")
             out += SubstitutionDto(
                 dateRaw = date,
                 originalTeacher = teacher,

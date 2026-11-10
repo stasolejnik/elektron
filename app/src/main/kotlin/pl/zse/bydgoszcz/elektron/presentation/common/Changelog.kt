@@ -5,6 +5,17 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(40, "1.0.4-beta1", listOf(
+            "Nowy adres kontaktowy: elektron@tuta.com",
+            "Zastępstwa bez sali (np. przy złączeniu grup) nie znikają",
+            "Gdy część klasy idzie do domu, a część zostaje w szkole, lekcja nie znika z planu",
+            "Informacje szkoły: godzina publikacji z literówką nie trafia do treści",
+            "Klasy piąte: bez przypomnień i powiadomienia na żywo po zakończeniu zajęć w kwietniu",
+            "Otwarcie aplikacji zawsze sprawdza zastępstwa, także nocą i w dni wolne",
+            "Następna lekcja za więcej niż tydzień pokazuje datę",
+            "Niepełna lista klas na stronie szkoły nie odznacza Twojej klasy",
+            "Okna wyboru w Ustawieniach nie zamykają się po obróceniu ekranu"
+        )),
         Entry(39, "1.0.3", listOf(
             "Nowe logo - ikona granatowa albo cyjanowa (Ustawienia → Wygląd)",
             "Przejazdy pokazują wszystkie kursy z Twojego przystanku i korzystają z nowego API BUSearch",

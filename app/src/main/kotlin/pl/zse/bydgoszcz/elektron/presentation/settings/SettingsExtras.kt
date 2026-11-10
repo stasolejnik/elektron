@@ -3,6 +3,7 @@ package pl.zse.bydgoszcz.elektron.presentation.settings
 import androidx.compose.ui.semantics.contentDescription
 import kotlin.math.roundToInt
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.Slider
 import pl.zse.bydgoszcz.elektron.domain.model.SchoolClass
 import androidx.compose.ui.semantics.semantics
@@ -102,7 +103,7 @@ internal fun startScreenLabel(current: StartScreen, transitTab: Boolean): String
 /** Strona główna: ekran startowy aplikacji i karty widoczne na Starcie. */
 @Composable
 internal fun HomeSection(current: StartScreen, transitTab: Boolean, onChange: (StartScreen) -> Unit, cards: @Composable () -> Unit) {
-    var choosing by remember { mutableStateOf(false) }
+    var choosing by rememberSaveable { mutableStateOf(false) }
     val options = START_OPTIONS + if (transitTab) listOf(StartScreen.TRANSIT to "Przejazdy") else emptyList()
     val shown = startScreenLabel(current, transitTab)
     GroupedSection("Strona główna", icon = Icons.Outlined.Home) {
@@ -132,7 +133,7 @@ internal fun TransitSection(
 ) {
     val prefs = settings.preferences
     val ready = settings.ready && !settings.failed && !saving
-    var choosingMargin by remember { mutableStateOf(false) }
+    var choosingMargin by rememberSaveable { mutableStateOf(false) }
     if (choosingMargin) ChoiceDialog("Ile przed lekcją",
         pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences.ARRIVAL_MARGINS.map { it to "$it min przed lekcją" },
         prefs.arrivalMarginMinutes ?: pl.zse.bydgoszcz.elektron.domain.model.TransitPreferences.DEFAULT_ARRIVAL_MARGIN,
@@ -183,7 +184,7 @@ internal fun NotificationsSection(
     notices: Boolean = false, onNotices: (Boolean) -> Unit = {},
     updates: Boolean = false, onUpdates: (Boolean) -> Unit = {}
 ) {
-    var picking by remember { mutableStateOf<Boolean?>(null) }   // true = od, false = do
+    var picking by rememberSaveable { mutableStateOf<Boolean?>(null) }   // true = od, false = do
     val ctx = LocalContext.current
     // Zgoda na powiadomienia i kanał "Na żywo" - sprawdzane przy każdym powrocie z ustawień systemu.
     var liveAllowed by remember { mutableStateOf(pl.zse.bydgoszcz.elektron.work.LiveLessonScheduler.canPost(ctx)) }
@@ -312,8 +313,8 @@ internal fun BackgroundSection() {
 internal fun RemindersSection(current: ReminderSettings, status: LessonReminderScheduler.Status,
     onResume: () -> Unit, onChange: (ReminderSettings) -> Unit) {
     val ctx = LocalContext.current
-    var choosingMode by remember { mutableStateOf(false) }
-    var choosingMinutes by remember { mutableStateOf(false) }
+    var choosingMode by rememberSaveable { mutableStateOf(false) }
+    var choosingMinutes by rememberSaveable { mutableStateOf(false) }
     // Zgoda na dokładne alarmy i na powiadomienia - sprawdzane przy każdym powrocie z ustawień systemu.
     var exact by remember { mutableStateOf(LessonReminderScheduler.canUseExactAlarms(ctx)) }
     var notificationsOn by remember { mutableStateOf(reminderNotificationsEnabled(ctx)) }

@@ -51,7 +51,9 @@ import javax.inject.Singleton
  * Co pobrać: źródła (klucze z SyncOutcome) i od jakiej daty plan (tydzień oglądany w Planie).
  * Dwa żądania są "tą samą pracą" tylko przy równych źródłach i dacie.
  */
-data class SyncRequest(val sources: Set<String>, val anchorDate: LocalDate = LocalDate.now(), val background: Boolean = false) {
+data class SyncRequest(val sources: Set<String>, val anchorDate: LocalDate = LocalDate.now(), val background: Boolean = false,
+    /** Otwarcie aplikacji: jak w tle, ale zastępstwa zawsze (bez rzadszego sprawdzania nocą i w dni wolne). */
+    val onOpen: Boolean = false) {
     companion object {
         val ALL_SOURCES = setOf(SyncOutcome.SIDEBAR, SyncOutcome.TIMETABLE, SyncOutcome.SUBSTITUTIONS, SyncOutcome.ANNOUNCEMENTS)
         fun full(anchorDate: LocalDate = LocalDate.now(), background: Boolean = false) = SyncRequest(ALL_SOURCES, anchorDate, background)
@@ -164,7 +166,7 @@ class SyncCoordinator @Inject constructor(
         if (settings.selectedClassId.first() == null) return null
         val last = observeSourceLastSuccess(SyncOutcome.SUBSTITUTIONS).first()
         if (!shouldSyncOnOpen(last, now)) return null
-        return sync(SyncRequest.full(background = true))
+        return sync(SyncRequest.full(background = true).copy(onOpen = true))
     }
 
     /** Wybór klasy i pierwsza synchronizacja jej danych (praca nie zależy od żadnego ekranu). */
@@ -284,7 +286,14 @@ class SyncCoordinator @Inject constructor(
                 else last?.takeIf { it.status == "ok" || IncompleteSchoolDataException.isWarning(it.message) }?.lastSyncEpochSeconds
             // Nigdy nie pobrane - od razu (także ogłoszenia, dopóki nie było nieudanej próby).
             val neverLoaded = source != SyncOutcome.SIDEBAR && source !in loaded && !(announcements && last?.status == "error")
-            !request.background || neverLoaded || BackgroundSyncPolicy.isDue(source, reference, now, time, restDay)
+            // Nowy układ strony szkoły nie zniknie do aktualizacji aplikacji: w tle najwyżej co godzinę (dawniej każdy
+            // telefon pobierał ją co 15 min, także w nocy, aż do nowej wersji - w F-Droid nawet kilka dni).
+            val pageChanged = last?.status == "error" && pl.zse.bydgoszcz.elektron.domain.model.SchoolPageChangedException.isPageChanged(last.message)
+            when {
+                !request.background || neverLoaded || (request.onOpen && source == SyncOutcome.SUBSTITUTIONS) -> true
+                pageChanged -> now - last!!.lastSyncEpochSeconds !in 0 until BackgroundSyncPolicy.PAGE_CHANGED_INTERVAL
+                else -> BackgroundSyncPolicy.isDue(source, reference, now, time, restDay)
+            }
         }
         val failed = ConcurrentHashMap<String, Throwable>()
         val ok = ConcurrentHashMap.newKeySet<String>()
@@ -299,7 +308,9 @@ class SyncCoordinator @Inject constructor(
         // Nazwa wybranej klasy przed pobraniem - do wykrycia nowego roku szkolnego (ClassListChange) także
         // wtedy, gdy plan idzie bez listy klas. Pusta baza (kopia zapasowa ją pomija): nazwa z ustawień.
         val classBefore = if (classId != null && (SyncOutcome.SIDEBAR in sources || SyncOutcome.TIMETABLE in sources))
-            runCatchingCancellable { savedClassName(classId) ?: settings.selectedClassName.first() }.getOrNull()
+            // Najpierw nazwa z ustawień: zapisuje się dopiero po pobranym planie, a nazwę w bazie lista klas zmienia
+            // od razu - po przerwanej synchronizacji przenumerowana klasa nie byłaby już wykryta.
+            runCatchingCancellable { settings.selectedClassName.first()?.takeIf { it.isNotBlank() } ?: savedClassName(classId) }.getOrNull()
             else null
         try {
             coroutineScope {
@@ -340,7 +351,8 @@ class SyncCoordinator @Inject constructor(
                 if (SyncOutcome.ANNOUNCEMENTS in sources) launch { announcementsRepo.syncAll().record(SyncOutcome.ANNOUNCEMENTS) }
             }
             // Nazwa wybranej klasy na potrzeby kopii zapasowej (także po aktualizacji z wersji bez tego zapisu).
-            if (classId != null && settings.selectedClassId.first() == classId) runCatchingCancellable {
+            // Tylko po planie pobranym w tej synchronizacji (potwierdza klasę), nie po samej liście klas.
+            if (classId != null && SyncOutcome.TIMETABLE in ok && settings.selectedClassId.first() == classId) runCatchingCancellable {
                 savedClassName(classId)?.takeIf { it != settings.selectedClassName.first() }?.let { settings.setSelectedClassName(it) }
             }.onFailure { Log.w(TAG, "Nie udało się zapisać nazwy klasy", it) }
             val outcome = SyncOutcome(ok.toSet(), failed.toMap())

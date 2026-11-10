@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,7 +29,7 @@ import pl.zse.bydgoszcz.elektron.launcher.AppIcons
 internal fun AppIconRow() {
     val context = LocalContext.current
     var current by remember { mutableStateOf(AppIcons.current(context)) }
-    var choosing by remember { mutableStateOf(false) }
+    var choosing by rememberSaveable { mutableStateOf(false) }
     ValueRow("Ikona aplikacji", current.label, supporting = "Po zmianie aplikacja się zamknie") { choosing = true }
     if (choosing) AppIconDialog(current, onSelect = { icon ->
         AppIcons.set(context, icon)

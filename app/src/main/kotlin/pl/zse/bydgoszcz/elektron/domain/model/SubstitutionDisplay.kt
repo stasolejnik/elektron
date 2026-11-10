@@ -96,7 +96,8 @@ object SubstitutionDisplay {
      * ma wtedy zajęcia, a nie wiadomo, której grupy z planu to dotyczy - lekcja zostaje z informacją szkoły.
      */
     private val WINDOW = Regex("okienk", RegexOption.IGNORE_CASE)
-    private val GROUP = Regex("grup|\\bgr\\.", RegexOption.IGNORE_CASE)
+    // Także "dot. uczęszczających na religię, reszta zwolniona do domu": część klasy zostaje w szkole.
+    private val GROUP = Regex("grup|\\bgr\\.|\\breszt|\\bpozosta[lł]|\\bdot\\.|ucz[eę]szczaj|\\bosoby\\b", RegexOption.IGNORE_CASE)
 
     fun freesLesson(sub: Substitution): Boolean {
         if (!sub.substituteTeacher.isNullOrBlank()) return false
@@ -107,8 +108,10 @@ object SubstitutionDisplay {
 
     /**
      * Lekcja odbywa się: nie ma zwolnienia ani dnia wolnego ([SchoolCalendar] - święta, przerwy, ferie,
-     * wakacje). Wspólna reguła przypomnień, powiadomienia na żywo, strony głównej, widżetów i Przejazdów.
+     * wakacje, koniec zajęć klas maturalnych). Wspólna reguła przypomnień, powiadomienia na żywo, strony głównej,
+     * widżetów i Przejazdów.
      */
     fun takesPlace(lesson: Lesson): Boolean =
-        !SchoolCalendar.isDayOff(lesson.date) && (lesson.substitution?.let { !freesLesson(it) } ?: true)
+        !SchoolCalendar.isDayOff(lesson.date) && !SchoolCalendar.classFinished(lesson.className, lesson.date) &&
+            (lesson.substitution?.let { !freesLesson(it) } ?: true)
 }

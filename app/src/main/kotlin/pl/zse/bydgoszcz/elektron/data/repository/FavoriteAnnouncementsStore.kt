@@ -21,13 +21,23 @@ class FavoriteAnnouncementsStore internal constructor(private val file: File?) {
     suspend fun read(): List<AnnouncementEntity>? = withContext(Dispatchers.IO) {
         if (file == null) return@withContext memory
         if (!file.exists() && !File(file.path + ".bak").exists()) return@withContext null
-        val array = JSONArray(AtomicFile(file).openRead().bufferedReader().use { it.readText() })
-        (0 until array.length()).map { i ->
-            val item = array.getJSONObject(i)
-            fun optional(key: String) = if (item.isNull(key)) null else item.getString(key)
-            AnnouncementEntity(item.getString("id"), item.getString("title"), item.getString("url"),
-                item.getLong("published"), optional("excerpt"), optional("cover"), optional("html"),
-                false, item.getString("source"), true)
+        val text = AtomicFile(file).openRead().bufferedReader().use { it.readText() }
+        // Uszkodzony plik nie może na stałe blokować ogłoszeń (synchronizacja, push, artykuł czytają go na początku):
+        // zostaje odłożony obok (do ręcznego odzyskania), a ulubione odtwarzają się z bazy.
+        val array = try { JSONArray(text) } catch (error: org.json.JSONException) {
+            android.util.Log.w("FavoriteAnnouncements", "Uszkodzony plik ulubionych - odkładam go i odtwarzam z bazy", error)
+            runCatching { file.renameTo(File(file.path + ".corrupt")); File(file.path + ".bak").delete() }
+            return@withContext null
+        }
+        // Pojedynczy nieczytelny wpis jest pomijany, reszta zostaje.
+        (0 until array.length()).mapNotNull { i ->
+            runCatching {
+                val item = array.getJSONObject(i)
+                fun optional(key: String) = if (item.isNull(key)) null else item.getString(key)
+                AnnouncementEntity(item.getString("id"), item.getString("title"), item.getString("url"),
+                    item.getLong("published"), optional("excerpt"), optional("cover"), optional("html"),
+                    false, item.getString("source"), true)
+            }.getOrNull()
         }.also { lastSnapshot = it }
     }
     suspend fun write(entries: List<AnnouncementEntity>) = withContext(Dispatchers.IO) {
