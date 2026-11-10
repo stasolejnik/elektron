@@ -7,3 +7,7 @@ Podziękowania:
 eLektron jest inspirowany aplikacją Atom (https://github.com/kacpergorka/atom)
 autorstwa Kacpra Górki. eLektron jest napisany od podstaw i nie zawiera kodu
 aplikacji Atom - wykorzystano jedynie jej pomysł i zakres funkcji.
+
+Przejazdy korzystają z BUSearch (https://busearch.pl) autorstwa Szymona Czai -
+rozkładów, planera połączeń i opóźnień na żywo w Bydgoszczy. Dziękuję za
+udostępnienie API.
