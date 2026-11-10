@@ -1,0 +1,7 @@
+Test version 1.0.4-beta1.
+New contact address: elektron@tuta.com.
+Substitutions without a room and part of a class sent home are handled correctly.
+An incomplete class list no longer deselects your class.
+Fifth-year classes: no reminders after lessons end in April.
+Opening the app always checks substitutions.
+Date shown for the next lesson more than a week ahead.

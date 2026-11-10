@@ -4,9 +4,28 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
-## [Niewydane]
+## [1.0.4-beta1] - niewydane (40)
+
+Wersja testowa (kanał „Beta”) z poprawkami po przeglądzie kodu i stron szkoły. Szczegóły: [release-notes/1.0.4-beta1.md](release-notes/1.0.4-beta1.md).
 
 - Nowy adres kontaktowy: elektron@tuta.com (Zgłoś problem, Ustawienia → O aplikacji, README, polityka prywatności). Dawny adres kontakt.elektron@pm.me przestaje działać.
+- Zastępstwa: wpis z pustym opisem („4 B(1) -” przy złączeniu grup) jest odczytywany (`DESC_RE` z `(.*)`). Dawniej przepadał, a cały dzień był oznaczany jako niepełny, więc odwołane tego dnia wpisy nie znikały. To samo w watcherze, żeby identyfikatory się zgadzały.
+- Zastępstwa: zwolnienie części klasy bez numeru grupy („dot. uczęszczających na religię, reszta zwolniona do domu”, „pozostali uczniowie…”) nie odwołuje lekcji wszystkim. Kto ma zostać, dostaje przypomnienie, powiadomienie na żywo i powrót w Przejazdach jak zwykle.
+- Informacje szkoły: znacznik publikacji z literówką w słowie kluczowym (np. „Atkualizacja godz. 8:00”, najwyżej dwie zmiany liter w słowie z co najmniej 8 liter) nie trafia do treści ani do powiadomienia „Informacja szkoły”. Tak samo w watcherze.
+- Lista klas: plik bez nauczycieli albo sal (ucięty w trakcie eksportu na serwerze szkoły) nie usuwa brakujących klas i nie odznacza wybranej klasy razem z planem; synchronizacja listy kończy się wtedy błędem i ponawia się później. Pierwsza lista (wybór klasy) działa jak dotąd.
+- Nowy rok szkolny: przenumerowana klasa jest wykrywana także po przerwanej synchronizacji. Porównanie idzie z nazwą klasy z ustawień (zapisywaną dopiero po pobranym planie), a nie z nazwą w bazie, którą lista klas zmienia od razu.
+- Klasy piąte (maturalne): po ostatnim piątku kwietnia lekcje z planu nie liczą się jako odbywające się - bez przypomnień, powiadomienia na żywo, „następnej lekcji” i powrotu w Przejazdach do końca roku szkolnego (`SchoolCalendar.classFinished`).
+- Otwarcie aplikacji pobiera zastępstwa zawsze (najwyżej raz na 2 minuty), także nocą i w dni bez lekcji. Dawniej w tle obowiązujące rzadsze sprawdzanie (45 min, w nocy 2,5 h) dotyczyło też otwarcia aplikacji.
+- Strona szkoły w nowym układzie (aplikacja wymaga aktualizacji): w tle ponowna próba najwyżej co godzinę zamiast co 15 minut. Ręczne odświeżenie i otwarcie aplikacji sprawdzają od razu.
+- Strona główna i widżety: następna lekcja za więcej niż tydzień ma datę („Poniedziałek 15.02”) - po feriach sama nazwa dnia sugerowała najbliższy poniedziałek.
+- Przejazdy: zapisany przystanek z numerem słupka i jednym stanowiskiem (np. „Nazwa #1”, zapis sprzed API v2) dostaje nazwę z katalogu bez numeru.
+- Raport „Zgłoś problem”: logi parsera zastępstw nie zawierają nazwisk nauczycieli (zgodnie z polityką prywatności).
+- Polityka prywatności i README: widżet Przejazdy sprawdza połączenia także w tle, w porze dojazdu, najwyżej co 5 minut.
+- Ogłoszenia: uszkodzony plik ulubionych jest odkładany obok (`.corrupt`), a ulubione odtwarzają się z bazy - dawniej blokował pobieranie ogłoszeń na stałe. Nieczytelny pojedynczy wpis ulubionych albo notatek jest pomijany zamiast ukrywać wszystkie.
+- Ogłoszenia: artykuł i powiadomienie z pusha tylko z adresów szkoły (`SchoolEndpoints.isSchoolUrl`), miniatura z pusha tylko z serwerów szkoły.
+- Ustawienia: okna wyboru (kanał aktualizacji, minuty przypomnień, ikona, ciche godziny, potwierdzenia) nie zamykają się po obróceniu ekranu (`rememberSaveable`).
+- Widżety: odświeżenie widżetu Przejazdy nie każe pozostałym widżetom wczytywać danych od nowa (osobna wersja danych).
+- Testy: prawdziwa lista klas i strona zastępstw z literówką jako dane testowe; test pilnuje, czy w `SchoolCalendar` jest termin ferii zimowych na bieżący rok szkolny.
 
 ## [1.0.3] - 2026-11-07 (39)
 
