@@ -83,7 +83,8 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
     }
     Column {
         when {
-            trip != null -> JourneyCard(trip, now, openDetails, live = live[trip.key], lessonStartMs = targetMs)
+            trip != null -> JourneyCard(trip, now, openDetails, live = live[trip.key], lessonStartMs = targetMs,
+                showDeparture = !toSchool && prefs.strictOrigin == null)
             loading -> DelayedLoading { Text(if (toSchool) "Sprawdzam dojazd…" else "Sprawdzam najbliższy odjazd…", Modifier.padding(16.dp)) }
             else -> ElektronCard(onClick = openDetails) {
                 Text(if (error != null) "Nie udało się sprawdzić połączeń. Dotknij tutaj, aby ponowić." else "Brak nadchodzących połączeń. Dotknij tutaj, aby sprawdzić więcej.", Modifier.padding(16.dp))

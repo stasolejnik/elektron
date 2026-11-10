@@ -103,6 +103,7 @@ class SettingsRepositoryImpl internal constructor(
         val GROUPS_CONFIGURED_FOR = stringPreferencesKey("groups_configured_for")
         val LIVE_ENABLED = booleanPreferencesKey("live_notifications")
         val SHOW_DAY_END = booleanPreferencesKey("show_day_end")
+        val SHOW_FOLLOWING_LESSON = booleanPreferencesKey("show_following_lesson")
         val NOTIFY_UPDATES = booleanPreferencesKey("notify_updates")
         val NOTIFY_NOTICES = booleanPreferencesKey("notify_notices")
         val SHOW_NOTICES = booleanPreferencesKey("show_notices")
@@ -299,6 +300,11 @@ class SettingsRepositoryImpl internal constructor(
     override val showDayEnd: Flow<Boolean> = prefs.map { it[Keys.SHOW_DAY_END] ?: false }.distinctUntilChanged()
     override suspend fun setShowDayEnd(enabled: Boolean) {
         safeEdit { it[Keys.SHOW_DAY_END] = enabled }
+    }
+
+    override val showFollowingLesson: Flow<Boolean> = prefs.map { it[Keys.SHOW_FOLLOWING_LESSON] ?: false }.distinctUntilChanged()
+    override suspend fun setShowFollowingLesson(enabled: Boolean) {
+        safeEdit { it[Keys.SHOW_FOLLOWING_LESSON] = enabled }
     }
 
     override val liveNotifications: Flow<Boolean> = prefs.map { it[Keys.LIVE_ENABLED] ?: false }.distinctUntilChanged()

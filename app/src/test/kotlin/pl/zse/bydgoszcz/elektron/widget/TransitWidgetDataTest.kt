@@ -52,17 +52,13 @@ class TransitWidgetDataTest {
         assertEquals("Do szkoły", morning.title)
         assertEquals("Z: Dworzec Główny", morning.subtitle)
         assertEquals("Dotknij, aby sprawdzić połączenia.", morning.empty)
-        // Po połowie dnia lekcji - powrót: przystanek, na którym wsiadasz, i kiedy wyjść (dojście 4 min + 2 min zapasu).
+        // Po połowie dnia lekcji - powrót: przystanek, na którym wsiadasz; bez "wyjdź o…" (jak w zakładce).
         val afternoon = ready(TransitWidgetData.build(prefs, lessons, fromSchool, at("14:40"), zone))
         assertEquals("Ze szkoły", afternoon.title)
         assertEquals("Do: Dworzec Główny · sprawdzono 14:30", afternoon.subtitle)
         val row = afternoon.rows.single()
-        assertEquals(listOf("5", "Rycerska", "za 20 min", "15:00", "wyjdź o 14:54"),
+        assertEquals(listOf("5", "Rycerska", "za 20 min", "15:00", null),
             listOf(row.line, row.stop, row.until, row.time, row.detail))
-        // Czas na wyjście minął, ale do odjazdu jeszcze da się dojść - pogrubione "wyjdź teraz".
-        val late = ready(TransitWidgetData.build(prefs, lessons, fromSchool, at("14:54:30"), zone)).rows.single()
-        assertEquals("wyjdź teraz", late.detail)
-        assertTrue(late.urgent)
     }
 
     @Test fun toSchoolStartsWithTheNearestRideOrTheOneWithTheChosenMargin() {

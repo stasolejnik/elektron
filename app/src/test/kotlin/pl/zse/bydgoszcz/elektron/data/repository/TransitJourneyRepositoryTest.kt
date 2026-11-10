@@ -62,22 +62,17 @@ class TransitJourneyRepositoryTest {
         try {
             val repo = TransitJourneyRepository(client, TransitStopCatalog(context, client))
             repeat(2) {
-                val initial = repo.find(target, allowTransfers = it == 1)
-                if (it == 0) {
-                    assertEquals(0, walks.get())
-                    assertTrue(initial.journeys.single().walkPending)
-                    assertFalse(initial.journeys.single().walkAvailable)
-                } else assertTrue(initial.journeys.single().walkAvailable)
-                val result = repo.enrichWalking(initial)
+                // Dojście szacowane na telefonie od razu (bez planera tras pieszych w sieci).
+                val result = repo.find(target, allowTransfers = it == 1)
                 assertEquals(target.key, result.destinationKey)
                 assertEquals("26", result.journeys.single().rides.last().toId)
                 assertTrue(result.journeys.single().walkAvailable)
-                assertEquals(4, result.journeys.single().walkMinutes)
-                assertEquals(240.2, result.journeys.single().distanceMeters, 0.01)
+                assertFalse(result.journeys.single().walkPending)
+                assertTrue(result.journeys.single().walkMinutes in 1..30)
             }
             assertEquals(1, catalogs.get())
             assertEquals(2, plans.get())
-            assertEquals(1, walks.get())
+            assertEquals("bez zapytań o trasy piesze", 0, walks.get())
         } finally {
             client.dispatcher.executorService.shutdown()
             client.connectionPool.evictAll()

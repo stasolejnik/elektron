@@ -166,6 +166,35 @@ class TransitTest {
         } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
     }
 
+    /** "Więcej": włączenie, przeciągnięcie między paskiem a panelem, restart i wyłączenie. */
+    @Test fun moreMenuLayoutPersistsAndDisablingReturnsTabsToTheBar() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "transit-more-${System.nanoTime()}.preferences_pb")
+        var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        var repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
+        val more = pl.zse.bydgoszcz.elektron.domain.model.MoreMenu.ROUTE
+        try {
+            repo.setMoreEnabled(true)
+            var prefs = repo.preferences.first()
+            assertEquals(listOf("transit", "announcements", "settings"), prefs.moreContent)
+            assertEquals(more, prefs.navigationSlots.last())
+            // Plan do panelu, Ustawienia z panelu na pasek przed "Więcej".
+            repo.setNavigationLayout(listOf("dashboard", "substitutions", "settings", more), listOf("timetable", "transit", "announcements"))
+            scope.cancel(); scope.coroutineContext[Job]!!.join()
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { file }))
+            prefs = repo.preferences.first()
+            assertEquals(listOf("dashboard", "substitutions", "settings", more),
+                pl.zse.bydgoszcz.elektron.domain.model.MoreMenu.bar(prefs.navigationSlots, prefs.moreContent) { true })
+            assertEquals(listOf("timetable", "transit", "announcements"), prefs.moreContent)
+            repo.setMoreEnabled(false)
+            prefs = repo.preferences.first()
+            assertEquals(listOf("dashboard", "substitutions", "settings", "timetable", "transit", "announcements"), prefs.navigationOrder)
+            assertEquals(prefs.navigationOrder, prefs.navigationSlots)
+            assertTrue(prefs.moreContent.isEmpty())
+        } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
+    }
+
     /** "Kursy na czas przed lekcją": domyślnie wyłączone (od najbliższego), wybór minut przetrwa restart. */
     @Test fun arrivalMarginDefaultsToNearestAndPersists() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()

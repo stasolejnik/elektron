@@ -190,6 +190,14 @@ internal fun DevSection(viewModel: SettingsViewModel) {
             dismissButton = { TextButton(onClick = { confirmCrash = false }) { Text("Anuluj") } }
         )
     }
+    // Podgląd "Co nowego": to samo okno, które zobaczy ktoś aktualizujący z poprzedniej wersji (bez zmiany zapisu).
+    var showChangelog by rememberSaveable { mutableStateOf(false) }
+    if (showChangelog) {
+        val code = pl.zse.bydgoszcz.elektron.BuildConfig.VERSION_CODE
+        val entries = pl.zse.bydgoszcz.elektron.presentation.common.Changelog.newerThan(code - 1, pl.zse.bydgoszcz.elektron.BuildConfig.VERSION_NAME)
+            .ifEmpty { pl.zse.bydgoszcz.elektron.presentation.common.Changelog.entries.take(1) }
+        pl.zse.bydgoszcz.elektron.presentation.common.ChangelogDialog(entries) { showChangelog = false }
+    }
     val devDialog by viewModel.devDialog.collectAsStateWithLifecycle()
     DevSimulationDialogs(devDialog,
         onSubstitution = viewModel::devSimulateSubstitution,
@@ -213,6 +221,8 @@ internal fun DevSection(viewModel: SettingsViewModel) {
         ActionRow("Symuluj ogłoszenie…", trailingChevron = true) { viewModel.devOpenAnnouncement() }
         RowDivider()
         ActionRow("Usuń symulacje") { viewModel.devClearSimulations() }
+        RowDivider()
+        ActionRow("Podgląd „Co nowego”") { showChangelog = true }
         RowDivider()
         ActionRow("Odśwież widżety") { viewModel.devRefreshWidgets() }
         RowDivider()

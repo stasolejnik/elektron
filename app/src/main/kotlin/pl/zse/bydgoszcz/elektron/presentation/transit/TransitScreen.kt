@@ -24,6 +24,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -144,16 +150,14 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
         val canShowEarlier = firstShown > 0
         val showEarlier: () -> Unit = { earlierCount = anchor - firstShown + 3 }
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-        // "Pokaż więcej" także przewinięciem: gdy po przewinięciu listy przycisk pojawia się na ekranie, kolejne kursy
-        // wczytują się same. Tylko po ruchu użytkownika - krótka lista na starcie nie dociąga wszystkiego po kolei.
-        val autoMore by rememberUpdatedState(if (canShowMore && !loading && !moreLoading) showMore else null)
-        LaunchedEffect(listState) {
-            snapshotFlow {
-                val info = listState.layoutInfo
-                val moreVisible = info.visibleItemsInfo.any { it.key == "more" }
-                (moreVisible && (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0)) to info.totalItemsCount
-            }.collect { (ready, _) -> if (ready) autoMore?.invoke() }
-        }
+        // "Pokaż więcej" przyciskiem albo wyraźnym przeciągnięciem w górę na końcu listy (nie samym przewinięciem
+        // do dołu - dawniej kursy dociągały się same, a krótki ruch już wczytywał kolejne).
+        val pullAction by rememberUpdatedState(if (canShowMore && !loading && !moreLoading) showMore else null)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val pullThreshold = with(density) { 120.dp.toPx() }
+        // Źródła danych przy dolnej krawędzi: widać je na końcu listy (pod "Pokaż więcej"), a przy krótkiej liście - na dole ekranu.
+        var creditsHeight by remember { mutableIntStateOf(0) }
+        val atEnd by remember { derivedStateOf { !listState.canScrollForward } }
         // Odświeżanie jak w innych zakładkach: przeciągnięcie listy w dół (bez przycisku na pasku).
         var pulled by remember { mutableStateOf(false) }
         LaunchedEffect(loading) { if (!loading) pulled = false }
@@ -162,11 +166,12 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
             onRefresh = { if (canRefresh) { pulled = true; visibleCount = 3; viewModel.loadJourneys(force = true, minimumCount = 3) } },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-        LazyColumn(Modifier.fillMaxSize(),
-            state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        LazyColumn(Modifier.fillMaxSize().pullUpAtEnd(listState, pullThreshold) { pullAction?.invoke() },
+            state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp,
+                bottom = 16.dp + with(density) { creditsHeight.toDp() }),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "direction") {
-                DirectionSwitch(commute.direction, auto = commute.auto, enabled = !saving) { viewModel.setDirection(it) }
+                DirectionSwitch(commute.direction, enabled = !saving) { viewModel.setDirection(it) }
             }
             item(key = "route") {
                 val homeName = state.preferences.destination?.name
@@ -189,10 +194,6 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
             } }
             if (state.failed) item { Text("Nie udało się odczytać ustawień Przejazdów.", color = MaterialTheme.colorScheme.error) }
             settingsError?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-            if (state.preferences.destination == null && !state.failed) item {
-                Text("Wybierz swój przystanek (np. przy domu). Rano pokażę dojazd do szkoły, po lekcjach powrót.",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             if (loading && !pulled) item(key = "loading") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -220,7 +221,9 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
             }
             itemsIndexed(shown, key = { _, trip -> trip.key }) { _, trip ->
                 Box(Modifier.animateItem()) {
-                    JourneyCard(trip, nowMs, live = live[trip.key], lessonStartMs = targetMs)
+                    // Dotknięcie: gdzie jest teraz pojazd (gdy BUSearch go śledzi).
+                    JourneyCard(trip, nowMs, onClick = { viewModel.openVehicle(trip) }, live = live[trip.key], lessonStartMs = targetMs,
+                        onClickLabel = "Pokaż, gdzie jest pojazd", showDeparture = !toSchool && state.preferences.strictOrigin == null)
                 }
             }
             // Jak w Ogłoszeniach: wypełniony przycisk na środku, w trakcie wczytywania kółko z opisem.
@@ -233,19 +236,23 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                     } else FilledTonalButton(onClick = showMore, enabled = !loading) { Text("Pokaż więcej") }
                 }
             }
-            // Źródła danych na samym końcu listy - widać je dopiero po przewinięciu na dół.
-            if (state.preferences.destination != null) item(key = "credits") { TransitCredits(Modifier.animateItem()) }
+        }
+        if (state.preferences.destination != null) {
+            val creditsAlpha by androidx.compose.animation.core.animateFloatAsState(if (atEnd) 1f else 0f, label = "credits")
+            TransitCredits(enabled = atEnd, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
+                .onSizeChanged { creditsHeight = it.height }.graphicsLayer { alpha = creditsAlpha })
         }
         }
     }
     if (picker != 0) StopPicker(viewModel, origin = picker == 2) { picker = 0 }
+    VehicleSheet(viewModel)
 
 }
 
-/** Do szkoły / Ze szkoły. Automatyczny kierunek (połowa dnia lekcji) podpisany pod spodem. */
+/** Do szkoły / Ze szkoły (automatycznie według pory; ręczny wybór bez dodatkowego napisu). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DirectionSwitch(direction: TransitDirection, auto: TransitDirection, enabled: Boolean, onChange: (TransitDirection) -> Unit) {
+private fun DirectionSwitch(direction: TransitDirection, enabled: Boolean, onChange: (TransitDirection) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             val options = listOf(TransitDirection.TO_SCHOOL to "Do szkoły", TransitDirection.FROM_SCHOOL to "Ze szkoły")
@@ -256,8 +263,6 @@ private fun DirectionSwitch(direction: TransitDirection, auto: TransitDirection,
                         Modifier.size(SegmentedButtonDefaults.IconSize)) }) { Text(label) }
             }
         }
-        if (direction != auto) Text("Wybrane ręcznie. Automatycznie: do połowy dnia lekcji do szkoły, potem ze szkoły.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
     }
 }
 
@@ -302,13 +307,15 @@ private fun RoutePoint(label: String, stop: RouteStop, enabled: Boolean) {
  */
 @Composable
 internal fun JourneyCard(trip: TransitJourney, nowMs: Long, onClick: (() -> Unit)? = null,
-    live: LiveStatus? = null, lessonStartMs: Long? = null) {
+    live: LiveStatus? = null, lessonStartMs: Long? = null, onClickLabel: String? = null,
+    /** "Odjazd: przystanek" - tylko przy "Szkoła" (kilka przystanków); przy jednym wybranym to zbędne powtórzenie. */
+    showDeparture: Boolean = true) {
     val first = trip.rides.first()
     val colors = MaterialTheme.colorScheme
     val toSchool = trip.schoolArrivalMs != null
     val departure = live?.expectedMs ?: trip.departureMs
     val shift = departure - trip.departureMs
-    ElektronCard(onClick = onClick) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    ElektronCard(onClick = onClick, onClickLabel = onClickLabel) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { RideTo(first.line, first.toName) }
             Spacer(Modifier.width(12.dp))
@@ -317,8 +324,9 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, onClick: (() -> Unit
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             // "Odjazd: Rycerska" zamiast "z Rycerska" (nazw przystanków się nie odmienia).
-            Text("Odjazd: ${first.fromName}", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
+            if (showDeparture) Text("Odjazd: ${first.fromName}", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
                 modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            else Spacer(Modifier.weight(1f))
             live?.let { LiveChip(it); Spacer(Modifier.width(6.dp)) }
             Text(formatTransitTime(departure, nowMs), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1)
         }
@@ -345,26 +353,8 @@ internal fun JourneyCard(trip: TransitJourney, nowMs: Long, onClick: (() -> Unit
             // Bez czerwieni (odstawała od reszty karty): spóźnienie pogrubione w kolorze tekstu.
             Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.onSurface,
                 fontWeight = if (slack != null && slack < 0) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
-        } else LeaveLine(trip, departure, nowMs)
+        }
     } }
-}
-
-/**
- * Ze szkoły: kiedy wyjść (dojście i 2 min zapasu są już w godzinie), a gdy czasu mało - "Wyjdź teraz" / "Pospiesz się".
- * Bez dopisków o dojściu ("dojście 4 min", "Raczej nie zdążysz", "Dojście niedostępne") - karta ma jedną krótką wskazówkę.
- */
-@Composable
-private fun LeaveLine(trip: TransitJourney, departure: Long, nowMs: Long) {
-    if (!trip.walkAvailable) return
-    val leave = trip.leaveSchoolMs(departure)
-    val (text, urgent) = when {
-        leave - nowMs > 60_000L -> "Wyjdź o ${formatTransitTime(leave, nowMs)}" to false
-        leave >= nowMs - 60_000L -> "Wyjdź teraz" to true
-        departure - trip.walkMinutes * 60_000L >= nowMs -> "Pospiesz się" to true
-        else -> return
-    }
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = if (urgent) androidx.compose.ui.text.font.FontWeight.SemiBold else null)
 }
 
 /** Stan na żywo: na czas, opóźnienie albo odjazd przed czasem - stonowane kolory, jak reszta karty. */
@@ -408,22 +398,42 @@ private fun RideTo(line: String, stop: String) {
 }
 
 /**
- * Źródła danych Przejazdów: kursy i opóźnienia z BUSearch (autor: Szymon Czaja), trasy piesze i mapa
- * z OpenStreetMap (FOSSGIS). Dotknięcie otwiera stronę źródła.
+ * Źródła danych Przejazdów: kursy, opóźnienia i pozycje pojazdów z BUSearch (autor: Szymon Czaja), mapa
+ * z OpenStreetMap. Dotknięcie otwiera stronę źródła.
  */
 @Composable
-private fun TransitCredits(modifier: Modifier = Modifier) {
+private fun TransitCredits(enabled: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val style = MaterialTheme.typography.labelSmall
     val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Column(modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Połączenia i opóźnienia na żywo: BUSearch (Szymon Czaja)", style = style, color = color,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.pressable(onClickLabel = "Otwórz stronę BUSearch") { SafeUrls.open(context, "https://busearch.pl/bydgoszcz") }
-                .padding(vertical = 6.dp, horizontal = 8.dp))
-        Text("Trasy piesze i mapa: © OpenStreetMap, FOSSGIS", style = style, color = color,
+            modifier = Modifier.pressable(enabled = enabled, onClickLabel = "Otwórz stronę BUSearch") { SafeUrls.open(context, "https://busearch.pl/bydgoszcz") }
+                .padding(vertical = 4.dp, horizontal = 8.dp))
+        Text("Mapa: © OpenStreetMap", style = style, color = color,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.pressable(onClickLabel = "Otwórz informacje o OpenStreetMap") { SafeUrls.open(context, "https://www.openstreetmap.org/copyright") }
-                .padding(vertical = 6.dp, horizontal = 8.dp))
+            modifier = Modifier.pressable(enabled = enabled, onClickLabel = "Otwórz informacje o OpenStreetMap") { SafeUrls.open(context, "https://www.openstreetmap.org/copyright") }
+                .padding(vertical = 4.dp, horizontal = 8.dp))
     }
 }
+
+/**
+ * Wyraźne przeciągnięcie w górę na końcu listy kursów wczytuje kolejne (próg [thresholdPx], wyższy niż dawniej -
+ * krótki ruch nie wystarcza). Tylko gest zaczęty przy końcu listy: ruch, który przewijał listę, nie wczytuje.
+ */
+private fun Modifier.pullUpAtEnd(state: androidx.compose.foundation.lazy.LazyListState, thresholdPx: Float, onPull: () -> Unit) =
+    pointerInput(state, thresholdPx) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (state.canScrollForward) return@awaitEachGesture
+            var pulled = 0f
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                if (state.canScrollForward) break
+                pulled += change.previousPosition.y - change.position.y
+                if (pulled >= thresholdPx) { onPull(); break }
+            }
+        }
+    }

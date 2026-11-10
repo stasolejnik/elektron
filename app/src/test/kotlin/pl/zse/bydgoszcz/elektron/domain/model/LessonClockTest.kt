@@ -19,6 +19,15 @@ class LessonClockTest {
     private val plan = listOf(lesson(1, "08:00", "08:45"), lesson(2, "08:55", "09:40"), lesson(4, "10:45", "11:30"),
         lesson(1, "08:00", "08:45", day.plusDays(1)))
 
+    /** "Kolejna lekcja" na Start: następna odbywająca się tego dnia - bez okienek i bez lekcji z jutra. */
+    @Test fun followingLessonSkipsWindowsAndOtherDays() {
+        assertEquals(2, LessonClock.following(plan, plan[0])?.number)
+        val window = Substitution("s", day, 2, "1D", null, "Okienko dla uczniów", null, null, "X")
+        val withWindow = plan.map { if (it.date == day && it.number == 2) it.copy(substitution = window) else it }
+        assertEquals(4, LessonClock.following(withWindow, plan[0])?.number)
+        assertNull(LessonClock.following(plan, plan[2]))
+    }
+
     @Test fun windowIsNotAnOngoingLesson() {
         val window = Substitution("s", day, 2, "1D", null, "Okienko dla uczniów", null, null, "X")
         val withWindow = plan.map { if (it.date == day && it.number == 2) it.copy(substitution = window) else it }

@@ -22,7 +22,7 @@ internal object TransitWidgetData {
     /**
      * Kurs w widżecie. [stop] - do szkoły przystanek, na którym wysiadasz (przy strzałce), ze szkoły - na którym
      * wsiadasz (cel jest jeden i stoi w podtytule). Po prawej [until] i [time] odjazdu, pod spodem [detail]
-     * jak w karcie zakładki; [urgent] - "wyjdź teraz", "pospiesz się" (pogrubione).
+     * jak w karcie zakładki; [urgent] - spóźnienie na lekcję (pogrubione).
      */
     data class Row(val key: String, val line: String, val stop: String, val toSchool: Boolean, val until: String,
         val time: String, val detail: String?, val urgent: Boolean, val description: String)
@@ -99,17 +99,11 @@ internal object TransitWidgetData {
 
     private fun time(ms: Long, zone: ZoneId) = Instant.ofEpochMilli(ms).atZone(zone).format(TIME)
 
-    /** "za 11 min", "za 1 h 23 min" - krócej niż w zakładce ("godz."), bo kolumna widżetu jest wąska. */
-    fun until(departureMs: Long, nowMs: Long): String {
-        if (departureMs <= nowMs) return "teraz"
-        return "za " + short((departureMs - nowMs + 59_999L) / 60_000L)
-    }
+    /** "za 11 min", "za 1 h 23 min" - jak w zakładce (wspólne [pl.zse.bydgoszcz.elektron.domain.model.TransitTimes]). */
+    fun until(departureMs: Long, nowMs: Long): String = pl.zse.bydgoszcz.elektron.domain.model.TransitTimes.until(departureMs, nowMs)
 
     /** "12 min", "1 h 12 min", "2 h". */
-    private fun short(minutes: Long): String {
-        val m = minutes.coerceAtLeast(0)
-        return if (m < 60) "$m min" else "${m / 60} h" + (m % 60).let { if (it == 0L) "" else " $it min" }
-    }
+    private fun short(minutes: Long): String = pl.zse.bydgoszcz.elektron.domain.model.TransitTimes.duration(minutes)
 
     private fun row(trip: TransitJourney, toSchool: Boolean, nowMs: Long, lessonStartMs: Long?, zone: ZoneId): Row {
         val ride = trip.rides.first()
@@ -126,16 +120,8 @@ internal object TransitWidgetData {
                 else -> "zapas ${short(slack)}"
             }, transfer).joinToString(" · ")
         } else {
-            // Ze szkoły - kiedy wyjść (dojście i 2 min zapasu są w godzinie), jak w zakładce; bez dopisku o dojściu.
-            val leave = trip.leaveSchoolMs()
-            val action = when {
-                !trip.walkAvailable -> null
-                leave - nowMs > 60_000L -> "wyjdź o ${time(leave, zone)}"
-                leave >= nowMs - 60_000L -> "wyjdź teraz".also { urgent = true }
-                trip.departureMs - trip.walkMinutes * 60_000L >= nowMs -> "pospiesz się".also { urgent = true }
-                else -> null
-            }
-            listOfNotNull(action, transfer).joinToString(" · ").ifEmpty { null }
+            // Ze szkoły - bez "wyjdź o…" (jak w zakładce): tylko przesiadka, jeśli jest.
+            transfer
         }
         val time = time(trip.departureMs, zone)
         val where = if (toSchool) "do przystanku ${ride.toName}" else "z przystanku ${ride.fromName}"

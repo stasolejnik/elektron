@@ -26,7 +26,14 @@ fun TransitVisibilitySection(viewModel: TransitViewModel) {
     // Wszystkie zakładki poza Ustawieniami, także Przejazdy (ten sam przełącznik co w sekcji Przejazdy -
     // dawniej brakowało jej tutaj, choć była na pasku).
     GroupedSection("Pasek nawigacji", icon = androidx.compose.material.icons.Icons.Outlined.SpaceDashboard,
-        footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność. Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów.") {
+        footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność" +
+            (if (state.preferences.moreEnabled) " albo upuść ją na „Więcej”." else ".") +
+            " Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów.") {
+        // "Więcej" na prawym końcu pasku: Przejazdy, Ogłoszenia i Ustawienia w rozwijanym panelu (jak folder).
+        pl.zse.bydgoszcz.elektron.presentation.settings.SwitchRow("Przycisk „Więcej”", state.preferences.moreEnabled,
+            enabled = state.ready && !state.failed && !saving,
+            supporting = "Część ikon w rozwijanym panelu na prawym końcu pasku - przeciągaj je jak w folderze") { viewModel.setMoreEnabled(it) }
+        pl.zse.bydgoszcz.elektron.presentation.settings.RowDivider()
         bottomDestinationsForTransit(true).filter { it.route != "settings" }.forEachIndexed { index, destination ->
             if (index > 0) pl.zse.bydgoszcz.elektron.presentation.settings.RowDivider()
             val checked = if (destination.route == "transit") state.preferences.visible else destination.route !in state.preferences.hiddenTabs
@@ -95,8 +102,6 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                     Tab(selected = !mapMode, onClick = { mapMode = false }, text = { Text("Lista") })
                     Tab(selected = mapMode, onClick = { focus.clearFocus(); keyboard?.hide(); mapMode = true }, text = { Text("Mapa") })
                 }
-                if (origin) Text("Przystanek, z którego wracasz i na którym wysiadasz w drodze do szkoły. „Szkoła” to wszystkie przystanki najbliżej szkoły.",
-                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 OutlinedTextField(value = query, onValueChange = { viewModel.query.value = it.take(200) },
                     label = { Text("Szukaj przystanku") }, placeholder = { Text("Wpisz nazwę, np. Rondo Jagiellonów") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = !saving,
@@ -124,8 +129,11 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                 } else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (recent.isNotEmpty()) {
                         item(key = "recent-header") { Text("Ostatnie", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface) }
+                        // Przytrzymanie usuwa przystanek z ostatnich (wybrany przystanek zostaje wybrany).
                         items(recent, key = { "recent-${it.key}" }) { stop ->
-                            ElektronCard(onClick = if (saving) null else ({ choose(stop) }), onClickLabel = "Wybierz przystanek") {
+                            ElektronCard(onClick = if (saving) null else ({ choose(stop) }), onClickLabel = "Wybierz przystanek",
+                                onLongClick = if (saving) null else ({ viewModel.removeRecent(origin, stop.key) }),
+                                onLongClickLabel = "Usuń z ostatnich", modifier = Modifier.animateItem()) {
                                 Text(stop.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(16.dp))
                             }
                         }

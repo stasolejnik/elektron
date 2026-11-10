@@ -104,10 +104,33 @@ object TransitAutoLoad {
 }
 
 /** Odjazd z tablicy przystanku (BUSearch): opóźnienie na żywo, gdy pojazd jest śledzony. */
-data class LiveDeparture(val line: String, val atMs: Long, val delayMinutes: Int?, val live: Boolean)
+data class LiveDeparture(val line: String, val atMs: Long, val delayMinutes: Int?, val live: Boolean, val vehicleId: String? = null)
 
 /** Stan kursu na żywo: o ile minut później (ujemne - wcześniej) i kiedy faktycznie odjedzie. */
-data class LiveStatus(val delayMinutes: Int, val expectedMs: Long)
+data class LiveStatus(val delayMinutes: Int, val expectedMs: Long,
+    /** Pojazd śledzony przez BUSearch (jego pozycja po dotknięciu kursu); null - nieznany. */
+    val vehicleId: String? = null)
+
+/** Pozycja pojazdu z BUSearch ([estimated] - wyliczona z rozkładu/opóźnienia, nie z GPS). */
+data class VehiclePosition(val vehicleId: String, val line: String, val tram: Boolean, val latitude: Double, val longitude: Double,
+    val bearing: Double?, val destination: String?, val estimated: Boolean, val stale: Boolean, val updatedAtMs: Long?)
+
+/** Przystanek na trasie pojazdu: [passed] - już minięty, [etaMinutes] - za ile tam będzie. */
+data class VehicleStop(val id: String, val name: String, val latitude: Double, val longitude: Double, val passed: Boolean, val etaMinutes: Int?,
+    /** Godzina z rozkładu (do pobrania przebiegu trasy kursu). */
+    val plannedTime: java.time.LocalTime? = null)
+
+/** Pozycja i przystanki pojazdu z jednego odświeżenia. */
+data class VehicleTrack(val position: VehiclePosition, val stops: List<VehicleStop>, val fetchedAtMs: Long) {
+    /** Twój przystanek (stanowisko [platformId]) na trasie i ile przystanków jeszcze przed nim (0 - następny); null - poza trasą. */
+    fun towards(platformId: String): Pair<VehicleStop, Int>? {
+        val index = stops.indexOfFirst { it.id == platformId }.takeIf { it >= 0 } ?: return null
+        val stop = stops[index]
+        if (stop.passed) return stop to -1
+        val next = stops.indexOfFirst { !it.passed }.takeIf { it >= 0 } ?: index
+        return stop to (index - next).coerceAtLeast(0)
+    }
+}
 
 object TransitLive {
     /** Kursy odjeżdżające dalej niż za tyle minut nie mają jeszcze sensownych danych na żywo. */
@@ -125,7 +148,7 @@ object TransitLive {
             .map { it to kotlin.math.abs(it.atMs - it.delayMinutes!! * 60_000L - ride.departureMs) }
             .filter { it.second <= 90_000L }
             .minByOrNull { it.second }
-            ?.first?.let { LiveStatus(it.delayMinutes!!, ride.departureMs + it.delayMinutes * 60_000L) }
+            ?.first?.let { LiveStatus(it.delayMinutes!!, ride.departureMs + it.delayMinutes * 60_000L, it.vehicleId) }
 
     /** Kursy, o które warto zapytać tablice: odjazd w ciągu [WINDOW_MINUTES], po jednym na stanowisko i linię. */
     fun boards(journeys: List<TransitJourney>, nowMs: Long): List<Pair<String, String>> =

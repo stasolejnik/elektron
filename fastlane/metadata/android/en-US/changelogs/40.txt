@@ -1,8 +1,8 @@
 Test version 1.0.4-beta1.
-Time on the Xiaomi island; Commute: pull to refresh, more rides on scroll.
+Commute: tap a ride to see the vehicle on a map.
+Optional "More" button on the bar and the following lesson on Start.
+Time on the Xiaomi island.
 New contact address: elektron@tuta.com.
-Substitutions without a room and part of a class sent home are handled correctly.
+Part of a class sent home and substitutions without a room handled correctly.
 An incomplete class list no longer deselects your class.
 Fifth-year classes: no reminders after lessons end in April.
-Opening the app always checks substitutions.
-Date shown for the next lesson more than a week ahead.

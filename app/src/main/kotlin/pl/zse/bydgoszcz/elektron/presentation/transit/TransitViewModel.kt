@@ -250,6 +250,45 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     }
     val live: StateFlow<Map<String, LiveStatus>> = liveTracker?.live ?: MutableStateFlow(emptyMap())
     private fun startLive() { liveTracker?.start() }
+
+    /**
+     * Pozycja pojazdu po dotknięciu kursu ([vehicleId] z tablicy odjazdów na żywo). Odświeżana co
+     * [VEHICLE_REFRESH_MS], dopóki okno jest otwarte; po zamknięciu nic nie jest pobierane.
+     */
+    data class VehicleView(val vehicleId: String?, val platformId: String, val line: String,
+        val track: pl.zse.bydgoszcz.elektron.domain.model.VehicleTrack? = null, val loading: Boolean = false, val failed: Boolean = false,
+        /** Przebieg trasy kursu po ulicach (lat, lon); null - jeszcze nie ma albo planer go nie podał. */
+        val shape: List<Pair<Double, Double>>? = null)
+    val vehicle = MutableStateFlow<VehicleView?>(null)
+    private var vehicleJob: Job? = null
+    fun openVehicle(trip: pl.zse.bydgoszcz.elektron.domain.model.TransitJourney) {
+        val ride = trip.rides.first()
+        val id = live.value[trip.key]?.vehicleId
+        vehicleJob?.cancel()
+        vehicle.value = VehicleView(id, ride.fromId, ride.line, loading = id != null)
+        val repository = liveRepository ?: return
+        if (id == null) return
+        vehicleJob = viewModelScope.launch {
+            var shapeTried = false
+            while (true) {
+                runCatchingCancellable { repository.vehicle(id) }
+                    .onSuccess { track ->
+                        vehicle.update { it?.copy(track = track, loading = false, failed = false) }
+                        // Przebieg trasy raz na otwarcie (planer jest wolniejszy niż pozycja).
+                        if (!shapeTried && track.stops.size >= 2) {
+                            shapeTried = true
+                            launch {
+                                runCatchingCancellable { repository.tripShape(track.position.line.ifBlank { ride.line }, track.stops) }
+                                    .getOrNull()?.let { shape -> vehicle.update { it?.copy(shape = shape) } }
+                            }
+                        }
+                    }
+                    .onFailure { vehicle.update { it?.copy(loading = false, failed = it.track == null) } }
+                kotlinx.coroutines.delay(VEHICLE_REFRESH_MS)
+            }
+        }
+    }
+    fun closeVehicle() { vehicleJob?.cancel(); vehicleJob = null; vehicle.value = null }
     fun cancelJourneys() { cancelJourneyRequest(); cancelWalkingRequest() }
     fun loadJourneys(force: Boolean = false, more: Boolean = false, minimumCount: Int = 1) {
         val prefs = settings.value.preferences
@@ -426,6 +465,10 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
     fun setEnabled(enabled: Boolean) = writePreference { preferencesRepository.setEnabled(enabled) }
     val navigationError = MutableStateFlow<String?>(null)
     private val preferenceMutex = kotlinx.coroutines.sync.Mutex()
+    fun setMoreEnabled(enabled: Boolean) = writePreference { preferencesRepository.setMoreEnabled(enabled) }
+    fun setNavigationLayout(bar: List<String>, content: List<String>, onDone: (Boolean) -> Unit) = writePreference(onDone) {
+        preferencesRepository.setNavigationLayout(bar, content)
+    }
     fun setNavigationOrder(order: List<String>, onDone: (Boolean) -> Unit) = writePreference(onDone) {
         preferencesRepository.setNavigationOrder(order)
     }
@@ -449,6 +492,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         }
     }
     fun clear() = write { preferencesRepository.clearDestination() }
+    fun removeRecent(origin: Boolean, key: String) = writePreference { preferencesRepository.removeRecent(origin, key) }
     private fun write(onSaved: () -> Unit = {}, action: suspend () -> Unit) {
         if (saving.value || !settings.value.ready || settings.value.failed) return
         saving.value = true; settingsError.value = null
@@ -459,4 +503,9 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         }
     }
 
+
+    companion object {
+        /** Odświeżanie pozycji pojazdu w otwartym oknie. */
+        const val VEHICLE_REFRESH_MS = 10_000L
+    }
 }

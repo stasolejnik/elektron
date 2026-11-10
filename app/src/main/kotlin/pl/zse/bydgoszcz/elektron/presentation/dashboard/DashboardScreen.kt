@@ -168,7 +168,14 @@ fun DashboardScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
                             }
                             if (state.loadingTimetable) DelayedLoading { LoadingCard("Ładowanie planu lekcji…") }
-                            else NextLessonCard(state) { onOpenTimetable(state.nextLesson?.date) }
+                            else {
+                                NextLessonCard(state) { onOpenTimetable(state.nextLesson?.date) }
+                                // Ustawienia → Strona główna → "Kolejna lekcja": co po niej (zwykła karta, nie w kolorze akcentu).
+                                state.followingLesson?.let { next ->
+                                    Spacer(Modifier.height(8.dp))
+                                    FollowingLessonCard(next) { onOpenTimetable(next.date) }
+                                }
+                            }
                         }
                     }
 
@@ -440,6 +447,32 @@ private fun DayEndCard(info: pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd
                 trackColor = colors.primary.copy(alpha = 0.15f),
                 drawStopIndicator = {}
             )
+        }
+    }
+}
+
+/** "Potem": kolejna lekcja w jednej linii nazwy i jednej linii godziny z salą (przy zastępstwie - co się zmienia). */
+@Composable
+private fun FollowingLessonCard(lesson: pl.zse.bydgoszcz.elektron.domain.model.Lesson, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val sub = lesson.substitution
+    val personal = LocalPersonalization.current
+    val subject = lesson.groups.mapNotNull { g -> personal.subjectName(g.subject) }.distinct().joinToString(" / ").ifBlank { null }
+    val title = if (sub != null) SubstitutionDisplay.headline(sub) else subject ?: "Lekcja"
+    val place = if (sub != null) SubstitutionDisplay.place(sub)
+        else lesson.groups.mapNotNull { it.room }.distinct().joinToString(", ").ifBlank { null }?.let(pl.zse.bydgoszcz.elektron.domain.model.Rooms::label)
+    val details = listOfNotNull("${lesson.timeFrom}–${lesson.timeTo}", place, if (sub != null) "zastępstwo" else null).joinToString(" · ")
+    ElektronCard(onClick = onClick, modifier = Modifier.semantics(mergeDescendants = true) {
+        contentDescription = "Potem: ${lesson.number}. lekcja, $title, $details"
+    }) {
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Potem", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                Text(title, style = MaterialTheme.typography.titleMedium, color = colors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(details, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.width(12.dp))
+            LessonNumberBadge(lesson.number, colors.onSurfaceVariant)
         }
     }
 }

@@ -174,81 +174,6 @@ class TransitViewModelTest {
             Dispatchers.resetMain(); directory.deleteRecursively()
         }
     }
-    @Test fun failedPaginationDoesNotLeaveWalkingTimePending() = paginationDuringWalking(failPage = true)
-    @Test fun successfulPaginationPreservesWalkingEnrichment() = paginationDuringWalking(failPage = false)
-
-    @Test fun paginationResponseBeforeWalkingDoesNotRestartTheRequest() = paginationDuringWalking(false, true)
-    private fun paginationDuringWalking(failPage: Boolean, pageFirst: Boolean = false) = runTest {
-        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
-        val app = ApplicationProvider.getApplicationContext<Context>()
-        val directory = File(app.cacheDir, "transit-overlap-${System.nanoTime()}").apply { mkdirs() }
-        val context = object : ContextWrapper(app) { override fun getCacheDir() = directory }
-        val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "settings.preferences_pb") }))
-        val now = System.currentTimeMillis()
-        val goal = TransitDestination("Cel", listOf("26"), 53.1236, 18.007)
-        val stop = TransitDestination("Start", listOf("24"), 53.12194, 18.02764)
-        val walkingStarted = java.util.concurrent.CountDownLatch(1)
-        val releaseWalking = java.util.concurrent.CountDownLatch(1)
-        val pageStarted = java.util.concurrent.CountDownLatch(1)
-        val releasePage = java.util.concurrent.CountDownLatch(1)
-        val walkingCalls = java.util.concurrent.atomic.AtomicInteger()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
-            val request = chain.request()
-            val json = when {
-                request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
-                request.url.host == "routing.openstreetmap.de" -> {
-                    walkingCalls.incrementAndGet(); walkingStarted.countDown()
-                    check(releaseWalking.await(10, java.util.concurrent.TimeUnit.SECONDS))
-                    """{"code":"Ok","sources":[{"distance":0}],"destinations":[{"distance":0}],"durations":[[192]],"distances":[[240.2]]}"""
-                }
-                else -> {
-                    pageStarted.countDown()
-                    check(releasePage.await(10, java.util.concurrent.TimeUnit.SECONDS))
-                    if (failPage) throw java.io.IOException("Offline")
-                    """{"journeys":[]}"""
-                }
-            }
-            okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
-        }.build()
-        val catalog = TransitStopCatalog(context, client)
-        val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog))
-        val owner = ViewModelStore().apply { put("transit", vm) }
-        try {
-            prefs.select(goal); prefs.setEnabled(true)
-            vm.settings.first { it.preferences.visible }
-            val trip = TransitJourney(listOf(TransitRide("6", "Bielawy", "24", "Start", "26", "Cel", now + 600_000L, now + 900_000L)), 1, 100.0, walkAvailable = false, walkPending = true)
-            preset(vm, TransitJourneyRepository.Result(goal.key, listOf(trip), now, nextWhenMs = now + 900_000L, boardingStops = listOf(stop)))
-            val oldConsumer = Any()
-            val newConsumer = Any()
-            vm.startJourneySession(oldConsumer)
-            vm.startJourneySession(newConsumer)
-            vm.stopJourneySession(oldConsumer)
-            withContext(Dispatchers.IO) { assertTrue(walkingStarted.await(10, java.util.concurrent.TimeUnit.SECONDS)) }
-            vm.loadJourneys(more = true)
-            withContext(Dispatchers.IO) { assertTrue(pageStarted.await(10, java.util.concurrent.TimeUnit.SECONDS)) }
-            if (pageFirst) {
-                releasePage.countDown()
-                vm.moreLoading.first { !it }
-            }
-            releaseWalking.countDown()
-            vm.journeys.first { it?.journeys?.singleOrNull()?.walkMinutes == 4 }
-            releasePage.countDown()
-            vm.moreLoading.first { !it }
-            val shown = vm.journeys.value!!.journeys.single()
-            assertFalse(shown.walkPending)
-            assertTrue(shown.walkAvailable)
-            assertEquals(4, shown.walkMinutes)
-            assertEquals(1, walkingCalls.get())
-            if (failPage) assertNotNull(vm.journeyError.value) else assertNull(vm.journeyError.value)
-        } finally {
-            releaseWalking.countDown(); releasePage.countDown()
-            owner.clear(); ioScope.cancel(); ioScope.coroutineContext[Job]!!.join()
-            client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll()
-            Dispatchers.resetMain(); directory.deleteRecursively()
-        }
-    }
-
     @Test fun settingsObserverDoesNotCancelWorkAlreadyStartedForTheNewSelection() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val app = ApplicationProvider.getApplicationContext<Context>()
@@ -329,7 +254,7 @@ class TransitViewModelTest {
                     // walking queries would hide before the student can reach the platform.
                     assertEquals(24, body.getJSONObject("from").getInt("stopId"))
                     val whenMs = body.getLong("whenMs")
-                    """{"nextWhenMs":${whenMs + 300_000L},"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Cel","fromStop":{"id":24,"name":"Start"},"toStop":{"id":26,"name":"Cel"},"departureMs":${whenMs + 60_000L},"arrivalMs":${whenMs + 240_000L}}]}]}"""
+                    """{"nextWhenMs":${whenMs + 300_000L},"journeys":[{"legs":[{"mode":"transit","line":"6","destination":"Cel","fromStop":{"id":24,"name":"Start"},"toStop":{"id":26,"name":"Cel"},"departureMs":${whenMs + 1_800_000L},"arrivalMs":${whenMs + 1_980_000L}}]}]}"""
                 }
             }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(json.toResponseBody()).build()
@@ -349,10 +274,8 @@ class TransitViewModelTest {
             vm.journeyLoading.first { !it }
             assertEquals(DEBUG.toString(), 3, vm.journeys.value!!.journeys.size)
             assertEquals(DEBUG.toString(), 3, plans.get())
-            vm.journeys.first { it?.journeys?.firstOrNull()?.walkMinutes == 8 }
-            // Wszystkie dojścia uzupełnione - dalsze zadanie dojścia nie podmieni wyniku w trakcie testu.
+            // Dojście szacowane od razu (bez planera tras pieszych) - wynik kompletny.
             vm.journeys.first { result -> result != null && result.complete && result.journeys.none { it.walkPending } }
-            assertTrue(vm.journeys.value!!.journeys.first().departureMs - System.currentTimeMillis() < 120_000L)
             val consumer = Any()
             vm.startJourneySession(consumer, 3)
             repeat(5) { vm.refreshJourneys(3) }

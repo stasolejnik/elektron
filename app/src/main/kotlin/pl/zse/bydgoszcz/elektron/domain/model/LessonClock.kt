@@ -52,6 +52,14 @@ object LessonClock {
     }
 
     /**
+     * Lekcja po [lesson] tego samego dnia, która się odbywa (bez zwolnień i okienek, jak w [status]);
+     * null - [lesson] jest ostatnia.
+     */
+    fun following(lessons: List<Lesson>, lesson: Lesson): Lesson? =
+        lessons.filter { it.date == lesson.date && it.timeFrom >= lesson.timeTo && SubstitutionDisplay.takesPlace(it) }
+            .minByOrNull { it.timeFrom }
+
+    /**
      * Czy [lesson] trwa o [time] dla ucznia (dzień sprawdza wołający). Zwolniona lekcja nie trwa -
      * jak w [status]; dawniej karta w widoku Dzień dostawała ramkę i "zostało X min".
      */

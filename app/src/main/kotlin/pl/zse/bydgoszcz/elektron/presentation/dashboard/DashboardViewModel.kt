@@ -90,6 +90,8 @@ class DashboardViewModel @Inject constructor(
         val showAnnouncements: Boolean = true,
         /** Do końca lekcji dzisiaj (gdy włączone w Ustawieniach); null - wyłączone albo po lekcjach. */
         val dayEnd: pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.Info? = null,
+        /** Kolejna lekcja po [nextLesson] tego dnia (gdy włączone w Ustawieniach → Strona główna). */
+        val followingLesson: Lesson? = null,
         /** Informacja szkoły dla pokazywanego dnia (dzień, tekst); null - brak, bez pustego miejsca. */
         val schoolNotice: Pair<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice>? = null,
         /** Pierwsze dane już są (do tego czasu ekran jest niewidoczny, bez mignięć). */
@@ -122,7 +124,8 @@ class DashboardViewModel @Inject constructor(
         val showAnnouncements: Boolean = true,
         val notices: Map<LocalDate, pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice> = emptyMap(),
         val showDayEnd: Boolean = false,
-        val showNotices: Boolean = true
+        val showNotices: Boolean = true,
+        val showFollowing: Boolean = false
     )
 
     private val refreshing = MutableStateFlow(false)
@@ -166,6 +169,7 @@ class DashboardViewModel @Inject constructor(
         .combine(todayFlow.flatMapLatest { day -> substitutionsRepo.observeNotices(day) }) { core, n -> core.copy(notices = n) }
         .combine(settings.showDayEnd) { core, v -> core.copy(showDayEnd = v) }
         .combine(settings.showNotices) { core, v -> core.copy(showNotices = v) }
+        .combine(settings.showFollowingLesson) { core, v -> core.copy(showFollowing = v) }
         .combine(visibleMinuteTicker(visible)) { core, _ -> core }
         .map { core -> compute(core).copy(ready = true) }
         // Przeliczanie stanu (filtry grup, zastępstwa, odliczanie) poza wątkiem UI.
@@ -273,7 +277,8 @@ class DashboardViewModel @Inject constructor(
             showAnnouncements = c.showAnnouncements,
             schoolNotice = if (!c.showNotices) null
                 else pl.zse.bydgoszcz.elektron.domain.model.SchoolNotices.forDashboard(c.notices, lessons, nowDt, lesson?.date),
-            dayEnd = if (c.showDayEnd) pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.of(lessons, nowDt) else null
+            dayEnd = if (c.showDayEnd) pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.of(lessons, nowDt) else null,
+            followingLesson = if (c.showFollowing && lesson != null) LessonClock.following(lessons, lesson) else null
         )
     }
 

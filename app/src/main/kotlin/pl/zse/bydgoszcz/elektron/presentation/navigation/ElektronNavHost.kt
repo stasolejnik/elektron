@@ -38,7 +38,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.launch
 import pl.zse.bydgoszcz.elektron.presentation.announcements.AnnouncementsScreen
 import pl.zse.bydgoszcz.elektron.presentation.common.ElektronBottomBar
-import pl.zse.bydgoszcz.elektron.presentation.common.bottomDestinationsForTransit
+import pl.zse.bydgoszcz.elektron.presentation.common.DockDragLayer
+import pl.zse.bydgoszcz.elektron.presentation.common.MorePanel
 import pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel
 import pl.zse.bydgoszcz.elektron.presentation.transit.TransitScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,7 +77,18 @@ fun ElektronNavHost(
         }
         return
     }
-    val bottomDestinations = bottomDestinationsForTransit(transitSettings.preferences.visible, transitSettings.preferences.navigationOrder)
+    val navPrefs = transitSettings.preferences
+    // Układ z "Więcej": strony przy przesuwaniu (zawartość panelu w miejscu przycisku), przyciski pasku i panel.
+    val available: (String) -> Boolean = { it != ElektronRoutes.TRANSIT || navPrefs.visible }
+    val slots = if (navPrefs.moreEnabled) navPrefs.navigationSlots else navPrefs.navigationOrder
+    val moreContent = navPrefs.moreContent
+    val shownOnBar: (String) -> Boolean = { it == pl.zse.bydgoszcz.elektron.domain.model.MoreMenu.ROUTE || it == ElektronRoutes.SETTINGS || it !in navPrefs.hiddenTabs }
+    val bottomDestinations = pl.zse.bydgoszcz.elektron.domain.model.MoreMenu.pages(slots, moreContent, available)
+        .mapNotNull { pl.zse.bydgoszcz.elektron.presentation.common.bottomDestination(it) }
+    val barRoutes = pl.zse.bydgoszcz.elektron.domain.model.MoreMenu.bar(slots, moreContent, available).filter(shownOnBar)
+    val panelRoutes = moreContent.filter { available(it) && shownOnBar(it) }
+    val dock = remember { pl.zse.bydgoszcz.elektron.presentation.common.DockState(barRoutes, panelRoutes) }
+    LaunchedEffect(barRoutes, panelRoutes) { dock.sync(barRoutes, panelRoutes) }
     // Strona startowa tylko przy pierwszym utworzeniu (stan pagera jest zapisywany, więc obrót
     // ekranu czy powrót z tła nie przeskakują z powrotem).
     // Deep link (widżet, powiadomienie, skrót) ma pierwszeństwo przed inteligentnym startem —
@@ -176,6 +188,18 @@ fun ElektronNavHost(
         goTo(ElektronRoutes.DASHBOARD)
     }
     BackHandler(enabled = overlayOpen) { showGroups = false; showSubjects = false }
+    // Otwarty panel "Więcej" zamyka się pierwszy.
+    BackHandler(enabled = dock.open && !overlayOpen) { dock.open = false }
+    val currentRoute = bottomDestinations.getOrNull(pagerState.targetPage)?.route
+    val commitLayout: (List<String>, List<String>, (Boolean) -> Unit) -> Unit = { bar, panel, done ->
+        reorderRoute = currentDestinations.getOrNull(pagerState.currentPage)?.route
+        // Ukryte (albo wyłączone Przejazdy) zakładki z panelu zostają w nim, na końcu.
+        val keep = moreContent.filter { it !in panel && it !in bar }
+        transitViewModel.setNavigationLayout(bar, panel + keep) { success ->
+            if (!success) reorderRoute = null
+            done(success)
+        }
+    }
 
     val navigationError by transitViewModel.navigationError.collectAsStateWithLifecycle()
     val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
@@ -186,18 +210,10 @@ fun ElektronNavHost(
         Scaffold(
             snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
             bottomBar = {
-                ElektronBottomBar(bottomDestinations.getOrNull(pagerState.targetPage)?.route, goTo,
-                    pl.zse.bydgoszcz.elektron.presentation.common.visibleBottomDestinations(
-                        transitSettings.preferences.hiddenTabs, transitSettings.preferences.visible, transitSettings.preferences.navigationOrder),
-                    onReorder = { routes, done ->
-                        reorderRoute = currentDestinations.getOrNull(pagerState.currentPage)?.route
-                        transitViewModel.setNavigationOrder(routes) { success ->
-                            if (!success) reorderRoute = null
-                            done(success)
-                        }
-                    })
+                ElektronBottomBar(currentRoute, goTo, dock, commitLayout)
             }
         ) { padding ->
+          Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
             HorizontalPager(
                 state = pagerState,
                 beyondViewportPageCount = 1,
@@ -211,8 +227,7 @@ fun ElektronNavHost(
                 key = { destinationPageKey(currentDestinations, it) },
                 // consumeWindowInsets: sekcje mają własne Scaffoldy — bez tego dolne wcięcie
                 // (pasek nawigacji) liczyłoby się podwójnie.
-                modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                    .graphicsLayer { alpha = sectionAlpha.value }
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = sectionAlpha.value }
             ) { page ->
                 androidx.compose.runtime.CompositionLocalProvider(
                     pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible provides
@@ -237,12 +252,19 @@ fun ElektronNavHost(
                     ElektronRoutes.SETTINGS -> SettingsScreen(
                         onOpenGroups = { showGroups = true },
                         onOpenSubjects = { showSubjects = true },
-                        transitViewModel = transitViewModel
+                        transitViewModel = transitViewModel,
+                        // Po trasie, nie po numerze strony: włączenie Przejazdów przesuwa numery stron, a Ustawienia nadal są na ekranie.
+                        shown = savedActiveRoute == ElektronRoutes.SETTINGS
                     )
                 }
                 }
             }
+            // Panel "Więcej" nad paskiem (w obszarze treści, więc jego dół to górna krawędź pasku).
+            MorePanel(currentRoute, dock, goTo, commitLayout)
+          }
         }
+        // Przeciągana ikona ponad paskiem i panelem.
+        DockDragLayer(dock, currentRoute)
 
         AnimatedVisibility(
             visible = showGroups,

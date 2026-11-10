@@ -21,6 +21,11 @@ data class TransitPreferences(
     val hiddenTabs: Set<String> = emptySet(),
     val showOnDashboard: Boolean = false,
     val navigationOrder: List<String> = NavigationOrder.DEFAULT,
+    /** Kolejność pasku z miejscem "Więcej" ([MoreMenu.ROUTE]), gdy jest włączone; inaczej jak [navigationOrder]. */
+    val navigationSlots: List<String> = NavigationOrder.DEFAULT,
+    /** Zakładki w panelu "Więcej" (puste, gdy wyłączone). */
+    val moreContent: List<String> = emptyList(),
+    val moreEnabled: Boolean = false,
     /** Przy wybranym przystanku przy szkole także kursy z innych przystanków do 1 km od szkoły (domyślnie nie). */
     val nearbyStops: Boolean = false,
     /**

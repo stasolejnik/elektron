@@ -51,7 +51,9 @@ fun SettingsScreen(
     onOpenGroups: () -> Unit = {},
     onOpenSubjects: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
-    transitViewModel: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel = hiltViewModel()
+    transitViewModel: pl.zse.bydgoszcz.elektron.presentation.transit.TransitViewModel = hiltViewModel(),
+    /** Zakładka Ustawienia jest na ekranie (po przejściu do innej zakładki otwarta podstrona się zamyka). */
+    shown: Boolean = true
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val transitSettings by transitViewModel.settings.collectAsStateWithLifecycle()
@@ -95,6 +97,8 @@ fun SettingsScreen(
     // Otwarta kategoria (null - lista kategorii). Wstecz wraca do listy - tylko na widocznej zakładce,
     // inaczej przechwytywałoby cofanie na sąsiedniej (pager trzyma ją w pamięci).
     var page by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    // Po wyjściu z Ustawień do innej zakładki wracają od głównej listy (dawniej od ostatnio otwartej podstrony).
+    LaunchedEffect(shown) { if (!shown) page = null }
     LaunchedEffect(devMode) { if (page == SettingsPage.DEV && !devMode) page = null }
     val visible = pl.zse.bydgoszcz.elektron.presentation.common.LocalScreenVisible.current
     androidx.activity.compose.BackHandler(enabled = page != null && visible) { page = null }
@@ -136,6 +140,9 @@ fun SettingsScreen(
                 SettingsPage.HOME -> item(key = "home") {
                     HomeSection(state.startScreen, transitTab = transitSettings.preferences.visible, onChange = viewModel::setStartScreen) {
                         SwitchRow("Następna lekcja", state.showNextLesson) { viewModel.setShowNextLesson(it) }
+                        RowDivider()
+                        SwitchRow("Kolejna lekcja", state.showFollowingLesson, enabled = state.showNextLesson,
+                            supporting = "Pod najbliższą lekcją - co masz po niej tego dnia") { viewModel.setShowFollowingLesson(it) }
                         RowDivider()
                         SwitchRow("Czas do końca lekcji", state.showDayEnd,
                             supporting = "Ile godzin i minut zostało do końca lekcji dzisiaj - na stronie głównej i w widżecie Plan dnia") { viewModel.setShowDayEnd(it) }

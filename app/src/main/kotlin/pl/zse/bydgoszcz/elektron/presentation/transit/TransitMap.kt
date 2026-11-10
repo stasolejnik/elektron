@@ -58,35 +58,9 @@ internal fun TransitMap(stops: List<TransitDestination>, destination: TransitDes
         }
     }
     val map = remember(context, owner) {
-        Configuration.getInstance().apply {
-            userAgentValue = "eLektron/${BuildConfig.VERSION_NAME} (+https://github.com/stasolejnik/elektron)"
-            osmdroidBasePath = File(context.cacheDir, "transit_map")
-            osmdroidTileCache = File(osmdroidBasePath, "tiles").apply { mkdirs() }
-            tileFileSystemCacheMaxBytes = 30L * 1024 * 1024
-            tileFileSystemCacheTrimBytes = 25L * 1024 * 1024
-            expirationExtendedDuration = TimeUnit.DAYS.toMillis(7)
-            tileDownloadThreads = 2
-        }
-        MapView(context).apply {
-            setTileSource(XYTileSource("OpenStreetMap", 0, 19, 256, ".png",
-                arrayOf("https://tile.openstreetmap.org/"), "© OpenStreetMap contributors"))
-            setDestroyMode(false) // Compose owns cleanup; avoid a second detach from the window.
-            setMultiTouchControls(true)
-            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-            minZoomLevel = 10.0; maxZoomLevel = 18.0
-            controller.setZoom(14.0)
-            controller.setCenter(destination?.let { GeoPoint(it.latitude, it.longitude) } ?: GeoPoint(SchoolTransit.LATITUDE, SchoolTransit.LONGITUDE))
-        }
+        createOsmMap(context, destination?.let { GeoPoint(it.latitude, it.longitude) } ?: GeoPoint(SchoolTransit.LATITUDE, SchoolTransit.LONGITUDE))
     }
-    DisposableEffect(map, owner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) { map.setUseDataConnection(true); map.onResume(); map.invalidate() }
-            if (event == Lifecycle.Event.ON_PAUSE) { map.setUseDataConnection(false); map.onPause() }
-        }
-        owner.lifecycle.addObserver(observer)
-        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) map.onResume()
-        onDispose { owner.lifecycle.removeObserver(observer); map.setUseDataConnection(false); map.onPause(); map.onDetach() }
-    }
+    BindMapLifecycle(map)
     LaunchedEffect(stops) {
         if (stops.none { it.key == selected?.key }) selected = null
     }
@@ -144,5 +118,43 @@ internal fun TransitMap(stops: List<TransitDestination>, destination: TransitDes
                 }
             }
         }
+    }
+}
+
+/** Mapa OpenStreetMap z pamięcią podręczną kafelków (wybór przystanku i pozycja pojazdu). */
+internal fun createOsmMap(context: android.content.Context, center: GeoPoint, zoom: Double = 14.0): MapView {
+    Configuration.getInstance().apply {
+        userAgentValue = "eLektron/${BuildConfig.VERSION_NAME} (+https://github.com/stasolejnik/elektron)"
+        osmdroidBasePath = File(context.cacheDir, "transit_map")
+        osmdroidTileCache = File(osmdroidBasePath, "tiles").apply { mkdirs() }
+        tileFileSystemCacheMaxBytes = 30L * 1024 * 1024
+        tileFileSystemCacheTrimBytes = 25L * 1024 * 1024
+        expirationExtendedDuration = TimeUnit.DAYS.toMillis(7)
+        tileDownloadThreads = 2
+    }
+    return MapView(context).apply {
+        setTileSource(XYTileSource("OpenStreetMap", 0, 19, 256, ".png",
+            arrayOf("https://tile.openstreetmap.org/"), "© OpenStreetMap contributors"))
+        setDestroyMode(false) // Compose owns cleanup; avoid a second detach from the window.
+        setMultiTouchControls(true)
+        zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+        minZoomLevel = 10.0; maxZoomLevel = 18.0
+        controller.setZoom(zoom)
+        controller.setCenter(center)
+    }
+}
+
+/** Wznawianie i wstrzymywanie mapy razem z ekranem (bez pobierania kafelków w tle). */
+@Composable
+internal fun BindMapLifecycle(map: MapView) {
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(map, owner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) { map.setUseDataConnection(true); map.onResume(); map.invalidate() }
+            if (event == Lifecycle.Event.ON_PAUSE) { map.setUseDataConnection(false); map.onPause() }
+        }
+        owner.lifecycle.addObserver(observer)
+        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) map.onResume()
+        onDispose { owner.lifecycle.removeObserver(observer); map.setUseDataConnection(false); map.onPause(); map.onDetach() }
     }
 }

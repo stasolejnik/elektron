@@ -76,6 +76,11 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
 
   Dla kursów odjeżdżających w ciągu około 30 minut aplikacja pobiera też co minutę tablicę
   odjazdów stanowiska i linii (numer stanowiska i linii), żeby pokazać opóźnienie na żywo.
+  Po dotknięciu kursu aplikacja pobiera z BUSearch pozycję pojazdu i jego przystanki
+  (wysyłany jest tylko identyfikator pojazdu z tablicy odjazdów) co 10 sekund, dopóki okno
+  z mapą jest otwarte, oraz raz przebieg trasy kursu z planera BUSearch (wysyłany jest pierwszy
+  i ostatni przystanek kursu z godziną z rozkładu, bez Twojego przystanku); mapa pobiera wtedy
+  fragmenty z tile.openstreetmap.org.
   Twój przystanek jest więc przekazywany dostawcy tylko przy wyszukiwaniu połączeń. Historia
   pięciu ostatnich Twoich przystanków i pięciu ostatnich przystanków przy szkole jest
   zapisywana wyłącznie lokalnie wraz z ustawieniami; może
@@ -87,18 +92,15 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   dojazdu (2 godziny przed lekcjami i do godziny po nich), najwyżej co 5 minut i tylko gdy
   zapisany wynik jest nieaktualny; wysyła wtedy to samo co wyszukiwanie w zakładce. Bez widżetu
   Przejazdy nie łączą się z planerem w tle. Funkcja nie korzysta z GPS.
-- **Trasy piesze (FOSSGIS / OpenStreetMap):** przy sprawdzaniu powrotu ze szkoły aplikacja może
-  wysłać do routing.openstreetmap.de stały punkt szkoły i współrzędne przystanków początkowych,
-  aby obliczyć dojście ulicami i ścieżkami. Serwer widzi IP i wersję aplikacji; nie otrzymuje
-  GPS telefonu, celu podróży, klasy ani notatek. Wyniki są zapisywane lokalnie na 7 dni.
-  Zasady: https://routing.openstreetmap.de/about.html
+- **Dojście ze szkoły do przystanku** jest szacowane na telefonie z odległości (bez zewnętrznego
+  planera tras pieszych); nic nie jest w tym celu wysyłane.
 - **OpenStreetMap:** wybranie widoku mapy pobiera jej fragmenty z tile.openstreetmap.org.
   Serwer widzi adres IP, wersję aplikacji i oglądany obszar mapy. GPS, klasa, notatki i
   nazwa wybranego celu nie są do niego wysyłane. Fragmenty mapy są przechowywane lokalnie
   w pamięci podręcznej. Zasady prywatności: https://osmfoundation.org/wiki/Privacy_Policy
 
 **Wersja z F-Droid** łączy się ze stronami szkoły i, po otwarciu wyboru przystanku,
-również z katalogiem i planerem BUSearch oraz, po otwarciu mapy, z OpenStreetMap oraz z planerem tras pieszych FOSSGIS. Nie zawiera Firebase ani sprawdzania aktualizacji z GitHuba.
+również z katalogiem i planerem BUSearch oraz, po otwarciu mapy, z OpenStreetMap. Nie zawiera Firebase ani sprawdzania aktualizacji z GitHuba.
 
 ## Notatki do lekcji
 

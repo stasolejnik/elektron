@@ -197,7 +197,6 @@ Historia wydań: [CHANGELOG.md](CHANGELOG.md).
 | Ogłoszenia | [zse.bydgoszcz.pl](https://zse.bydgoszcz.pl) |
 | Przystanki i połączenia | [BUSearch Bydgoszcz](https://busearch.pl/bydgoszcz) |
 | Mapa | [OpenStreetMap](https://www.openstreetmap.org/copyright) |
-| Trasy piesze | [FOSSGIS / OpenStreetMap](https://routing.openstreetmap.de/about.html) |
 
 ## Licencja
 

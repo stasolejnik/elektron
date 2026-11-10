@@ -183,6 +183,7 @@ class SettingsViewModel @Inject constructor(
         val updateChannel: UpdateChannel = UpdateChannel.STABLE,
         val liveNotifications: Boolean = false,
         val showDayEnd: Boolean = false,
+        val showFollowingLesson: Boolean = false,
         val baseLook: pl.zse.bydgoszcz.elektron.domain.model.LookSetting = pl.zse.bydgoszcz.elektron.domain.model.LookSetting(),
         val notifyUpdates: Boolean = false,
         val notifyNotices: Boolean = false,
@@ -208,7 +209,8 @@ class SettingsViewModel @Inject constructor(
         settings.look,
         settings.notifyUpdates,
         settings.notifyNotices,
-        settings.showNotices
+        settings.showNotices,
+        settings.showFollowingLesson
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -234,7 +236,8 @@ class SettingsViewModel @Inject constructor(
             baseLook = values[18] as pl.zse.bydgoszcz.elektron.domain.model.LookSetting,
             notifyUpdates = values[19] as Boolean,
             notifyNotices = values[20] as Boolean,
-            showNotices = values[21] as Boolean
+            showNotices = values[21] as Boolean,
+            showFollowingLesson = values[22] as Boolean
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -347,6 +350,7 @@ class SettingsViewModel @Inject constructor(
     fun setShowNextLesson(b: Boolean) = writeSetting { settings.setShowNextLesson(b) }
     fun setShowSubstitutions(b: Boolean) = writeSetting { settings.setShowSubstitutions(b) }
     fun setShowAnnouncements(b: Boolean) = writeSetting { settings.setShowAnnouncements(b) }
+    fun setShowFollowingLesson(b: Boolean) = writeSetting { settings.setShowFollowingLesson(b) }
     fun setShowDayEnd(b: Boolean) = writeSetting {
         settings.setShowDayEnd(b)
         widgetUpdater.requestUpdate()   // widżet Plan dnia od razu z linią albo bez

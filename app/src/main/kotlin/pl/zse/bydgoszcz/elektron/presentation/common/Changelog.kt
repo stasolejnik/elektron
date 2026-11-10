@@ -6,19 +6,20 @@ object Changelog {
 
     val entries: List<Entry> = listOf(
         Entry(40, "1.0.4-beta1", listOf(
+            "Przejazdy: dotknij kursu, aby zobaczyć, gdzie jest teraz autobus albo tramwaj",
+            "Przycisk „Więcej” na dolnym pasku - ikony przeciągasz jak w folderze (Ustawienia → Pasek nawigacji)",
+            "Kolejna lekcja pod najbliższą na stronie głównej (Ustawienia → Strona główna)",
             "Powiadomienie na żywo: czas na wyspie na telefonach Xiaomi, Redmi i POCO",
-            "Przejazdy: odświeżanie przeciągnięciem w dół, kolejne kursy przy przewijaniu",
-            "Przejazdy: krótsze wskazówki na karcie i „Szkoła” na liście przystanków",
-            "Strona główna: „Jutro wolne” przed świętem",
             "Nowy adres kontaktowy: elektron@tuta.com",
-            "Zastępstwa bez sali (np. przy złączeniu grup) nie znikają",
             "Gdy część klasy idzie do domu, a część zostaje w szkole, lekcja nie znika z planu",
-            "Informacje szkoły: godzina publikacji z literówką nie trafia do treści",
+            "Zastępstwa bez sali (np. przy złączeniu grup) nie znikają",
+            "Niepełna lista klas na stronie szkoły nie odznacza Twojej klasy",
             "Klasy piąte: bez przypomnień i powiadomienia na żywo po zakończeniu zajęć w kwietniu",
             "Otwarcie aplikacji zawsze sprawdza zastępstwa, także nocą i w dni wolne",
-            "Następna lekcja za więcej niż tydzień pokazuje datę",
-            "Niepełna lista klas na stronie szkoły nie odznacza Twojej klasy",
-            "Okna wyboru w Ustawieniach nie zamykają się po obróceniu ekranu"
+            "Przejazdy: odświeżanie przeciągnięciem w dół, prostsza karta i „Szkoła” na liście przystanków",
+            "Strona główna: „Jutro wolne” przed świętem i data przy lekcji za ponad tydzień",
+            "Informacje szkoły: godzina publikacji z literówką nie trafia do treści",
+            "Ustawienia wracają od głównej listy po zmianie zakładki"
         )),
         Entry(39, "1.0.3", listOf(
             "Nowe logo - ikona granatowa albo cyjanowa (Ustawienia → Wygląd)",

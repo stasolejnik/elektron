@@ -83,6 +83,10 @@ interface SettingsRepository {
     val showDayEnd: Flow<Boolean> get() = flowOf(false)
     suspend fun setShowDayEnd(enabled: Boolean) {}
 
+    /** Pod najbliższą lekcją na stronie głównej - kolejna lekcja tego dnia (domyślnie wyłączone). */
+    val showFollowingLesson: Flow<Boolean> get() = flowOf(false)
+    suspend fun setShowFollowingLesson(enabled: Boolean) {}
+
     /** Powiadomienie na żywo w dni lekcyjne (domyślnie wyłączone). */
     val liveNotifications: Flow<Boolean> get() = flowOf(false)
     suspend fun setLiveNotifications(enabled: Boolean) {}
