@@ -4,7 +4,7 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
-## [1.0.4-beta1] - niewydane (40)
+## [1.0.4-beta1] - 2026-11-11 (40)
 
 Wersja testowa (kanał „Beta”): pozycja pojazdu na żywo, przycisk „Więcej”, kolejna lekcja na stronie głównej i poprawki po przeglądzie kodu i stron szkoły. Szczegóły: [release-notes/1.0.4-beta1.md](release-notes/1.0.4-beta1.md). Zmiany od najważniejszych.
 
