@@ -30,7 +30,11 @@ data class WidgetPalette(
     val substitution: ColorProvider,
     val substitutionContainer: ColorProvider,
     /** Tło wiersza bez podświetlenia — jawnie przezroczyste (patrz DayPlanWidget.LessonRow). */
-    val transparent: ColorProvider = ColorProvider(Color.Transparent)
+    val transparent: ColorProvider = ColorProvider(Color.Transparent),
+    /** Tekst na kolorze akcentu (np. numer linii na pełnym znaczku). */
+    val onAccent: ColorProvider = ColorProvider(Color.White),
+    /** Delikatne tło karty wiersza (akcent przygaszony) - widoczne też na przezroczystym widżecie. */
+    val rowSurface: ColorProvider = ColorProvider(Color(0x22888888))
 )
 
 /** Paleta dostarczana do treści widżetu (provideContent -> CompositionLocalProvider). */
@@ -48,6 +52,8 @@ object WidgetColors {
     val substitution: ColorProvider @Composable get() = LocalWidgetPalette.current.substitution
     val substitutionContainer: ColorProvider @Composable get() = LocalWidgetPalette.current.substitutionContainer
     val transparent: ColorProvider @Composable get() = LocalWidgetPalette.current.transparent
+    val onAccent: ColorProvider @Composable get() = LocalWidgetPalette.current.onAccent
+    val rowSurface: ColorProvider @Composable get() = LocalWidgetPalette.current.rowSurface
 }
 
 object WidgetPalettes {
@@ -99,7 +105,9 @@ object WidgetPalettes {
             accentContainer = colorRole(dayAccent.container, nightAccent.container) { it.primaryContainer },
             onAccentContainer = colorRole(dayAccent.onContainer, nightAccent.onContainer) { it.onPrimaryContainer },
             substitution = role(0xFFA85A00, 0xFFFF9F0A) { it.tertiary },
-            substitutionContainer = role(0xFFFFF0DB, 0xFF3A2A12) { it.tertiaryContainer }
+            substitutionContainer = role(0xFFFFF0DB, 0xFF3A2A12) { it.tertiaryContainer },
+            onAccent = colorRole(dayAccent.onPrimary, nightAccent.onPrimary) { it.onPrimary },
+            rowSurface = colorRole(dayAccent.container, nightAccent.container, alpha = 0.45f) { it.primaryContainer }
         )
     }
 }

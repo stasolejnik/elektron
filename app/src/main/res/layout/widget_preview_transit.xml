@@ -24,6 +24,8 @@
             android:layout_marginStart="8dp" android:orientation="vertical">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Rycerska"
                 android:textSize="13sp" android:textColor="@color/widget_text" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="przyjazd 14:52"
+                android:textSize="11sp" android:textColor="@color/widget_text2" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
         <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginStart="6dp" android:orientation="vertical" android:gravity="end">
@@ -42,6 +44,8 @@
             android:layout_marginStart="8dp" android:orientation="vertical">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Rondo Wielkopolskie"
                 android:textSize="13sp" android:textColor="@color/widget_text" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="przyjazd 15:01"
+                android:textSize="11sp" android:textColor="@color/widget_text2" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
         <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginStart="6dp" android:orientation="vertical" android:gravity="end">

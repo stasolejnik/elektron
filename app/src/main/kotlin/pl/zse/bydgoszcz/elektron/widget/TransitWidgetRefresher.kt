@@ -29,10 +29,9 @@ import javax.inject.Singleton
 
 /**
  * Odświeżanie kursów dla widżetu "Przejazdy" bez otwierania aplikacji. Planer pytany jest tylko wtedy,
- * gdy widżet jest na ekranie i (bez dotknięcia ↻) w porze dojazdu - od 2 godzin przed lekcjami do ich
- * początku i od ostatniej lekcji do godziny po zajęciach (jak karta na stronie głównej), najwyżej co
- * [MIN_INTERVAL_MS] i tylko, gdy zapisany wynik nie nadaje się już do użycia (10 min, inny kierunek).
- * Poza tym widżet pokazuje ostatni wynik z aplikacji.
+ * gdy widżet jest na ekranie, sam (bez dotknięcia ↻) w ciągu dnia ([TransitWidgetData.autoRefresh]) i tylko,
+ * gdy zapisany wynik nie nadaje się już do użycia (10 min, inny kierunek, za mało kursów): w porze dojazdu
+ * najwyżej co [MIN_INTERVAL_MS], poza nią najwyżej co [IDLE_INTERVAL_MS]. Nocą - ostatni wynik albo dotknięcie.
  */
 @Singleton
 class TransitWidgetRefresher @Inject constructor(
@@ -87,7 +86,8 @@ class TransitWidgetRefresher @Inject constructor(
         val lessons = schoolDay.lessons.first()
         val now = AppClock.now()
         val nowMs = AppClock.millis()
-        if (!force && TransitCommute.dashboardDirection(lessons, now) == null) return false
+        if (!force && !TransitWidgetData.autoRefresh(lessons, now)) return false
+        val interval = if (TransitCommute.dashboardDirection(lessons, now) != null) MIN_INTERVAL_MS else IDLE_INTERVAL_MS
         val direction = TransitWidgetData.direction(lessons, now)
         val toSchool = direction == TransitDirection.TO_SCHOOL
         val zone = ZoneId.systemDefault()
@@ -102,7 +102,7 @@ class TransitWidgetRefresher @Inject constructor(
         val store = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val last = store.getLong(KEY_LAST_FETCH, 0L)
         val sinceLast = System.currentTimeMillis() - last
-        if (!force && (fresh || sinceLast in 0 until MIN_INTERVAL_MS)) return false
+        if (!force && (fresh || sinceLast in 0 until interval)) return false
         // Dotknięcie ↻ kilka razy pod rząd - jedno zapytanie.
         if (force && sinceLast in 0 until FORCE_INTERVAL_MS) return false
         // "sprawdzam…" w widżecie od razu, zanim odpowie planer (kilka sekund przy wielu stanowiskach).
@@ -146,6 +146,8 @@ class TransitWidgetRefresher @Inject constructor(
         private const val REFRESHING_MAX_MS = 90_000L
         /** Odświeżenie w tle najwyżej co tyle (wynik i tak jest świeży 10 min). */
         const val MIN_INTERVAL_MS = 5 * 60_000L
+        /** Poza porą dojazdu (w ciągu dnia) - rzadziej. */
+        const val IDLE_INTERVAL_MS = 15 * 60_000L
         /** Mniej kursów do pokazania - odświeżenie przed upływem 10 min. */
         private const val MIN_SHOWN = 3
         private const val FORCE_INTERVAL_MS = 20_000L

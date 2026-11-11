@@ -1,7 +1,6 @@
 package pl.zse.bydgoszcz.elektron.widget
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.zse.bydgoszcz.elektron.data.repository.TransitJourneyRepository
@@ -51,14 +50,22 @@ class TransitWidgetDataTest {
         assertTrue(morning.toSchool)
         assertEquals("Do szkoły", morning.title)
         assertEquals("Z: Dworzec Główny", morning.subtitle)
-        assertEquals("Dotknij, aby sprawdzić połączenia.", morning.empty)
-        // Po połowie dnia lekcji - powrót: przystanek, na którym wsiadasz; bez "wyjdź o…" (jak w zakładce).
+        // W ciągu dnia widżet sam sprawdza połączenia - bez prośby o dotknięcie; nocą (bez automatycznego sprawdzania) - prośba.
+        assertEquals("Sprawdzam połączenia…", morning.empty)
+        assertEquals("Dotknij, aby sprawdzić połączenia.", ready(TransitWidgetData.build(prefs, lessons, fromSchool, at("05:30"), zone)).empty)
+        // Po połowie dnia lekcji - powrót: przystanek, na którym wsiadasz, i kiedy będziesz na miejscu (bez "wyjdź o…").
         val afternoon = ready(TransitWidgetData.build(prefs, lessons, fromSchool, at("14:40"), zone))
         assertEquals("Ze szkoły", afternoon.title)
         assertEquals("Do: Dworzec Główny · sprawdzono 14:30", afternoon.subtitle)
         val row = afternoon.rows.single()
-        assertEquals(listOf("5", "Rycerska", "za 20 min", "15:00", null),
+        assertEquals(listOf("5", "Rycerska", "za 20 min", "15:00", "przyjazd 15:10"),
             listOf(row.line, row.stop, row.until, row.time, row.detail))
+        // Przy jednym wybranym przystanku przy szkole - kierunek pojazdu (nazwa przystanku powtarzałaby się w każdym wierszu).
+        val rycerska = TransitDestination("Rycerska", listOf("41"), 53.12, 18.0)
+        val strict = ready(TransitWidgetData.build(prefs.copy(preferredOrigin = rycerska), lessons,
+            fromSchool.copy(originKey = prefs.copy(preferredOrigin = rycerska).originKey), at("14:40"), zone)).rows.single()
+        assertEquals("Kierunek", strict.stop)
+        assertTrue(strict.arrow)
     }
 
     @Test fun toSchoolStartsWithTheNearestRideOrTheOneWithTheChosenMargin() {
@@ -69,7 +76,7 @@ class TransitWidgetDataTest {
         assertEquals(listOf("za 5 min", "za 20 min", "za 35 min", "za 45 min"), nearest.rows.map { it.until })
         // Przystanek przy szkole, godzina wysiadki i zapas do lekcji o 8:00 (z dojściem) - jak w zakładce.
         assertEquals("Jagiellońska - Łużycka", nearest.rows.first().stop)
-        assertEquals("na przystanku 07:20 · zapas 37 min", nearest.rows.first().detail)
+        assertEquals("przyjazd 07:20 · zapas 37 min", nearest.rows.first().detail)
         // "Kursy na czas przed lekcją" 10 min: od kursu, który jest na miejscu o 07:48.
         val margin = ready(TransitWidgetData.build(prefs.copy(arrivalMarginMinutes = 10), lessons, saved, at("06:55"), zone))
         assertEquals(listOf("07:30", "07:40"), margin.rows.map { it.time })
@@ -89,19 +96,21 @@ class TransitWidgetDataTest {
             TransitWidgetData.Status(refreshing = true))).subtitle)
         val failed = ready(TransitWidgetData.build(prefs, lessons, null, at("14:40"), zone, TransitWidgetData.Status(failed = true)))
         assertEquals("Do: Dworzec Główny · nie udało się odświeżyć", failed.subtitle)
-        assertEquals("Dotknij, aby sprawdzić połączenia.", failed.empty)
-        // W trakcie sprawdzania bez wezwania do dotknięcia.
-        assertNull(ready(TransitWidgetData.build(prefs, lessons, null, at("14:40"), zone, TransitWidgetData.Status(refreshing = true))).empty)
+        assertEquals("Nie udało się sprawdzić połączeń. Dotknij, aby spróbować ponownie.", failed.empty)
+        // W trakcie sprawdzania - informacja, bez wezwania do dotknięcia.
+        assertEquals("Sprawdzam połączenia…", ready(TransitWidgetData.build(prefs, lessons, null, at("14:40"), zone, TransitWidgetData.Status(refreshing = true))).empty)
     }
 
     @Test fun departedRidesDisappearAndTheWidgetRedrawsEveryMinuteWhileItShowsRides() {
-        val saved = result(TransitDirection.FROM_SCHOOL, listOf(trip("5", "15:00"), trip("67", "16:30")), "14:30")
+        val saved = result(TransitDirection.FROM_SCHOOL, listOf(trip("5", "15:00"), trip("67", "16:30"), trip("33N", "23:07")), "14:30")
         val state = ready(TransitWidgetData.build(prefs, lessons, saved, at("15:05"), zone))
+        // Odjechane znikają, nocny kurs za ponad 3 godziny też się nie pokazuje.
         assertEquals(listOf("67"), state.rows.map { it.line })
         assertEquals("za 1 h 25 min", state.rows.single().until)
         assertEquals(at("15:06"), TransitWidgetData.nextTick(state, at("15:05:30")))
         val empty = ready(TransitWidgetData.build(prefs, lessons, saved, at("16:40"), zone))
         assertTrue(empty.rows.isEmpty())
-        assertEquals(at("16:55"), TransitWidgetData.nextTick(empty, at("16:40")))
+        // Bez kursów - za 5 min (widżet sam poprosi o odświeżenie, z limitem w odświeżaczu).
+        assertEquals(at("16:45"), TransitWidgetData.nextTick(empty, at("16:40")))
     }
 }

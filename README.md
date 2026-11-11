@@ -146,7 +146,7 @@ Dane szkolne są sprawdzane w tle przez WorkManager (zastępstwa co 15 min, w no
 rzadziej); wariant z GitHuba korzysta również
 z powiadomień Firebase Cloud Messaging. Informacje o zastępstwach i ogłoszeniach pochodzą
 ze stron szkoły. Przejazdy są sprawdzane podczas korzystania z tej funkcji, a widżet Przejazdy
-odświeża je także w tle w porze dojazdu (najwyżej co 5 minut).
+odświeża je także w tle w ciągu dnia (w porze dojazdu najwyżej co 5 minut, poza nią co 15 minut).
 
 ## Prywatność
 

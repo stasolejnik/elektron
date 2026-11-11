@@ -398,6 +398,35 @@ internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit)
         RowDivider()
         SwitchRow("Pokazuj nauczyciela", current.showTeacher) { onChange(current.copy(showTeacher = it)) }
     }
+    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 16.dp))
+    AddWidgetsSection()
+}
+
+/**
+ * Dodanie widżetu jednym dotknięciem (Android 8+, gdy launcher na to pozwala): systemowe okno "Dodaj do ekranu
+ * głównego" zamiast szukania eLektronu na liście widżetów.
+ */
+@Composable
+private fun AddWidgetsSection() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val manager = remember(context) { context.getSystemService(android.appwidget.AppWidgetManager::class.java) }
+    val supported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+        runCatching { manager?.isRequestPinAppWidgetSupported == true }.getOrDefault(false)
+    if (!supported) return
+    val widgets = listOf(
+        "Teraz" to pl.zse.bydgoszcz.elektron.widget.NextLessonWidgetReceiver::class.java,
+        "Plan dnia" to pl.zse.bydgoszcz.elektron.widget.DayPlanWidgetReceiver::class.java,
+        "Zastępstwa" to pl.zse.bydgoszcz.elektron.widget.SubstitutionsWidgetReceiver::class.java,
+        "Przejazdy" to pl.zse.bydgoszcz.elektron.widget.TransitWidgetReceiver::class.java)
+    GroupedSection("Dodaj na ekran główny", icon = androidx.compose.material.icons.Icons.Outlined.Widgets, footer = "Telefon zapyta, czy dodać widżet; potem możesz go przesunąć i zmienić jego rozmiar.") {
+        widgets.forEachIndexed { index, (label, receiver) ->
+            if (index > 0) RowDivider()
+            ActionRow(label) {
+                runCatching { manager?.requestPinAppWidget(android.content.ComponentName(context, receiver), null, null) }
+                    .onFailure { android.util.Log.w("Widgets", "Nie udało się poprosić o dodanie widżetu", it) }
+            }
+        }
+    }
 }
 
 /**

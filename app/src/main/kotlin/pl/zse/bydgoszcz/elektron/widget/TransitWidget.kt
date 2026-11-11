@@ -39,7 +39,6 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import kotlinx.coroutines.flow.first
 import pl.zse.bydgoszcz.elektron.R
-import pl.zse.bydgoszcz.elektron.domain.model.TransitCommute
 import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 
@@ -72,10 +71,10 @@ class TransitWidget : GlanceAppWidget() {
         val lessons = ep.transitSchoolDay().lessons.first()
         val now = AppClock.now()
         val result = ep.transitJourneys().loadLast()
-        val state = TransitWidgetData.build(prefs, lessons, result, now, status = ep.transitWidgetRefresher().status(result?.fetchedAt))
-        // W porze dojazdu nieświeży wynik odświeża się w tle (z limitem częstotliwości w odświeżaczu).
-        if (state is TransitWidgetData.State.Ready && TransitCommute.dashboardDirection(lessons, now) != null)
-            ep.transitWidgetRefresher().refreshInBackground()
+        val auto = TransitWidgetData.autoRefresh(lessons, now)
+        val state = TransitWidgetData.build(prefs, lessons, result, now, status = ep.transitWidgetRefresher().status(result?.fetchedAt), auto = auto)
+        // W ciągu dnia nieświeży wynik odświeża się w tle sam (z limitem częstotliwości w odświeżaczu) - bez dotykania widżetu.
+        if (state is TransitWidgetData.State.Ready && auto) ep.transitWidgetRefresher().refreshInBackground()
         state
     }.getOrDefault(TransitWidgetData.State.Failed)
 
@@ -92,64 +91,81 @@ class TransitWidget : GlanceAppWidget() {
 
     @Composable
     private fun Ready(state: TransitWidgetData.State.Ready) {
+        val context = LocalContext.current
+        // Skala czcionki z bieżących ustawień systemu: konfiguracja zasobów w długo żyjącym procesie bywa sprzed zmiany.
+        val fontScale = runCatching { android.provider.Settings.System.getFloat(context.contentResolver, android.provider.Settings.System.FONT_SCALE) }
+            .getOrDefault(context.resources.configuration.fontScale).coerceAtLeast(1f)
         Column(GlanceModifier.fillMaxSize()) {
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
-                Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(18.dp))
-                Spacer(GlanceModifier.width(6.dp))
-                Text(state.title, modifier = GlanceModifier.defaultWeight(),
-                    style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-                // Ikona odświeżania jak w zakładce Przejazdy (wektor zamiast znaku "↻"), obszar dotyku 40 dp.
-                Box(GlanceModifier.size(40.dp).clickable(actionRunCallback<TransitWidgetRefreshAction>()),
-                    contentAlignment = Alignment.Center) {
-                    Image(ImageProvider(R.drawable.ic_widget_refresh), contentDescription = "Sprawdź połączenia",
-                        colorFilter = ColorFilter.tint(WidgetColors.accent), modifier = GlanceModifier.size(22.dp))
-                }
-            }
-            // Cel (albo start) i stan: "Do: Dworzec Główny · sprawdzono 15:02", "· sprawdzam…", "· nie udało się odświeżyć".
-            Text(state.subtitle, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
-            Spacer(GlanceModifier.height(6.dp))
+            Header(state)
+            Spacer(GlanceModifier.height(8.dp))
             if (state.rows.isEmpty()) {
-                // Komunikat bez kursów sprawdza połączenia po dotknięciu (jak ikona odświeżania).
+                // Bez kursów: komunikat na środku; dotknięcie sprawdza od razu (jak ikona odświeżania).
                 Box(GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<TransitWidgetRefreshAction>()),
                     contentAlignment = Alignment.Center) {
-                    Text(state.empty.orEmpty(), style = TextStyle(color = WidgetColors.textSecondary, fontSize = 13.sp, textAlign = TextAlign.Center))
+                    Column(horizontalAlignment = Alignment.Horizontal.CenterHorizontally) {
+                        Image(ImageProvider(R.drawable.ic_map_bus), contentDescription = null,
+                            colorFilter = ColorFilter.tint(WidgetColors.textSecondary), modifier = GlanceModifier.size(26.dp))
+                        Spacer(GlanceModifier.height(6.dp))
+                        Text(state.empty.orEmpty(), style = TextStyle(color = WidgetColors.textSecondary, fontSize = 13.sp, textAlign = TextAlign.Center))
+                    }
                 }
             } else {
-                // Tyle całych kursów, ile się mieści. Stałe: marginesy (28 dp), wiersz tytułu z przyciskiem (40 dp), odstęp (6 dp),
-                // odstępy kursu (10 dp); ze skalą czcionki rośnie tylko tekst - podtytuł ok. 15 dp, kurs ok. 30 dp (dwie linie).
-                // Skala z bieżących ustawień systemu: konfiguracja zasobów w długo żyjącym procesie bywa sprzed zmiany
-                // (raz liczyła miejsce jak przy 100% przy czcionce 130%, raz odwrotnie).
-                val context = LocalContext.current
-                val fontScale = runCatching { android.provider.Settings.System.getFloat(context.contentResolver, android.provider.Settings.System.FONT_SCALE) }
-                    .getOrDefault(context.resources.configuration.fontScale).coerceAtLeast(1f)
-                val available = LocalSize.current.height.value - (74f + 15f * fontScale)
-                val count = (available / (10f + 30f * fontScale)).toInt().coerceIn(1, state.rows.size)
+                // Tyle całych kursów, ile się mieści. Stałe: marginesy widżetu 28 dp, nagłówek z przyciskiem 36 dp, odstęp 8 dp,
+                // podtytuł ok. 15 dp x skala; kurs: odstępy 14 dp + dwie linie tekstu ok. 30 dp x skala.
+                val available = LocalSize.current.height.value - (72f + 15f * fontScale)
+                val count = (available / (14f + 30f * fontScale)).toInt().coerceIn(1, state.rows.size)
+                // Kursy rozłożone równo na całą wysokość (bez pustego miejsca na dole), z cienką linią między nimi.
                 Column(GlanceModifier.fillMaxWidth().defaultWeight()) {
-                    state.rows.take(count).forEach { RideRow(it) }
+                    state.rows.take(count).forEachIndexed { index, row ->
+                        if (index > 0) Box(GlanceModifier.fillMaxWidth().height(1.dp).background(WidgetColors.rowSurface)) {}
+                        Box(GlanceModifier.fillMaxWidth().defaultWeight(), contentAlignment = Alignment.CenterStart) { RideRow(row) }
+                    }
                 }
             }
         }
     }
 
+    /** Logo, kierunek ("Ze szkoły") i okrągły przycisk odświeżania; pod spodem cel i stan sprawdzania. */
+    @Composable
+    private fun Header(state: TransitWidgetData.State.Ready) {
+        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
+            Column(GlanceModifier.defaultWeight()) {
+                Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
+                    Image(ImageProvider(R.drawable.ic_logo), contentDescription = null, modifier = GlanceModifier.size(18.dp))
+                    Spacer(GlanceModifier.width(6.dp))
+                    Text(state.title, style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                }
+                // Cel (albo start) i stan: "Do: Dworzec Główny · sprawdzono 15:02", "· sprawdzam…", "· nie udało się odświeżyć".
+                Text(state.subtitle, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
+            }
+            Spacer(GlanceModifier.width(8.dp))
+            // Przycisk odświeżania: kółko w kolorze kart wierszy, obszar dotyku 36 dp.
+            Box(GlanceModifier.size(36.dp).background(WidgetColors.rowSurface).cornerRadius(18.dp)
+                .clickable(actionRunCallback<TransitWidgetRefreshAction>()), contentAlignment = Alignment.Center) {
+                Image(ImageProvider(R.drawable.ic_widget_refresh), contentDescription = "Sprawdź połączenia",
+                    colorFilter = ColorFilter.tint(WidgetColors.accent), modifier = GlanceModifier.size(20.dp))
+            }
+        }
+    }
+
     /**
-     * Kurs: po lewej linia i przystanek (do szkoły ze strzałką - gdzie wysiadasz, ze szkoły - gdzie wsiadasz),
-     * pod spodem jak w zakładce ("na przystanku 07:40 · zapas 15 min"; ze szkoły - bez dopisku);
+     * Kurs w jednym wierszu listy: znaczek linii (jak w aplikacji), nazwa (przystanek albo - ze strzałką - przystanek
+     * wysiadki lub kierunek pojazdu), pod nią szczegół ("przyjazd 15:02", "przyjazd 07:40 · zapas 15 min"),
      * po prawej "za 11 min" i godzina odjazdu.
      */
     @Composable
     private fun RideRow(row: TransitWidgetData.Row) {
-        Row(GlanceModifier.fillMaxWidth().padding(vertical = 5.dp).semantics { contentDescription = row.description },
+        Row(GlanceModifier.fillMaxWidth().padding(vertical = 4.dp).semantics { contentDescription = row.description },
             verticalAlignment = Alignment.Vertical.CenterVertically) {
-            Box(GlanceModifier.width(36.dp).background(WidgetColors.accentContainer).cornerRadius(8.dp).padding(vertical = 3.dp),
+            Box(GlanceModifier.width(38.dp).background(WidgetColors.accentContainer).cornerRadius(8.dp).padding(vertical = 3.dp),
                 contentAlignment = Alignment.Center) {
-                Text(row.line, style = TextStyle(color = WidgetColors.onAccentContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                Text(row.line, style = TextStyle(color = WidgetColors.onAccentContainer, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center), maxLines = 1)
             }
-            Spacer(GlanceModifier.width(8.dp))
+            Spacer(GlanceModifier.width(10.dp))
             Column(GlanceModifier.defaultWeight()) {
                 Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
-                    // Strzałka jak w karcie Przejazdów (ikona, nie znak "→").
-                    if (row.toSchool) {
+                    if (row.arrow) {
                         Image(ImageProvider(R.drawable.ic_widget_arrow), contentDescription = null,
                             colorFilter = ColorFilter.tint(WidgetColors.textSecondary), modifier = GlanceModifier.size(12.dp))
                         Spacer(GlanceModifier.width(4.dp))
@@ -161,9 +177,9 @@ class TransitWidget : GlanceAppWidget() {
                         fontWeight = if (row.urgent) FontWeight.Bold else FontWeight.Normal), maxLines = 1)
                 }
             }
-            Spacer(GlanceModifier.width(6.dp))
+            Spacer(GlanceModifier.width(8.dp))
             Column(horizontalAlignment = Alignment.Horizontal.End) {
-                Text(row.until, style = TextStyle(color = WidgetColors.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                Text(row.until, style = TextStyle(color = WidgetColors.accent, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1)
                 Text(row.time, style = TextStyle(color = WidgetColors.textSecondary, fontSize = 11.sp), maxLines = 1)
             }
         }

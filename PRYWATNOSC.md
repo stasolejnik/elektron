@@ -88,9 +88,9 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   godziny i przystanki) jest zapisywany w pamięci podręcznej aplikacji, poza kopią zapasową,
   żeby po ponownym otwarciu był widoczny od razu; nowe sprawdzenie odbywa się najwyżej co
   10 minut (opóźnienia co minutę), gdy karta lub zakładka jest na ekranie. Widżet Przejazdy
-  na ekranie głównym sprawdza połączenia także przy zamkniętej aplikacji, ale tylko w porze
-  dojazdu (2 godziny przed lekcjami i do godziny po nich), najwyżej co 5 minut i tylko gdy
-  zapisany wynik jest nieaktualny; wysyła wtedy to samo co wyszukiwanie w zakładce. Bez widżetu
+  na ekranie głównym sprawdza połączenia także przy zamkniętej aplikacji, w ciągu dnia
+  (6:00-21:00 i w porze dojazdu): w porze dojazdu (2 godziny przed lekcjami i do godziny po nich)
+  najwyżej co 5 minut, poza nią najwyżej co 15 minut, i tylko gdy zapisany wynik jest nieaktualny; wysyła wtedy to samo co wyszukiwanie w zakładce. Bez widżetu
   Przejazdy nie łączą się z planerem w tle. Funkcja nie korzysta z GPS.
 - **Dojście ze szkoły do przystanku** jest szacowane na telefonie z odległości (bez zewnętrznego
   planera tras pieszych); nic nie jest w tym celu wysyłane.

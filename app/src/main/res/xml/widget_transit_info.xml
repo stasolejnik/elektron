@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widżet "Przejazdy": 4x2 (dwa kursy, pełne nazwy przystanków), zwężany do 3 kolumn i rozciągany w pionie. -->
+<!-- Widżet "Przejazdy": 4x3 (trzy kursy na kartach, pełne nazwy przystanków), zwężany do 3 kolumn, 2 rzędów i rozciągany w pionie. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_transit_desc"
     android:previewLayout="@layout/widget_preview_transit"
     android:previewImage="@drawable/ic_logo"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="250dp"
-    android:minHeight="110dp"
+    android:minHeight="180dp"
     android:minResizeWidth="180dp"
     android:minResizeHeight="110dp"
     android:targetCellWidth="4"
-    android:targetCellHeight="2"
+    android:targetCellHeight="3"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

@@ -4,6 +4,12 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/), numeracja wersji zgodna z
 [SemVer](https://semver.org/lang/pl/). W nawiasie `versionCode` z Androida.
 
+## [Niewydane]
+
+- Widżet Przejazdy: nowy wygląd - spokojna lista kursów rozłożona na całą wysokość (bez pustego miejsca na dole), cienkie linie między kursami, znaczki linii jak w aplikacji, okrągły przycisk odświeżania. Pod przystankiem „przyjazd 15:02” (ze szkoły) albo „przyjazd 07:40 · zapas 15 min” (do szkoły); ze szkoły przy jednym wybranym przystanku - kierunek pojazdu ze strzałką zamiast powtarzanej nazwy przystanku. Kursy najwyżej 3 godziny naprzód. Domyślny rozmiar 4×3.
+- Widżet Przejazdy pobiera kursy sam, bez dotykania: w ciągu dnia (6:00-21:00) i w porze dojazdu, gdy zapisany wynik jest nieaktualny - w porze dojazdu najwyżej co 5 minut, poza nią najwyżej co 15 minut. Zamiast „Dotknij, aby sprawdzić połączenia” - „Sprawdzam połączenia…”, a po błędzie „Nie udało się sprawdzić połączeń. Dotknij, aby spróbować ponownie.” Polityka prywatności i README zaktualizowane.
+- Ustawienia → Widżety: „Dodaj na ekran główny” - systemowe okno dodania widżetu jednym dotknięciem (Teraz, Plan dnia, Zastępstwa, Przejazdy), zamiast szukania eLektronu na liście widżetów.
+
 ## [1.0.4-beta1] - 2026-11-11 (40)
 
 Wersja testowa (kanał „Beta”): pozycja pojazdu na żywo, przycisk „Więcej”, kolejna lekcja na stronie głównej i poprawki po przeglądzie kodu i stron szkoły. Szczegóły: [release-notes/1.0.4-beta1.md](release-notes/1.0.4-beta1.md). Zmiany od najważniejszych.
