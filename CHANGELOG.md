@@ -210,7 +210,7 @@ Krótki opis do wydania na GitHubie: [release-notes/1.0.0.md](release-notes/1.0.
 - Pewniejszy zapis notatek, grup, ustawień i ulubionych oraz zachowanie danych po błędach pobierania.
 - Poprawki przypomnień, powiadomień, widżetów i ograniczenie zbędnych obliczeń interfejsu.
 
-Szczegóły: [opis wydania RC7](release-notes/1.0.0-rc7.md).
+Szczegóły: [opis wydania RC7](https://github.com/stasolejnik/elektron/releases/tag/v1.0.0-rc7).
 
 ## [1.0.0-rc6] (33)
 

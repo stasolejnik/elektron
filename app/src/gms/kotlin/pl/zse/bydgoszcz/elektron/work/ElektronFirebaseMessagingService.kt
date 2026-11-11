@@ -18,7 +18,7 @@ import javax.inject.Inject
 
 /**
  * Funkcja #7: odbiornik pushy z zewnętrznego "watchera" (GitHub Actions + FCM Topics —
- * patrz PORADNIK_PUSH.md). Appka NIE ma własnego backendu — to jedyny element sieciowy,
+ * patrz DEWELOPER.md, sekcja „Powiadomienia push”). Appka NIE ma własnego backendu — to jedyny element sieciowy,
  * który przychodzi z zewnątrz zamiast być przez appkę pobierany.
  *
  * Watcher publikuje na temat "elektron-subs-zse-bydgoszcz" / "elektron-anns-zse-bydgoszcz"

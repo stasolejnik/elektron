@@ -42,9 +42,4 @@ object SchoolEndpoints {
         const val OTHER_NEWS_CATEGORY = "${BASE}informacje-spoza-szkoly-m1,290.html"
         fun homePage(nnr: Int): String = "${BASE}?menu=1&item=0&nnr=$nnr"
     }
-
-    object Alt {
-        // TODO: https://altplan.zse.bydgoszcz.pl — nieprobingowany. Na później.
-        const val BASE = "https://altplan.zse.bydgoszcz.pl/"
-    }
 }

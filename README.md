@@ -23,8 +23,8 @@ Zalecane, z powiadomieniami push.
 ## O aplikacji
 
 eLektron zbiera informacje potrzebne w szkolnym dniu: plan Twojej klasy i grup, zastępstwa,
-ogłoszenia oraz połączenia komunikacji miejskiej ze szkoły. Nie wymaga konta. Pobrane dane
-szkolne i zapisane ulubione ogłoszenia można odczytać bez internetu.
+ogłoszenia oraz połączenia komunikacji miejskiej między Twoim przystankiem a szkołą. Nie wymaga
+konta, a pobrane dane szkolne i ulubione ogłoszenia działają bez internetu.
 
 To nieoficjalny projekt ucznia, niezwiązany ze szkołą ani z firmą VULCAN. Aplikacja jest
 inspirowana [Atomem](https://github.com/kacpergorka/atom) [Kacpra Górki](https://github.com/kacpergorka)
@@ -48,145 +48,56 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 
 ## Funkcje
 
-- **Plan lekcji:** widok dnia i tygodnia z zastępstwami, szczegóły sali i nauczyciela,
-  wybór własnych grup zajęciowych oraz udostępnianie dnia lub tygodnia.
-- **Notatki do lekcji:** przytrzymaj przyszłą lekcję, aby dodać notatkę. Możesz ustawić
-  przypomnienie przed lekcją albo dzień wcześniej. Notatki są też widoczne w widżetach.
-- **Zastępstwa:** zmiany dotyczące Twojej klasy i grup - na pierwszym planie lekcja na zastępstwie
-  (gdy szkoła ją poda), pod nią nauczyciel zastępujący - informacje szkoły dopisane pod datą
-  (np. o oddawaniu krwi, także z obrazkiem) z godziną ostatniej aktualizacji strony, przejście do lekcji w planie oraz udostępnianie pojedynczego
-  zastępstwa lub całej widocznej listy.
-- **Ogłoszenia:** informacje szkoły na dziś i kolejne dni (np. zamiana sal) na górze listy,
-  wyszukiwanie, czytanie treści w aplikacji i ulubione z zapisem do odczytu bez internetu.
-- **Przejazdy:** autobusy i tramwaje między Twoim przystankiem a szkołą, od najbliższego kursu. Rano dojazd na
-  najbliższą lekcję (o której będziesz na przystanku przy szkole i ile zapasu do lekcji),
-  od połowy dnia lekcji powrót ze szkoły (kiedy wyjść, żeby zdążyć dojść). Opóźnienia na żywo,
-  gdy pojazd jest śledzony, linia, kierunek i czas dojścia. Przystanki wybierzesz przez
-  wyszukiwarkę lub mapę OpenStreetMap, bez GPS; kierunek zmienisz też ręcznie.
-- **Strona główna:** trwająca lub najbliższa lekcja, przerwa i nadchodzące zmiany.
-- **Powiadomienia:** nowe zastępstwa, ogłoszenia i informacje szkoły (np. skrócone lekcje), przypomnienia o lekcjach i notatkach,
-  ciche godziny oraz powiadomienie na żywo w dni lekcyjne (odliczanie do przerwy albo lekcji, także na pasku stanu w Androidzie 16+, co trwa, co dalej i kiedy koniec lekcji).
-- **Szybki dostęp:** widżety Następna lekcja, Plan dnia, Zastępstwa i Przejazdy (najbliższe kursy rano do szkoły,
-  po lekcjach ze szkoły), kafelek szybkich
-  ustawień oraz skróty po przytrzymaniu ikony aplikacji.
-- **Wygląd:** własne nazwy i kolory przedmiotów, jasny lub ciemny motyw, kolor akcentu,
-  kolor tła (gotowy albo własny), kolory z tapety na Androidzie 12 lub
-  nowszym i wybór ikony aplikacji.
+- **Plan lekcji:** dzień i tydzień z zastępstwami, Twoje grupy zajęciowe, notatki do lekcji z przypomnieniem.
+- **Zastępstwa:** zmiany dla Twojej klasy i grup oraz informacje szkoły (np. skrócone lekcje).
+- **Ogłoszenia:** wyszukiwanie, czytanie w aplikacji i ulubione do odczytu bez internetu.
+- **Przejazdy:** autobusy i tramwaje rano do szkoły (ile zapasu do lekcji) i po lekcjach ze szkoły,
+  opóźnienia na żywo i pozycja pojazdu na mapie. Bez GPS.
+- **Strona główna:** trwająca lub najbliższa lekcja, kolejna lekcja, zastępstwa, dojazd i ogłoszenia.
+- **Powiadomienia:** zastępstwa, ogłoszenia, przypomnienia o lekcjach i notatkach oraz powiadomienie
+  na żywo z odliczaniem do końca lekcji (także na pasku stanu w Androidzie 16).
+- **Szybki dostęp:** widżety Teraz, Plan dnia, Zastępstwa i Przejazdy, kafelek szybkich ustawień,
+  skróty ikony i opcjonalny przycisk „Więcej” na dolnym pasku.
+- **Wygląd:** motyw, kolor akcentu i tła, kolory z tapety, własne nazwy i kolory przedmiotów, dwie ikony aplikacji.
 
-Przejazdy są domyślnie wyłączone - włączysz je w **Ustawieniach → Przejazdy** (zakładka i karta
-na stronie głównej niezależnie). Szkoła to **Mieczysława Karłowicza 20 w Bydgoszczy**. Godziny
-pochodzą z rozkładu, opóźnienia z tablic przystanków BUSearch, a dojście ze szkoły jest
-wyznaczane ulicami i ścieżkami. Kierunek przełącza się sam w połowie dnia lekcji (bez lekcji
-o 12:00). Sprawdzanie połączeń wymaga internetu; funkcja nie korzysta z lokalizacji telefonu.
+Jak korzystać z aplikacji i co zrobić, gdy coś nie działa: **[INSTRUKCJA.md](INSTRUKCJA.md)**.
 
-## Ustawienia
+## Instalacja
 
-Na górze zakładki **Ustawienia** jest karta klasy i grup, pod nią kategorie - każda otwiera
-własną stronę, a po powrocie lista jest przewinięta tam, gdzie była. Kolejność jak w aplikacji.
+**Z GitHuba (zalecane):** pobierz [eLektron-1.0.3.apk](https://github.com/stasolejnik/elektron/releases/download/v1.0.3/eLektron-1.0.3.apk)
+([wszystkie wydania](https://github.com/stasolejnik/elektron/releases)), otwórz plik na telefonie
+i zezwól na instalację z tego źródła. Ta wersja ma powiadomienia push o zastępstwach i aktualizacje w aplikacji.
 
-| Kategoria | Co ustawisz |
-|---|---|
-| **Klasa i grupy** (karta na górze) | Klasa (zmiana wymaga potwierdzenia) i **grupy zajęciowe** - języki, WF, religia i inne podziały; przy przedmiotach z trzema grupami i więcej można wybrać kilka („Wybierz kilka grup”). Plan, strona główna, widżety i powiadomienia pokazują wtedy tylko Twoje lekcje. |
-| **Powiadomienia** | Nowe zastępstwa, nowe ogłoszenia (domyślnie wyłączone) i **informacje szkoły** dopisane na stronie zastępstw, np. skrócone lekcje (domyślnie wyłączone). W wersji z GitHuba także **nowa wersja aplikacji** (domyślnie wyłączone). **Powiadomienia na żywo** (domyślnie wyłączone) - od kwadransa przed pierwszą lekcją do końca ostatniej: odliczanie do przerwy w trakcie lekcji i do lekcji w przerwie, co trwa i co dalej, zastępstwa i notatki; ciche, można je ukryć do końca dnia. **Ciche godziny** - powiadomienia w wybranych godzinach przychodzą bez dźwięku i wibracji, ale nie znikają. **Przypomnienia o lekcjach** (domyślnie wyłączone; punktualne wymagają zgody na alarmy o czasie) oraz **notatki do lekcji**: lista notatek i przypomnienia dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją. |
-| **Strona główna** | **Ekran startowy** - co otwiera się po uruchomieniu: automatycznie (w czasie lekcji plan, poza nimi strona główna), strona główna, plan, zastępstwa albo Przejazdy. Karty na stronie głównej, w tym **Czas do końca lekcji** (domyślnie wyłączony, także linia w widżecie Plan dnia), **Przejazdy** oraz **Informacje szkoły w ogłoszeniach** (np. zamiana sal - w sekcji ogłoszeń na stronie głównej i na górze zakładki Ogłoszenia, domyślnie włączone). |
-| **Wygląd** | Motyw jasny, ciemny albo jak w systemie, **kolor akcentu**, **kolor tła** (Klasyczny, Grafit, Ciepły, Morski, Leśny albo własny - odcień i nasycenie tła i kart), kolory z tapety (Android 12+) i **ikona aplikacji**: granatowa (domyślna) albo cyjanowa. Po zmianie ikony aplikacja się zamyka. |
-| **Plan lekcji** | Własne nazwy i kolory przedmiotów, pokazywanie sali i nauczyciela. |
-| **Przejazdy** | Zakładka Przejazdy i karta na stronie głównej (niezależne, domyślnie wyłączone), **Twój przystanek**, **przystanek przy szkole** (domyślnie „Szkoła” - najbliższe przystanki; można wybrać dowolny, lista od najbliższego szkoły), **także inne przystanki przy szkole** (kursy z przystanków do 1 km od szkoły), połączenia z przesiadką i **kursy na czas przed lekcją** (dojazd od kursu, który jest na miejscu najbliżej 5-30 min przed lekcją, zamiast od najbliższego). |
-| **Pasek nawigacji** | Które zakładki są na dolnym pasku i w jakiej kolejności (przytrzymaj i przeciągnij). |
-| **Widżety** | Przezroczystość tła oraz sala i nauczyciel w widżetach. W motywie Auto przy dużej przezroczystości kolor tekstu dopasowuje się do tapety. |
-| **Praca w tle** | Stan optymalizacji baterii i poradnik dla Twojego telefonu - przydatne, gdy powiadomienia lub widżety się spóźniają. |
-| **Aktualizacje** | Wersja z GitHuba: **kanał** „Stabilne” (domyślnie) albo „Beta” (także wersje testowe), ręczne sprawdzenie aktualizacji. Powiadomienie o nowej wersji jest w **Powiadomieniach**. |
-| **Dane** | Wyczyszczenie danych podręcznych - plan, zastępstwa i ogłoszenia pobiorą się od nowa; ustawienia, notatki i ulubione zostają. |
-| **O aplikacji** | Wersja, zgłaszanie problemów z raportem, kontakt, kod źródłowy, polityka prywatności i licencja GPL v3. |
+**Z F-Droid:** [strona aplikacji](https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/). Bez usług
+Google - o zastępstwach dowiaduje się z okresowego sprawdzania w tle; aktualizacje kilka dni po GitHubie.
 
-Skróty po przytrzymaniu ikony aplikacji: Plan lekcji, Zastępstwa, Ogłoszenia, Strona główna
-i - przy włączonej zakładce - Przejazdy.
-
-**Dni wolne:** strona szkoły pokazuje stały plan także w święta i przerwy. eLektron zna święta
-ustawowe, przerwy świąteczne, wakacje i ferie zimowe w kujawsko-pomorskim (2026/2027: 15-28 lutego,
-2027/2028: 17-30 stycznia) -
-w takie dni nie ma przypomnień, powiadomienia na żywo ani „następnej lekcji”, a plan dnia mówi, że to
-dzień wolny. Dni wolne ustalane przez dyrektora szkoły nie są znane z góry.
-
-**Nowy rok szkolny:** gdy na stronie szkoły zmieni się lista klas i Twojej klasy nie ma albo jej
-miejsce zajęła inna, aplikacja poprosi o ponowny wybór klasy zamiast pokazywać cudzy plan.
-Sprawdza to także przy pobieraniu samego planu i po przywróceniu ustawień z kopii zapasowej.
-
-## Instalacja i aktualizacje
-
-**Z GitHuba (zalecane):** powiadomienia push o zastępstwach i nowe wersje od razu, z aktualizacją w aplikacji.
-
-1. Pobierz [**eLektron-1.0.3.apk**](https://github.com/stasolejnik/elektron/releases/download/v1.0.3/eLektron-1.0.3.apk) (wszystkie wersje: [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)).
-2. Otwórz pobrany plik na telefonie.
-3. Jeśli Android poprosi o zgodę na instalację z przeglądarki lub menedżera plików,
-   zezwól na instalowanie z tego źródła.
-4. Przy pierwszym uruchomieniu wybierz klasę i swoje grupy zajęciowe.
-
-**Z F-Droid:** zainstaluj eLektron ze [strony aplikacji w F-Droid](https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/).
-Ta wersja nie korzysta z usług Google, więc o zastępstwach dowiaduje się tylko z okresowego
-sprawdzania w tle. Aktualizacje przychodzą przez F-Droid, zwykle kilka dni po wydaniu na GitHubie.
-
-Aplikacja wymaga **Androida 8.0 lub nowszego**. Kolejne wersje instaluj jako aktualizację,
-bez odinstalowywania - zachowasz ustawienia, notatki i ulubione. W wydaniu z GitHuba
-aktualizacje można sprawdzić również w aplikacji, w **Ustawieniach → Aktualizacje**
-(domyślnie tylko wersje stabilne; kanał „Beta” obejmuje też wersje testowe), a powiadomienie
-o nowej wersji włączysz w **Ustawieniach → Powiadomienia**.
-
-Wydania w F-Droid są budowane i podpisywane przez F-Droid, a wydania z GitHuba moim kluczem.
-Nie da się zainstalować jednej wersji na drugą - przy zmianie źródła trzeba odinstalować
-aplikację, co usuwa ustawienia, notatki i ulubione.
-
-## Powiadomienia
-
-Android może opóźniać pracę aplikacji w tle. Jeśli powiadomienia nie przychodzą,
-sprawdź zgodę na powiadomienia oraz kategorię **Praca w tle** w Ustawieniach eLektronu.
-Przypomnienia o lekcjach korzystają także z uprawnienia do dokładnych alarmów.
-
-Dane szkolne są sprawdzane w tle przez WorkManager (zastępstwa co 15 min, w nocy i w dni bez lekcji
-rzadziej); wariant z GitHuba korzysta również
-z powiadomień Firebase Cloud Messaging. Informacje o zastępstwach i ogłoszeniach pochodzą
-ze stron szkoły. Przejazdy są sprawdzane podczas korzystania z tej funkcji, a widżet Przejazdy
-odświeża je także w tle w ciągu dnia (w porze dojazdu najwyżej co 5 minut, poza nią co 15 minut).
+Wymaga **Androida 8.0 lub nowszego**. Nowe wersje instaluj na wierzch poprzedniej - ustawienia,
+notatki i ulubione zostają. Wersji z GitHuba i z F-Droid nie da się zainstalować jedna na drugą
+(inne podpisy); zmiana źródła wymaga odinstalowania.
 
 ## Prywatność
 
-Aplikacja nie wymaga konta i nie zawiera reklam ani analityki. Ustawienia, notatki i ostatnie
-wybrane przystanki są przechowywane lokalnie. Przejazdy nie wymagają GPS: zapytania dotyczą
-stałego adresu szkoły i wybranych przystanków. Mapy i wyznaczanie tras korzystają z usług
-zewnętrznych. Wariant `gms` korzysta również z Firebase do powiadomień i GitHuba do aktualizacji.
-Szczegóły połączeń, przechowywania danych i kopii zapasowych: [PRYWATNOSC.md](PRYWATNOSC.md).
+Bez konta, reklam i analityki. Ustawienia, notatki i przystanki są tylko na telefonie, a Przejazdy
+nie korzystają z GPS. Szczegóły wszystkich połączeń (strony szkoły, BUSearch, OpenStreetMap, w wersji
+z GitHuba także Firebase i GitHub): [PRYWATNOSC.md](PRYWATNOSC.md).
 
 ## Zgłaszanie problemów
 
-W Ustawieniach użyj **Zgłoś problem**, aby przygotować raport z wersją aplikacji, informacjami
-o urządzeniu i ostatnimi logami. Po awarii aplikacja może zaproponować raport przy kolejnym
-uruchomieniu. Raport wysyłasz samodzielnie.
-
-Opisz, co się stało i jak odtworzyć problem, w [Issues](https://github.com/stasolejnik/elektron/issues)
-lub napisz na [elektron@tuta.com](mailto:elektron@tuta.com).
+W **Ustawieniach → O aplikacji → Zgłoś problem** przygotujesz raport z wersją aplikacji, telefonem
+i ostatnimi logami. Opisz problem w [Issues](https://github.com/stasolejnik/elektron/issues)
+albo napisz na [elektron@tuta.com](mailto:elektron@tuta.com).
 
 ## Dla osób rozwijających projekt
 
-Kotlin, Jetpack Compose, Material 3, Hilt, Room, DataStore, WorkManager, Glance,
-OkHttp, Jsoup i osmdroid. Wymagania: JDK 17 lub nowszy i Android SDK; minSdk 26.
-
-| Wariant | Zawartość |
-|---|---|
-| `gms` | GitHub Releases, powiadomienia FCM i aktualizacje w aplikacji |
-| `foss` | Wolne zależności, bez usług Google i instalowania aktualizacji z aplikacji |
-
-Testy i kompilacja wariantu `foss`:
+Kotlin, Jetpack Compose, Glance, Room, DataStore, Hilt, WorkManager, OkHttp, Jsoup i osmdroid; minSdk 26.
+Dwa warianty: `gms` (GitHub, powiadomienia FCM, aktualizacje w aplikacji) i `foss` (F-Droid, bez usług Google).
 
 ```sh
 ./gradlew :app:testFossDebugUnitTest :app:assembleFossDebug
 ```
 
-Wariant `gms` wymaga lokalnego `app/google-services.json`; konfigurację opisuje
-[PORADNIK_PUSH.md](PORADNIK_PUSH.md). Podpisywanie wydań wymaga `keystore.properties`
-([przykład](keystore.properties.example)). Pliki konfiguracji i klucze nie trafiają do repozytorium.
-
-Kod wspólny jest w `app/src/main/`, a zależny od wariantu w `app/src/gms/` i `app/src/foss/`.
-Historia wydań: [CHANGELOG.md](CHANGELOG.md).
+Budowanie, wydania, powiadomienia push, zmiany stron szkoły i API BUSearch, rozwiązywanie problemów:
+**[DEWELOPER.md](DEWELOPER.md)**. Historia zmian: [CHANGELOG.md](CHANGELOG.md).
 
 ## Źródła danych
 
@@ -195,7 +106,7 @@ Historia wydań: [CHANGELOG.md](CHANGELOG.md).
 | Plan lekcji i lista klas | [plan.zse.bydgoszcz.pl](https://plan.zse.bydgoszcz.pl) |
 | Zastępstwa | [zastepstwa.zse.bydgoszcz.pl](https://zastepstwa.zse.bydgoszcz.pl) |
 | Ogłoszenia | [zse.bydgoszcz.pl](https://zse.bydgoszcz.pl) |
-| Przystanki i połączenia | [BUSearch Bydgoszcz](https://busearch.pl/bydgoszcz) |
+| Przystanki, połączenia i pojazdy na żywo | [BUSearch Bydgoszcz](https://busearch.pl/bydgoszcz) (Szymon Czaja) |
 | Mapa | [OpenStreetMap](https://www.openstreetmap.org/copyright) |
 
 ## Licencja
