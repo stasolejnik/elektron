@@ -53,6 +53,9 @@ Przejazdy z pozycją pojazdu na żywo, przewodnik po aplikacji, przycisk „Wię
 - Prywatność: logi parsera zastępstw w raporcie „Zgłoś problem” nie zawierają nazwisk nauczycieli; polityka prywatności opisuje widżet Przejazdy w tle (w porze dojazdu, najwyżej co 5 minut), pozycję pojazdu i przebieg trasy kursu.
 - Ogłoszenia: uszkodzony plik ulubionych jest odkładany obok (`.corrupt`), a ulubione odtwarzają się z bazy - dawniej blokował pobieranie ogłoszeń na stałe. Nieczytelny pojedynczy wpis ulubionych albo notatek jest pomijany zamiast ukrywać wszystkie. Artykuł i powiadomienie z pusha tylko z adresów szkoły (`SchoolEndpoints.isSchoolUrl`).
 - Widżety: odświeżenie widżetu Przejazdy nie każe pozostałym widżetom wczytywać danych od nowa (osobna wersja danych); podgląd widżetu Przejazdy bez „wyjdź o…”.
+- Ustawienia → Pasek nawigacji: „na prawym końcu paska” zamiast „pasku”.
+- Dokumentacja: krótszy README (pobieranie, funkcje, instalacja, prywatność, zgłaszanie problemów), nowa [INSTRUKCJA.md](INSTRUKCJA.md) - jak korzystać z aplikacji i co zrobić, gdy coś nie działa (przewodnik, notatki z okna lekcji i Moje notatki, „Więcej” po aktualizacji, mapa pojazdu, widżety na ekranach głównych bez systemowego dodawania) - i [DEWELOPER.md](DEWELOPER.md): budowanie, struktura, testy, wydania, F-Droid, powiadomienia push (dawny PORADNIK_PUSH.md), zmiany stron szkoły i API BUSearch, zadania na każdy rok. Usunięte stare opisy wydań RC i nieużywany `SchoolEndpoints.Alt`.
+- Wydania: każda wersja ma wyższy `versionCode` niż poprzednia (1.0.4 - 41), bo aktualizacja w aplikacji odrzuca plik z tym samym kodem, a „Co nowego” liczy wpisy według kodu (DEWELOPER.md).
 - Testy: prawdziwa lista klas, strona zastępstw z literówką i odpowiedzi BUSearch o pojeździe jako dane testowe; test pilnuje, czy w `SchoolCalendar` jest termin ferii zimowych na bieżący rok szkolny.
 
 ## [1.0.3] - 2026-11-07 (39)
