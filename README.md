@@ -11,7 +11,7 @@
 [![Licencja: GPL v3+](https://img.shields.io/badge/licencja-GPL--3.0--or--later-blue)](LICENSE)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
-### [Pobierz eLektron 1.0.3 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.3/eLektron-1.0.3.apk)
+### [Pobierz eLektron 1.0.4 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.4/eLektron-1.0.4.apk)
 
 Zalecane, z powiadomieniami push.
 
@@ -59,12 +59,14 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 - **Szybki dostęp:** widżety Następna lekcja, Plan dnia, Zastępstwa i Przejazdy, kafelek szybkich ustawień,
   skróty ikony i przycisk „Więcej” na dolnym pasku.
 - **Wygląd:** motyw, kolor akcentu i tła, kolory z tapety, własne nazwy i kolory przedmiotów, dwie ikony aplikacji.
+- **Na start:** wybór klasy i grup oraz krótki przewodnik po aplikacji (można go pominąć). Aplikację
+  polecisz kodem QR z Ustawień.
 
 Jak korzystać z aplikacji i co zrobić, gdy coś nie działa: **[INSTRUKCJA.md](INSTRUKCJA.md)**.
 
 ## Instalacja
 
-**Z GitHuba (zalecane):** pobierz [eLektron-1.0.3.apk](https://github.com/stasolejnik/elektron/releases/download/v1.0.3/eLektron-1.0.3.apk)
+**Z GitHuba (zalecane):** pobierz [eLektron-1.0.4.apk](https://github.com/stasolejnik/elektron/releases/download/v1.0.4/eLektron-1.0.4.apk)
 ([wszystkie wydania](https://github.com/stasolejnik/elektron/releases)), otwórz plik na telefonie
 i zezwól na instalację z tego źródła. Ta wersja ma powiadomienia push o zastępstwach i aktualizacje w aplikacji.
 

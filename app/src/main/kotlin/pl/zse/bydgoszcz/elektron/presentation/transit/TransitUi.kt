@@ -29,10 +29,10 @@ fun TransitVisibilitySection(viewModel: TransitViewModel) {
         footer = "Przytrzymaj ikonę na dolnym pasku i przeciągnij ją, aby zmienić kolejność" +
             (if (state.preferences.moreEnabled) " albo upuść ją na „Więcej”." else ".") +
             " Ukryte ikony nie usuwają pozostałych sekcji z przesuwanych ekranów.") {
-        // "Więcej" na prawym końcu pasku: Przejazdy, Ogłoszenia i Ustawienia w rozwijanym panelu (jak folder).
+        // "Więcej" na prawym końcu paska: Przejazdy, Ogłoszenia i Ustawienia w rozwijanym panelu (jak folder).
         pl.zse.bydgoszcz.elektron.presentation.settings.SwitchRow("Przycisk „Więcej”", state.preferences.moreEnabled,
             enabled = state.ready && !state.failed && !saving,
-            supporting = "Część ikon w rozwijanym panelu na prawym końcu pasku - przeciągaj je jak w folderze") { viewModel.setMoreEnabled(it) }
+            supporting = "Część ikon w rozwijanym panelu na prawym końcu paska - przeciągaj je jak w folderze") { viewModel.setMoreEnabled(it) }
         pl.zse.bydgoszcz.elektron.presentation.settings.RowDivider()
         bottomDestinationsForTransit(true).filter { it.route != "settings" }.forEachIndexed { index, destination ->
             if (index > 0) pl.zse.bydgoszcz.elektron.presentation.settings.RowDivider()

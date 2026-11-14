@@ -18,7 +18,7 @@ Zakładki przełączasz dolnym paskiem albo przesuwając ekran palcem w bok.
   czas do końca lekcji, dojazd lub powrót, zastępstwa i najnowsze ogłoszenia. W dzień wolny widać
   „Dziś wolne”, a dzień wcześniej „Jutro wolne”. Przeciągnięcie w dół odświeża dane.
 - **Plan:** widok **Dzień** albo **Tydzień**. Dotknięcie lekcji pokazuje szczegóły (sala, nauczyciel, grupy,
-  zastępstwo). Przycisk udostępniania wysyła dzień albo tydzień jako tekst.
+  zastępstwo, notatka). Przy zajęciach łączonych z inną klasą zamiast nauczyciela widać, z którą klasą są. Przycisk udostępniania wysyła dzień albo tydzień jako tekst.
 - **Zastępstwa:** zmiany dla Twojej klasy i grup na kolejne dni oraz informacje szkoły dopisane
   pod datą. Dotknięcie zastępstwa otwiera tę lekcję w planie.
 - **Przejazdy:** autobusy i tramwaje - patrz [Przejazdy](#przejazdy).
@@ -31,22 +31,24 @@ Zakładki przełączasz dolnym paskiem albo przesuwając ekran palcem w bok.
 Kolejność zakładek zmienisz, **przytrzymując ikonę na pasku i przeciągając** ją. Zakładki ukryjesz
 w **Ustawieniach → Pasek nawigacji**.
 
-Na prawym końcu pasku jest przycisk **„Więcej”** - po dotknięciu rozwija panel z Przejazdami, Ogłoszeniami
-i Ustawieniami. Działa jak folder na ekranie głównym:
+Przycisk **„Więcej”** na prawym końcu paska rozwija panel z Przejazdami, Ogłoszeniami i Ustawieniami.
+Przy nowej instalacji jest włączony od razu, a po aktualizacji ze starszej wersji włączysz go
+w **Ustawieniach → Pasek nawigacji**. Działa jak folder na ekranie głównym:
 
 - przytrzymaj ikonę w panelu i przesuń ją, aby zmienić kolejność;
 - przeciągnij ikonę z panelu na pasek, aby ją tam przenieść;
-- przeciągnij ikonę z pasku na środek „Więcej”, aby schować ją w panelu (przytrzymaj chwilę, a panel się otworzy i wstawisz ją w wybrane miejsce);
+- przeciągnij ikonę z paska na środek „Więcej”, aby schować ją w panelu (przytrzymaj chwilę, a panel się otworzy i wstawisz ją w wybrane miejsce);
 - sam przycisk „Więcej” też możesz przesuwać po pasku.
 
 Przycisk wyłączysz w **Ustawieniach → Pasek nawigacji** - wszystkie ikony wrócą wtedy na pasek.
 
 ## Notatki do lekcji
 
-**Przytrzymaj przyszłą lekcję** w planie, aby dodać notatkę (np. „kartkówka z funkcji”). Notatka
-jest widoczna w planie, w widżetach i w powiadomieniu na żywo. Przypomnienie (dzień wcześniej
-o wybranej godzinie albo kilka minut przed lekcją) włączysz w **Ustawieniach → Powiadomienia → Notatki
-do lekcji**, a wszystkie notatki znajdziesz w **Moje notatki**.
+**Przytrzymaj przyszłą lekcję** w planie albo dotknij jej i wybierz **Dodaj notatkę**, aby zapisać
+notatkę (np. „kartkówka z funkcji”). Notatka jest widoczna w planie, w widżetach i w powiadomieniu
+na żywo. Przypomnienie (dzień wcześniej o wybranej godzinie albo kilka minut przed lekcją) włączysz
+w **Ustawieniach → Powiadomienia → Notatki do lekcji**. Wszystkie notatki znajdziesz w **Moje notatki**
+(ikona obok przełącznika Dzień/Tydzień w planie); stamtąd otworzysz lekcję w planie albo usuniesz notatkę.
 
 ## Przejazdy
 
@@ -62,7 +64,8 @@ Tam też wyłączysz zakładkę i kartę na stronie głównej (każdą osobno).
   szkoły (pokazywane są tylko kursy, do których zdążysz dojść). Możesz wybrać jeden konkretny przystanek.
 - **Opóźnienia na żywo:** znaczek przy godzinie („+2 min”, „na czas”), gdy BUSearch śledzi pojazd.
 - **Gdzie jest pojazd:** **dotknij kursu**, aby zobaczyć autobus albo tramwaj na mapie, jego trasę
-  i ile przystanków zostało do Twojego. Działa, gdy BUSearch śledzi pojazd - zwykle kilkanaście minut przed odjazdem.
+  i ile przystanków zostało do przystanku, na którym wsiadasz. Działa, gdy BUSearch śledzi pojazd - zwykle
+  kilkanaście minut przed odjazdem. Pozycja odświeża się co kilka sekund, dopóki okno jest otwarte.
 - **Odświeżanie:** przeciągnij listę w dół. Kolejne kursy: **Pokaż więcej** albo wyraźne przeciągnięcie w górę na końcu listy.
 - **Wybór przystanku:** wyszukiwarka albo mapa (bez GPS). **Przytrzymanie** przystanku w „Ostatnich” usuwa go z listy.
 
@@ -88,7 +91,11 @@ z F-Droid sprawdza stronę szkoły co około 15 minut, w nocy i w dni wolne rzad
 
 Cztery widżety: **Następna lekcja** (trwająca albo najbliższa lekcja), **Plan dnia**, **Zastępstwa** i **Przejazdy**.
 Najprościej dodasz je w **Ustawieniach → Widżety → Dodaj na ekran główny**; potem możesz je przesunąć
-i zmienić rozmiar. Tam też ustawisz przezroczystość tła i to, czy pokazywać salę i nauczyciela.
+i zmienić rozmiar. Gdy tej sekcji nie ma (niektóre ekrany główne nie pozwalają aplikacjom dodawać
+widżetów), przytrzymaj puste miejsce na ekranie głównym, wybierz **Widżety** i znajdź eLektron.
+W **Ustawieniach → Widżety** ustawisz też przezroczystość tła i to, czy pokazywać salę i nauczyciela.
+
+Dotknięcie lekcji w widżecie otwiera jej szczegóły w planie.
 
 Widżet **Przejazdy** pokazuje najbliższe kursy - rano do szkoły, po lekcjach ze szkoły. Sam sprawdza
 połączenia w ciągu dnia (od 6:00 do 21:00); ikona odświeżania sprawdza od razu. Im wyższy widżet, tym więcej kursów.
@@ -103,7 +110,7 @@ połączenia w ciągu dnia (od 6:00 do 21:00); ikona odświeżania sprawdza od r
 | **Wygląd** | Motyw, kolor akcentu, kolor tła, kolory z tapety (Android 12+) i ikona aplikacji (granatowa albo cyjanowa). |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, sala i nauczyciel w planie. |
 | **Przejazdy** | Zakładka i karta, Twój przystanek, przystanek przy szkole, inne przystanki przy szkole (do 1 km), przesiadki, kursy na czas przed lekcją. |
-| **Pasek nawigacji** | Przycisk „Więcej” (domyślnie włączony) i widoczne zakładki. |
+| **Pasek nawigacji** | Przycisk „Więcej” (przy nowej instalacji włączony) i widoczne zakładki. |
 | **Widżety** | Przezroczystość, sala i nauczyciel, dodawanie widżetów na ekran główny. |
 | **Praca w tle** | Stan oszczędzania baterii i poradnik dla Twojego telefonu. |
 | **Aktualizacje** (wersja z GitHuba) | Kanał „Stabilne” albo „Beta” i ręczne sprawdzenie aktualizacji. |
@@ -129,7 +136,7 @@ inna, aplikacja poprosi o ponowny wybór klasy (grupy i notatki zostają).
   aplikacje w tle - poradnik w tej sekcji pokazuje, co wyłączyć. Przypomnienia o czasie wymagają też
   zgody na **alarmy i przypomnienia**.
 - **Widżet się nie odświeża:** otwórz raz aplikację i sprawdź **Pracę w tle**. Widżet Przejazdy
-  odświeżysz od razu ikoną w jego rogu.
+  odświeżysz od razu ikoną w jego rogu; bez wybranego przystanku poprosi o jego wybór.
 - **Brak czasu na pasku stanu (Android 16):** zezwól na „Aktualizacje na żywo” dla eLektronu
   w ustawieniach systemu; w **Ustawieniach → Powiadomienia** widać, czy system na to pozwala.
 - **Przejazdy: „Nie znaleziono połączenia”:** sprawdź internet, odśwież listę albo włącz przesiadki
