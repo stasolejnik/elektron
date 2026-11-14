@@ -1,0 +1,10 @@
+Commute: tap a ride to see the bus or tram on a map.
+App tour on first launch and in Settings.
+"More" button on the bottom bar.
+Recommend the app with a QR code.
+The following lesson on Start.
+The Commute widget fetches rides by itself; add widgets from Settings.
+Time on the Xiaomi island.
+New contact address: elektron@tuta.com.
+Part of a class sent home and substitutions without a room handled correctly.
+Fifth-year classes: no reminders after lessons end.

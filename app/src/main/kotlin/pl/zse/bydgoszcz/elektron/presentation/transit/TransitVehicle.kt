@@ -30,6 +30,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 import pl.zse.bydgoszcz.elektron.R
 import pl.zse.bydgoszcz.elektron.domain.model.VehicleTrack
+import pl.zse.bydgoszcz.elektron.presentation.common.findActivity
 
 /**
  * Gdzie jest teraz autobus albo tramwaj kursu (po dotknięciu karty w Przejazdach): mapa z pojazdem, trasą
@@ -41,7 +42,21 @@ import pl.zse.bydgoszcz.elektron.domain.model.VehicleTrack
 internal fun VehicleSheet(viewModel: TransitViewModel) {
     val view by viewModel.vehicle.collectAsStateWithLifecycle()
     val current = view ?: return
-    DisposableEffect(Unit) { onDispose { viewModel.closeVehicle() } }
+    // Pozycja pobierana tylko, gdy aplikacja jest na ekranie. Obrót ekranu nie zamyka okna (stan jest
+    // w ViewModelu); okno zamyka się przyciskiem, Wstecz albo po opuszczeniu Przejazdów.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_START) viewModel.resumeVehicle()
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) viewModel.pauseVehicle()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            if (context.findActivity()?.isChangingConfigurations == true) viewModel.pauseVehicle() else viewModel.closeVehicle()
+        }
+    }
     // Okno dialogu nie dostaje wcięcia paska nawigacji - bierzemy je z okna aplikacji (dół mapy nad paskiem gestów).
     val navBottom = with(androidx.compose.ui.platform.LocalDensity.current) {
         androidx.compose.foundation.layout.WindowInsets.navigationBars.getBottom(this).toDp()

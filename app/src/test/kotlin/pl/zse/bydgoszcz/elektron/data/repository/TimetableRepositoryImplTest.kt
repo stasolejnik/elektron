@@ -248,6 +248,33 @@ class TimetableRepositoryImplTest {
         assertEquals("1A", repo.lastSidebarClasses()?.firstOrNull { it.id == "o50" }?.shortName)
     }
 
+    @Test fun listCutInTheMiddleOfTeachersOrRoomsKeepsThem() = runTest {
+        fun cls(id: String, short: String) = ClassListItemDto(id, ClassListItemDto.Kind.CLASS, "$short $short", short, "https://plan.zse.bydgoszcz.pl/plany/$id.html")
+        fun teacher(code: String) = ClassListItemDto("n$code", ClassListItemDto.Kind.TEACHER, "Nauczyciel ($code)", code, "https://plan.zse.bydgoszcz.pl/plany/n$code.html")
+        fun room(id: String) = ClassListItemDto("s$id", ClassListItemDto.Kind.ROOM, "$id Sala", id, "https://plan.zse.bydgoszcz.pl/plany/s$id.html")
+        val teachers = listOf("Ab", "Bc", "Cd", "De", "Ef").map(::teacher)
+        val rooms = listOf("101", "102", "103", "104", "105").map(::room)
+        var sidebar = listOf(cls("o3", "1D")) + teachers + rooms
+        val source = object : TimetableSource by FakeSource() {
+            override suspend fun fetchSidebar() = sidebar
+        }
+        val repo = TimetableRepositoryImpl(source, db.schoolClassDao(), db.teacherDao(), db.roomDao(),
+            db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
+        assertTrue(repo.syncSidebar().isSuccess)
+        // Urwany w połowie nauczycieli (bez sal) - błąd i nikt nie znika.
+        sidebar = listOf(cls("o3", "1D")) + teachers.take(2)
+        assertTrue(repo.syncSidebar().isFailure)
+        assertEquals(5, db.teacherDao().getAll().size)
+        // Urwany w połowie sal - lista wygląda na pełną, ale sal ubyło o ponad połowę: zostają.
+        sidebar = listOf(cls("o3", "1D")) + teachers + rooms.take(2)
+        assertTrue(repo.syncSidebar().isSuccess)
+        assertEquals(5, db.roomDao().getAll().size)
+        // Jedna sala mniej (zwykła zmiana na stronie) - znika.
+        sidebar = listOf(cls("o3", "1D")) + teachers + rooms.take(4)
+        assertTrue(repo.syncSidebar().isSuccess)
+        assertEquals(4, db.roomDao().getAll().size)
+    }
+
     @Test fun identicalSyncDoesNotRewriteTables() = runTest {
         assertTrue(repo.syncTimetable("o3", monday).isSuccess)
         watchWrites("lessons")

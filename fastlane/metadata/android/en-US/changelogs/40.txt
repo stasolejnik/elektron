@@ -1,8 +1,0 @@
-Test version 1.0.4-beta1.
-Commute: tap a ride to see the vehicle on a map.
-Optional "More" button on the bar and the following lesson on Start.
-Time on the Xiaomi island.
-New contact address: elektron@tuta.com.
-Part of a class sent home and substitutions without a room handled correctly.
-An incomplete class list no longer deselects your class.
-Fifth-year classes: no reminders after lessons end in April.

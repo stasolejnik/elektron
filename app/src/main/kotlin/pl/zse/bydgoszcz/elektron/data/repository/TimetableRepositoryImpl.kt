@@ -82,14 +82,19 @@ class TimetableRepositoryImpl @Inject constructor(
                 // Klasa z zapisanym planem (wybrana) zostaje, dopóki użytkownik nie wybierze innej.
                 if (complete && freshClasses.isNotEmpty() && classes.keys.any { id -> freshClasses.none { it.id == id } })
                     classDao.deleteExcept(freshClasses.map { it.id } + lessonDao.classIds())
-                if (freshTeachers.isNotEmpty() && teachers.keys.any { code -> freshTeachers.none { it.code == code } })
+                // Nauczyciele i sale tylko z pełnej listy, która nie skurczyła się o ponad połowę: plik urwany
+                // w połowie nauczycieli albo sal kasowałby nazwiska w planie (zostałyby same skróty).
+                if (complete && plausible(freshTeachers.size, teachers.size) && teachers.keys.any { code -> freshTeachers.none { it.code == code } })
                     teacherDao.deleteExcept(freshTeachers.map { it.code })
-                if (freshRooms.isNotEmpty() && rooms.keys.any { id -> freshRooms.none { it.id == id } })
+                if (complete && plausible(freshRooms.size, rooms.size) && rooms.keys.any { id -> freshRooms.none { it.id == id } })
                     roomDao.deleteExcept(freshRooms.map { it.id })
             }
             if (!complete && !firstList) throw java.io.IOException("Lista klas niepełna (bez nauczycieli albo sal)")
         }
     }
+
+    /** Nowa lista nie jest pusta ani o ponad połowę krótsza od zapisanej (wtedy to raczej ucięty plik). */
+    private fun plausible(fresh: Int, stored: Int) = fresh > 0 && fresh * 2 >= stored
 
     override suspend fun syncTimetable(classId: String, anchorDate: LocalDate): Result<Unit> =
         syncTimetable(classId, anchorDate, null)

@@ -101,6 +101,15 @@ class TransitWidgetDataTest {
         assertEquals("Sprawdzam połączenia…", ready(TransitWidgetData.build(prefs, lessons, null, at("14:40"), zone, TransitWidgetData.Status(refreshing = true))).empty)
     }
 
+    @Test fun matchingResultWithoutRidesSaysNoRidesInsteadOfChecking() {
+        // Wszystkie kursy odjechały, a do kolejnego sprawdzenia jeszcze trochę - nic nie jest pobierane.
+        val saved = result(TransitDirection.FROM_SCHOOL, listOf(trip("5", "15:00")), "14:30")
+        assertEquals("Brak nadchodzących połączeń. Dotknij, aby sprawdzić.",
+            ready(TransitWidgetData.build(prefs, lessons, saved, at("15:05"), zone)).empty)
+        assertEquals("Sprawdzam połączenia…", ready(TransitWidgetData.build(prefs, lessons, saved, at("15:05"), zone,
+            TransitWidgetData.Status(refreshing = true))).empty)
+    }
+
     @Test fun departedRidesDisappearAndTheWidgetRedrawsEveryMinuteWhileItShowsRides() {
         val saved = result(TransitDirection.FROM_SCHOOL, listOf(trip("5", "15:00"), trip("67", "16:30"), trip("33N", "23:07")), "14:30")
         val state = ready(TransitWidgetData.build(prefs, lessons, saved, at("15:05"), zone))

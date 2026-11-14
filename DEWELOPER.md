@@ -97,8 +97,9 @@ O aplikacji. Tam też jest „Poleć aplikację” (`settings/RecommendApp.kt`, 
 
 ## Wydanie nowej wersji
 
-Numer wersji: `versionCode` i `versionName` w `app/build.gradle.kts`. Beta i stabilna wersja mają
-ten sam `versionCode` (np. 1.0.3-beta1 i 1.0.3 - 39).
+Numer wersji: `versionCode` i `versionName` w `app/build.gradle.kts`. Każde wydanie, także stabilne
+po becie, ma wyższy `versionCode` niż poprzednie (np. 1.0.4-beta1 - 40, 1.0.4 - 41): aktualizacja z
+aplikacji odrzuca plik z tym samym kodem, a okno „Co nowego” pokazuje wpisy według kodu.
 
 1. **Wersja:** podnieś `versionCode` (o 1) i ustaw `versionName` (`1.0.5`, `1.0.5-beta1`).
 2. **Zmiany, od najważniejszych:**

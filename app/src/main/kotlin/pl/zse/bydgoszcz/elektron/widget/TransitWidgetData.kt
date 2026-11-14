@@ -112,7 +112,7 @@ internal object TransitWidgetData {
             rows.isNotEmpty() -> null
             status.refreshing -> checking
             status.failed -> failedText
-            auto -> checking
+            // Wynik jest, tylko bez kursów (np. linia już nie jeździ) - nie "Sprawdzam…", gdy nic nie jest pobierane.
             else -> "Brak nadchodzących połączeń. Dotknij, aby sprawdzić."
         }, target)
     }

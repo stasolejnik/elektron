@@ -5,10 +5,14 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
-        Entry(40, "1.0.4-beta1", listOf(
+        Entry(41, "1.0.4", listOf(
             "Przejazdy: dotknij kursu, aby zobaczyć, gdzie jest teraz autobus albo tramwaj",
-            "Przycisk „Więcej” na dolnym pasku - ikony przeciągasz jak w folderze (Ustawienia → Pasek nawigacji)",
+            "Przewodnik po aplikacji przy pierwszym uruchomieniu (także w Ustawieniach → O aplikacji)",
+            "Przycisk „Więcej” na dolnym pasku: ikony przeciągasz jak w folderze (Ustawienia → Pasek nawigacji)",
+            "Poleć aplikację: kod QR i udostępnianie (Ustawienia → O aplikacji)",
             "Kolejna lekcja pod najbliższą na stronie głównej (Ustawienia → Strona główna)",
+            "Widżet Przejazdy sam pobiera kursy i ma nowy, spokojniejszy wygląd",
+            "Widżety dodasz jednym dotknięciem w Ustawieniach → Widżety",
             "Powiadomienie na żywo: czas na wyspie na telefonach Xiaomi, Redmi i POCO",
             "Nowy adres kontaktowy: elektron@tuta.com",
             "Gdy część klasy idzie do domu, a część zostaje w szkole, lekcja nie znika z planu",
@@ -18,8 +22,9 @@ object Changelog {
             "Otwarcie aplikacji zawsze sprawdza zastępstwa, także nocą i w dni wolne",
             "Przejazdy: odświeżanie przeciągnięciem w dół, prostsza karta i „Szkoła” na liście przystanków",
             "Strona główna: „Jutro wolne” przed świętem i data przy lekcji za ponad tydzień",
+            "Zajęcia łączone i nazwy przedmiotów w notatkach czytelniej opisane",
             "Informacje szkoły: godzina publikacji z literówką nie trafia do treści",
-            "Ustawienia wracają od głównej listy po zmianie zakładki"
+            "Ustawienia wracają do głównej listy po zmianie zakładki"
         )),
         Entry(39, "1.0.3", listOf(
             "Nowe logo - ikona granatowa albo cyjanowa (Ustawienia → Wygląd)",

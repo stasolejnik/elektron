@@ -1,8 +1,0 @@
-Wersja testowa 1.0.4-beta1.
-Przejazdy: dotknij kursu, aby zobaczyć pojazd na mapie.
-Przycisk „Więcej” na pasku i kolejna lekcja na stronie głównej (w Ustawieniach).
-Czas na wyspie Xiaomi.
-Nowy adres kontaktowy: elektron@tuta.com.
-Zwolnienia części klasy i zastępstwa bez sali poprawnie w planie.
-Niepełna lista klas nie odznacza Twojej klasy.
-Klasy piąte: bez przypomnień po zakończeniu zajęć w kwietniu.

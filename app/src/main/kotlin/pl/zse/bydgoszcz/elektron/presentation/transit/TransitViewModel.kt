@@ -265,11 +265,19 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
         val ride = trip.rides.first()
         val id = live.value[trip.key]?.vehicleId
         vehicleJob?.cancel()
-        vehicle.value = VehicleView(id, ride.fromId, ride.line, loading = id != null)
+        vehicleJob = null
+        vehicle.value = VehicleView(id, ride.fromId, ride.line, loading = id != null && liveRepository != null)
+        resumeVehicle()
+    }
+
+    /** Odświeżanie pozycji otwartego okna (po otwarciu i po powrocie aplikacji na ekran). */
+    fun resumeVehicle() {
+        val view = vehicle.value ?: return
+        val id = view.vehicleId ?: return
         val repository = liveRepository ?: return
-        if (id == null) return
+        if (vehicleJob?.isActive == true) return
         vehicleJob = viewModelScope.launch {
-            var shapeTried = false
+            var shapeTried = view.shape != null
             while (true) {
                 runCatchingCancellable { repository.vehicle(id) }
                     .onSuccess { track ->
@@ -278,7 +286,7 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                         if (!shapeTried && track.stops.size >= 2) {
                             shapeTried = true
                             launch {
-                                runCatchingCancellable { repository.tripShape(track.position.line.ifBlank { ride.line }, track.stops) }
+                                runCatchingCancellable { repository.tripShape(track.position.line.ifBlank { view.line }, track.stops) }
                                     .getOrNull()?.let { shape -> vehicle.update { it?.copy(shape = shape) } }
                             }
                         }
@@ -288,6 +296,9 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
             }
         }
     }
+
+    /** Aplikacja w tle (albo obrót ekranu): okno zostaje, ale pozycja nie jest pobierana. */
+    fun pauseVehicle() { vehicleJob?.cancel(); vehicleJob = null }
     fun closeVehicle() { vehicleJob?.cancel(); vehicleJob = null; vehicle.value = null }
     fun cancelJourneys() { cancelJourneyRequest(); cancelWalkingRequest() }
     fun loadJourneys(force: Boolean = false, more: Boolean = false, minimumCount: Int = 1) {
