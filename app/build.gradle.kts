@@ -151,6 +151,8 @@ dependencies {
     implementation(libs.jsoup)
     implementation(libs.coil.compose)
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+    // Kod QR w "Poleć aplikację" (MIT, bez zależności).
+    implementation("io.nayuki:qrcodegen:1.8.0")
     implementation(libs.glance.appwidget)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

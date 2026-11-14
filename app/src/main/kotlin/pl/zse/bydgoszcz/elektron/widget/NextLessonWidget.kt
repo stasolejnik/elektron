@@ -154,9 +154,13 @@ class NextLessonWidget : GlanceAppWidget() {
                 Text(header, style = TextStyle(color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             }
             Spacer(GlanceModifier.defaultWeight())
-            if (!compact) Text("${lesson.number}", style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+            // Numer i tytuł otwierają szczegóły lekcji (reszta widżetu - plan).
+            val openLesson = GlanceModifier.clickable(openLessonAction(LocalContext.current,
+                pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(state.date, lesson.number)))
+            if (!compact) Text("${lesson.number}", modifier = openLesson,
+                style = TextStyle(color = lessonColor, fontSize = 30.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             Text(if (compact) "${lesson.number}. ${lesson.title}" else lesson.title,
-                modifier = GlanceModifier.clickable(openLessonAction(LocalContext.current, pl.zse.bydgoszcz.elektron.domain.model.LessonTarget(state.date, lesson.number))),
+                modifier = openLesson,
                 style = TextStyle(color = WidgetColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = titleLines)
             Spacer(GlanceModifier.height(2.dp))
             val where = listOfNotNull(lesson.timeRange, lesson.room?.let { Rooms.label(it) }).joinToString(" · ")

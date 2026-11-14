@@ -64,7 +64,10 @@ import kotlin.math.abs
 fun ElektronNavHost(
     deepLink: String? = null,
     onDeepLinkConsumed: () -> Unit = {},
-    startRoute: String = ElektronRoutes.DASHBOARD
+    startRoute: String = ElektronRoutes.DASHBOARD,
+    /** Przewodnik po aplikacji przy wejściu (świeża instalacja). */
+    autoTour: Boolean = false,
+    onTourFinished: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val transitViewModel: TransitViewModel = hiltViewModel()
@@ -201,11 +204,43 @@ fun ElektronNavHost(
         }
     }
 
+    // Przewodnik po prawdziwej aplikacji: kroki zależą od pasku i Przejazdów, przechodzi po zakładkach sam.
+    val tour = remember { pl.zse.bydgoszcz.elektron.presentation.common.TourState() }
+    val latestTourFinished by androidx.compose.runtime.rememberUpdatedState(onTourFinished)
+    tour.stepsProvider = {
+        pl.zse.bydgoszcz.elektron.presentation.common.tourSteps(
+            moreEnabled = navPrefs.moreEnabled && pl.zse.bydgoszcz.elektron.domain.model.MoreMenu.ROUTE in barRoutes && panelRoutes.isNotEmpty(),
+            transitVisible = navPrefs.visible, onBar = { it in barRoutes })
+    }
+    // Krok przewodnika przetrwa obrót ekranu (-1 - przewodnik nie trwa).
+    var savedTourStep by rememberSaveable { mutableStateOf(-1) }
+    // Przewodnik przewija zakładki (bez przenikania dalszych - pod przyciemnieniem wyglądało jak mignięcie).
+    val slideTo: (String) -> Unit = { route ->
+        val index = bottomDestinations.indexOfFirst { it.route == route }
+        if (index >= 0 && index != pagerState.currentPage) scope.launch {
+            pagerState.animateScrollToPage(index, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+        }
+    }
+    tour.onFinished = { dock.open = false; slideTo(ElektronRoutes.DASHBOARD); latestTourFinished() }
+    LaunchedEffect(autoTour) {
+        if (tour.active) return@LaunchedEffect
+        if (savedTourStep >= 0) tour.start(savedTourStep)
+        else if (autoTour) { kotlinx.coroutines.delay(600); tour.start() }
+    }
+    LaunchedEffect(tour.active, tour.index) {
+        savedTourStep = if (tour.active) tour.index else -1
+        val step = tour.step ?: return@LaunchedEffect
+        showGroups = false; showSubjects = false
+        dock.open = step.openMore
+        step.route?.let(slideTo)
+    }
+
     val navigationError by transitViewModel.navigationError.collectAsStateWithLifecycle()
     val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
     LaunchedEffect(navigationError) {
         navigationError?.let { snackbar.showSnackbar(it); transitViewModel.navigationError.value = null }
     }
+    androidx.compose.runtime.CompositionLocalProvider(pl.zse.bydgoszcz.elektron.presentation.common.LocalTour provides tour) {
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
@@ -292,6 +327,8 @@ fun ElektronNavHost(
                 SubjectsScreen(onClose = { showSubjects = false })
             }
         }
+        pl.zse.bydgoszcz.elektron.presentation.common.TourOverlay(tour)
+    }
     }
 }
 

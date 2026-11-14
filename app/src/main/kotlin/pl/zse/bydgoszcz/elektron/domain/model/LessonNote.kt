@@ -16,6 +16,13 @@ data class LessonNote(
         fun key(classId: String, date: LocalDate, number: Int) = "$classId/${date.toEpochDay()}/$number"
         fun key(lesson: Lesson) = key(lesson.classId, lesson.date, lesson.number)
         fun subject(lesson: Lesson) = lesson.groups.mapNotNull { it.subject }.distinct().sorted().joinToString(" / ")
+        /**
+         * Zapisany przedmiot ("j.angielski-1/2 / j.angielski-2/2") do pokazania: nazwy bez sufiksów
+         * grup, własne nazwy z [styles], bez powtórzeń ("j.angielski").
+         */
+        fun subjectLabel(stored: String, styles: Map<String, SubjectStyle> = emptyMap()): String =
+            stored.split(" / ").mapNotNull { SubjectStyles.displayName(it, styles) }.distinct()
+                .joinToString(" / ").ifBlank { stored }
         fun canEdit(lesson: Lesson, now: LocalDateTime) = LocalDateTime.of(lesson.date, lesson.timeFrom) > now
     }
 }

@@ -716,6 +716,16 @@ class SyncCoordinatorTest {
         assertNull(t.notificationsRepo.observeLastSyncError().first())
     }
 
+    /** Bez internetu plan i zastępstwa padają razem - jedno zdanie zamiast dwóch prawie takich samych. */
+    @Test fun planAndSubstitutionsFailingTogetherGiveOneSentence() = runBlocking<Unit> {
+        timetable.error = IOException("offline")
+        subs.error = IOException("offline")
+        coordinator.sync(SyncRequest.full())
+        val error = t.notificationsRepo.observeLastSyncError().first()!!
+        assertTrue(error, error.startsWith("Nie udało się odświeżyć planu i zastępstw."))
+        assertFalse(error, "\n" in error)
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test fun dashboardStopsLoadingAfterFailedInitialSync() = runBlocking<Unit> {
         Dispatchers.setMain(kotlinx.coroutines.test.UnconfinedTestDispatcher())

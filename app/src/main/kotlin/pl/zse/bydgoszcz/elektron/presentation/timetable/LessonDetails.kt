@@ -70,10 +70,14 @@ internal fun LessonDetailsSheet(lesson: Lesson, userNote: LessonNote? = null, on
                 val key = SubjectStyles.key(g.subject)
                 // Własna nazwa przedmiotu - pokazujemy też nazwę ze strony szkoły.
                 if (key != null && personal.subjectName(g.subject) != key) Field("Na stronie szkoły", key)
-                LessonGroups.parse(g.subject)?.label?.let { Field("Grupa", LessonGroups.displayLabel(it)) }
+                // Zajęcia łączone nie mają na stronie nauczyciela - opis ("łączona z 1H") idzie do grupy,
+                // nie pod etykietę "Nauczyciel".
+                val teacher = g.teacherFullName ?: g.teacherCode
+                lessonGroupField(LessonGroups.parse(g.subject)?.label?.let { LessonGroups.displayLabel(it) },
+                    if (teacher == null) JointGroups.describe(g.classRef, lesson.className) else null)
+                    ?.let { Field("Grupa", it) }
                 g.room?.let { Field("Sala", it) }
-                (g.teacherFullName ?: g.teacherCode ?: JointGroups.describe(g.classRef, lesson.className))
-                    ?.let { Field("Nauczyciel", it) }
+                teacher?.let { Field("Nauczyciel", it) }
             }
 
             if (sub != null) {
@@ -97,7 +101,7 @@ internal fun LessonDetailsSheet(lesson: Lesson, userNote: LessonNote? = null, on
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 Field("Twoja notatka", it.text)
                 if (it.subject != LessonNote.subject(lesson))
-                    Field("Zapisana dla", it.subject, MaterialTheme.colorScheme.tertiary)
+                    Field("Zapisana dla", LessonNote.subjectLabel(it.subject, personal.styles), MaterialTheme.colorScheme.tertiary)
             }
             onEditNote?.let { action ->
                 androidx.compose.material3.TextButton(onClick = action) { Text(if (userNote == null) "Dodaj notatkę" else "Edytuj notatkę") }
@@ -114,4 +118,14 @@ private fun Field(label: String, value: String, valueColor: Color = Color.Unspec
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyLarge, color = valueColor)
     }
+}
+
+/**
+ * Pole "Grupa" w szczegółach lekcji: "Grupa 2", "Grupa 2, łączona z 1H", "Łączona z 1H", "Grupa łączona".
+ * [joint] - opis z [JointGroups.describe] ("łączona z 1H" albo "grupa łączona").
+ */
+internal fun lessonGroupField(group: String?, joint: String?): String? = when {
+    joint == null -> group
+    group == null -> joint.replaceFirstChar { it.uppercase() }
+    else -> "$group, ${joint.removePrefix("grupa ")}"
 }

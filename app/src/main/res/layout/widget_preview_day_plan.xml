@@ -11,7 +11,7 @@
             android:layout_marginStart="6dp" android:text="Plan · Dziś" android:textSize="15sp"
             android:textStyle="bold" android:textColor="@color/widget_text" />
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="1D PBŚ" android:textSize="12sp" android:textColor="@color/widget_text2" />
+            android:text="2A" android:textSize="12sp" android:textColor="@color/widget_text2" />
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:gravity="center_vertical"

@@ -119,7 +119,7 @@ internal fun HomeSection(current: StartScreen, transitTab: Boolean, onChange: (S
 }
 
 /**
- * Odjazdy: zakładka i karta na stronie głównej są niezależne i domyślnie wyłączone;
+ * Przejazdy: zakładka i karta na stronie głównej są niezależne (włączone w nowych instalacjach);
  * przystanki można wybrać tutaj, bez otwierania zakładki.
  */
 @Composable
@@ -141,7 +141,10 @@ internal fun TransitSection(
     GroupedSection("Przejazdy", icon = Icons.Outlined.DirectionsBus,
         footer = "Autobusy i tramwaje (BUSearch): rano dojazd do szkoły, od połowy dnia lekcji powrót." +
             if (prefs.showOnDashboard) " Karta na stronie głównej: 2 h przed lekcjami i do godziny po nich." else "") {
-        SwitchRow("Zakładka Przejazdy", prefs.visible, enabled = ready, supporting = "Na dolnym pasku", onChange = onTab)
+        // Z "Więcej" zakładka zwykle leży w panelu, nie na samym pasku.
+        val inMore = prefs.moreEnabled && "transit" in prefs.moreContent
+        SwitchRow("Zakładka Przejazdy", prefs.visible, enabled = ready,
+            supporting = if (inMore) "W panelu „Więcej”" else "Na dolnym pasku", onChange = onTab)
         RowDivider()
         SwitchRow("Karta na stronie głównej", prefs.showOnDashboard, enabled = ready, supporting = "Najbliższy dojazd rano i powrót po lekcjach", onChange = onCard)
         if (prefs.visible || prefs.showOnDashboard) {
@@ -414,7 +417,7 @@ private fun AddWidgetsSection() {
         runCatching { manager?.isRequestPinAppWidgetSupported == true }.getOrDefault(false)
     if (!supported) return
     val widgets = listOf(
-        "Teraz" to pl.zse.bydgoszcz.elektron.widget.NextLessonWidgetReceiver::class.java,
+        "Następna lekcja" to pl.zse.bydgoszcz.elektron.widget.NextLessonWidgetReceiver::class.java,
         "Plan dnia" to pl.zse.bydgoszcz.elektron.widget.DayPlanWidgetReceiver::class.java,
         "Zastępstwa" to pl.zse.bydgoszcz.elektron.widget.SubstitutionsWidgetReceiver::class.java,
         "Przejazdy" to pl.zse.bydgoszcz.elektron.widget.TransitWidgetReceiver::class.java)

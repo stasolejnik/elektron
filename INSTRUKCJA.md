@@ -7,7 +7,8 @@ Jak korzystać z aplikacji i co zrobić, gdy coś nie działa. Instalacja i pobi
 1. Wybierz swoją **klasę**.
 2. Wybierz **grupy zajęciowe** (języki, WF, religia i inne podziały). Plan, strona główna, widżety
    i powiadomienia pokażą wtedy tylko Twoje lekcje. Grupy zmienisz później w **Ustawieniach** (karta klasy na górze).
-3. Zezwól na **powiadomienia**, jeśli chcesz wiedzieć o nowych zastępstwach.
+3. Krótki **przewodnik** pokaże na ekranach aplikacji, gdzie co jest. Możesz go pominąć i włączyć później w **Ustawieniach → O aplikacji**.
+4. Zezwól na **powiadomienia**, jeśli chcesz wiedzieć o nowych zastępstwach.
 
 ## Zakładki
 
@@ -30,15 +31,15 @@ Zakładki przełączasz dolnym paskiem albo przesuwając ekran palcem w bok.
 Kolejność zakładek zmienisz, **przytrzymując ikonę na pasku i przeciągając** ją. Zakładki ukryjesz
 w **Ustawieniach → Pasek nawigacji**.
 
-Gdy na pasku robi się ciasno, włącz tam **Przycisk „Więcej”**. Stanie na prawym końcu pasku, a po
-dotknięciu rozwinie panel z Przejazdami, Ogłoszeniami i Ustawieniami. Działa jak folder na ekranie głównym:
+Na prawym końcu pasku jest przycisk **„Więcej”** - po dotknięciu rozwija panel z Przejazdami, Ogłoszeniami
+i Ustawieniami. Działa jak folder na ekranie głównym:
 
 - przytrzymaj ikonę w panelu i przesuń ją, aby zmienić kolejność;
 - przeciągnij ikonę z panelu na pasek, aby ją tam przenieść;
 - przeciągnij ikonę z pasku na środek „Więcej”, aby schować ją w panelu (przytrzymaj chwilę, a panel się otworzy i wstawisz ją w wybrane miejsce);
 - sam przycisk „Więcej” też możesz przesuwać po pasku.
 
-Wyłączenie przycisku przywraca wszystkie ikony na pasek.
+Przycisk wyłączysz w **Ustawieniach → Pasek nawigacji** - wszystkie ikony wrócą wtedy na pasek.
 
 ## Notatki do lekcji
 
@@ -49,8 +50,8 @@ do lekcji**, a wszystkie notatki znajdziesz w **Moje notatki**.
 
 ## Przejazdy
 
-Przejazdy są domyślnie wyłączone. Włącz je w **Ustawieniach → Przejazdy** (zakładka i karta na
-stronie głównej włączają się niezależnie) i wybierz **Twój przystanek**, np. przy domu.
+Wybierz **Twój przystanek**, np. przy domu - w zakładce Przejazdy albo w **Ustawieniach → Przejazdy**.
+Tam też wyłączysz zakładkę i kartę na stronie głównej (każdą osobno).
 
 - **Kierunek:** do połowy dnia lekcji aplikacja pokazuje dojazd do szkoły, potem powrót. Kierunek
   zmienisz ręcznie przełącznikiem „Do szkoły / Ze szkoły”.
@@ -85,7 +86,7 @@ z F-Droid sprawdza stronę szkoły co około 15 minut, w nocy i w dni wolne rzad
 
 ## Widżety
 
-Cztery widżety: **Teraz** (trwająca albo najbliższa lekcja), **Plan dnia**, **Zastępstwa** i **Przejazdy**.
+Cztery widżety: **Następna lekcja** (trwająca albo najbliższa lekcja), **Plan dnia**, **Zastępstwa** i **Przejazdy**.
 Najprościej dodasz je w **Ustawieniach → Widżety → Dodaj na ekran główny**; potem możesz je przesunąć
 i zmienić rozmiar. Tam też ustawisz przezroczystość tła i to, czy pokazywać salę i nauczyciela.
 
@@ -102,12 +103,12 @@ połączenia w ciągu dnia (od 6:00 do 21:00); ikona odświeżania sprawdza od r
 | **Wygląd** | Motyw, kolor akcentu, kolor tła, kolory z tapety (Android 12+) i ikona aplikacji (granatowa albo cyjanowa). |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, sala i nauczyciel w planie. |
 | **Przejazdy** | Zakładka i karta, Twój przystanek, przystanek przy szkole, inne przystanki przy szkole (do 1 km), przesiadki, kursy na czas przed lekcją. |
-| **Pasek nawigacji** | Przycisk „Więcej” i widoczne zakładki. |
+| **Pasek nawigacji** | Przycisk „Więcej” (domyślnie włączony) i widoczne zakładki. |
 | **Widżety** | Przezroczystość, sala i nauczyciel, dodawanie widżetów na ekran główny. |
 | **Praca w tle** | Stan oszczędzania baterii i poradnik dla Twojego telefonu. |
 | **Aktualizacje** (wersja z GitHuba) | Kanał „Stabilne” albo „Beta” i ręczne sprawdzenie aktualizacji. |
 | **Dane** | Wyczyszczenie danych podręcznych - plan, zastępstwa i ogłoszenia pobiorą się od nowa; ustawienia, notatki i ulubione zostają. |
-| **O aplikacji** | Wersja, „Zgłoś problem”, kontakt, kod źródłowy, polityka prywatności, licencja. |
+| **O aplikacji** | Wersja, „Poleć aplikację”, przewodnik po aplikacji, „Zgłoś problem”, kontakt, kod źródłowy, polityka prywatności, licencja. |
 
 Po wyjściu z Ustawień do innej zakładki wracają one do głównej listy.
 
@@ -137,6 +138,11 @@ inna, aplikacja poprosi o ponowny wybór klasy (grupy i notatki zostają).
   **Ustawienia → Dane → wyczyść dane podręczne**.
 - **„Strona szkoły zmieniła wygląd”:** aplikacja pokazuje ostatni zapisany plan, a poprawka pojawi się w aktualizacji.
 - **Zmiana wersji z GitHuba na F-Droid (lub odwrotnie):** trzeba odinstalować aplikację, co usuwa ustawienia, notatki i ulubione.
+
+## Polecanie aplikacji
+
+**Ustawienia → O aplikacji → Poleć aplikację** pokazuje kod QR - kolega skanuje go aparatem i trafia
+do repozytorium eLektronu na GitHubie. Przycisk **Udostępnij** wysyła link przez dowolną aplikację.
 
 ## Zgłaszanie problemów
 

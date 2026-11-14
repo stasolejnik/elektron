@@ -38,7 +38,7 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
             Text("${lesson.date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))} · ${lesson.number}. lekcja · ${lesson.timeFrom}",
                 style = MaterialTheme.typography.bodyMedium)
             if (note != null && note.subject != LessonNote.subject(lesson)) Text(
-                "Plan tej lekcji się zmienił. Notatka była zapisana dla: ${note.subject}.", color = MaterialTheme.colorScheme.tertiary)
+                "Plan tej lekcji się zmienił. Notatka była zapisana dla: ${LessonNote.subjectLabel(note.subject, LocalPersonalization.current.styles)}.", color = MaterialTheme.colorScheme.tertiary)
             OutlinedTextField(value = text, onValueChange = { if (it.length <= LessonNote.MAX_LENGTH) viewModel.editText(it) },
                 label = { Text("Twoja notatka") }, placeholder = { Text("Np. powtórzyć rozdział 3") },
                 minLines = 4, maxLines = 8, modifier = Modifier.fillMaxWidth(), enabled = !saving,
@@ -49,7 +49,7 @@ internal fun LessonNoteEditor(lesson: Lesson, state: LessonNotesViewModel.State,
                 TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(text)) }) { Text("Kopiuj szkic") }
             }
             if (!LessonNote.canEdit(lesson, AppClock.now())) Text("Lekcja już się rozpoczęła. Zapis zmieni tekst notatki, ale nie wyśle przypomnienia o tej lekcji.", style = MaterialTheme.typography.bodySmall)
-            Text("Przypomnienia możesz włączyć w Ustawieniach → Notatki do lekcji.",
+            Text("Przypomnienia o notatkach włączysz w Ustawieniach → Powiadomienia.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (note != null) TextButton(onClick = { confirmDelete = true }, enabled = !saving) { Text("Usuń") }

@@ -147,6 +147,14 @@ class ElektronAppViewModel @Inject constructor(
         combine(settings.subjectStyles, settings.timetableLook) { styles, look -> Personalization(styles, look) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** Przewodnik po aplikacji czeka na pokazanie (świeża instalacja). */
+    val tourPending: StateFlow<Boolean> = settings.tourPending
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun finishTour() {
+        viewModelScope.launch { runCatchingCancellable { settings.setTourPending(false) } }
+    }
+
     fun markChangelogSeen() {
         viewModelScope.launch { runCatchingCancellable { settings.setLastSeenVersionCode(currentVersionCode) } }
     }
@@ -168,6 +176,12 @@ class ElektronAppViewModel @Inject constructor(
             if (current == 0) {
                 val isExistingUser = settings.selectedClassId.first() != null
                 val target = if (isExistingUser) (currentVersionCode - 1).coerceAtLeast(0) else currentVersionCode
+                // Świeża instalacja: Przejazdy i "Więcej" włączone, przewodnik po wyborze klasy i grup.
+                // Przed zapisem wersji - przerwany start powtórzy to przy następnym (zapis jest idempotentny).
+                if (!isExistingUser) runCatchingCancellable {
+                    transitPreferences.applyNewInstallDefaults()
+                    settings.setTourPending(true)
+                }
                 runCatchingCancellable { settings.setLastSeenVersionCode(target) }
             }
         }

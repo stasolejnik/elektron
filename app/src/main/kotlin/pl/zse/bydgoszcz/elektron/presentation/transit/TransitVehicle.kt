@@ -42,10 +42,15 @@ internal fun VehicleSheet(viewModel: TransitViewModel) {
     val view by viewModel.vehicle.collectAsStateWithLifecycle()
     val current = view ?: return
     DisposableEffect(Unit) { onDispose { viewModel.closeVehicle() } }
+    // Okno dialogu nie dostaje wcięcia paska nawigacji - bierzemy je z okna aplikacji (dół mapy nad paskiem gestów).
+    val navBottom = with(androidx.compose.ui.platform.LocalDensity.current) {
+        androidx.compose.foundation.layout.WindowInsets.navigationBars.getBottom(this).toDp()
+    }
     androidx.compose.ui.window.Dialog(onDismissRequest = viewModel::closeVehicle,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+      pl.zse.bydgoszcz.elektron.presentation.common.EdgeToEdgeDialogWindow()
       Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 16.dp),
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(bottom = navBottom).padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val track = current.track
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -85,9 +90,10 @@ private fun summary(track: VehicleTrack, platformId: String): String {
     val next = track.stops.firstOrNull { !it.passed }
     return when {
         towards == null -> next?.let { "Następny przystanek: ${it.name}" } ?: "Pojazd jest na trasie."
-        towards.second < 0 -> "Pojazd minął już Twój przystanek (${towards.first.name})."
-        towards.second == 0 -> "Następny przystanek to Twój: ${towards.first.name}" + (towards.first.etaMinutes?.let { " · za ok. $it min" } ?: "")
-        else -> "Do Twojego przystanku (${towards.first.name}): ${stopsText(towards.second)}" +
+        // Przystanek wsiadania - ze szkoły to przystanek przy szkole, nie "Twój przystanek" przy domu.
+        towards.second < 0 -> "Pojazd minął już przystanek ${towards.first.name}."
+        towards.second == 0 -> "Następny przystanek: ${towards.first.name}" + (towards.first.etaMinutes?.let { " · za ok. $it min" } ?: "")
+        else -> "Do przystanku ${towards.first.name}: ${stopsText(towards.second)}" +
             (towards.first.etaMinutes?.let { " · ok. $it min" } ?: "")
     }
 }

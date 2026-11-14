@@ -207,7 +207,7 @@ class LocalNotificationSink @Inject constructor(
         val day = pl.zse.bydgoszcz.elektron.domain.model.SubstitutionNotice.dayLabel(note.date,
             pl.zse.bydgoszcz.elektron.domain.util.AppClock.today())
         val body = "$day, ${note.number}. lekcja\n" +
-            (if (changed) "Plan się zmienił. Notatka zapisana dla: ${note.subject}.\n" else "") + note.text
+            (if (changed) "Plan się zmienił. Notatka zapisana dla: ${pl.zse.bydgoszcz.elektron.domain.model.LessonNote.subjectLabel(note.subject)}.\n" else "") + note.text
         val n = NotificationCompat.Builder(context, CHANNEL_NOTES).setSmallIcon(R.drawable.ic_stat_elektron)
             .setContentTitle("Notatka: $subject").setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(pi)

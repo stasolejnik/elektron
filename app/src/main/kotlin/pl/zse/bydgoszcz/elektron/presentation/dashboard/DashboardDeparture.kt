@@ -90,7 +90,8 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
                 Text(if (error != null) "Nie udało się sprawdzić połączeń. Dotknij tutaj, aby ponowić." else "Brak nadchodzących połączeń. Dotknij tutaj, aby sprawdzić więcej.", Modifier.padding(16.dp))
             }
         }
-        matching?.let { Text("Sprawdzono ${formatTransitTime(it.fetchedAt, now)}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
+        matching?.let { Text("Sprawdzono ${formatTransitTime(it.fetchedAt, now)}", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 6.dp)) }
         if (matching?.partialFailure == true) Text("Sprawdzono tylko część stanowisk. Lista może być niepełna.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (error != null && trip != null) Text("Nie udało się odświeżyć. Wyświetlam zapisane połączenie.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }

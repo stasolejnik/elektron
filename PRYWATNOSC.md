@@ -60,7 +60,8 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
 - **Obrazki w informacjach szkoły:** gdy szkoła doda obrazek do informacji na stronie zastępstw (np. skrócony plan zajęć), aplikacja pobiera go po rozwinięciu karty, wyłącznie z serwerów szkoły.
 - **Zdjęcia w ogłoszeniach:** po otwarciu ogłoszenia pobierane są zdjęcia umieszczone w jego treści, wyłącznie z serwerów szkoły (obrazy z innych stron nie są pobierane - zostaje opis i link). Zdjęcia korzystają z pamięci podręcznej. Pełny tekst jest pobierany ze strony ogłoszenia przy pierwszym otwarciu (i ponownie, gdy zapisała go starsza wersja aplikacji).
 
-- **BUSearch (Przejazdy - dojazd do szkoły i powrót):** po otwarciu wyboru przystanku aplikacja
+- **BUSearch (Przejazdy - dojazd do szkoły i powrót):** dopóki nie wybierzesz przystanku, Przejazdy
+  nie łączą się z BUSearch. Po otwarciu wyboru przystanku aplikacja
   pobiera publiczny katalog z api.busearch.pl. Katalog jest zapisywany w pamięci podręcznej;
   wyszukiwanie nazw i wybór celu odbywają się lokalnie. Przy samym wyborze celu nie są
   przesyłane wpisywane frazy, wybrany przystanek ani lokalizacja telefonu. Serwer widzi adres IP i wersję aplikacji.

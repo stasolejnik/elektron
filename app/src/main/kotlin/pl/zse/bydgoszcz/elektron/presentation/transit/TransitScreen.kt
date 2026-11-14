@@ -161,9 +161,13 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
         // Odświeżanie jak w innych zakładkach: przeciągnięcie listy w dół (bez przycisku na pasku).
         var pulled by remember { mutableStateOf(false) }
         LaunchedEffect(loading) { if (!loading) pulled = false }
+        // Nie ma czego odświeżać (np. bez przystanku): krótki obrót i powrót - inaczej wskaźnik zostawał
+        // przy krawędzi, bo stan odświeżania się nie zmieniał.
+        var bounce by remember { mutableStateOf(false) }
+        LaunchedEffect(bounce) { if (bounce) { kotlinx.coroutines.delay(350); bounce = false } }
         androidx.compose.material3.pulltorefresh.PullToRefreshBox(
-            isRefreshing = pulled && loading,
-            onRefresh = { if (canRefresh) { pulled = true; visibleCount = 3; viewModel.loadJourneys(force = true, minimumCount = 3) } },
+            isRefreshing = (pulled && loading) || bounce,
+            onRefresh = { if (canRefresh) { pulled = true; visibleCount = 3; viewModel.loadJourneys(force = true, minimumCount = 3) } else bounce = true },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
         LazyColumn(Modifier.fillMaxSize().pullUpAtEnd(listState, pullThreshold) { pullAction?.invoke() },
@@ -184,7 +188,9 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                     onClick = { viewModel.query.value = ""; picker = 2 },
                     onClear = if (schoolName != null) ({ viewModel.selectOrigin(null) }) else null,
                     clearLabel = "Wróć do najbliższych przystanków szkoły", placeholderIsValue = true)
-                RouteCard(from = if (toSchool) home else school, to = if (toSchool) school else home, enabled = editable)
+                androidx.compose.foundation.layout.Box(Modifier.tourTarget("transit:route")) {
+                    RouteCard(from = if (toSchool) home else school, to = if (toSchool) school else home, enabled = editable)
+                }
             }
             matching?.let { data -> item(key = "checked") {
                 Text("Sprawdzono ${formatTransitTime(data.fetchedAt, nowMs)}" + (if (state.preferences.allowTransfers) " · z przesiadkami" else "") +

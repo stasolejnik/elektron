@@ -105,6 +105,23 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     suspend fun setShowOnDashboard(show: Boolean) = withContext(Dispatchers.IO) {
         store.edit { it[dashboardKey] = show }; Unit
     }
+    /**
+     * Świeża instalacja: zakładka i karta Przejazdów oraz "Więcej" włączone. Tylko klucze, których
+     * jeszcze nie ma - istniejącym użytkownikom aktualizacja nie przestawia pasku.
+     */
+    suspend fun applyNewInstallDefaults() = withContext(Dispatchers.IO) {
+        store.edit { prefs ->
+            if (enabledKey !in prefs) prefs[enabledKey] = true
+            if (dashboardKey !in prefs) prefs[dashboardKey] = true
+            if (moreEnabledKey !in prefs) {
+                val (order, content) = MoreMenu.enable(prefs[orderKey]?.split(',').orEmpty())
+                prefs[orderKey] = order.joinToString(",")
+                prefs[moreContentKey] = content.joinToString(",")
+                prefs[moreEnabledKey] = true
+            }
+        }; Unit
+    }
+
     /** Włącza "Więcej" (na prawym końcu z [MoreMenu.DEFAULT_CONTENT]) albo wyłącza (zakładki wracają na pasek). */
     suspend fun setMoreEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
         store.edit { prefs ->

@@ -11,6 +11,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.combinedClickable
+import pl.zse.bydgoszcz.elektron.presentation.common.tourTarget
 import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.SnackbarHostState
@@ -343,7 +344,7 @@ fun TimetableScreen(
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
+                    SingleChoiceSegmentedButtonRow(Modifier.weight(1f).tourTarget("plan:mode")) {
                         SegmentedButton(
                             selected = mode == TimetableViewModel.ViewMode.DAY,
                             onClick = { viewModel.setMode(TimetableViewModel.ViewMode.DAY) },
@@ -357,7 +358,8 @@ fun TimetableScreen(
                             modifier = Modifier.weight(1f)
                         ) { Text("Tydzień") }
                     }
-                    IconButton(onClick = { showNotes = true }, enabled = notesState.ready && !notesState.error) {
+                    IconButton(onClick = { showNotes = true }, enabled = notesState.ready && !notesState.error,
+                        modifier = Modifier.tourTarget("plan:notes")) {
                         Icon(Icons.Filled.EditNote, contentDescription = "Moje notatki")
                     }
                     val plan = visiblePlan?.takeIf {
@@ -473,7 +475,8 @@ private fun DayPage(
                     else -> null
                 }
                 LessonRow(lesson, badge, userNote = notes[LessonNote.key(lesson)],
-                    modifier = if (dayOff != null) Modifier.graphicsLayer { alpha = 0.5f } else Modifier,
+                    modifier = (if (dayOff != null) Modifier.graphicsLayer { alpha = 0.5f } else Modifier)
+                        .then(if (lesson == lessons.first()) Modifier.tourTarget("plan:lesson") else Modifier),
                     onLongClick = if (LessonNote.canEdit(lesson, AppClock.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                     onClick = { onLessonClick(lesson) })
             }
@@ -681,9 +684,10 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
+                    // "Nauczyciel nieobecny" ze strony planu - jak informacje o zastępstwach, nie jak błąd.
                     lesson.note?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error)
+                            color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Medium)
                     }
                 }
                 userNote?.let {

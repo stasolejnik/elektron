@@ -112,6 +112,10 @@ interface SettingsRepository {
     val lastSeenVersionCode: Flow<Int>
     suspend fun setLastSeenVersionCode(code: Int)
 
+    /** Przewodnik po aplikacji do pokazania (świeża instalacja, po wyborze klasy i grup). */
+    val tourPending: Flow<Boolean> get() = flowOf(false)
+    suspend fun setTourPending(pending: Boolean) {}
+
     // --- Grupy zajęciowe (per klasa): przedmiot bazowy -> etykieta grupy lub LessonGroups.NONE ---
     fun groupSelections(classId: String): Flow<Map<String, String>>
     /** Wybory dla aktualnie wybranej klasy (pusta mapa, gdy brak klasy). */

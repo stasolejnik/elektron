@@ -1,5 +1,7 @@
 package pl.zse.bydgoszcz.elektron.presentation.settings
 
+import pl.zse.bydgoszcz.elektron.presentation.common.tourTarget
+
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -29,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
@@ -103,6 +106,16 @@ internal fun SettingsHome(
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(barState)
     val ctx = LocalContext.current
+    // Przewodnik: wskazywana kategoria na ekranie (lista mogła być przewinięta albo O aplikacji jest niżej).
+    val tourTarget = pl.zse.bydgoszcz.elektron.presentation.common.LocalTour.current?.currentTarget
+    LaunchedEffect(tourTarget) {
+        when (tourTarget) {
+            "settings:class" -> listState.animateScrollToItem(0)
+            "settings:about" -> listState.animateScrollToItem(2)
+            "settings:notifications", "settings:look", "settings:widgets" ->
+                if (listState.firstVisibleItemIndex > 1) listState.animateScrollToItem(1)
+        }
+    }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
@@ -115,7 +128,11 @@ internal fun SettingsHome(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // Klasa i grupy osobno, na samej górze - od nich zależy wszystko inne.
-            item(key = "class") { ClassCard(state.classes, state.selectedClassId, onSelect = onSelectClass, onOpenGroups = onOpenGroups) }
+            item(key = "class") {
+                androidx.compose.foundation.layout.Box(Modifier.tourTarget("settings:class")) {
+                    ClassCard(state.classes, state.selectedClassId, onSelect = onSelectClass, onOpenGroups = onOpenGroups)
+                }
+            }
             item(key = "main") {
                 GroupedSection(null) {
                     val notifications = listOfNotNull(
@@ -124,7 +141,7 @@ internal fun SettingsHome(
                         "nowa wersja".takeIf { state.notifyUpdates && BuildConfig.UPDATE_CHECK },
                         "na żywo".takeIf { state.liveNotifications },
                         "przypomnienia".takeIf { state.reminder.mode != pl.zse.bydgoszcz.elektron.domain.model.ReminderMode.OFF })
-                    CategoryRow(Icons.Outlined.Notifications, "Powiadomienia",
+                    CategoryRow(Icons.Outlined.Notifications, "Powiadomienia", modifier = Modifier.tourTarget("settings:notifications"), summary =
                         notifications.joinToString(", ").replaceFirstChar { it.uppercase() }.ifEmpty { "Wyłączone" }) { onOpen(SettingsPage.NOTIFICATIONS) }
                     CategoryDivider()
                     CategoryRow(Icons.Outlined.Home, "Strona główna",
@@ -132,7 +149,7 @@ internal fun SettingsHome(
                     CategoryDivider()
                     val wallpaper = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     val theme = when (state.themeMode) { ThemeMode.SYSTEM -> "Auto"; ThemeMode.LIGHT -> "Jasny"; ThemeMode.DARK -> "Ciemny" }
-                    CategoryRow(Icons.Outlined.Palette, "Wygląd",
+                    CategoryRow(Icons.Outlined.Palette, "Wygląd", modifier = Modifier.tourTarget("settings:look"), summary =
                         if (wallpaper) "$theme · kolory z tapety"
                         else "$theme · ${ACCENT_LABELS[state.accent.color].orEmpty().lowercase()} · ${LOOK_LABELS[state.baseLook.look].orEmpty().lowercase()}") { onOpen(SettingsPage.LOOK) }
                     CategoryDivider()
@@ -143,7 +160,7 @@ internal fun SettingsHome(
                     CategoryDivider()
                     CategoryRow(Icons.Outlined.SpaceDashboard, "Pasek nawigacji", "Widoczne zakładki i kolejność") { onOpen(SettingsPage.BAR) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.Widgets, "Widżety",
+                    CategoryRow(Icons.Outlined.Widgets, "Widżety", modifier = Modifier.tourTarget("settings:widgets"), summary =
                         "Przezroczystość ${100 - state.widgetLook.opacity}%") { onOpen(SettingsPage.WIDGETS) }
                 }
             }
@@ -161,7 +178,7 @@ internal fun SettingsHome(
                     CategoryDivider()
                     CategoryRow(Icons.Outlined.Storage, "Dane", "Wyczyść dane podręczne") { onOpen(SettingsPage.DATA) }
                     CategoryDivider()
-                    CategoryRow(Icons.Outlined.Info, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME} · zgłoś problem") { onOpen(SettingsPage.ABOUT) }
+                    CategoryRow(Icons.Outlined.Info, "O aplikacji", modifier = Modifier.tourTarget("settings:about"), summary = "Wersja ${BuildConfig.VERSION_NAME} · zgłoś problem") { onOpen(SettingsPage.ABOUT) }
                     if (devMode) {
                         CategoryDivider()
                         CategoryRow(Icons.Outlined.Code, "Tryb dewelopera", "Symulacje i czas") { onOpen(SettingsPage.DEV) }
@@ -174,10 +191,10 @@ internal fun SettingsHome(
 
 @Composable
 internal fun CategoryRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, summary: String,
-    warning: Boolean = false, onClick: () -> Unit) {
+    warning: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().pressable(onClickLabel = "Otwórz: $title", onClick = onClick)
+        modifier.fillMaxWidth().pressable(onClickLabel = "Otwórz: $title", onClick = onClick)
             .heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

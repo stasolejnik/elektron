@@ -83,4 +83,11 @@ class LessonNoteTest {
         val second = note().copy(date = day.plusDays(1))
         assertEquals(note().key, NoteReminders.next(listOf(second, note()), listOf(lesson().copy(date = day.plusDays(1)), lesson()), day.minusDays(2).atStartOfDay())!!.note.key)
     }
+
+    @Test fun storedSubjectIsShownWithoutGroupSuffixesAndDuplicates() {
+        assertEquals("j.angielski", LessonNote.subjectLabel("j.angielski-1/2 / j.angielski-2/2"))
+        assertEquals("Angielski", LessonNote.subjectLabel("j.angielski-1/2 / j.angielski-2/2",
+            mapOf("j.angielski" to SubjectStyle(name = "Angielski"))))
+        assertEquals("mat", LessonNote.subjectLabel("mat"))
+    }
 }

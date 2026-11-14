@@ -11,3 +11,7 @@ aplikacji Atom - wykorzystano jedynie jej pomysł i zakres funkcji.
 Przejazdy korzystają z BUSearch (https://busearch.pl) autorstwa Szymona Czai -
 rozkładów, planera połączeń i opóźnień na żywo w Bydgoszczy. Dziękuję za
 udostępnienie API.
+
+Kod QR w „Poleć aplikację” tworzy biblioteka QR Code generator
+(https://www.nayuki.io/page/qr-code-generator-library), Copyright (c) Project
+Nayuki, licencja MIT.

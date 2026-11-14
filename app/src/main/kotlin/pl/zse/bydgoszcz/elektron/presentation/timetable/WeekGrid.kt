@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import pl.zse.bydgoszcz.elektron.presentation.common.tourTarget
 import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -221,7 +222,8 @@ private fun DayGridColumn(
                 lengthMin = length,
                 ongoing = !off && nowMinute != null && pl.zse.bydgoszcz.elektron.domain.model.LessonClock.isOngoing(lesson, nowTime),
                 modifier = Modifier.offset(y = from * PER_MINUTE).height(length * PER_MINUTE).fillMaxWidth()
-                    .then(if (off) Modifier.graphicsLayer { alpha = 0.4f } else Modifier),
+                    .then(if (off) Modifier.graphicsLayer { alpha = 0.4f } else Modifier)
+                    .then(if (!off && lesson == day.lessons.first()) Modifier.tourTarget("plan:lesson") else Modifier),
                 hasNote = notes.containsKey(LessonNote.key(lesson)),
                 onLongClick = if (LessonNote.canEdit(lesson, AppClock.now()) || notes.containsKey(LessonNote.key(lesson))) ({ onNote(lesson) }) else null,
                 onClick = { onLessonClick(lesson) }

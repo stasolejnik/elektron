@@ -54,6 +54,13 @@ Pakiety w `app/src/main/kotlin/pl/zse/bydgoszcz/elektron/`:
 | `widget` | Widżety Glance i kafelek; dane widżetów liczone w osobnych obiektach (`WidgetData`, `TransitWidgetData`) |
 | `presentation` | Ekrany Compose i ViewModele; dolny pasek z „Więcej” w `common/ElektronBottomBar.kt` |
 
+**Przewodnik po aplikacji** (`presentation/common/Tour.kt`): kroki w `tourSteps()`, a element do
+podświetlenia oznacza się `Modifier.tourTarget("klucz")` w miejscu, gdzie jest rysowany. Krok z `route`
+sam przełącza zakładkę; dla list (Ustawienia) trzeba dodać przewinięcie do elementu, jak w
+`SettingsHome`. Przewodnik pokazuje się po świeżej instalacji (`tourPending` w ustawieniach) i z
+O aplikacji. Tam też jest „Poleć aplikację” (`settings/RecommendApp.kt`, kod QR z biblioteki
+`io.nayuki:qrcodegen`).
+
 ## Budowanie i testy
 
 ```sh
@@ -259,8 +266,8 @@ Uwagi:
 ## Rozwiązywanie problemów
 
 - **Lint kończy się „LintError” (wewnętrzny błąd):** stare wyniki częściowe. Usuń
-  `app/build/intermediates/lint-cache` i `app/build/intermediates/lint_partial_results`, uruchom lint
-  osobno dla każdego wariantu.
+  `app/build/intermediates/lint-cache` oraz katalogi `*lint_partial_results` w `app/build/intermediates`
+  (także `unit_test_` i `android_test_`), uruchom lint osobno dla każdego wariantu.
 - **„Dispatchers.Main is used concurrently with setting it”:** rzadko pada `TransitDirectionTest`
   albo `TransitStartupTest` przy obciążonym komputerze - uruchom te testy ponownie.
 - **Testy zależne od godziny:** strefa jest ustawiona na Europe/Warsaw; testy przejazdów i kalendarza

@@ -394,7 +394,15 @@ class SyncCoordinator @Inject constructor(
                         saved.message ?: SyncOutcome.errorMessage(mapOf(source to java.io.IOException("Poprzednia próba nie powiodła się.")))
                     }
                 }.distinct()
-                notificationsRepo.setLastSyncError(unresolved.takeIf { it.isNotEmpty() }?.joinToString("\n") ?: outcome.userError())
+                // Plan i zastępstwa nie udały się teraz oba - jedno zdanie ("planu i zastępstw") zamiast dwóch
+                // prawie takich samych; zaległy błąd z wcześniejszej próby zostaje osobną linią.
+                val bothNow = SyncOutcome.TIMETABLE in outcome.failures && SyncOutcome.SUBSTITUTIONS in outcome.failures
+                val message = when {
+                    unresolved.isEmpty() -> outcome.userError()
+                    unresolved.size > 1 && bothNow -> SyncOutcome.errorMessage(outcome.failures) ?: unresolved.joinToString("\n")
+                    else -> unresolved.joinToString("\n")
+                }
+                notificationsRepo.setLastSyncError(message)
             }
             if (SyncOutcome.freshDataLoaded(written)) notificationsRepo.setLastSyncAt(Instant.now())
             if (subsWritten || SyncOutcome.ANNOUNCEMENTS in outcome.succeeded) {

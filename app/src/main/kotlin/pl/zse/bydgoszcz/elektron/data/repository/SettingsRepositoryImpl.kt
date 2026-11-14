@@ -108,6 +108,7 @@ class SettingsRepositoryImpl internal constructor(
         val NOTIFY_NOTICES = booleanPreferencesKey("notify_notices")
         val SHOW_NOTICES = booleanPreferencesKey("show_notices")
         val LIVE_HIDDEN_DAY = longPreferencesKey("live_hidden_day")
+        val TOUR_PENDING = booleanPreferencesKey("tour_pending")
         fun groups(classId: String) = stringPreferencesKey("groups_$classId")
     }
 
@@ -320,6 +321,11 @@ class SettingsRepositoryImpl internal constructor(
     override val lastSeenVersionCode: Flow<Int> = prefs.map { it[Keys.LAST_SEEN_VERSION] ?: 0 }.distinctUntilChanged()
     override suspend fun setLastSeenVersionCode(code: Int) {
         safeEdit { it[Keys.LAST_SEEN_VERSION] = code }
+    }
+
+    override val tourPending: Flow<Boolean> = prefs.map { it[Keys.TOUR_PENDING] == true }.distinctUntilChanged()
+    override suspend fun setTourPending(pending: Boolean) {
+        safeEdit { if (pending) it[Keys.TOUR_PENDING] = true else it.remove(Keys.TOUR_PENDING) }
     }
 
     // Format: "przedmiot\twybór" w liniach — nazwy przedmiotów z Optivum nie zawierają

@@ -130,6 +130,9 @@ internal fun AboutSection(viewModel: SettingsViewModel, devMode: Boolean, showTo
             showToast("Tryb dewelopera włączony.")
         }
     }
+    var showRecommend by rememberSaveable { mutableStateOf(false) }
+    if (showRecommend) RecommendDialog(onDismiss = { showRecommend = false })
+    val tour = pl.zse.bydgoszcz.elektron.presentation.common.LocalTour.current
     GroupedSection("O aplikacji", icon = Icons.Outlined.Info) {
         Column(
             Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 4.dp),
@@ -156,6 +159,12 @@ internal fun AboutSection(viewModel: SettingsViewModel, devMode: Boolean, showTo
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center)
         RowDivider()
+        ActionRow("Poleć aplikację", supporting = "Kod QR albo link do udostępnienia", trailingChevron = true) { showRecommend = true }
+        RowDivider()
+        if (tour != null) {
+            ActionRow("Przewodnik po aplikacji", trailingChevron = true) { tour.start() }
+            RowDivider()
+        }
         // Raport z logami: kopiowanie, e-mail do dewelopera albo zgłoszenie na GitHubie.
         ActionRow("Zgłoś problem", trailingChevron = true) { viewModel.openFeedback() }
         RowDivider()

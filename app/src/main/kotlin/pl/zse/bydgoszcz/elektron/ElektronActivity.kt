@@ -88,6 +88,7 @@ class ElektronActivity : ComponentActivity() {
             val operationError by coordinator.operationError.collectAsStateWithLifecycle()
             val deepLink by pendingDeepLink.collectAsStateWithLifecycle()
             val personalization by appViewModel.personalization.collectAsStateWithLifecycle()
+            val tourPending by appViewModel.tourPending.collectAsStateWithLifecycle()
             // Raport z poprzedniej awarii (jeśli była) - pokazywany raz, potem usuwany.
             var crashReport by remember { mutableStateOf(CrashReporter.pending(this@ElektronActivity)) }
             val dark = when (state.themeMode) {
@@ -111,7 +112,7 @@ class ElektronActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalPersonalization provides (personalization ?: Personalization())) {
                     // Po kolei: najpierw raport awarii i "Co nowego", dopiero potem prośba
                     // o powiadomienia (dawniej dwa okna naraz po aktualizacji).
-                    if (explainNotifications && crashReport == null && state.changelogToShow.isEmpty()) androidx.compose.material3.AlertDialog(
+                    if (explainNotifications && crashReport == null && state.changelogToShow.isEmpty() && !tourPending) androidx.compose.material3.AlertDialog(
                         onDismissRequest = { explainNotifications = false; permissionPrefs.edit().putBoolean("explained", true).apply() },
                         title = { androidx.compose.material3.Text("Powiadomienia ze szkoły") },
                         text = { androidx.compose.material3.Text("Możesz otrzymywać powiadomienia o nowych zastępstwach. Powiadomienia o ogłoszeniach oraz przypomnienia o lekcjach i notatkach są domyślnie wyłączone. Możesz je włączyć osobno w ustawieniach.") },
@@ -134,7 +135,10 @@ class ElektronActivity : ComponentActivity() {
                         else -> ElektronNavHost(
                             deepLink = deepLink,
                             onDeepLinkConsumed = { pendingDeepLink.value = null },
-                            startRoute = state.startRoute
+                            startRoute = state.startRoute,
+                            // Przewodnik po świeżej instalacji (po klasie i grupach), przed prośbą o powiadomienia.
+                            autoTour = tourPending && crashReport == null && state.changelogToShow.isEmpty(),
+                            onTourFinished = appViewModel::finishTour
                         )
                     }
 

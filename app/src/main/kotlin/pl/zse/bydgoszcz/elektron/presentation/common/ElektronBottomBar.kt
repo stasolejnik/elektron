@@ -268,7 +268,7 @@ private fun caption(route: String, label: String) = if (route == ElektronRoutes.
 /** Ikona w kółku z podpisem - ta sama na pasku, w panelu i w przeciąganiu. */
 @Composable
 private fun DockIcon(dest: BottomDestination, selected: Boolean, lifted: Boolean, highlighted: Boolean, width: Dp,
-    labelStyle: TextStyle, interaction: MutableInteractionSource?, dropping: Boolean = false) {
+    labelStyle: TextStyle, interaction: MutableInteractionSource?, dropping: Boolean = false, iconModifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val color = if (selected) colors.primary else colors.onSurfaceVariant
     // Nad "Więcej" przeciągana ikona maleje i chowa podpis, a "Więcej" rośnie pod nią - jak ikona nad folderem.
@@ -277,7 +277,7 @@ private fun DockIcon(dest: BottomDestination, selected: Boolean, lifted: Boolean
     val labelHeight = (16 * LocalDensity.current.fontScale).dp
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            Modifier.size(minOf(48.dp, width)).graphicsLayer { scaleX = scale; scaleY = scale }
+            iconModifier.size(minOf(48.dp, width)).graphicsLayer { scaleX = scale; scaleY = scale }
                 .shadow(if (lifted) 4.dp else 0.dp, CircleShape)
                 .clip(CircleShape)
                 .background(when {
@@ -400,7 +400,7 @@ fun ElektronBottomBar(
                                 contentAlignment = Alignment.TopCenter
                             ) {
                                 DockIcon(dest, selected, lifted = false, highlighted = isMore && dock.hoverMore, width = slotWidth,
-                                    labelStyle = labelStyle, interaction = interaction)
+                                    labelStyle = labelStyle, interaction = interaction, iconModifier = Modifier.tourTarget("nav:$route"))
                             }
                         }
                     }
@@ -444,7 +444,7 @@ fun BoxScope.MorePanel(currentRoute: String?, dock: DockState, onNavigate: (Stri
             androidx.compose.animation.scaleOut(tween(260), targetScale = 0.94f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)) +
             fadeOut(tween(200))) {
         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-            .onGloballyPositioned { dock.panelRect = it.boundsInWindow() },
+            .onGloballyPositioned { dock.panelRect = it.boundsInWindow() }.tourTarget("more:panel"),
             shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 3.dp, shadowElevation = 6.dp) {
             // Bez nagłówka "Więcej" - panel wyjaśnia sam przycisk pod nim.
             Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {

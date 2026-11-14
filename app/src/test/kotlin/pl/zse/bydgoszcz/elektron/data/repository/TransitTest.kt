@@ -195,6 +195,37 @@ class TransitTest {
         } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); file.delete() }
     }
 
+    /** Świeża instalacja: Przejazdy (zakładka i karta) i "Więcej" włączone; wybory użytkownika zostają. */
+    @Test fun newInstallDefaultsEnableTransitAndMoreButKeepExistingChoices() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val fresh = File(context.cacheDir, "transit-new-${System.nanoTime()}.preferences_pb")
+        val chosen = File(context.cacheDir, "transit-chosen-${System.nanoTime()}.preferences_pb")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { fresh }))
+            repo.applyNewInstallDefaults()
+            var prefs = repo.preferences.first()
+            assertTrue(prefs.visible)
+            assertTrue(prefs.showOnDashboard)
+            assertTrue(prefs.moreEnabled)
+            assertEquals(listOf("transit", "announcements", "settings"), prefs.moreContent)
+            assertEquals(pl.zse.bydgoszcz.elektron.domain.model.MoreMenu.ROUTE, prefs.navigationSlots.last())
+            // Powtórzenie (przerwany pierwszy start) niczego nie zmienia.
+            repo.applyNewInstallDefaults()
+            assertEquals(prefs, repo.preferences.first())
+
+            // Ktoś, kto już coś wybrał: wyłączona karta i "Więcej" zostają wyłączone.
+            val other = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { chosen }))
+            other.setShowOnDashboard(false)
+            other.setMoreEnabled(true); other.setMoreEnabled(false)
+            other.applyNewInstallDefaults()
+            prefs = other.preferences.first()
+            assertTrue(prefs.visible)
+            assertFalse(prefs.showOnDashboard)
+            assertFalse(prefs.moreEnabled)
+        } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); fresh.delete(); chosen.delete() }
+    }
+
     /** "Kursy na czas przed lekcją": domyślnie wyłączone (od najbliższego), wybór minut przetrwa restart. */
     @Test fun arrivalMarginDefaultsToNearestAndPersists() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()

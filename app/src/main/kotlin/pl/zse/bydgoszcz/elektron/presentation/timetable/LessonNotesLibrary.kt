@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pl.zse.bydgoszcz.elektron.ElektronActivity
 import pl.zse.bydgoszcz.elektron.domain.model.*
+import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import java.time.format.DateTimeFormatter
 
 /** Dostęp również do notatek ze starych lub usuniętych z planu lekcji. */
@@ -37,7 +38,7 @@ internal fun LessonNotesLibrary(notes: List<LessonNote>, viewModel: LessonNotesV
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("${note.date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))} · ${note.number}. lekcja", style = MaterialTheme.typography.titleMedium)
-                        Text(note.subject, style = MaterialTheme.typography.bodySmall)
+                        Text(LessonNote.subjectLabel(note.subject, LocalPersonalization.current.styles), style = MaterialTheme.typography.bodySmall)
                         SelectionContainer { Text(note.text) }
                         Row {
                             TextButton(onClick = {
