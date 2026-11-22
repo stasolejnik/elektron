@@ -62,7 +62,8 @@ class WidgetUpdater @Inject constructor(
         WidgetDataVersion.bump()     // otwarte sesje Glance wczytają dane od nowa
         refreshWidgetTargets(
             { NextLessonWidget().updateAll(context) },
-            { DayPlanWidget().updateAll(context) },
+            // Android 17+: Plan dnia bez Glance (DayPlanClassic) - lista Glance była tam pusta.
+            { if (DayPlanClassic.enabled(context)) DayPlanClassic.updateAll(context) else DayPlanWidget().updateAll(context) },
             { SubstitutionsWidget().updateAll(context) },
             { TransitWidget().updateAll(context) },
             { NextLessonTileService.requestUpdate(context) }
@@ -79,7 +80,10 @@ class WidgetUpdater @Inject constructor(
     suspend fun drawNow() {
         val glance = androidx.glance.appwidget.GlanceAppWidgetManager(context)
         val manager = android.appwidget.AppWidgetManager.getInstance(context) ?: return
-        val widgets = listOf(NextLessonWidget(), DayPlanWidget(), SubstitutionsWidget(), TransitWidget())
+        val classicPlan = DayPlanClassic.enabled(context)
+        if (classicPlan) runCatchingCancellable { DayPlanClassic.updateAll(context) }
+            .onFailure { Log.w(TAG, "Nie udało się od razu narysować widżetu Plan dnia", it) }
+        val widgets = listOfNotNull(NextLessonWidget(), DayPlanWidget().takeUnless { classicPlan }, SubstitutionsWidget(), TransitWidget())
         val started = android.os.SystemClock.elapsedRealtime()
         var drawn = 0
         for (widget in widgets) {

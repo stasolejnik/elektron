@@ -292,9 +292,21 @@ Uwagi:
   `SystemEventsReceiver` woła `WidgetUpdater.drawNow()` - widoki z `GlanceAppWidget.compose()` trafiają do
   launchera od razu, bez sesji Glance w WorkManagerze (jego zadania tuż po starcie systemu bywają odkładane).
   Log: „Narysowano od razu N widżetów”.
-- **Lista w widżecie (`LazyColumn`):** to kolekcja zdalna launchera - na Androidzie 17 bywała pusta
-  (Plan dnia) albo bez kliknięć (Zastępstwa, stąd tam zwykła kolumna). Przy problemach z listą sprawdź
-  najpierw nowszą wersję Glance.
+- **Lista w widżecie (`LazyColumn`):** Glance przekazuje ją launcherowi jako `RemoteCollectionItems`. Na
+  Androidzie 17 (Xiaomi z HyperOS) była pusta w widżecie Plan dnia (także w Glance 1.2.0), a w widżecie
+  Zastępstwa bez kliknięć (stąd tam zwykła kolumna).
+- **Plan dnia na Androidzie 17+ jest bez Glance** (`DayPlanClassic`): zwykłe `RemoteViews`
+  (`widget_day_plan_classic.xml`) z listą z `RemoteViewsService` (`DayPlanListService`, wiersze zapisane w
+  `DayPlanRowStore`) - przewija się palcem. Taka lista musi być w widoku głównym widżetu: osadzoną w Glance
+  (`AndroidRemoteViews`) launcher odrzuca („setRemoteAdapter can only be used for AppWidgets”).
+  `DayPlanWidgetReceiver` kieruje tam aktualizacje, a `WidgetUpdater` rysuje ten widżet przez
+  `DayPlanClassic.updateAll`. Zmiany wyglądu wiersza wprowadzaj w obu wersjach (`LessonRow` i `DayPlanClassic.row`).
+  Sprawdzenie na starszym emulatorze (wersja debug): przez `adb shell run-as pl.zse.bydgoszcz.elektron`
+  utwórz plik `shared_prefs/widget_dev.xml` z treścią
+  `<map><boolean name="day_plan_classic" value="true" /></map>`
+  i ponowne uruchomienie aplikacji; usunięcie pliku `widget_dev.xml` przywraca wersję Glance.
+  Emulator z obrazem Androida 17 (`android-37.0`) może się nie uruchamiać poprawnie z powodu błędu grafiki
+  (`hasReadColorBufferDma` w SurfaceFlinger).
 - **Czas na emulatorze:** `adb root` i `adb shell date MMDDhhmmYYYY.ss` (wyłącz wcześniej automatyczny
   czas). W aplikacji jest też symulowany czas w trybie dewelopera (Ustawienia → O aplikacji, 5 dotknięć
   logo).

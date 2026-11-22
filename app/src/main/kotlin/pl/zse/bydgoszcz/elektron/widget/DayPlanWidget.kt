@@ -27,6 +27,7 @@ import androidx.glance.semantics.semantics
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import android.util.Log
 import pl.zse.bydgoszcz.elektron.domain.model.LessonTarget
 import androidx.glance.Image
@@ -256,4 +257,39 @@ class DayPlanEarlier : ActionCallback {
 
 class DayPlanWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = DayPlanWidget()
+
+    /**
+     * Android 17+: widżet bez Glance ([DayPlanClassic]) - każde zdarzenie (aktualizacja, zmiana rozmiaru, odtworzenie
+     * z kopii, zmiana języka, akcje Glance) rysuje on, a nie sesja Glance, która nadpisałaby widok swoją pustą listą.
+     * Usunięcie i wyłączenie widżetu idą dalej do Glance i sprzątają oba zapisy.
+     */
+    override fun onReceive(context: Context, intent: android.content.Intent) {
+        val action = intent.action
+        if (action == DayPlanClassic.ACTION_TOGGLE_EARLIER || (DayPlanClassic.enabled(context) && action !in GLANCE_ONLY)) {
+            val pending = goAsync()
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+                try {
+                    kotlinx.coroutines.withTimeoutOrNull(8_000) {
+                        if (action == DayPlanClassic.ACTION_TOGGLE_EARLIER) DayPlanClassic.toggleEarlier(context, intent)
+                        else DayPlanClassic.updateAll(context)
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { Log.w("DayPlanWidget", "Nie udało się odświeżyć widżetu Plan dnia", e) }
+                finally { pending.finish() }
+            }
+            return
+        }
+        super.onReceive(context, intent)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        DayPlanClassic.forget(context, appWidgetIds)
+    }
+
+    private companion object {
+        /** Zdarzenia, które także przy widżecie bez Glance obsługuje Glance (sprzątanie stanu). */
+        val GLANCE_ONLY = setOf(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_DELETED,
+            android.appwidget.AppWidgetManager.ACTION_APPWIDGET_DISABLED)
+    }
 }

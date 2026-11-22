@@ -6,6 +6,12 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 
 ## [Niewydane]
 
+## [1.0.5-beta2] - 2026-11-22 (43)
+
+Wersja testowa (kanał „Beta”): widżet Plan dnia na Androidzie 17. Szczegóły: [release-notes/1.0.5-beta2.md](release-notes/1.0.5-beta2.md).
+
+- Widżet Plan dnia na Androidzie 17: w 1.0.5-beta1 nadal sam nagłówek bez lekcji (Xiaomi z HyperOS) - Glance 1.2.0 nie pomogła. Na Androidzie 17+ widżet jest teraz bez Glance (`DayPlanClassic`): zwykłe `RemoteViews` z listą z `RemoteViewsService` (`DayPlanListService`), którą launcher pobiera sam z usługi aplikacji - lista przewija się palcem jak dotąd, a wygląd, dotknięcia (lekcja, nagłówek, „za Tobą · Pokaż”) i odświeżanie są te same. Na Androidzie 16 i starszych bez zmian (Glance). Lista z usługi osadzona w widżecie Glance nie działa (launcher: „setRemoteAdapter can only be used for AppWidgets”), stąd cały widżet bez Glance. Każde zdarzenie widżetu poza usunięciem (także zmiana języka telefonu i odtworzenie z kopii) rysuje wersja bez Glance - inaczej Glance mógłby nadpisać ją swoją pustą listą. Chwilowy błąd odczytu zostawia ostatni plan („Błąd odczytu · zapisany plan”), jak w wersji Glance. Do sprawdzenia na telefonie z Androidem 17.
+
 ## [1.0.5-beta1] - 2026-11-22 (42)
 
 Wersja testowa (kanał „Beta”) z poprawkami widżetów, Przejazdów i zastępstw. Szczegóły: [release-notes/1.0.5-beta1.md](release-notes/1.0.5-beta1.md).

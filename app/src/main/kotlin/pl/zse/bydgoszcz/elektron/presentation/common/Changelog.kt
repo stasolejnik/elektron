@@ -5,6 +5,9 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(43, "1.0.5-beta2", listOf(
+            "Widżet Plan dnia na Androidzie 17: nowa lista lekcji, która przewija się palcem (w beta1 nadal była pusta)"
+        )),
         Entry(42, "1.0.5-beta1", listOf(
             "Widżet Plan dnia: poprawka dla Androida 17, na którym lekcje się nie pokazywały",
             "Widżety po restarcie telefonu od razu z treścią, bez jasnego prostokąta",

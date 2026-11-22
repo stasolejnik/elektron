@@ -1,0 +1,6 @@
+Day plan widget on Android 17: a new lesson list that scrolls with your finger.
+Widgets show their content right after a phone restart, without a light box.
+Commute: a late ride no longer disappears just before it arrives.
+Commute uses less data.
+Substitutions: no "No substitutions" when today's have already passed.
+A vacant teaching post is shown as "wakat".

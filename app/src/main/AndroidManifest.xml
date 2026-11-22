@@ -132,6 +132,12 @@
 
         <!-- Restart, aktualizacja aplikacji, zmiana czasu/strefy: przypomnienie i widżety od nowa.
              exported - te komunikaty wysyła tylko system (chronione akcje). -->
+        <!-- Wiersze listy widżetu Plan dnia na Androidzie 17+ (launcher pobiera je z tej usługi; patrz DayPlanClassic). -->
+        <service
+            android:name=".widget.DayPlanListService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
         <receiver
             android:name=".work.SystemEventsReceiver"
             android:exported="true">
