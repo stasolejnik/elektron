@@ -311,7 +311,7 @@ object WidgetDataLoader {
                     dayLabel = dayLabel(s.date, today),
                     lessonNumber = s.lessonNumber,
                     title = SubstitutionDisplay.headline(s),
-                    detail = SubstitutionDisplay.place(s) ?: "za ${s.originalTeacher}",
+                    detail = SubstitutionDisplay.place(s) ?: "za ${pl.zse.bydgoszcz.elektron.domain.model.TeacherNames.display(s.originalTeacher)}",
                     note = SubstitutionDisplay.notes(s),
                     userNote = shownLessons[LessonNote.key(classId, s.date, s.lessonNumber)]?.let { userNote(it, notesByKey) }
                 )
@@ -346,7 +346,7 @@ object WidgetDataLoader {
                 // Lekcja z uwag w tytule ("edukacja zdrowotna") - pod nią zastępca (dawniej brakowało go w widżecie);
                 // inaczej "Za: <nieobecny>" jak w aplikacji (bez "Zastępstwo za Dagmara Wróblewska" - nazwisk się nie odmienia).
                 detail = if (SubstitutionDisplay.lesson(sub) != null) sub.substituteTeacher?.trim()
-                    else sub.originalTeacher.trim().takeIf { it.isNotEmpty() }?.let { "Za: $it" },
+                    else pl.zse.bydgoszcz.elektron.domain.model.TeacherNames.display(sub.originalTeacher).takeIf { it.isNotEmpty() }?.let { "Za: $it" },
                 room = info.takeIf { isRoom },
                 timeFrom = l.timeFrom, timeTo = l.timeTo,
                 isSubstitution = true,
@@ -422,11 +422,11 @@ internal fun nextSubstitutionChange(now: LocalDateTime, targets: List<LessonTarg
         ends[target.lessonNumber]?.let { now.toLocalDate().atTime(it) }?.takeIf { it > now }
     } + now.toLocalDate().plusDays(1).atStartOfDay()).minOrNull()!!
 
-/** Zachowaj ostatni odczyt w otwartej sesji, ale nie przedstawiaj go jako świeżych danych. */
 /** Identyfikator wiersza listy Plan dnia: numer lekcji (8 bitów) i skrót treści - zawsze nieujemny. */
 internal fun dayPlanRowId(number: Int, contentHash: Int): Long =
     ((contentHash.toLong() and 0xFFFFFFFFL) shl 8) or (number.toLong() and 0xFFL)
 
+/** Zachowaj ostatni odczyt w otwartej sesji, ale nie przedstawiaj go jako świeżych danych. */
 internal fun retainWidgetData(previous: WidgetState, fresh: WidgetState): WidgetState =
     if (fresh == WidgetState.Failed && previous is WidgetState.Ready) previous.copy(readError = true) else fresh
 

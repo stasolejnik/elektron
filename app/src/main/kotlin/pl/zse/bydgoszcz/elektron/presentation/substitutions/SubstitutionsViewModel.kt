@@ -80,7 +80,14 @@ class SubstitutionsViewModel @Inject constructor(
     /** [label]: "Dziś · 28 września" — liczone tu, żeby po północy zmieniło się samo. */
     data class DayGroup(val date: LocalDate, val label: String, val items: List<Substitution>,
         /** Informacja szkoły pod datą na stronie zastępstw; dzień z samą informacją też jest na liście. */
-        val notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice? = null)
+        val notice: pl.zse.bydgoszcz.elektron.domain.model.SchoolNotice? = null,
+        /** Ile zastępstw tego dnia już minęło (schowane, są w planie) - dzień z samą informacją szkoły nie pisze wtedy "Brak zastępstw". */
+        val passed: Int = 0,
+        /** Ile nadchodzących zastępstw tego dnia dotyczy innych grup klasy. */
+        val otherGroups: Int = 0) {
+        /** Tekst karty dnia bez widocznych zastępstw (dzień jest na liście dzięki informacji szkoły). */
+        val emptyText: String get() = emptyDayText(passed, otherGroups)
+    }
 
     /** Lista + czy schowano dzisiejsze zastępstwa (lekcje już się skończyły). */
     private data class Content(
@@ -131,15 +138,19 @@ class SubstitutionsViewModel @Inject constructor(
             .map { LessonGroups.withSubject(it, lessons, groups) }   // "Za: przedmiot · nauczyciel"
             .partition { LessonGroups.substitutionRelevant(it, lessons, groups) }
         val (over, shown) = relevant.partition { SubstitutionRelevance.isOver(it, now, ends) }
+        val others = otherGroups.filterNot { SubstitutionRelevance.isOver(it, now, ends) }
+            .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
+        val passedByDay = over.groupingBy { it.date }.eachCount()
+        val othersByDay = others.groupingBy { it.date }.eachCount()
         Content(
             days = shown.groupBy { it.date }.toSortedMap().let { byDay ->
                 (byDay.keys + notices.filter { (d, n) -> d >= today && n.hasContent }.keys).toSortedSet().map { d ->
-                    DayGroup(d, dayLabel(d, today), byDay[d].orEmpty().sortedWith(compareBy({ it.lessonNumber })), notices[d])
+                    DayGroup(d, dayLabel(d, today), byDay[d].orEmpty().sortedWith(compareBy({ it.lessonNumber })), notices[d],
+                        passed = passedByDay[d] ?: 0, otherGroups = othersByDay[d] ?: 0)
                 }
             },
             todayHidden = over.any { it.date == today },
-            otherGroups = otherGroups.filterNot { SubstitutionRelevance.isOver(it, now, ends) }
-                .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
+            otherGroups = others
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Content(emptyList(), false, ready = false))
 
@@ -179,4 +190,16 @@ internal fun dayLabel(date: LocalDate, today: LocalDate): String {
         else -> date.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, PL).replaceFirstChar { it.titlecase(PL) }
     }
     return "$prefix · ${date.format(DAY_FMT)}"
+}
+
+/**
+ * Karta dnia z samą informacją szkoły. Dawniej zawsze "Brak zastępstw dla Twojej klasy", także
+ * wieczorem, gdy dzisiejsze zastępstwa były, ale już minęły (schowane z zakładki), i gdy zmiany
+ * dotyczyły tylko innych grup klasy.
+ */
+internal fun emptyDayText(passed: Int, otherGroups: Int): String = when {
+    passed == 1 -> "Dzisiejsze zastępstwo już minęło. Jest w planie lekcji."
+    passed > 1 -> "Dzisiejsze zastępstwa już minęły. Są w planie lekcji."
+    otherGroups > 0 -> "Brak zastępstw dla Twoich grup"
+    else -> "Brak zastępstw dla Twojej klasy"
 }

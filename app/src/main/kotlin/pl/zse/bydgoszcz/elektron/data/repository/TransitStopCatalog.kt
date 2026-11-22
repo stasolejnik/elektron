@@ -59,19 +59,13 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
             runCatchingCancellable {
                 val etag = if (previous != null) runCatching { etagFile.readText().trim() }.getOrNull()?.takeIf { it.isNotEmpty() && it.length <= 200 } else null
                 val request = Request.Builder().url(STOPS_URL)
-                    .header("Accept", "application/json")
                     .apply { if (etag != null) header("If-None-Match", etag) }.build()
                 var newEtag: String? = null
-                val json = client.newCall(request).readCancellable { response ->
-                    // Bez zmian od ostatniego pobrania - zapisany katalog jest aktualny.
-                    if (response.code == 304 && previous != null) return@readCancellable null
-                    if (!response.isSuccessful) throw IOException("Katalog: HTTP ${response.code}")
-                    newEtag = response.header("ETag")
-                    val source = response.body?.source() ?: throw IOException("Pusta odpowiedź")
-                    source.request(maxCatalogBytes + 1)
-                    if (source.buffer.size > maxCatalogBytes) throw IOException("Zbyt duży katalog")
-                    source.readUtf8()
-                }
+                // Pobierany binarnie, zapisywany jak dawniej jako JSON (zapisany katalog działa po aktualizacji).
+                val json = BusearchProto.fetch(client, request, BusearchProto.STOPS, maxCatalogBytes, "Katalog") { newEtag = it.header("ETag") }
+                    ?.toString()
+                // Bez zmian od ostatniego pobrania (304) - zapisany katalog jest aktualny.
+                if (json == null && previous == null) throw IOException("Katalog: HTTP 304")
                 if (json == null) {
                     runCatching { file.baseFile.setLastModified(now) }
                     return@runCatchingCancellable previous!!.copy(stale = false, updatedAt = now).also { cached = it; lastFailure = null }
@@ -93,8 +87,8 @@ class TransitStopCatalog @Inject constructor(@ApplicationContext context: Contex
         }
     }
     companion object {
-        /** BUSearch API v2 (dawne /bydgoszcz/api/stops działa do końca 2026 r.). */
-        const val STOPS_URL = "https://api.busearch.pl/v2/cities/bydgoszcz/stops"
+        /** BUSearch API v2, wersja binarna (BusearchProto). */
+        const val STOPS_URL = "${BusearchProto.BASE}/stops"
     }
 
     private fun decodeCatalog(json: String, updatedAt: Long): Catalog {

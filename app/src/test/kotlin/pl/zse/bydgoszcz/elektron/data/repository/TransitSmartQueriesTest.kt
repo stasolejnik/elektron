@@ -27,7 +27,7 @@ class TransitSmartQueriesTest {
 
     private val depart = System.currentTimeMillis() + 900_000L
 
-    private fun fixture(directory: File, requests: MutableList<Int>): OkHttpClient = OkHttpClient.Builder().addInterceptor { chain ->
+    private fun fixture(directory: File, requests: MutableList<Int>): OkHttpClient = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
         val request = chain.request()
         val json = when {
             request.url.encodedPath.endsWith("/stops") ->
@@ -103,7 +103,7 @@ class TransitSmartQueriesTest {
             val repo = TransitJourneyRepository(client, catalog, TransitWalkingRepository(client), file)
             val now = System.currentTimeMillis()
             val ride = { dep: Long -> TransitJourney(listOf(TransitRide("6", "Kierunek", "25", "B", "99", "Cel", dep, dep + 300_000L)), 2, 100.0) }
-            val stored = TransitJourneyRepository.Result(target.key, listOf(ride(now - 60_000L), ride(now + 600_000L)), now - 120_000L,
+            val stored = TransitJourneyRepository.Result(target.key, listOf(ride(now - TransitJourneys.LATE_KEEP_MS - 60_000L), ride(now + 600_000L)), now - 120_000L,
                 nextWhenMs = now + 3_600_000L, boardingStops = listOf(TransitDestination("B", listOf("25"), 53.1236, 18.02664)),
                 platformCursors = mapOf("25" to now + 3_600_000L))
             repo.saveLast(stored)

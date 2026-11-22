@@ -6,6 +6,19 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 
 ## [Niewydane]
 
+## [1.0.5-beta1] - 2026-11-22 (42)
+
+Wersja testowa (kanał „Beta”) z poprawkami widżetów, Przejazdów i zastępstw. Szczegóły: [release-notes/1.0.5-beta1.md](release-notes/1.0.5-beta1.md).
+
+- Widżet Plan: na Androidzie 17 (np. Xiaomi z HyperOS) lekcje się nie pokazywały - był sam nagłówek, choć dane były (log: „Rysuję 5 z 5 lekcji”). Biblioteka widżetów Glance 1.1.0 -> 1.2.0 (lista lekcji nadal się przewija); do sprawdzenia na telefonie z Androidem 17.
+- Widżety po restarcie telefonu: zamiast jasnego prostokąta z kółkiem ładowania (domyślny układ Glance, także w ciemnym motywie) - tło widżetu w kolorze motywu z logo eLektronu, a treść od razu po starcie: aplikacja rysuje widżety sama przy `BOOT_COMPLETED` (`WidgetUpdater.drawNow`), bez czekania na WorkManagera, którego zadania tuż po starcie systemu bywają długo odkładane (np. Pixel z GrapheneOS).
+- Przejazdy: spóźniony kurs znikał z listy, gdy zostały 1-2 minuty do przyjazdu - w chwili odjazdu według rozkładu. Wypadał przy dociąganiu kolejnych kursów, przy nowym sprawdzeniu (planer szuka od teraz) i gdy tablica przystanku przestawała go pokazywać tuż przed przyjazdem. Teraz zostaje do faktycznego odjazdu według danych na żywo.
+- Zastępstwa: dzień z informacją szkoły pisał „Brak zastępstw dla Twojej klasy” także wtedy, gdy dzisiejsze zastępstwa były, ale już minęły (po ich lekcjach znikają z zakładki). Teraz „Dzisiejsze zastępstwa już minęły. Są w planie lekcji.”, a gdy zmiany dotyczą tylko innych grup klasy - „Brak zastępstw dla Twoich grup”.
+- Przejazdy: binarna wersja API BUSearch (Protobuf, `/v2/app`) zamiast JSON - mniej przesyłanych danych (z kompresją o ok. 20-45%). Własny mały dekoder (`BusearchProto`) bez nowych bibliotek i bez `protoc`, więc budowanie F-Droid się nie zmienia. Wysyłane dane są te same.
+- Nieobsadzony etat z planu VULCAN („techniczny Vacat tech”, „I.Vacat”) jest pokazywany jako „wakat” - w zastępstwach, planie, szczegółach lekcji, powiadomieniach, widżetach i udostępnianiu. Identyfikatory zastępstw bez zmian (bez ponownych powiadomień).
+- Dokumentacja: README - oficjalne źródła aplikacji (wydania na GitHubie i F-Droid) i odcisk SHA-256 certyfikatu wersji z GitHuba do sprawdzenia pliku APK pobranego z innej strony. INSTRUKCJA - przewijanie widżetu Plan dnia, widżet po restarcie telefonu, spóźnione kursy w Przejazdach, zastępstwa po lekcji i „wakat”. DEWELOPER - binarne API BUSearch, widżety po restarcie (`drawNow`) i listy w widżetach.
+- Push watcher: działający link do konfiguracji pushy (dawny `PORADNIK_PUSH.md` jest teraz w DEWELOPER.md), nowsze biblioteki (requests 2.34.2, beautifulsoup4 4.15.0, lxml 6.1.3, google-auth 2.63.1) - na 70 stronach z archiwum (1627 wpisów) te same identyfikatory co przed zmianą.
+
 ## [1.0.4] - 2026-11-14 (41)
 
 Przejazdy z pozycją pojazdu na żywo, przewodnik po aplikacji, przycisk „Więcej”, polecanie kodem QR, kolejna lekcja na stronie głównej, samodzielnie odświeżany widżet Przejazdy i poprawki po przeglądzie kodu i stron szkoły. Szczegóły: [release-notes/1.0.4.md](release-notes/1.0.4.md). Zmiany od najważniejszych.

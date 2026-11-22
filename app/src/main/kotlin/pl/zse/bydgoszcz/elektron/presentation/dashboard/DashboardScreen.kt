@@ -363,7 +363,7 @@ private fun NextLessonCard(state: DashboardViewModel.State, onClick: () -> Unit)
                             Spacer(Modifier.height(4.dp))
                             Text(listOfNotNull("${lesson.timeFrom}–${lesson.timeTo}", SubstitutionDisplay.place(sub)).joinToString(" · "),
                                 style = MaterialTheme.typography.bodyLarge, color = onContainer)
-                            Text("Za: " + listOfNotNull(subjectName, sub.originalTeacher).joinToString(" · "),
+                            Text("Za: " + listOfNotNull(subjectName, pl.zse.bydgoszcz.elektron.domain.model.TeacherNames.display(sub.originalTeacher)).joinToString(" · "),
                                 style = MaterialTheme.typography.bodyMedium, color = onContainer.copy(alpha = 0.8f))
                             SubstitutionDisplay.notes(sub)?.let {
                                 Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
@@ -513,7 +513,7 @@ private fun SubstitutionRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 val subject = LocalPersonalization.current.subjectName(s.originalSubject)
-                Text("Za: " + listOfNotNull(subject, s.originalTeacher).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                Text("Za: " + listOfNotNull(subject, pl.zse.bydgoszcz.elektron.domain.model.TeacherNames.display(s.originalTeacher)).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SubstitutionDisplay.notes(s)?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,

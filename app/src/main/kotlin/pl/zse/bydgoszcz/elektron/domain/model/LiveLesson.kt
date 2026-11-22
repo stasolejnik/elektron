@@ -237,7 +237,7 @@ object LiveLesson {
         // Lekcja, zastępca i sala są już w linii "Teraz"/"Potem" - tu tylko, za co i za kogo (jak "Za:" na stronie głównej).
         if (SubstitutionDisplay.lesson(sub) != null) {
             val forWhom = listOfNotNull(plannedSubject(l, styles).takeIf { l.groups.isNotEmpty() },
-                sub.originalTeacher.trim().takeIf { it.isNotEmpty() }, SubstitutionDisplay.notes(sub))
+                TeacherNames.display(sub.originalTeacher).takeIf { it.isNotEmpty() }, SubstitutionDisplay.notes(sub))
             return if (forWhom.isEmpty()) null else "$prefix za: " + forWhom.joinToString(" · ")
         }
         val parts = listOfNotNull(SubstitutionDisplay.headline(sub), SubstitutionDisplay.place(sub), SubstitutionDisplay.notes(sub))

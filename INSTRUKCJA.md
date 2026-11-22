@@ -20,7 +20,8 @@ Zakładki przełączasz dolnym paskiem albo przesuwając ekran palcem w bok.
 - **Plan:** widok **Dzień** albo **Tydzień**. Dotknięcie lekcji pokazuje szczegóły (sala, nauczyciel, grupy,
   zastępstwo, notatka). Przy zajęciach łączonych z inną klasą zamiast nauczyciela widać, z którą klasą są. Przycisk udostępniania wysyła dzień albo tydzień jako tekst.
 - **Zastępstwa:** zmiany dla Twojej klasy i grup na kolejne dni oraz informacje szkoły dopisane
-  pod datą. Dotknięcie zastępstwa otwiera tę lekcję w planie.
+  pod datą. Dotknięcie zastępstwa otwiera tę lekcję w planie. Zastępstwo znika z zakładki po swojej
+  lekcji, ale zostaje w planie. Nieobsadzony etat (w systemie szkoły „Vacat”) widać jako „wakat”.
 - **Przejazdy:** autobusy i tramwaje - patrz [Przejazdy](#przejazdy).
 - **Ogłoszenia:** wpisy ze strony szkoły, wyszukiwanie i **ulubione** (ikona zakładki), które działają
   bez internetu. Na górze listy są informacje szkoły na dziś i kolejne dni.
@@ -63,6 +64,7 @@ Tam też wyłączysz zakładkę i kartę na stronie głównej (każdą osobno).
 - **Ze szkoły:** przystanek przy szkole to domyślnie **„Szkoła”** - wszystkie przystanki najbliżej
   szkoły (pokazywane są tylko kursy, do których zdążysz dojść). Możesz wybrać jeden konkretny przystanek.
 - **Opóźnienia na żywo:** znaczek przy godzinie („+2 min”, „na czas”), gdy BUSearch śledzi pojazd.
+  Spóźniony kurs zostaje na liście do faktycznego odjazdu, a nie do godziny z rozkładu.
 - **Gdzie jest pojazd:** **dotknij kursu**, aby zobaczyć autobus albo tramwaj na mapie, jego trasę
   i ile przystanków zostało do przystanku, na którym wsiadasz. Działa, gdy BUSearch śledzi pojazd - zwykle
   kilkanaście minut przed odjazdem. Pozycja odświeża się co kilka sekund, dopóki okno jest otwarte.
@@ -95,7 +97,8 @@ i zmienić rozmiar. Gdy tej sekcji nie ma (niektóre ekrany główne nie pozwala
 widżetów), przytrzymaj puste miejsce na ekranie głównym, wybierz **Widżety** i znajdź eLektron.
 W **Ustawieniach → Widżety** ustawisz też przezroczystość tła i to, czy pokazywać salę i nauczyciela.
 
-Dotknięcie lekcji w widżecie otwiera jej szczegóły w planie.
+Dotknięcie lekcji w widżecie otwiera jej szczegóły w planie. Gdy lekcje nie mieszczą się w widżecie
+**Plan dnia**, przewiń listę palcem.
 
 Widżet **Przejazdy** pokazuje najbliższe kursy - rano do szkoły, po lekcjach ze szkoły. Sam sprawdza
 połączenia w ciągu dnia (od 6:00 do 21:00); ikona odświeżania sprawdza od razu. Im wyższy widżet, tym więcej kursów.
@@ -137,6 +140,8 @@ inna, aplikacja poprosi o ponowny wybór klasy (grupy i notatki zostają).
   zgody na **alarmy i przypomnienia**.
 - **Widżet się nie odświeża:** otwórz raz aplikację i sprawdź **Pracę w tle**. Widżet Przejazdy
   odświeżysz od razu ikoną w jego rogu; bez wybranego przystanku poprosi o jego wybór.
+- **Po restarcie telefonu widżet pokazuje samo logo:** to chwila do wczytania danych, zwykle kilka
+  sekund po odblokowaniu telefonu. Gdy trwa to długo, otwórz aplikację i sprawdź **Pracę w tle**.
 - **Brak czasu na pasku stanu (Android 16):** zezwól na „Aktualizacje na żywo” dla eLektronu
   w ustawieniach systemu; w **Ustawieniach → Powiadomienia** widać, czy system na to pozwala.
 - **Przejazdy: „Nie znaleziono połączenia”:** sprawdź internet, odśwież listę albo włącz przesiadki

@@ -17,4 +17,13 @@ class TeacherNamesTest {
         // Skrót w środku nazwy (np. "ks.") nie jest inicjałem imienia.
         assertEquals("ks.Nowak", TeacherNames.display("ks.Nowak"))
     }
+
+    @Test fun vacancyIsShownAsWakat() {
+        // Nieobsadzony etat VULCAN: strona zastępstw (22.11.2026) i lista nauczycieli planu.
+        assertEquals("wakat", TeacherNames.display("techniczny Vacat tech"))
+        assertEquals("wakat", TeacherNames.display("I.Vacat"))
+        assertEquals("wakat", TeacherNames.display("t.Vacat tech"))
+        // Nazwisko zawierające te litery - bez zmian.
+        assertEquals("A. Vacatowski", TeacherNames.display("A.Vacatowski"))
+    }
 }

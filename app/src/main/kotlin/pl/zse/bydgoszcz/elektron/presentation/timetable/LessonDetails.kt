@@ -27,6 +27,7 @@ import pl.zse.bydgoszcz.elektron.domain.model.LessonNote
 import pl.zse.bydgoszcz.elektron.domain.model.LessonGroups
 import pl.zse.bydgoszcz.elektron.domain.model.SubjectStyles
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionDisplay
+import pl.zse.bydgoszcz.elektron.domain.model.TeacherNames
 import pl.zse.bydgoszcz.elektron.presentation.common.LocalPersonalization
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -94,7 +95,7 @@ internal fun LessonDetailsSheet(lesson: Lesson, userNote: LessonNote? = null, on
                     sub.substituteTeacher?.trim()?.let { Field("Zastępca", it) }
                     SubstitutionDisplay.where(sub)?.let { Field("Gdzie", it) }
                 } else SubstitutionDisplay.place(sub)?.let { Field("Gdzie", it) }
-                Field("Za nauczyciela", sub.originalTeacher)
+                Field("Za nauczyciela", TeacherNames.display(sub.originalTeacher))
                 SubstitutionDisplay.notes(sub)?.let { Field("Uwagi", it) }
             }
             userNote?.let {

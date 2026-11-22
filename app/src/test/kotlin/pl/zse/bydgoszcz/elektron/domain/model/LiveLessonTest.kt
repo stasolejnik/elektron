@@ -117,10 +117,10 @@ class LiveLessonTest {
         assertEquals("Teraz: 2. edukacja zdrowotna · s.\u2060\u00A0\u2060111", during.text)
         assertTrue(during.lines.toString(), during.lines.contains("Teraz: 2. edukacja zdrowotna · D. Musierowicz · s.\u2060\u00A0\u2060111, do 09:40"))
         // Bez powtórzenia lekcji, zastępcy i sali - tylko za co i za kogo.
-        assertTrue(during.lines.toString(), during.lines.contains("Zastępstwo za: fiz · J.Kowalski"))
+        assertTrue(during.lines.toString(), during.lines.contains("Zastępstwo za: fiz · J. Kowalski"))
         val before = at("08:30", withSub)!!
         assertTrue(before.lines.toString(), before.lines.contains("Potem: 2. edukacja zdrowotna · D. Musierowicz · s.\u2060\u00A0\u2060111"))
-        assertTrue(before.lines.toString(), before.lines.contains("Potem zastępstwo za: fiz · J.Kowalski"))
+        assertTrue(before.lines.toString(), before.lines.contains("Potem zastępstwo za: fiz · J. Kowalski"))
     }
 
     @Test fun noteOfCurrentOrNextLessonIsPreviewed() {

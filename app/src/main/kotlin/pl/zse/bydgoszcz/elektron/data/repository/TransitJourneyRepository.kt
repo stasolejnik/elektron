@@ -12,7 +12,6 @@ import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import pl.zse.bydgoszcz.elektron.data.remote.http.readCancellable
 import pl.zse.bydgoszcz.elektron.domain.model.*
 import java.io.IOException
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
@@ -124,15 +123,8 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
                             val body = JSONObject().put("from", from)
                                 .put("to", JSONObject().put("lat", destination.latitude).put("lon", destination.longitude))
                                 .put("maxTransfers", if (allowTransfers) 1 else 0).put("shape", false).put("whenMs", whenMs).put("limit", 8)
-                            val request = Request.Builder().url("$JOURNEYS_URL")
-                                .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
-                            val response = client.newCall(request).readCancellable {
-                                if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
-                                val source = it.body?.source() ?: throw IOException("Pusta odpowiedź")
-                                source.request(4_000_001)
-                                if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
-                                JSONObject(source.readUtf8())
-                            }
+                            val request = Request.Builder().url(JOURNEYS_URL).post(body.toString().toRequestBody("application/json".toMediaType())).build()
+                            val response = BusearchProto.fetch(client, request, BusearchProto.JOURNEYS, 4_000_000, "Połączenia")!!
                             // Wybrany przystanek: wybór oferuje go według środka zespołu stanowisk (do 1 km),
                             // więc jego dalsze stanowisko może leżeć tuż za 1 km - jego kursy znikały bez śladu.
                             trips += TransitJourneyParser.parse(response, destination, platforms, now, allowTransfers,
@@ -190,15 +182,8 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
         val body = JSONObject().put("from", JSONObject().put("lat", home.latitude).put("lon", home.longitude))
             .put("to", target)
             .put("maxTransfers", if (allowTransfers) 1 else 0).put("shape", false).put("whenMs", whenMs).put("limit", 8)
-        val request = Request.Builder().url("$JOURNEYS_URL")
-            .header("Accept", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
-        val response = client.newCall(request).readCancellable {
-            if (!it.isSuccessful) throw IOException("Połączenia: HTTP ${it.code}")
-            val source = it.body?.source() ?: throw IOException("Pusta odpowiedź")
-            source.request(4_000_001)
-            if (source.buffer.size > 4_000_000) throw IOException("Zbyt duża odpowiedź")
-            JSONObject(source.readUtf8())
-        }
+        val request = Request.Builder().url(JOURNEYS_URL).post(body.toString().toRequestBody("application/json".toMediaType())).build()
+        val response = BusearchProto.fetch(client, request, BusearchProto.JOURNEYS, 4_000_000, "Połączenia")!!
         val journeys = TransitJourneyParser.parseToSchool(response, home, platforms, minOf(now, whenMs), allowTransfers, schoolStop,
             targetWalkAsync.await(), searchFromMs = whenMs, otherSchoolStops = includeNearby)
         val cursor = TransitJourneyParser.nextCursor(response, whenMs, matched = journeys.isNotEmpty())?.takeIf { it <= whenMs + 24 * 60 * 60_000L }
@@ -257,8 +242,8 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
     }
 
     companion object {
-        /** BUSearch API v2 (dawne /bydgoszcz/api/polaczenia działa do końca 2026 r.). */
-        const val JOURNEYS_URL = "https://api.busearch.pl/v2/cities/bydgoszcz/journeys"
+        /** BUSearch API v2, wersja binarna (BusearchProto); zapytanie nadal w JSON. */
+        const val JOURNEYS_URL = "${BusearchProto.BASE}/journeys"
         const val PARALLEL_REQUESTS = 3
         const val KNOWLEDGE_TTL_MS = 60 * 60_000L
         const val CACHE_MAX_AGE_MS = 12 * 60 * 60_000L
@@ -266,7 +251,9 @@ class TransitJourneyRepository internal constructor(private val client: OkHttpCl
         /** Tylko nadchodzące odjazdy ze świeżego zapisu; czas sprawdzenia zostaje (napis "Ostatnio sprawdzono"). */
         internal fun restored(result: Result, nowMs: Long): Result? {
             if (nowMs - result.fetchedAt !in 0..CACHE_MAX_AGE_MS) return null
-            val upcoming = result.journeys.filter { it.departureMs > nowMs }
+            // Z kursami tuż po godzinie z rozkładu (spóźnione widać do faktycznego odjazdu); pusty, gdy nic nie nadjedzie.
+            if (result.journeys.none { it.departureMs > nowMs }) return null
+            val upcoming = result.journeys.filter { it.departureMs > nowMs - TransitJourneys.LATE_KEEP_MS }
             return if (upcoming.isEmpty()) null else result.copy(journeys = upcoming)
         }
     }

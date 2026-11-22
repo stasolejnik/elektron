@@ -188,9 +188,9 @@ fun SubstitutionsScreen(
                         }
                     }
                     if (group.items.isEmpty()) item(key = "none_${group.date}") {
-                        // Dzień z samą informacją szkoły.
+                        // Dzień z samą informacją szkoły (albo z zastępstwami, które już minęły).
                         ElektronCard {
-                            Text("Brak zastępstw dla Twojej klasy", style = MaterialTheme.typography.bodyLarge,
+                            Text(group.emptyText, style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
                         }
                     }
@@ -259,7 +259,7 @@ private fun SubstitutionRow(
                 val forLine = buildString {
                     append("Za: ")
                     LocalPersonalization.current.subjectName(s.originalSubject)?.let { append("$it · ") }
-                    append(s.originalTeacher)
+                    append(pl.zse.bydgoszcz.elektron.domain.model.TeacherNames.display(s.originalTeacher))
                     s.groupNumber?.let { append(" · grupa $it") }
                 }
                 Text(forLine, style = MaterialTheme.typography.bodySmall,

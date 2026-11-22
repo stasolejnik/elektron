@@ -47,7 +47,7 @@ class TransitStartupTest {
     private val depart = System.currentTimeMillis() + 900_000L
 
     /** Trzy stanowiska przy szkole, każde z jednym kursem; [slowStops] odpowiadają dopiero po [release]. */
-    private fun client(release: CountDownLatch, slowStops: Set<Int>) = OkHttpClient.Builder().addInterceptor { chain ->
+    private fun client(release: CountDownLatch, slowStops: Set<Int>) = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
         val request = chain.request()
         val json = when {
             request.url.encodedPath.endsWith("/stops") ->
@@ -153,7 +153,7 @@ class TransitStartupTest {
         val release = CountDownLatch(1)
         val requests = java.util.concurrent.atomic.AtomicInteger()
         val fake = client(release, slowStops = emptySet())
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             if (chain.request().url.encodedPath.endsWith("/polaczenia")) requests.incrementAndGet()
             chain.proceed(chain.request())
         }.apply { fake.interceptors.forEach { addInterceptor(it) } }.build()

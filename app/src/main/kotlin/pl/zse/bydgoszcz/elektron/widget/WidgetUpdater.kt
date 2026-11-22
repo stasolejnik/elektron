@@ -5,7 +5,9 @@ import pl.zse.bydgoszcz.elektron.domain.util.AppClock
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import android.content.Context
 import android.util.Log
+import androidx.glance.appwidget.compose
 import androidx.glance.appwidget.updateAll
+import androidx.compose.ui.unit.dp
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -65,6 +67,39 @@ class WidgetUpdater @Inject constructor(
             { TransitWidget().updateAll(context) },
             { NextLessonTileService.requestUpdate(context) }
         ).forEach { result -> result.onFailure { Log.w(TAG, "Nie udało się odświeżyć jednego z widżetów", it) } }
+    }
+
+    /**
+     * Po restarcie telefonu: od razu gotowy widok każdego widżetu, bez czekania na Glance. Launcher po restarcie
+     * nie pamięta narysowanego widżetu i pokazuje układ startowy, dopóki aplikacja go nie narysuje, a zwykłe
+     * odświeżenie Glance idzie przez WorkManagera, którego zadania tuż po starcie systemu bywają długo odkładane
+     * (np. Pixel z GrapheneOS - widżet był długo pusty). Tu widok powstaje od razu w odbiorniku zdarzenia
+     * (dane z bazy na telefonie), a zwykła sesja Glance zastępuje go, gdy ruszy. Rozmiar: pionowy ekran.
+     */
+    suspend fun drawNow() {
+        val glance = androidx.glance.appwidget.GlanceAppWidgetManager(context)
+        val manager = android.appwidget.AppWidgetManager.getInstance(context) ?: return
+        val widgets = listOf(NextLessonWidget(), DayPlanWidget(), SubstitutionsWidget(), TransitWidget())
+        val started = android.os.SystemClock.elapsedRealtime()
+        var drawn = 0
+        for (widget in widgets) {
+            val ids = runCatchingCancellable { glance.getGlanceIds(widget.javaClass) }.getOrDefault(emptyList())
+            for (glanceId in ids) runCatchingCancellable {
+                val appWidgetId = glance.getAppWidgetId(glanceId)
+                val options = manager.getAppWidgetOptions(appWidgetId)
+                val views = widget.compose(context, glanceId, options, portraitSize(options))
+                manager.updateAppWidget(appWidgetId, views)
+                drawn++
+            }.onFailure { Log.w(TAG, "Nie udało się od razu narysować widżetu ${widget.javaClass.simpleName}", it) }
+        }
+        if (drawn > 0) Log.i(TAG, "Narysowano od razu $drawn widżetów (${android.os.SystemClock.elapsedRealtime() - started} ms)")
+    }
+
+    /** Rozmiar widżetu na pionowym ekranie (szerokość minimalna, wysokość maksymalna) z opcji launchera. */
+    private fun portraitSize(options: android.os.Bundle): androidx.compose.ui.unit.DpSize? {
+        val width = options.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        val height = options.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+        return if (width > 0 && height > 0) androidx.compose.ui.unit.DpSize(width.dp, height.dp) else null
     }
 
     /** Tylko widżet Przejazdy (nowy wynik połączeń) - bez przerysowywania pozostałych. */

@@ -93,6 +93,8 @@ class TransitToSchoolTest {
         var plans = 0
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
+            // Wersja binarna API (/v2/app) - nagrania w JSON zamienione na Protobuf.
+            assertTrue(request.url.encodedPath.startsWith("/v2/app/cities/bydgoszcz/"))
             val json = if (request.url.encodedPath.endsWith("/stops")) resource("stops_to_school.json") else {
                 plans++
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
@@ -104,7 +106,8 @@ class TransitToSchoolTest {
                 resource("planner_to_school.json")
             }
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
-                .body(json.toResponseBody("application/json".toMediaType())).build()
+                .body(BusearchProtoEncoder.encode(JSONObject(json), if (request.url.encodedPath.endsWith("/stops")) BusearchProto.STOPS else BusearchProto.JOURNEYS)
+                    .toResponseBody(BusearchProto.CONTENT_TYPE.toMediaType())).build()
         }.build()
         AppClock.simulate(java.time.LocalDateTime.of(2026, 10, 26, 6, 50))
         try {

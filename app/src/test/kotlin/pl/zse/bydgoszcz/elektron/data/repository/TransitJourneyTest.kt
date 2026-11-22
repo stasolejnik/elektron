@@ -46,7 +46,10 @@ class TransitJourneyTest {
         val at = first.departureMs - (first.walkMinutes + 2) * 60_000L + 1
         assertEquals(1, parse(at = at).size)
         assertEquals(1, TransitJourneys.rank(listOf(first), at).size)
-        assertTrue(TransitJourneys.rank(listOf(first), first.departureMs).isEmpty())
+        // Po godzinie z rozkładu kurs zostaje w wyniku (spóźniony), ale bez danych na żywo nie ma go na ekranie.
+        assertEquals(1, TransitJourneys.rank(listOf(first), first.departureMs).size)
+        assertTrue(TransitJourneys.upcoming(listOf(first), first.departureMs).isEmpty())
+        assertTrue(TransitJourneys.rank(listOf(first), first.departureMs + TransitJourneys.LATE_KEEP_MS).isEmpty())
         assertEquals(1, parse(at = first.departureMs - (first.walkMinutes + 2) * 60_000L).size)
     }
     @Test fun malformedTimesAndUnknownBoardingStopAreRejected() {
@@ -63,7 +66,7 @@ class TransitJourneyTest {
         val ranked = TransitJourneys.rank(listOf(earlierDistant, laterNearest), now)
         assertEquals(earlierDistant.key, ranked.first().key)
         assertTrue("A faster alternative remains visible", ranked.any { it.key == earlierDistant.key })
-        assertTrue(TransitJourneys.rank(listOf(laterNearest), laterNearest.departureMs).isEmpty())
+        assertTrue(TransitJourneys.rank(listOf(laterNearest), laterNearest.departureMs + TransitJourneys.LATE_KEEP_MS).isEmpty())
     }
     @Test fun scheduledResultIsReusedForTenMinutesUntilItsDeparturesPass() {
         val journey = parse().single()
@@ -158,7 +161,8 @@ class TransitJourneyTest {
         val input = listOf(later, first)
         assertEquals(listOf(first.key, later.key), TransitJourneys.rank(input, now).map { it.key })
         assertEquals(listOf(first.key, later.key), TransitJourneys.rank(input.map { it.copy(walkMinutes = 8, walkAvailable = true, walkPending = false) }, now + 59_999L).map { it.key })
-        assertEquals(listOf(later.key), TransitJourneys.rank(input, first.departureMs).map { it.key })
+        assertEquals(listOf(first.key, later.key), TransitJourneys.rank(input, first.departureMs).map { it.key })
+        assertEquals(listOf(later.key), TransitJourneys.upcoming(TransitJourneys.rank(input, first.departureMs), first.departureMs).map { it.key })
     }
 
     @Test fun firstThreeJourneysArriveSoonestRegardlessOfDistanceOrDepartureOrder() {

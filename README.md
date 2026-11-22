@@ -77,6 +77,18 @@ Wymaga **Androida 8.0 lub nowszego**. Nowe wersje instaluj na wierzch poprzednie
 notatki i ulubione zostają. Wersji z GitHuba i z F-Droid nie da się zainstalować jedna na drugą
 (inne podpisy); zmiana źródła wymaga odinstalowania.
 
+**Oficjalne źródła to tylko [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)
+i [F-Droid](https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/).** Inne strony z plikami APK
+mogą kopiować wydania, ale projekt ich nie prowadzi i nie odpowiada za nie. Plik z innej strony
+instaluj tylko wtedy, gdy ma ten sam certyfikat co wersja z GitHuba (SHA-256):
+
+```
+d36ca418313c57adb99cf55e1f1d803a29cda4b3d01785c26a535d9a6e80480e
+```
+
+Sprawdzisz go na telefonie np. aplikacją [AppVerifier](https://github.com/soupslurpr/AppVerifier)
+albo poleceniem `apksigner verify --print-certs eLektron-….apk`. Wersję z F-Droid podpisuje F-Droid.
+
 ## Prywatność
 
 Bez konta, reklam i analityki. Ustawienia, notatki i przystanki są tylko na telefonie, a Przejazdy

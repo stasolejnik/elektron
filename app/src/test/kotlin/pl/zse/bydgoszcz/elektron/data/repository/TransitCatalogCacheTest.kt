@@ -27,7 +27,7 @@ class TransitCatalogCacheTest {
         assertTrue(file.setLastModified(System.currentTimeMillis() - 48 * 60 * 60 * 1000L))
         var requests = 0
         var offline = true
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             requests++
             if (offline) throw IOException("Offline")
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
@@ -47,7 +47,7 @@ class TransitCatalogCacheTest {
     @Test fun unchangedCatalogComesBackAsNotModified() = runBlocking {
         file.delete(); File(context.cacheDir, "transit_stops_v2.etag").delete()
         val seen = mutableListOf<String?>()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val tag = chain.request().header("If-None-Match")
             seen += tag
             val builder = Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
@@ -67,7 +67,7 @@ class TransitCatalogCacheTest {
     @Test fun missingCacheDoesNotCauseRepeatedRequestsAfterFailure() = runBlocking {
         file.delete()
         var requests = 0
-        val client = OkHttpClient.Builder().addInterceptor {
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor {
             requests++
             throw IOException("Offline")
         }.build()
@@ -83,7 +83,7 @@ class TransitCatalogCacheTest {
     @Test fun oversizedDiskCacheIsRejectedAndReplaced() = runBlocking {
         file.writeText(json + " ".repeat(2_000_001))
         var requests = 0
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             requests++
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
                 .code(200).message("OK").body(json.toResponseBody()).build()
@@ -91,7 +91,8 @@ class TransitCatalogCacheTest {
         try {
             assertEquals("24", TransitStopCatalog(context, client).load().stops.single().key)
             assertEquals(1, requests)
-            assertEquals(json, file.readText())
+            // Zapis w JSON (odtworzonym z odpowiedzi binarnej) - te same przystanki co w odpowiedzi.
+            assertEquals(TransitStopParser.platforms(json), TransitStopParser.platforms(file.readText()))
         } finally { file.delete() }
     }
 }

@@ -55,9 +55,16 @@ object TransitJourneys {
     fun walkable(journeys: List<TransitJourney>, nowMs: Long, live: Map<String, LiveStatus> = emptyMap()): List<TransitJourney> =
         journeys.filter { it.schoolArrivalMs != null || TransitLive.expected(it, live) - it.walkMinutes * 60_000L >= nowMs }
 
+    /**
+     * Jak długo po godzinie z rozkładu kurs zostaje w wyniku (scalanie stron, zapis, nowe sprawdzenie). Spóźniony
+     * kurs widać na ekranie do faktycznego odjazdu ([upcoming] z opóźnieniem na żywo); dawniej przy dociąganiu
+     * kolejnych kursów znikał w chwili odjazdu z rozkładu, choć miał jeszcze "za 2 min".
+     */
+    const val LATE_KEEP_MS = 15 * 60_000L
+
     /** Do szkoły: kolejne odjazdy z Twojego przystanku, przy tej samej godzinie najpierw szybszy. */
     fun rankToSchool(journeys: List<TransitJourney>, nowMs: Long, allowTransfers: Boolean = true): List<TransitJourney> =
-        journeys.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) }
+        journeys.filter { it.departureMs > nowMs - LATE_KEEP_MS && (allowTransfers || it.transfers == 0) }
             .groupBy { it.key }.values.map { variants ->
                 variants.minWith(compareBy<TransitJourney> { it.schoolArrivalMs ?: it.arrivalMs }.thenBy { it.transfers })
             }.sortedWith(compareBy<TransitJourney> { it.departureMs }.thenBy { it.schoolArrivalMs ?: it.arrivalMs }
@@ -82,13 +89,25 @@ object TransitJourneys {
         return journeys.indexOfLast { at(it) <= lessonStartMs }.coerceAtLeast(0)
     }
 
+    /**
+     * Nowe sprawdzenie pyta planer od teraz, więc nie zawiera kursów po godzinie z rozkładu. Spóźniony kurs,
+     * który według danych na żywo jeszcze nie odjechał, przechodzi z poprzedniego wyniku.
+     */
+    fun stillComing(previous: List<TransitJourney>, fresh: List<TransitJourney>, nowMs: Long, live: Map<String, LiveStatus>): List<TransitJourney> {
+        val known = fresh.mapTo(HashSet()) { it.key }
+        return previous.filter { it.key !in known && it.departureMs <= nowMs && TransitLive.expected(it, live) > nowMs }
+    }
+
     /** Przesunięcie dotarcia o opóźnienie pierwszego kursu (przybliżenie - autobus nadrabia rzadko). */
     fun delayMs(trip: TransitJourney, live: Map<String, LiveStatus>): Long =
         live[trip.key]?.let { it.expectedMs - trip.departureMs } ?: 0L
 
-    /** Keep a departure visible until it leaves, even after the walking deadline passes. */
+    /**
+     * Keep a departure visible until it leaves, even after the walking deadline passes. Kursy po godzinie z rozkładu
+     * zostają przez [LATE_KEEP_MS] - o tym, czy są na ekranie, decyduje [upcoming] z opóźnieniem na żywo.
+     */
     fun rank(journeys: List<TransitJourney>, nowMs: Long, preferredOrigin: TransitDestination? = null, allowTransfers: Boolean = true): List<TransitJourney> {
-        return journeys.filter { it.departureMs > nowMs && (allowTransfers || it.transfers == 0) &&
+        return journeys.filter { it.departureMs > nowMs - LATE_KEEP_MS && (allowTransfers || it.transfers == 0) &&
             (preferredOrigin == null || it.rides.first().fromId in preferredOrigin.stopIds)
         }.groupBy { it.key }.values.map { variants ->
             variants.minWith(compareBy<TransitJourney> { it.arrivalMs }.thenBy { it.transfers })

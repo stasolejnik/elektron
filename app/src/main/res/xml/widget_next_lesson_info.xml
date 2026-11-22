@@ -5,7 +5,7 @@
     android:description="@string/widget_next_lesson_desc"
     android:previewLayout="@layout/widget_preview_next_lesson"
     android:previewImage="@drawable/ic_logo"
-    android:initialLayout="@layout/glance_default_loading_layout"
+    android:initialLayout="@layout/widget_loading"
     android:minWidth="110dp"
     android:minHeight="110dp"
     android:minResizeWidth="110dp"

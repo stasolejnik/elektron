@@ -649,7 +649,7 @@ private fun LessonRow(lesson: Lesson, badge: String?, modifier: Modifier = Modif
                     val forLine = buildString {
                         append("Za: ")
                         personal.subjectName(originalSubject)?.let { append("$it · ") }
-                        append(sub.originalTeacher)
+                        append(pl.zse.bydgoszcz.elektron.domain.model.TeacherNames.display(sub.originalTeacher))
                     }
                     Text(forLine, style = MaterialTheme.typography.bodySmall, color = fg.copy(alpha = 0.8f))
                     // Uwagi ze strony zastępstw ("za ostatnią lekcję", "historia").

@@ -229,8 +229,10 @@ najwyżej co godzinę. Poprawka wymaga nowej wersji aplikacji.
 
 ## API BUSearch (Przejazdy)
 
-Przejazdy korzystają z publicznego API [BUSearch](https://busearch.pl) (autor: Szymon Czaja) w wersji 2.
-Wszystkie adresy zaczynają się od `https://api.busearch.pl/v2/cities/bydgoszcz`:
+Przejazdy korzystają z publicznego API [BUSearch](https://busearch.pl) (autor: Szymon Czaja) w wersji 2,
+w odmianie binarnej (Protobuf). Wszystkie adresy zaczynają się od `https://api.busearch.pl/v2/app/cities/bydgoszcz`
+(odpowiedzi `application/x-protobuf`, schemat: `https://api.busearch.pl/v2/app/schema.proto`, dokumentacja:
+`https://api.busearch.pl/v2/docs`). Zapytania `POST` wysyłają treść w JSON jak w wersji JSON:
 
 | Zapytanie | Kod | Do czego |
 |---|---|---|
@@ -243,6 +245,12 @@ Wszystkie adresy zaczynają się od `https://api.busearch.pl/v2/cities/bydgoszcz
 
 Uwagi:
 
+- **Wersja binarna:** `BusearchProto` dekoduje odpowiedź bez biblioteki Protobuf i bez `protoc` (nic nie
+  dochodzi do budowania F-Droid) i zamienia ją na ten sam `JSONObject`, który zwraca wersja JSON
+  (`/v2/cities/...`) - parsery czytają te same pola. `latE6`/`lonE6` to `lat`/`lon`, `shapeE5` to `shape`
+  (`[[lat, lon], …]`), wartości enum to napisy z JSON. Opisane są tylko używane wiadomości i pola; nieznane
+  pola są pomijane, a numery pól w v2 się nie zmieniają. Nowe pole: dopisz je w `BusearchProto` z numerem ze
+  schematu. Z kompresją gzip odpowiedzi są o ok. 20-45% mniejsze niż w JSON (bez niej kilka razy mniejsze).
 - Ostatnie zapytanie to obejście - API nie ma osobnego zapytania o przebieg trasy. Gdy przestanie
   działać, mapa łączy przystanki prostymi odcinkami (nic się nie psuje).
 - Dojście ze szkoły do przystanku jest szacowane lokalnie (`TransitWalkingRepository`: odległość × 1,3 /
@@ -250,7 +258,9 @@ Uwagi:
 - Widżet Przejazdy pyta planer sam w ciągu dnia (`TransitWidgetRefresher`, limity 5/15 min) - przy
   zmianie tych zasad zaktualizuj [PRYWATNOSC.md](PRYWATNOSC.md).
 - **Gdy API się zmieni:** zapisz nowe odpowiedzi jako dane testowe (`app/src/test/resources/transit/`),
-  popraw funkcje `parse…` w repozytoriach i testy `Transit*Test`. Pomaga zapytanie do autora BUSearch
+  popraw funkcje `parse…` w repozytoriach i testy `Transit*Test`. `BusearchProtoTest` porównuje odpowiedzi
+  binarne z tymi samymi odpowiedziami w JSON (`v2_compare_*.pb` i `.json`, pobrane w tej samej chwili); testy
+  z odpowiedziami w JSON zamieniają je na binarne (`BusearchProtoEncoder.FromJson`). Pomaga zapytanie do autora BUSearch
   o planowane zmiany. Dawne API v1 działało do końca 2026 r. - aplikacja korzysta już tylko z v2.
 
 ## Do zrobienia co roku
@@ -277,6 +287,14 @@ Uwagi:
   i test w `DatabaseMigrationsTest`; schemat JSON z `app/schemas/` commituj.
 - **Widżet nie pokazuje nowych danych:** sesja Glance odświeża dane tylko po zmianie wersji -
   `WidgetUpdater.updateNow()` (wszystkie) albo `updateTransit()` (Przejazdy).
+- **Widżet po restarcie telefonu:** zanim aplikacja go narysuje, launcher pokazuje `initialLayout`
+  (`res/layout/widget_loading.xml`: tło w kolorze motywu i logo). Przy `BOOT_COMPLETED`
+  `SystemEventsReceiver` woła `WidgetUpdater.drawNow()` - widoki z `GlanceAppWidget.compose()` trafiają do
+  launchera od razu, bez sesji Glance w WorkManagerze (jego zadania tuż po starcie systemu bywają odkładane).
+  Log: „Narysowano od razu N widżetów”.
+- **Lista w widżecie (`LazyColumn`):** to kolekcja zdalna launchera - na Androidzie 17 bywała pusta
+  (Plan dnia) albo bez kliknięć (Zastępstwa, stąd tam zwykła kolumna). Przy problemach z listą sprawdź
+  najpierw nowszą wersję Glance.
 - **Czas na emulatorze:** `adb root` i `adb shell date MMDDhhmmYYYY.ss` (wyłącz wcześniej automatyczny
   czas). W aplikacji jest też symulowany czas w trybie dewelopera (Ustawienia → O aplikacji, 5 dotknięć
   logo).

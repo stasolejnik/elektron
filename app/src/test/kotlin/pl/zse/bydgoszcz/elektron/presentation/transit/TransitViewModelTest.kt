@@ -49,7 +49,7 @@ class TransitViewModelTest {
             override val data = kotlinx.coroutines.flow.flow<androidx.datastore.preferences.core.Preferences> { throw java.io.IOException("Dysk") }
             override suspend fun updateData(transform: suspend (androidx.datastore.preferences.core.Preferences) -> androidx.datastore.preferences.core.Preferences): androidx.datastore.preferences.core.Preferences = throw java.io.IOException("Dysk")
         }
-        val client = OkHttpClient.Builder().addInterceptor { throw AssertionError("No request without readable settings") }.build()
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { throw AssertionError("No request without readable settings") }.build()
         val catalog = TransitStopCatalog(context, client)
         val vm = TransitViewModel(TransitPreferencesRepository(store), catalog, TransitJourneyRepository(client, catalog))
         val owner = ViewModelStore().apply { put("transit", vm) }
@@ -74,7 +74,7 @@ class TransitViewModelTest {
         val context = object : ContextWrapper(app) { override fun getCacheDir() = directory }
         val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "settings.preferences_pb") }))
-        val client = OkHttpClient.Builder().addInterceptor { throw AssertionError("Fresh cached results must not call the network") }.build()
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { throw AssertionError("Fresh cached results must not call the network") }.build()
         val catalog = TransitStopCatalog(context, client)
         val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog))
         val owner = ViewModelStore().apply { put("transit", vm) }
@@ -139,7 +139,7 @@ class TransitViewModelTest {
         val now = System.currentTimeMillis()
         val cursor = now + 900_000L
         val goal = TransitDestination("Cel", listOf("26"), 53.1236, 18.007)
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = when {
                 request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
@@ -192,7 +192,7 @@ class TransitViewModelTest {
         val started = java.util.concurrent.CountDownLatch(1)
         val release = java.util.concurrent.CountDownLatch(1)
         val requests = java.util.concurrent.atomic.AtomicInteger()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val body = if (chain.request().url.encodedPath.endsWith("/stops")) """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}""" else {
                 requests.incrementAndGet(); started.countDown()
                 check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
@@ -235,7 +235,7 @@ class TransitViewModelTest {
         val plans = java.util.concurrent.atomic.AtomicInteger()
         val firstStarted = java.util.concurrent.CountDownLatch(1)
         val releaseFirst = java.util.concurrent.CountDownLatch(1)
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = when {
                 request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
@@ -308,7 +308,7 @@ class TransitViewModelTest {
         val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "settings.preferences_pb") }))
         val plans = java.util.concurrent.atomic.AtomicInteger()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             if (!request.url.encodedPath.endsWith("/stops")) { plans.incrementAndGet(); throw java.io.IOException("Offline") }
             okhttp3.Response.Builder().request(request).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
@@ -360,7 +360,7 @@ class TransitViewModelTest {
                 return transform(data.value).also { data.value = it }
             }
         }
-        val client = OkHttpClient.Builder().addInterceptor { throw AssertionError("Preferences must not request journeys") }.build()
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { throw AssertionError("Preferences must not request journeys") }.build()
         val catalog = TransitStopCatalog(context, client)
         val vm = TransitViewModel(TransitPreferencesRepository(store), catalog, TransitJourneyRepository(client, catalog))
         val owner = ViewModelStore().apply { put("transit", vm) }

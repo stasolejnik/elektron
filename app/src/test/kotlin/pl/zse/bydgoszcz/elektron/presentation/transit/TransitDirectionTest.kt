@@ -51,7 +51,7 @@ class TransitDirectionTest {
         val home = TransitDestination("Dom", listOf("41"), 53.108, 18.045)
         val bodies = java.util.concurrent.CopyOnWriteArrayList<JSONObject>()
         val boards = java.util.concurrent.atomic.AtomicInteger()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = when {
                 request.url.encodedPath.endsWith("/stops") && request.url.encodedPath.contains("/departures") -> {
@@ -132,7 +132,7 @@ class TransitDirectionTest {
             override suspend fun fetchTimetable(classId: String) = error("offline")
         }, db.schoolClassDao(), db.teacherDao(), db.roomDao(), db.lessonDao(), db.lessonGroupDao(), db.substitutionDao(), db)
         val settings = FakeSettings().apply { classIdFlow.value = "o3" }
-        val client = OkHttpClient.Builder().addInterceptor { error("bez sieci") }.build()
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { error("bez sieci") }.build()
         val catalog = TransitStopCatalog(object : ContextWrapper(app) { override fun getCacheDir() = directory }, client)
         // Aplikacja działa w prawdziwym czasie (inny dzień), dopiero potem tryb dewelopera zmienia czas.
         val vm = TransitViewModel(prefs, catalog, TransitJourneyRepository(client, catalog), TransitSchoolDay(settings, timetable), null)
@@ -168,7 +168,7 @@ class TransitDirectionTest {
         val settings = FakeSettings().apply { classIdFlow.value = "o3" }
         val home = TransitDestination("Dom", listOf("41"), 53.108, 18.045)
         val plans = java.util.concurrent.atomic.AtomicInteger()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops"))
                 """{"stops":[{"id":41,"name":"Dom","lat":53.108,"lon":18.045},{"id":77,"name":"Daleko","lat":53.2,"lon":18.2},{"id":11,"name":"Szkoła","lat":53.1225,"lon":18.0264}]}"""
@@ -213,11 +213,11 @@ class TransitDirectionTest {
         val prefs = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = ioScope, produceFile = { File(directory, "s.preferences_pb") }))
         val goal = TransitDestination("Dom", listOf("41"), 53.108, 18.045)
         val departure = (System.currentTimeMillis() / 60_000L + 6) * 60_000L
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = when {
                 request.url.encodedPath.contains("/departures") -> {
-                    assertEquals("/v2/cities/bydgoszcz/stops/24/departures", request.url.encodedPath)
+                    assertEquals("/v2/app/cities/bydgoszcz/stops/24/departures", request.url.encodedPath)
                     """{"departures":[{"line":"6","atMs":${departure + 2 * 60_000L},"delayMinutes":2,"source":"live"}]}"""
                 }
                 request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Przy szkole","lat":53.12194,"lon":18.02764}]}"""

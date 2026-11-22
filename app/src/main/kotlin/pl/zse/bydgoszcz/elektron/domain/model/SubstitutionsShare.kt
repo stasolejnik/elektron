@@ -12,7 +12,7 @@ object SubstitutionsShare {
                     s.groupNumber?.let { append(" · grupa $it") }
                     append("\n${SubstitutionDisplay.headline(s)}")
                     SubstitutionDisplay.place(s)?.let { append("\n$it") }
-                    append("\nZa: ${s.originalTeacher}")
+                    append("\nZa: ${TeacherNames.display(s.originalTeacher)}")
                     s.originalSubject?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
                     SubstitutionDisplay.notes(s)?.let { append("\n$it") }
                 } }

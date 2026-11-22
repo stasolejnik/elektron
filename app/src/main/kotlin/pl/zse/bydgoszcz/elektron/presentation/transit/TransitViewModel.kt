@@ -374,7 +374,17 @@ class TransitViewModel @Inject constructor(private val preferencesRepository: Tr
                             boardingStops = (previous.boardingStops + result.boardingStops).distinctBy { it.key },
                             partialFailure = previous.partialFailure || result.partialFailure,
                             // Dociągnięcie do wyniku cząstkowego (przerwane pierwsze sprawdzenie) nie czyni go pełnym.
-                            complete = previous.complete && result.complete) else result
+                            complete = previous.complete && result.complete)
+                            else if (previous != null && result.complete) {
+                                // Nowe sprawdzenie: spóźniony kurs, który na żywo jeszcze nie odjechał, zostaje na liście.
+                                val now = AppClock.millis()
+                                val late = TransitJourneys.stillComing(previous.journeys, result.journeys, now, live.value)
+                                if (late.isEmpty()) result else result.copy(journeys =
+                                    if (toSchool) TransitJourneys.rankToSchool(late + result.journeys, now, current.allowTransfers)
+                                    else TransitJourneys.rank(late + result.journeys, now, current.strictOrigin, current.allowTransfers),
+                                    boardingStops = (result.boardingStops + previous.boardingStops.filter { stop ->
+                                        late.any { it.rides.first().fromId in stop.stopIds } }).distinctBy { it.key })
+                            } else result
                         if (!matches(published, settings.value.preferences)) return@runCatchingCancellable
                         // Atomowo i z dojściami już uzupełnionymi w międzyczasie (praca dojść działa równolegle):
                         // dawniej zapis listy zbudowanej przed ich uzupełnieniem kasował je i dojścia liczyły się od nowa.

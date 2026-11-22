@@ -170,4 +170,25 @@ class TransitCommuteTest {
         assertFalse("limit 4 dociągnięć", ok(20))
         assertFalse("limit kursów", TransitAutoLoad.shouldLoad(TransitAutoLoad.State(), true, TransitAutoLoad.MAX_RAW, base, null, true))
     }
+
+    @Test fun lateDepartureStaysUntilItActuallyLeaves() {
+        // Autobus planowo o base, spóźniony 3 min; jest base + 1 min, czyli "za 2 min".
+        val late = TransitJourney(listOf(ride("8", base)), 0, 0.0)
+        val next = TransitJourney(listOf(ride("8", base + 20 * 60_000L)), 0, 0.0)
+        val now = base + 60_000L
+        val live = mapOf(late.key to LiveStatus(3, base + 3 * 60_000L))
+        // Dociągnięcie kolejnych kursów scala listy - spóźniony nie wypada po godzinie z rozkładu.
+        val merged = TransitJourneys.rank(listOf(late, next), now)
+        assertEquals(listOf(late, next), merged)
+        assertEquals(listOf(late, next), TransitJourneys.upcoming(merged, now, live = live))
+        assertEquals(listOf(late, next), TransitJourneys.rankToSchool(listOf(next, late), now))
+        // Bez danych na żywo - już odjechał.
+        assertEquals(listOf(next), TransitJourneys.upcoming(merged, now))
+        // Po 15 min od rozkładu nie ma go nawet w wyniku.
+        assertEquals(listOf(next), TransitJourneys.rank(listOf(late, next), base + TransitJourneys.LATE_KEEP_MS))
+        // Nowe sprawdzenie (planer od teraz) - spóźniony przechodzi z poprzedniego wyniku, a odjechany nie.
+        assertEquals(listOf(late), TransitJourneys.stillComing(listOf(late, next), listOf(next), now, live))
+        assertEquals(emptyList<TransitJourney>(), TransitJourneys.stillComing(listOf(late, next), listOf(next), base + 4 * 60_000L, live))
+        assertEquals(emptyList<TransitJourney>(), TransitJourneys.stillComing(listOf(late, next), listOf(next), now, emptyMap()))
+    }
 }

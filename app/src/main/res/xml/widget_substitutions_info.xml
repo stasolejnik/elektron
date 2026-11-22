@@ -4,7 +4,7 @@
     android:description="@string/widget_substitutions_desc"
     android:previewLayout="@layout/widget_preview_substitutions"
     android:previewImage="@drawable/ic_logo"
-    android:initialLayout="@layout/glance_default_loading_layout"
+    android:initialLayout="@layout/widget_loading"
     android:minWidth="250dp"
     android:minHeight="110dp"
     android:minResizeWidth="180dp"

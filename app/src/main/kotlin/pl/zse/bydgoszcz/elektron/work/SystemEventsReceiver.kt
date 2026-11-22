@@ -40,8 +40,13 @@ class SystemEventsReceiver : BroadcastReceiver() {
                 if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) runCatching {
                     java.io.File(context.cacheDir, "updates").listFiles()?.forEach { it.delete() }
                 }
+                // Po restarcie najpierw widżety (launcher pokazuje do tej pory tylko układ startowy) - od razu, bez WorkManagera.
+                if (intent.action == Intent.ACTION_BOOT_COMPLETED) withTimeoutOrNull(4_000) {
+                    pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { ep.widgetUpdater().drawNow() }
+                        .onFailure { android.util.Log.w("SystemEvents", "Nie udało się od razu narysować widżetów", it) }
+                }
                 // goAsync daje ok. 10 s.
-                withTimeoutOrNull(8_000) {
+                withTimeoutOrNull(5_000) {
                     pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { ep.noteScheduler().reschedule(force = true) }
                         .onFailure { android.util.Log.w("SystemEvents", "Błąd przypomnień notatek", it) }
                     pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable { ep.scheduler().reschedule() }

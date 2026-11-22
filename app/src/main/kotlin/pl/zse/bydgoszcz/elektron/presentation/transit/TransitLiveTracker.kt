@@ -70,12 +70,15 @@ internal class TransitLiveTracker(
         latest.journeys.forEach { trip ->
             val ride = trip.rides.first()
             val board = fetched[ride.fromId to ride.line]
-            if (board != null) {
-                TransitLive.match(ride, board)?.let { next[trip.key] = it; seenAt[trip.key] = elapsed }
+            val matched = board?.let { TransitLive.match(ride, it) }
+            if (matched != null) {
+                next[trip.key] = matched; seenAt[trip.key] = elapsed
             } else {
-                // Tablica chwilowo bez odpowiedzi - poprzedni stan jeszcze przez 3 minuty.
+                // Tablica chwilowo bez odpowiedzi albo już bez tego kursu (pojazd tuż przy przystanku) - poprzedni
+                // stan jeszcze przez 3 minuty, dopóki nie minie przewidywany odjazd. Dawniej spóźniony kurs znikał
+                // wtedy od razu, bo jego godzina z rozkładu już minęła.
                 val previous = _live.value[trip.key]
-                if (previous != null && elapsed - (seenAt[trip.key] ?: 0L) <= 3 * 60_000L) next[trip.key] = previous
+                if (previous != null && previous.expectedMs > now && elapsed - (seenAt[trip.key] ?: 0L) <= 3 * 60_000L) next[trip.key] = previous
             }
         }
         seenAt.keys.retainAll(next.keys)

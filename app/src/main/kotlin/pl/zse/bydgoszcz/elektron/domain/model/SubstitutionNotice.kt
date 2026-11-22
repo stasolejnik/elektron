@@ -35,7 +35,7 @@ object SubstitutionNotice {
         val day = dayLabel(sub.date, today)
         val group = sub.groupNumber?.let { " (grupa $it)" } ?: ""
         val place = SubstitutionDisplay.place(sub)
-        val forWhom = listOfNotNull(subject?.takeIf { it.isNotBlank() }, sub.originalTeacher.trim().takeIf { it.isNotEmpty() })
+        val forWhom = listOfNotNull(subject?.takeIf { it.isNotBlank() }, TeacherNames.display(sub.originalTeacher).takeIf { it.isNotEmpty() })
             .takeIf { it.isNotEmpty() }?.joinToString(" · ", prefix = "Za: ")
         val notes = SubstitutionDisplay.notes(sub)
         val lines = listOfNotNull(place, forWhom, notes?.let { "Uwagi: $it" })

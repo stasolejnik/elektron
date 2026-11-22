@@ -30,7 +30,7 @@ class TransitJourneyRepositoryTest {
         val plans = AtomicInteger()
         val walks = AtomicInteger()
         val target = TransitDestination("Rondo Jagiellonów", listOf("26"), 53.1236, 18.007)
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops")) {
                 catalogs.incrementAndGet()
@@ -42,7 +42,7 @@ class TransitJourneyRepositoryTest {
             } else {
                 plans.incrementAndGet()
                 assertEquals("POST", request.method)
-                assertEquals("/v2/cities/bydgoszcz/journeys", request.url.encodedPath)
+                assertEquals("/v2/app/cities/bydgoszcz/journeys", request.url.encodedPath)
                 val buffer = okio.Buffer(); request.body!!.writeTo(buffer)
                 val body = JSONObject(buffer.readUtf8())
                 assertEquals(24, body.getJSONObject("from").getInt("stopId"))
@@ -86,7 +86,7 @@ class TransitJourneyRepositoryTest {
         val target = TransitDestination("Cel", listOf("26"), 53.1236, 18.007)
         val origin = TransitDestination("Start", listOf("24"), 53.12194, 18.02764)
         val cursor = System.currentTimeMillis() + 900_000L
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = when {
                 request.url.encodedPath.endsWith("/stops") -> """{"stops":[{"id":24,"name":"Start","lat":53.12194,"lon":18.02764}]}"""
@@ -117,7 +117,7 @@ class TransitJourneyRepositoryTest {
         val origin = TransitDestination("Wybrany", listOf("24", "25"), 53.123, 18.027)
         val now = System.currentTimeMillis()
         val requested = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops")) {
                 """{"stops":[{"id":24,"name":"Wybrany","lat":53.123,"lon":18.027},{"id":25,"name":"Wybrany","lat":53.1231,"lon":18.0271},{"id":26,"name":"Inny","lat":53.1232,"lon":18.0272}]}"""
@@ -148,7 +148,7 @@ class TransitJourneyRepositoryTest {
         val origin = TransitDestination("Start", listOf("24", "25"), 53.123, 18.027)
         val now = System.currentTimeMillis()
         val counts = java.util.concurrent.ConcurrentHashMap<Int, AtomicInteger>()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             val json = if (request.url.encodedPath.endsWith("/stops")) {
                 """{"stops":[{"id":24,"name":"Start","lat":53.123,"lon":18.027},{"id":25,"name":"Start","lat":53.1231,"lon":18.0271}]}"""
@@ -197,7 +197,7 @@ class TransitJourneyRepositoryTest {
         val origin = TransitDestination("Start", listOf("24", "25"), 53.123, 18.027)
         val now = System.currentTimeMillis()
         val plans = AtomicInteger()
-        val client = OkHttpClient.Builder().addInterceptor { chain ->
+        val client = OkHttpClient.Builder().addInterceptor(pl.zse.bydgoszcz.elektron.data.repository.BusearchProtoEncoder.FromJson).addInterceptor { chain ->
             val request = chain.request()
             var code = 200
             val json = if (request.url.encodedPath.endsWith("/stops")) {

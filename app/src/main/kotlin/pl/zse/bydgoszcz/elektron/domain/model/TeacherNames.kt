@@ -9,5 +9,11 @@ object TeacherNames {
      * "M.Kucharska" -> "M. Kucharska", "J.Siepniewska-Stańczyk" -> "J. Siepniewska-Stańczyk". Dawniej ta sama
      * osoba była w planie "D.Musierowicz", a w zastępstwie obok "D. Musierowicz".
      */
-    fun display(name: String): String = name.trim().replace(INITIAL, "$1. ")
+    fun display(name: String): String = if (VACANCY.containsMatchIn(name)) "wakat" else name.trim().replace(INITIAL, "$1. ")
+
+    /**
+     * Nieobsadzony etat w planie VULCAN ("techniczny Vacat tech" na stronie zastępstw, "I.Vacat" w planie) - w aplikacji
+     * "wakat". Tylko przy wyświetlaniu: identyfikatory zastępstw i dopasowanie nauczycieli zostają przy nazwie ze strony.
+     */
+    private val VACANCY = Regex("(?i)(^|[\\s.])vacat(\\s|$)")
 }
