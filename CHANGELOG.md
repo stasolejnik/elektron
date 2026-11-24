@@ -6,6 +6,10 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 
 ## [Niewydane]
 
+- Informacja szkoły (strona główna, Zastępstwa, Ogłoszenia) zawsze w całości, razem z obrazkami - bez zwijania do 2-3 linii i przycisku „Pokaż więcej”. Ważne szczegóły (np. godziny skróconych lekcji) bywały w ukrytej części.
+- Widżet Plan dnia jest pierwszy na liście widżetów: w Ustawieniach → Widżety → Dodaj na ekran główny, w kolejności odbiorników w manifeście (lista widżetów launchera) i w opisach.
+- Komunikat o weryfikacji deweloperów Androida: od 18 grudnia 2026 (14 dni przed 1 stycznia 2027) przy pierwszym otwarciu aplikacji jednorazowe okno o tym, że Google od 2027 roku stopniowo wymaga rejestracji twórców aplikacji instalowanych spoza Sklepu Play, co to znaczy dla eLektronu (GitHub i F-Droid) i odnośnik do keepandroidopen.org. Pokazywane po „Co nowego” i przewodniku, przed prośbą o powiadomienia; data według zegara aplikacji, więc działa też z symulowanym czasem. Tryb dewelopera: „Podgląd komunikatu o Androidzie” i „Symuluj komunikat o Androidzie” (okno przy następnym otwarciu aplikacji). Zapis w `SharedPreferences` `open_android_notice`.
+
 ## [1.0.5-beta3] - 2026-11-24 (44)
 
 Wersja testowa (kanał „Beta”): kolor zastępstw, czas w widżetach co do minuty, poprawki widżetu Plan dnia na Androidzie 17 i wybór przystanku przy szkole. Szczegóły: [release-notes/1.0.5-beta3.md](release-notes/1.0.5-beta3.md).

@@ -144,8 +144,8 @@ fun AnnouncementsScreen(viewModel: AnnouncementsViewModel = hiltViewModel()) {
                 if (!state.favoritesOnly && !state.isSearching) {
                     val today = pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()
                     items(notices, key = { "notice_${it.first}" }) { (day, notice) ->
-                        pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 3,
-                            key = "$day|${notice.hashCode()}", modifier = Modifier.animateItem(),
+                        pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice,
+                            modifier = Modifier.animateItem(),
                             title = "Informacja szkoły · " + pl.zse.bydgoszcz.elektron.presentation.dashboard.noticeDayLabel(day, today))
                     }
                 }

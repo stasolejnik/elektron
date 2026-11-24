@@ -56,7 +56,7 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 - **Strona główna:** trwająca lub najbliższa lekcja, kolejna lekcja, zastępstwa, dojazd i ogłoszenia.
 - **Powiadomienia:** zastępstwa, ogłoszenia, przypomnienia o lekcjach i notatkach oraz powiadomienie
   na żywo z odliczaniem do końca lekcji (także na pasku stanu w Androidzie 16).
-- **Szybki dostęp:** widżety Następna lekcja, Plan dnia, Zastępstwa i Przejazdy, kafelek szybkich ustawień,
+- **Szybki dostęp:** widżety Plan dnia, Następna lekcja, Zastępstwa i Przejazdy, kafelek szybkich ustawień,
   skróty ikony i przycisk „Więcej” na dolnym pasku.
 - **Wygląd:** motyw, kolor akcentu, tła i zastępstw, kolory z tapety, własne nazwy i kolory przedmiotów, dwie ikony aplikacji.
 - **Na start:** wybór klasy i grup oraz krótki przewodnik po aplikacji (można go pominąć). Aplikację

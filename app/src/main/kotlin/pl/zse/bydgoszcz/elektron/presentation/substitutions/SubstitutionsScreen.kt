@@ -183,8 +183,7 @@ fun SubstitutionsScreen(
                     }
                     group.notice?.takeIf { it.hasContent }?.let { notice ->
                         item(key = "notice_${group.date}") {
-                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice, collapsedLines = 3,
-                                key = "${group.date}|${notice.hashCode()}")
+                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(notice)
                         }
                     }
                     if (group.items.isEmpty()) item(key = "none_${group.date}") {

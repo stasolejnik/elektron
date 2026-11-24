@@ -92,7 +92,7 @@ z F-Droid sprawdza stronę szkoły co około 15 minut, w nocy i w dni wolne rzad
 
 ## Widżety
 
-Cztery widżety: **Następna lekcja** (trwająca albo najbliższa lekcja), **Plan dnia**, **Zastępstwa** i **Przejazdy**.
+Cztery widżety: **Plan dnia**, **Następna lekcja** (trwająca albo najbliższa lekcja), **Zastępstwa** i **Przejazdy**.
 Najprościej dodasz je w **Ustawieniach → Widżety → Dodaj na ekran główny**; potem możesz je przesunąć
 i zmienić rozmiar. Gdy tej sekcji nie ma (niektóre ekrany główne nie pozwalają aplikacjom dodawać
 widżetów), przytrzymaj puste miejsce na ekranie głównym, wybierz **Widżety** i znajdź eLektron.

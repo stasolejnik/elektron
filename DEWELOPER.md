@@ -110,7 +110,8 @@ aplikacji odrzuca plik z tym samym kodem, a okno „Co nowego” pokazuje wpisy 
    - `fastlane/metadata/android/{pl-PL,en-US}/changelogs/<versionCode>.txt` - **najwyżej 500 znaków**
      (F-Droid).
    Podgląd okna „Co nowego”: tryb dewelopera (Ustawienia → O aplikacji, 5 dotknięć logo) →
-  „Podgląd „Co nowego””.
+  „Podgląd „Co nowego””. Tam też podgląd jednorazowego komunikatu o weryfikacji deweloperów Androida
+  (`OpenAndroidNotice`, od 18.12.2026) i jego symulacja przy następnym otwarciu.
 3. **Sprawdzenie:** testy obu wariantów, lint, build `foss` i `gms`.
 4. **Commit** `Release <wersja>` z datą w CHANGELOG, **push** na `main`.
 5. **APK:** `./gradlew :app:assembleGmsRelease`, sprawdź podpis

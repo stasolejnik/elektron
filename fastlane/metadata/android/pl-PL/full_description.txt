@@ -12,7 +12,7 @@ Nieoficjalna aplikacja dla uczniów Zespołu Szkół Elektronicznych w Bydgoszcz
 <li>Przypomnienia przed lekcją z numerem sali</li>
 <li>Ogłoszenia szkoły czytane w aplikacji, ze zdjęciami, wyszukiwaniem i ulubionymi dostępnymi offline</li>
 <li>Strona główna z trwającą lub najbliższą lekcją, przerwą, zastępstwami i czasem do końca lekcji</li>
-<li>Widżety: Następna lekcja, Plan dnia, Zastępstwa oraz kafelek w szybkich ustawieniach</li>
+<li>Widżety: Plan dnia, Następna lekcja, Zastępstwa, Przejazdy oraz kafelek w szybkich ustawieniach</li>
 <li>Przejazdy: rano dojazd na lekcję (ile zapasu, ostatni kurs, którym zdążysz), po lekcjach powrót ze szkoły (kiedy wyjść), opóźnienia na żywo, bez GPS (opcjonalne)</li>
 <li>Własne nazwy i kolory przedmiotów, jasny i ciemny motyw, kolor akcentu, kolor tła (gotowy albo własny), kolory z tapety, wybór ikony</li>
 </ul>

@@ -207,6 +207,11 @@ internal fun DevSection(viewModel: SettingsViewModel) {
             .ifEmpty { pl.zse.bydgoszcz.elektron.presentation.common.Changelog.entries.take(1) }
         pl.zse.bydgoszcz.elektron.presentation.common.ChangelogDialog(entries) { showChangelog = false }
     }
+    // Komunikat o weryfikacji deweloperów Androida: podgląd od razu albo symulacja pierwszego otwarcia.
+    var showOpenAndroid by rememberSaveable { mutableStateOf(false) }
+    if (showOpenAndroid) pl.zse.bydgoszcz.elektron.presentation.common.OpenAndroidDialog { showOpenAndroid = false }
+    val devContext = androidx.compose.ui.platform.LocalContext.current
+    var openAndroidSimulated by rememberSaveable { mutableStateOf(false) }
     val devDialog by viewModel.devDialog.collectAsStateWithLifecycle()
     DevSimulationDialogs(devDialog,
         onSubstitution = viewModel::devSimulateSubstitution,
@@ -221,6 +226,7 @@ internal fun DevSection(viewModel: SettingsViewModel) {
         footer = "Symulacje są widoczne tylko na tym telefonie. Zastępstwo (własne albo wzorowane na zapisanym, " +
             "także minionym) trafia na najbliższą lekcję - do planu, zastępstw, strony głównej i widżetów - " +
             "i wysyła powiadomienie; tak samo ogłoszenie. Znikają po „Usuń symulacje” albo przy synchronizacji. " +
+            "Komunikat o Androidzie: wyjdź z aplikacji i otwórz ją ponownie, jak po nadejściu 18 grudnia 2026. " +
             "Symulowany czas dalej płynie; synchronizacja, przypomnienia i powiadomienia zostają w prawdziwym czasie."
     ) {
         DevTimeRows(offset, onSimulate = viewModel::simulateTime, onReset = viewModel::resetSimulatedTime)
@@ -232,6 +238,13 @@ internal fun DevSection(viewModel: SettingsViewModel) {
         ActionRow("Usuń symulacje") { viewModel.devClearSimulations() }
         RowDivider()
         ActionRow("Podgląd „Co nowego”") { showChangelog = true }
+        RowDivider()
+        ActionRow("Podgląd komunikatu o Androidzie") { showOpenAndroid = true }
+        RowDivider()
+        ActionRow(if (openAndroidSimulated) "Komunikat o Androidzie przy następnym otwarciu" else "Symuluj komunikat o Androidzie") {
+            pl.zse.bydgoszcz.elektron.presentation.common.OpenAndroidNotice.simulate(devContext)
+            openAndroidSimulated = true
+        }
         RowDivider()
         ActionRow("Odśwież widżety") { viewModel.devRefreshWidgets() }
         RowDivider()

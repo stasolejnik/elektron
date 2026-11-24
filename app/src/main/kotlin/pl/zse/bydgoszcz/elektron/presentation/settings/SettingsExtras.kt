@@ -417,8 +417,8 @@ private fun AddWidgetsSection() {
         runCatching { manager?.isRequestPinAppWidgetSupported == true }.getOrDefault(false)
     if (!supported) return
     val widgets = listOf(
-        "Następna lekcja" to pl.zse.bydgoszcz.elektron.widget.NextLessonWidgetReceiver::class.java,
         "Plan dnia" to pl.zse.bydgoszcz.elektron.widget.DayPlanWidgetReceiver::class.java,
+        "Następna lekcja" to pl.zse.bydgoszcz.elektron.widget.NextLessonWidgetReceiver::class.java,
         "Zastępstwa" to pl.zse.bydgoszcz.elektron.widget.SubstitutionsWidgetReceiver::class.java,
         "Przejazdy" to pl.zse.bydgoszcz.elektron.widget.TransitWidgetReceiver::class.java)
     GroupedSection("Dodaj na ekran główny", icon = androidx.compose.material.icons.Icons.Outlined.Widgets, footer = "Telefon zapyta, czy dodać widżet; potem możesz go przesunąć i zmienić jego rozmiar.") {

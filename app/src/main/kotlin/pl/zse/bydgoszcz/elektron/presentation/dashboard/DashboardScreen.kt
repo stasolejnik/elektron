@@ -216,8 +216,8 @@ fun DashboardScreen(
                     }
                     notice?.let { (day, n) ->
                         item(key = "school_notice") {
-                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(n, collapsedLines = 2,
-                                key = "$day|${n.hashCode()}", compact = true, modifier = Modifier.animateItem(placementSpec = null),
+                            pl.zse.bydgoszcz.elektron.presentation.common.SchoolNoticeCard(n,
+                                compact = true, modifier = Modifier.animateItem(placementSpec = null),
                                 title = "Informacja szkoły · " + noticeDayLabel(day, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today()))
                         }
                     }

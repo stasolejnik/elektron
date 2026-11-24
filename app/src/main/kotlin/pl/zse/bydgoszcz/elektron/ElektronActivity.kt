@@ -59,6 +59,8 @@ class ElektronActivity : ComponentActivity() {
 
     private val appViewModel: ElektronAppViewModel by viewModels()
     private val pendingDeepLink = MutableStateFlow<String?>(null)
+    /** Komunikat o weryfikacji deweloperów Androida czeka na pokazanie (sprawdzane przy każdym otwarciu). */
+    private val openAndroidDue = MutableStateFlow(false)
 
     private val notifPermLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -89,6 +91,7 @@ class ElektronActivity : ComponentActivity() {
             val deepLink by pendingDeepLink.collectAsStateWithLifecycle()
             val personalization by appViewModel.personalization.collectAsStateWithLifecycle()
             val tourPending by appViewModel.tourPending.collectAsStateWithLifecycle()
+            val openAndroid by openAndroidDue.collectAsStateWithLifecycle()
             // Raport z poprzedniej awarii (jeśli była) - pokazywany raz, potem usuwany.
             var crashReport by remember { mutableStateOf(CrashReporter.pending(this@ElektronActivity)) }
             val dark = when (state.themeMode) {
@@ -112,7 +115,7 @@ class ElektronActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalPersonalization provides (personalization ?: Personalization())) {
                     // Po kolei: najpierw raport awarii i "Co nowego", dopiero potem prośba
                     // o powiadomienia (dawniej dwa okna naraz po aktualizacji).
-                    if (explainNotifications && crashReport == null && state.changelogToShow.isEmpty() && !tourPending) androidx.compose.material3.AlertDialog(
+                    if (explainNotifications && crashReport == null && state.changelogToShow.isEmpty() && !tourPending && !openAndroid) androidx.compose.material3.AlertDialog(
                         onDismissRequest = { explainNotifications = false; permissionPrefs.edit().putBoolean("explained", true).apply() },
                         title = { androidx.compose.material3.Text("Powiadomienia ze szkoły") },
                         text = { androidx.compose.material3.Text("Możesz otrzymywać powiadomienia o nowych zastępstwach. Powiadomienia o ogłoszeniach oraz przypomnienia o lekcjach i notatkach są domyślnie wyłączone. Możesz je włączyć osobno w ustawieniach.") },
@@ -165,6 +168,14 @@ class ElektronActivity : ComponentActivity() {
                             onDismiss = { appViewModel.markChangelogSeen() }
                         )
                     }
+                    // Po "Co nowego" i przewodniku, przed prośbą o powiadomienia; nie na ekranach wyboru klasy i grup.
+                    if (openAndroid && state.isReady && crashReport == null && state.changelogToShow.isEmpty() && !tourPending &&
+                        state.selectedClassId != null && state.groupsConfiguredFor == state.selectedClassId) {
+                        pl.zse.bydgoszcz.elektron.presentation.common.OpenAndroidDialog(onDismiss = {
+                            pl.zse.bydgoszcz.elektron.presentation.common.OpenAndroidNotice.markShown(this@ElektronActivity)
+                            openAndroidDue.value = false
+                        })
+                    }
                 }
             }
         }
@@ -179,6 +190,8 @@ class ElektronActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         noteReminders.requestReschedule(force = true)
+        openAndroidDue.value = pl.zse.bydgoszcz.elektron.presentation.common.OpenAndroidNotice
+            .isDue(this, pl.zse.bydgoszcz.elektron.domain.util.AppClock.today())
         if (BuildConfig.UPDATE_CHECK) lifecycleScope.launch { updateRepo.check(force = false) }
         // Świeże dane od razu po otwarciu (nie dopiero przy synchronizacji w tle).
         lifecycleScope.launch {

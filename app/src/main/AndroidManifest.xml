@@ -83,18 +83,6 @@
         </activity-alias>
 
         <receiver
-            android:name=".widget.NextLessonWidgetReceiver"
-            android:exported="true"
-            android:label="@string/widget_next_lesson_name">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_next_lesson_info" />
-        </receiver>
-
-        <receiver
             android:name=".widget.DayPlanWidgetReceiver"
             android:exported="true"
             android:label="@string/widget_day_plan_name">
@@ -104,6 +92,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_day_plan_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NextLessonWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_next_lesson_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_next_lesson_info" />
         </receiver>
 
         <receiver
