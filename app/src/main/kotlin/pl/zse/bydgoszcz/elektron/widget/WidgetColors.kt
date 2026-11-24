@@ -95,6 +95,16 @@ object WidgetPalettes {
         fun role(brandDay: Long, brandNight: Long, alpha: Float = 1f, fromScheme: (ColorScheme) -> Color): ColorProvider =
             colorRole(Color(brandDay), Color(brandNight), alpha, fromScheme)
 
+        /** Kolor wybrany w Ustawieniach (bez kolorów z tapety), z trybem jasnym/ciemnym jak pozostałe role. */
+        fun fixedRole(day: Color, night: Color): ColorProvider = when (mode) {
+            ThemeMode.LIGHT -> ColorProvider(day)
+            ThemeMode.DARK -> ColorProvider(night)
+            ThemeMode.SYSTEM -> DayNightColorProvider(day = day, night = night)
+        }
+        // Kolor zastępstw z Ustawień -> Wygląd; null przy "Domyślny" (jak dotąd: paleta albo tapeta).
+        val subDay = pl.zse.bydgoszcz.elektron.domain.model.SubstitutionColors.light(accent.substitution, accent.substitutionCustom)
+        val subNight = pl.zse.bydgoszcz.elektron.domain.model.SubstitutionColors.dark(accent.substitution, accent.substitutionCustom)
+
         return WidgetPalette(
             background = role(dayLook.card, nightLook.card, bgAlpha) { it.surface },
             textPrimary = role(dayLook.onSurface, nightLook.onSurface) { it.onSurface },
@@ -104,8 +114,11 @@ object WidgetPalettes {
             accent = colorRole(dayAccent.primary, nightAccent.primary) { it.primary },
             accentContainer = colorRole(dayAccent.container, nightAccent.container) { it.primaryContainer },
             onAccentContainer = colorRole(dayAccent.onContainer, nightAccent.onContainer) { it.onPrimaryContainer },
-            substitution = role(0xFFA85A00, 0xFFFF9F0A) { it.tertiary },
-            substitutionContainer = role(0xFFFFF0DB, 0xFF3A2A12) { it.tertiaryContainer },
+            // Kolor zastępstw z Ustawień -> Wygląd (wybrany konkretny - także przy kolorach z tapety).
+            substitution = if (subDay != null && subNight != null) fixedRole(Color(subDay.color), Color(subNight.color))
+                else role(0xFFA85A00, 0xFFFF9F0A) { it.tertiary },
+            substitutionContainer = if (subDay != null && subNight != null) fixedRole(Color(subDay.container), Color(subNight.container))
+                else role(0xFFFFF0DB, 0xFF3A2A12) { it.tertiaryContainer },
             onAccent = colorRole(dayAccent.onPrimary, nightAccent.onPrimary) { it.onPrimary },
             rowSurface = colorRole(dayAccent.container, nightAccent.container, alpha = 0.45f) { it.primaryContainer }
         )

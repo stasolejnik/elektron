@@ -88,6 +88,8 @@ class SettingsRepositoryImpl internal constructor(
         val QUIET_TO = intPreferencesKey("quiet_to_min")
         val ACCENT = stringPreferencesKey("accent_color")
         val ACCENT_CUSTOM = longPreferencesKey("accent_custom")
+        val SUBSTITUTION_COLOR = stringPreferencesKey("substitution_color")
+        val SUBSTITUTION_CUSTOM = longPreferencesKey("substitution_custom")
         val LOOK = stringPreferencesKey("base_look")
         val LOOK_HUE = floatPreferencesKey("base_look_hue")
         val LOOK_TINT = floatPreferencesKey("base_look_tint")
@@ -214,12 +216,16 @@ class SettingsRepositoryImpl internal constructor(
     }
 
     override val accent: Flow<AccentSetting> = prefs.map {
-        AccentSetting(AccentColor.fromKey(it[Keys.ACCENT]), it[Keys.ACCENT_CUSTOM] ?: AccentSetting.DEFAULT_CUSTOM)
+        AccentSetting(AccentColor.fromKey(it[Keys.ACCENT]), it[Keys.ACCENT_CUSTOM] ?: AccentSetting.DEFAULT_CUSTOM,
+            pl.zse.bydgoszcz.elektron.domain.model.SubstitutionColor.fromKey(it[Keys.SUBSTITUTION_COLOR]),
+            it[Keys.SUBSTITUTION_CUSTOM] ?: pl.zse.bydgoszcz.elektron.domain.model.SubstitutionColor.DEFAULT_CUSTOM)
     }.distinctUntilChanged()
     override suspend fun setAccent(value: AccentSetting) {
         safeEdit {
             it[Keys.ACCENT] = value.color.key
             it[Keys.ACCENT_CUSTOM] = value.custom
+            it[Keys.SUBSTITUTION_COLOR] = value.substitution.key
+            it[Keys.SUBSTITUTION_CUSTOM] = value.substitutionCustom
         }
     }
 

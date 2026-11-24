@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tło wiersza lekcji (kolor przez setBackgroundTintList - podświetlona lekcja albo przezroczyste). -->
+<!-- Tło podświetlonej lekcji: obrazek day_plan_row_bg, kolor przez setColorFilter, krycie przez setImageAlpha. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="#FFFFFFFF" />
     <corners android:radius="10dp" />

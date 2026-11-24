@@ -37,10 +37,14 @@ fun ElektronTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    val scheme = when {
+    val base = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         else -> remember(darkTheme, accent, look) { Looks.scheme(darkTheme, accent, look) }
+    }
+    // Kolor zastępstw (tertiary) - także przy kolorach z tapety, gdy wybrany jest konkretny.
+    val scheme = remember(base, darkTheme, accent.substitution, accent.substitutionCustom) {
+        SubstitutionTheme.apply(base, accent.substitution, accent.substitutionCustom, darkTheme)
     }
     MaterialTheme(
         colorScheme = scheme,

@@ -115,7 +115,7 @@ class WidgetUpdater @Inject constructor(
     }
 
     /**
-     * Zaplanuj odświeżenie na [at] (czas aplikacji, także symulowany; ograniczenie 1 min - 24 h).
+     * Zaplanuj odświeżenie na [at] (czas aplikacji, także symulowany; ograniczenie kilka sekund - 24 h).
      * Dokładny alarm BEZ budzenia telefonu: przy włączonym ekranie przychodzi co do sekundy (dzwonek),
      * przy wygaszonym - zaraz po jego włączeniu, więc nie dokłada wybudzeń. Dawniej zadanie WorkManagera
      * z opóźnieniem, które system odkładał (Doze, grupy czuwania) - widżet zmieniał się po dzwonku
@@ -127,7 +127,9 @@ class WidgetUpdater @Inject constructor(
         try {
             val zone = java.time.ZoneId.systemDefault()
             val delay = Duration.between(AppClock.now().atZone(zone), at.atZone(zone)).plusSeconds(1)
-                .coerceIn(Duration.ofMinutes(1), Duration.ofDays(1))
+                // Najmniej kilka sekund, nie minuta: odświeżenie na pełną minutę bywa za 20 s, a minimum 1 min
+                // przesuwało je o prawie minutę ("zostało X min" spóźnione względem powiadomienia na żywo).
+                .coerceIn(Duration.ofSeconds(MIN_TICK_SECONDS), Duration.ofDays(1))
             val planned = System.currentTimeMillis() + delay.toMillis()
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val current = prefs.getLong(KEY_TICK_AT, 0L)
@@ -174,6 +176,8 @@ class WidgetUpdater @Inject constructor(
 
     companion object {
         private const val TAG = "WidgetUpdater"
+        /** Najkrótszy odstęp alarmu odświeżenia (ochrona przed pętlą przy terminie, który właśnie mija). */
+        private const val MIN_TICK_SECONDS = 3L
         private const val WORK_TICK = "elektron_widget_tick"
         private const val PREFS = "widget_ticks"
         private const val KEY_TICK_AT = "tick_at"

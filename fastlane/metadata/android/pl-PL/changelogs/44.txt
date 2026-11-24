@@ -1,0 +1,6 @@
+Kolor zastępstw do wyboru, także własny, z podglądem.
+Widżety: pozostały czas co do minuty.
+Widżet Plan dnia na Androidzie 17: przewijana lista, tryb ciemny i przezroczystość.
+Przejazdy: przystanek przy szkole wybierasz sam; spóźniony kurs nie znika przed przyjazdem; mniej danych.
+Widżety po restarcie od razu z treścią.
+Nieobsadzony etat widać jako „wakat”.

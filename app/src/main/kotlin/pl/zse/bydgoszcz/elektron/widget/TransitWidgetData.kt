@@ -76,8 +76,11 @@ internal object TransitWidgetData {
         val target = if (prefs.visible) "transit" else "dashboard"
         val destination = prefs.destination
         if (!prefs.canLoadJourneys || destination == null)
-            return State.Message(if (destination == null) "Wybierz swój przystanek w Ustawieniach → Przejazdy."
-                else "Włącz Przejazdy w Ustawieniach → Przejazdy.", target)
+            return State.Message(when {
+                destination == null -> "Wybierz swój przystanek w Ustawieniach → Przejazdy."
+                !prefs.schoolStopChosen -> "Wybierz przystanek przy szkole w Ustawieniach → Przejazdy."
+                else -> "Włącz Przejazdy w Ustawieniach → Przejazdy."
+            }, target)
         val direction = direction(lessons, now)
         val toSchool = direction == TransitDirection.TO_SCHOOL
         val title = if (toSchool) "Do szkoły" else "Ze szkoły"

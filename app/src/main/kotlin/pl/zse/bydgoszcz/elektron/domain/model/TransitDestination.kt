@@ -32,14 +32,22 @@ data class TransitPreferences(
      * Do szkoły: lista zaczyna się od kursu, który jest na miejscu najbliżej tylu minut przed lekcją
      * (wcześniejsze po "Pokaż wcześniejsze"); null (domyślnie) - od najbliższego kursu.
      */
-    val arrivalMarginMinutes: Int? = null
+    val arrivalMarginMinutes: Int? = null,
+    /**
+     * Przystanek przy szkole wybrany przez użytkownika - konkretny albo "Szkoła" ([preferredOrigin] null, najbliższe
+     * przystanki). Nowa instalacja zaczyna bez wyboru: Przejazdy nic nie pobierają i proszą o wybór. Dotychczasowi
+     * użytkownicy z ustawionym swoim przystankiem mają "Szkoła" jak dotąd (TransitPreferencesRepository).
+     */
+    val schoolStopChosen: Boolean = true
 ) {
     val visible: Boolean get() = enabled
     /** Wybrany przystanek przy szkole jako filtr kursów; null - "Szkoła" albo włączone pobliskie przystanki. */
     val strictOrigin: TransitDestination? get() = preferredOrigin?.takeUnless { nearbyStops }
     /** Klucz wyboru przy szkole w wynikach - z pobliskimi przystankami inny niż sam przystanek. */
     val originKey: String? get() = preferredOrigin?.let { TransitStops.originKey(it, nearbyStops) }
-    val canLoadJourneys: Boolean get() = destination != null && (enabled || showOnDashboard)
+    val canLoadJourneys: Boolean get() = destination != null && schoolStopChosen && (enabled || showOnDashboard)
+    /** Nazwa przystanku przy szkole do pokazania; null - jeszcze nie wybrany. */
+    val schoolStopName: String? get() = preferredOrigin?.name ?: if (schoolStopChosen) "Szkoła" else null
 
     companion object {
         /** Do wyboru w Ustawieniach → Przejazdy ("Kursy na czas przed lekcją"). */

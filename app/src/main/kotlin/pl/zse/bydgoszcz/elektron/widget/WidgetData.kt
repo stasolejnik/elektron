@@ -252,10 +252,10 @@ object WidgetDataLoader {
         val countdownFrom = day.atTime(focusLesson.timeFrom).minusMinutes(LessonClock.COUNTDOWN_MINUTES)
         val dayEnd = if (showDayEnd) pl.zse.bydgoszcz.elektron.domain.model.SchoolDayEnd.of(lessons, nowDt)?.end else null
         val refreshAt = when {
-            focusIsNow || breakFrom != null -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
-            isToday && nowDt >= countdownFrom -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
+            focusIsNow || breakFrom != null -> minOf(nextChangeAt, nextFullMinute(nowDt))
+            isToday && nowDt >= countdownFrom -> minOf(nextChangeAt, nextFullMinute(nowDt))
             // "Do końca lekcji" zmienia się co minutę przez cały dzień lekcji, także w okienku.
-            dayEnd != null -> minOf(nextChangeAt, nowDt.plusMinutes(LIVE_REFRESH_MINUTES))
+            dayEnd != null -> minOf(nextChangeAt, nextFullMinute(nowDt))
             isToday -> minOf(nextChangeAt, countdownFrom)
             else -> nextChangeAt
         }
@@ -435,6 +435,14 @@ internal fun retainSubsWidgetData(previous: SubsWidgetState, fresh: SubsWidgetSt
 
 /** Odświeżenie widżetów planu w trakcie lekcji, przerwy i odliczania przed lekcją. */
 internal const val LIVE_REFRESH_MINUTES = 1L
+
+/**
+ * Następna pełna minuta po [now]. "Zostało X min" (zaokrąglone w górę do lekcji o pełnej minucie) zmienia się
+ * równo z pełną minutą - dawniej odświeżenie szło "teraz + 1 min" od chwili rysowania, więc widżet narysowany
+ * o 10:31:40 zmieniał liczbę dopiero o 10:32:40, prawie minutę po powiadomieniu na żywo.
+ */
+internal fun nextFullMinute(now: LocalDateTime): LocalDateTime =
+    now.truncatedTo(java.time.temporal.ChronoUnit.MINUTES).plusMinutes(LIVE_REFRESH_MINUTES)
 
 /** Ponowienie odczytu po błędzie - bez tego widżet czekał na 30-minutowe zabezpieczenie systemu albo synchronizację. */
 internal const val WIDGET_RETRY_MINUTES = 15L

@@ -193,6 +193,13 @@ fun SettingsScreen(
                             }
                         }
                     }
+                    item(key = "substitution_color") {
+                        GroupedSection("Zastępstwa", footer = "Numer lekcji, uwagi i wyróżnienia zastępstw w planie, na stronie głównej, " +
+                            "w zakładce Zastępstwa i w widżetach. Wybrany kolor działa także przy kolorach z tapety.") {
+                            SubstitutionColorPicker(state.accent,
+                                wallpaperActive = state.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { viewModel.setAccent(it) }
+                        }
+                    }
                     item(key = "icon") { GroupedSection("Ikona aplikacji") { AppIconRow() } }
                 }
                 SettingsPage.PLAN -> item(key = "plan") {

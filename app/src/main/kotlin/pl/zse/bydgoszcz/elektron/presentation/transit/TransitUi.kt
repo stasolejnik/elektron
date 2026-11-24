@@ -146,7 +146,7 @@ internal fun StopPicker(viewModel: TransitViewModel, origin: Boolean = false, on
                         ElektronCard(onClick = if (saving) null else ({ viewModel.selectOrigin(null, onDismiss) }), onClickLabel = "Wybierz najbliższe przystanki szkoły") {
                             Column(Modifier.padding(16.dp)) {
                                 Text("Szkoła", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Najbliższe przystanki szkoły" + if (settings.preferences.preferredOrigin == null) " · wybrane" else "",
+                                Text("Najbliższe przystanki szkoły" + if (settings.preferences.preferredOrigin == null && settings.preferences.schoolStopChosen) " · wybrane" else "",
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }

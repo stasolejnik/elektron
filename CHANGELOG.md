@@ -6,6 +6,17 @@ Wszystkie istotne zmiany w eLektronie. Format oparty na
 
 ## [Niewydane]
 
+## [1.0.5-beta3] - 2026-11-24 (44)
+
+Wersja testowa (kanał „Beta”): kolor zastępstw, czas w widżetach co do minuty, poprawki widżetu Plan dnia na Androidzie 17 i wybór przystanku przy szkole. Szczegóły: [release-notes/1.0.5-beta3.md](release-notes/1.0.5-beta3.md).
+
+- Przejazdy: przystanek przy szkole trzeba wybrać samemu - nowa instalacja nie zaczyna już od „Szkoła” (wszystkie przystanki w promieniu 1 km, kilkadziesiąt zapytań do planera przy każdym sprawdzeniu). Bez wyboru zakładka, karta na stronie głównej i widżet proszą o wybór i niczego nie pobierają; „Szkoła” zostaje jedną z opcji. Dotychczasowi użytkownicy z ustawionym przystankiem mają „Szkoła” jak dotąd (`TransitPreferences.schoolStopChosen`, klucz `school_stop_chosen` zapisywany przy nowej instalacji).
+- Wygląd: kolor zastępstw do wyboru (Ustawienia → Wygląd → Zastępstwa) - domyślny pomarańczowy (przy kolorach z tapety kolor z tapety), różowy, fioletowy, niebieski, turkusowy, zielony albo własny z próbnika (odcień i nasycenie, odcienie trybu jasnego i ciemnego liczone jak przy własnym akcencie). Podgląd przykładowego zastępstwa w bieżącym kolorze; kółka w odcieniach bieżącego motywu. Kolor obejmuje plan, stronę główną, zakładkę Zastępstwa i widżety (motyw: `tertiary`, widżety: rola `substitution`), także przy kolorach z tapety. Zapisany razem z akcentem (`AccentSetting.substitution`, `substitutionCustom`). Bez czerwieni - ta jest tylko dla błędów.
+- Widżety: „Zostało X min”, „Za X min” i „Do końca lekcji” były spóźnione nawet o minutę względem powiadomienia na żywo. Odświeżenie szło „teraz + 1 min” od chwili rysowania, a liczba minut zmienia się z pełną minutą; do tego alarm odświeżenia nie mógł być wcześniej niż za minutę. Teraz odświeżenie na pełną minutę (`nextFullMinute`), alarm najwcześniej za kilka sekund.
+- Przejazdy: tablice odjazdów (opóźnienia na żywo) nie są pobierane kilka razy pod rząd - przy wczytywaniu lista kursów zmienia się co chwilę (kolejne strony planera), a każda zmiana zaczynała sprawdzanie od nowa. Tablica młodsza niż 20 s jest używana ponownie; co minutę nadal pobierana na nowo.
+- Widżet Plan dnia na Androidzie 17 (wersja bez Glance z 1.0.5-beta2): był jasny mimo wymuszonego trybu ciemnego i nie reagował na przezroczystość (Xiaomi). Kolor i krycie tła nadawane przez tint tła widoku (`setBackgroundTintList`) launcher pomijał - zostawał biały kształt. Teraz tło widżetu i podświetlonej lekcji to obrazek z `setColorFilter` i `setImageAlpha`, sposób używany przez większość widżetów z regulowaną przezroczystością. Sprawdzone na Androidzie 16: tryb jasny i ciemny niezależnie od systemu, przezroczystość 50%.
+- Widżety Plan dnia i Zastępstwa: szersza kolumna numeru lekcji (26 dp) - dwucyfrowy numer („12”) stykał się z nazwą przedmiotu.
+
 ## [1.0.5-beta2] - 2026-11-22 (43)
 
 Wersja testowa (kanał „Beta”): widżet Plan dnia na Androidzie 17. Szczegóły: [release-notes/1.0.5-beta2.md](release-notes/1.0.5-beta2.md).

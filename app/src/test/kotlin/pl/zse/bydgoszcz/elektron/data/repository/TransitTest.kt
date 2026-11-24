@@ -226,6 +226,41 @@ class TransitTest {
         } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); fresh.delete(); chosen.delete() }
     }
 
+    /** Przystanek przy szkole: nowa instalacja wymaga wyboru, "Szkoła" to wybór, dotychczasowi użytkownicy bez zmian. */
+    @Test fun schoolStopMustBeChosenOnNewInstallButNotAfterUpdate() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val fresh = File(context.cacheDir, "transit-school-new-${System.nanoTime()}.preferences_pb")
+        val old = File(context.cacheDir, "transit-school-old-${System.nanoTime()}.preferences_pb")
+        val home = TransitDestination("Rycerska", listOf("1147"), 53.137, 17.998)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val repo = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { fresh }))
+            repo.applyNewInstallDefaults()
+            repo.select(home)
+            var prefs = repo.preferences.first()
+            // Swój przystanek jest, przy szkole nie - nic nie jest pobierane.
+            assertFalse(prefs.schoolStopChosen)
+            assertFalse(prefs.canLoadJourneys)
+            assertNull(prefs.schoolStopName)
+            // "Szkoła" (najbliższe przystanki) to wybór.
+            repo.selectOrigin(null)
+            prefs = repo.preferences.first()
+            assertTrue(prefs.schoolStopChosen)
+            assertTrue(prefs.canLoadJourneys)
+            assertEquals("Szkoła", prefs.schoolStopName)
+
+            // Zmiana swojego przystanku nie kasuje wyboru przy szkole.
+            repo.select(TransitDestination("Wyżyny", listOf("900"), 53.12, 18.05))
+            assertTrue(repo.preferences.first().schoolStopChosen)
+
+            // Aktualizacja z wersji bez tego wyboru (bez zapisu po nowej instalacji): "Szkoła" jak dotąd, bez pytania.
+            val updated = TransitPreferencesRepository(PreferenceDataStoreFactory.create(scope = scope, produceFile = { old }))
+            updated.select(home)
+            assertTrue(updated.preferences.first().schoolStopChosen)
+            assertEquals("Szkoła", updated.preferences.first().schoolStopName)
+        } finally { scope.cancel(); scope.coroutineContext[Job]!!.join(); fresh.delete(); old.delete() }
+    }
+
     /** "Kursy na czas przed lekcją": domyślnie wyłączone (od najbliższego), wybór minut przetrwa restart. */
     @Test fun arrivalMarginDefaultsToNearestAndPersists() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()

@@ -156,7 +156,7 @@ class SubstitutionsWidget : GlanceAppWidget() {
                     .padding(horizontal = 8.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.Vertical.CenterVertically
             ) {
-                Text("${sub.lessonNumber}", modifier = GlanceModifier.width(22.dp),
+                Text("${sub.lessonNumber}", modifier = GlanceModifier.width(26.dp),
                     style = TextStyle(color = WidgetColors.substitution, fontSize = 15.sp, fontWeight = FontWeight.Bold))
                 Column(GlanceModifier.defaultWeight()) {
                     Text(sub.title, style = TextStyle(color = WidgetColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)

@@ -58,7 +58,7 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
   na żywo z odliczaniem do końca lekcji (także na pasku stanu w Androidzie 16).
 - **Szybki dostęp:** widżety Następna lekcja, Plan dnia, Zastępstwa i Przejazdy, kafelek szybkich ustawień,
   skróty ikony i przycisk „Więcej” na dolnym pasku.
-- **Wygląd:** motyw, kolor akcentu i tła, kolory z tapety, własne nazwy i kolory przedmiotów, dwie ikony aplikacji.
+- **Wygląd:** motyw, kolor akcentu, tła i zastępstw, kolory z tapety, własne nazwy i kolory przedmiotów, dwie ikony aplikacji.
 - **Na start:** wybór klasy i grup oraz krótki przewodnik po aplikacji (można go pominąć). Aplikację
   polecisz kodem QR z Ustawień.
 

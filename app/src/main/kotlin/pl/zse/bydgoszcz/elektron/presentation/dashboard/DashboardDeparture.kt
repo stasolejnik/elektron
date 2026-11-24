@@ -49,6 +49,12 @@ internal fun DashboardDeparture(viewModel: TransitViewModel, direction: TransitD
         }
         return
     }
+    if (!prefs.schoolStopChosen) {
+        ElektronCard(onClick = openDetails) {
+            Text("Wybierz przystanek przy szkole w ustawieniach lub dotknij tutaj.", Modifier.padding(16.dp))
+        }
+        return
+    }
     val visible = LocalScreenVisible.current
     val owner = LocalLifecycleOwner.current
     val originKey = prefs.originKey

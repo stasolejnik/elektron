@@ -210,7 +210,7 @@ class DayPlanWidget : GlanceAppWidget() {
                 .semantics { contentDescription = description }
         ) {
             Row(rowModifier, verticalAlignment = Alignment.Vertical.CenterVertically) {
-                Text("${lesson.number}", modifier = GlanceModifier.width(22.dp),
+                Text("${lesson.number}", modifier = GlanceModifier.width(26.dp),
                     style = TextStyle(color = numberColor, fontSize = 15.sp, fontWeight = FontWeight.Bold))
                 Column(GlanceModifier.defaultWeight()) {
                     Text(lesson.title, style = TextStyle(color = titleColor, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)

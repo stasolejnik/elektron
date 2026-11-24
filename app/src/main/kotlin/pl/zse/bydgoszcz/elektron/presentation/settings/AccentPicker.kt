@@ -122,7 +122,7 @@ internal fun AccentPicker(
     if (editing) {
         CustomAccentDialog(
             initial = current.custom,
-            onSave = { onChange(AccentSetting(AccentColor.CUSTOM, it)); editing = false },
+            onSave = { onChange(current.copy(color = AccentColor.CUSTOM, custom = it)); editing = false },
             onDismiss = { editing = false }
         )
     }
@@ -133,7 +133,10 @@ internal fun AccentPicker(
  * czytelny w obu motywach), z podglądem na przykładowej lekcji i przycisku.
  */
 @Composable
-private fun CustomAccentDialog(initial: Long, onSave: (Long) -> Unit, onDismiss: () -> Unit) {
+internal fun CustomAccentDialog(initial: Long, onSave: (Long) -> Unit, onDismiss: () -> Unit,
+    title: String = "Własny kolor",
+    /** Podgląd w wybranym kolorze (domyślnie lekcja i przycisk w kolorze akcentu). */
+    preview: @Composable (AccentTones) -> Unit = { Preview(it) }) {
     val start = remember(initial) { AccentMath.toHsl(initial) }
     var hue by rememberSaveable { mutableFloatStateOf(start.h) }
     var sat by rememberSaveable { mutableFloatStateOf(start.s.coerceIn(0f, 1f)) }
@@ -144,10 +147,10 @@ private fun CustomAccentDialog(initial: Long, onSave: (Long) -> Unit, onDismiss:
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Własny kolor") },
+        title = { Text(title) },
         text = {
             Column {
-                Preview(tones)
+                preview(tones)
                 Spacer(Modifier.height(20.dp))
                 Text("Odcień", style = MaterialTheme.typography.labelLarge)
                 GradientSlider(

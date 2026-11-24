@@ -5,6 +5,14 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
+        Entry(44, "1.0.5-beta3", listOf(
+            "Kolor zastępstw do wyboru, także własny, z podglądem (Ustawienia → Wygląd)",
+            "Widżety: „Zostało X min” co do minuty, jak w powiadomieniu na żywo",
+            "Widżet Plan dnia na Androidzie 17: ciemny motyw i przezroczystość działają",
+            "Przejazdy: przystanek przy szkole wybierasz sam (także „Szkoła”)",
+            "Przejazdy pobierają mniej danych o opóźnieniach",
+            "Nieobsadzony etat widać jako „wakat”, szerszy numer lekcji w widżetach"
+        )),
         Entry(43, "1.0.5-beta2", listOf(
             "Widżet Plan dnia na Androidzie 17: nowa lista lekcji, która przewija się palcem (w beta1 nadal była pusta)"
         )),

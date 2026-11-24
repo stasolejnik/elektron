@@ -346,4 +346,13 @@ class WidgetStateTest {
         assertEquals(LocalDateTime.of(friday, LocalTime.of(10, 15)), (WidgetDataLoader.buildState(gapDay, at) as WidgetState.Ready).refreshAt)
         assertEquals(at.plusMinutes(1), (WidgetDataLoader.buildState(gapDay, at, showDayEnd = true) as WidgetState.Ready).refreshAt)
     }
+
+    @Test
+    fun liveCountdownRefreshesOnTheFullMinute() {
+        // Narysowany o 11:00:40 w trakcie lekcji - następne odświeżenie o 11:01:00, a nie 11:01:40
+        // ("zostało X min" zmienia się z pełną minutą, jak w powiadomieniu na żywo).
+        val st = at(friday, "11:00:40") as WidgetState.Ready
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 1)), st.refreshAt)
+        assertEquals(LocalDateTime.of(friday, LocalTime.of(11, 2)), nextFullMinute(LocalDateTime.of(friday, LocalTime.of(11, 1))))
+    }
 }

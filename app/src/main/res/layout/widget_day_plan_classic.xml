@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Widżet Plan dnia bez Glance (Android 17+, DayPlanClassic): lista z usługi DayPlanListService w widoku
      głównym widżetu - przewija się palcem. Wygląd jak wersja Glance (DayPlanWidget). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/day_plan_root"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <!-- Tło jako obrazek: kolor przez setColorFilter, przezroczystość przez setImageAlpha. Tint tła widoku
+         (setBackgroundTintList) launcher Xiaomi na Androidzie 17 pomijał - widżet był biały i nieprzezroczysty. -->
+    <ImageView android:id="@+id/day_plan_bg"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_classic_bg" android:scaleType="fitXY"
+        android:importantForAccessibility="no" />
+<LinearLayout
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="14dp"
-    android:background="@drawable/widget_classic_bg">
+    android:orientation="vertical" android:padding="14dp">
     <LinearLayout android:id="@+id/day_plan_header"
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:gravity="center_vertical">
@@ -39,3 +46,4 @@
             android:gravity="center" android:textSize="13sp" android:visibility="gone" />
     </FrameLayout>
 </LinearLayout>
+</FrameLayout>

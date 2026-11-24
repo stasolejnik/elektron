@@ -33,6 +33,11 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     private val originKey = stringPreferencesKey("preferred_origin")
     private val transfersKey = booleanPreferencesKey("allow_transfers")
     private val nearbyKey = booleanPreferencesKey("nearby_school_stops")
+    /**
+     * Wybrano przystanek przy szkole (także "Szkoła"). Nowa instalacja zapisuje false ([applyNewInstallDefaults]);
+     * brak klucza (aktualizacja z wersji bez tego wyboru) - jak dotąd, "Szkoła" bez pytania.
+     */
+    private val schoolChosenKey = booleanPreferencesKey("school_stop_chosen")
     private val arrivalMarginKey = androidx.datastore.preferences.core.intPreferencesKey("arrival_margin_minutes")
     private val recentDestinationsKey = stringPreferencesKey("recent_destinations")
     private val recentOriginsKey = stringPreferencesKey("recent_origins")
@@ -54,7 +59,8 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
             moreContent = MoreMenu.content(it[moreContentKey]?.split(',').orEmpty(), it[moreEnabledKey] == true),
             moreEnabled = it[moreEnabledKey] == true,
             nearbyStops = it[nearbyKey] == true,
-            arrivalMarginMinutes = it[arrivalMarginKey]?.takeIf { m -> m in TransitPreferences.ARRIVAL_MARGINS })
+            arrivalMarginMinutes = it[arrivalMarginKey]?.takeIf { m -> m in TransitPreferences.ARRIVAL_MARGINS },
+            schoolStopChosen = it[schoolChosenKey] ?: true)
     }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     suspend fun select(destination: TransitDestination) = withContext(Dispatchers.IO) {
@@ -67,6 +73,7 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     suspend fun selectOrigin(origin: TransitDestination?) = withContext(Dispatchers.IO) {
         store.edit {
             val previous = history(it[recentOriginsKey], decode(it[originKey]))
+            it[schoolChosenKey] = true
             if (origin == null) {
                 it[recentOriginsKey] = encodeHistory(previous)
                 it.remove(originKey)
@@ -112,6 +119,8 @@ class TransitPreferencesRepository internal constructor(private val store: DataS
     suspend fun applyNewInstallDefaults() = withContext(Dispatchers.IO) {
         store.edit { prefs ->
             if (enabledKey !in prefs) prefs[enabledKey] = true
+            // Przystanek przy szkole wybiera użytkownik (dawniej od razu "Szkoła" - wszystkie przystanki w promieniu 1 km).
+            if (schoolChosenKey !in prefs && destinationKey !in prefs && originKey !in prefs) prefs[schoolChosenKey] = false
             if (dashboardKey !in prefs) prefs[dashboardKey] = true
             if (moreEnabledKey !in prefs) {
                 val (order, content) = MoreMenu.enable(prefs[orderKey]?.split(',').orEmpty())

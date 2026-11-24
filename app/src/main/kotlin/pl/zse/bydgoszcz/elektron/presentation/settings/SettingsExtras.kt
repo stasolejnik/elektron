@@ -151,7 +151,7 @@ internal fun TransitSection(
             RowDivider()
             ValueRow("Twój przystanek", prefs.destination?.name ?: "Wybierz", enabled = ready) { onPick(false) }
             RowDivider()
-            ValueRow("Przystanek przy szkole", prefs.preferredOrigin?.name ?: "Szkoła", enabled = ready) { onPick(true) }
+            ValueRow("Przystanek przy szkole", prefs.schoolStopName ?: "Wybierz", enabled = ready) { onPick(true) }
             // Przy "Szkoła" kursy i tak są z wszystkich przystanków pod szkołą - przełącznik tylko przy wybranym.
             if (prefs.preferredOrigin != null) {
                 RowDivider()

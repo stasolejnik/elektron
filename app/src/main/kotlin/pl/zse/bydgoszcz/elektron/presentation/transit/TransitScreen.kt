@@ -179,15 +179,15 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
             }
             item(key = "route") {
                 val homeName = state.preferences.destination?.name
-                val schoolName = state.preferences.preferredOrigin?.name
+                val schoolName = state.preferences.schoolStopName
                 // Twój przystanek i przystanek przy szkole ("Szkoła" - najbliższe przystanki); kolejność wg kierunku.
                 val home = RouteStop("Twój przystanek", homeName, "Wybierz swój przystanek",
                     onClick = { viewModel.query.value = ""; picker = 1 },
                     onClear = if (homeName != null) viewModel::clear else null, clearLabel = "Usuń swój przystanek")
-                val school = RouteStop("Szkoła", schoolName, "Szkoła",
+                val school = RouteStop("Przystanek przy szkole", schoolName, "Wybierz przystanek przy szkole",
                     onClick = { viewModel.query.value = ""; picker = 2 },
-                    onClear = if (schoolName != null) ({ viewModel.selectOrigin(null) }) else null,
-                    clearLabel = "Wróć do najbliższych przystanków szkoły", placeholderIsValue = true)
+                    onClear = if (state.preferences.preferredOrigin != null) ({ viewModel.selectOrigin(null) }) else null,
+                    clearLabel = "Wróć do najbliższych przystanków szkoły")
                 androidx.compose.foundation.layout.Box(Modifier.tourTarget("transit:route")) {
                     RouteCard(from = if (toSchool) home else school, to = if (toSchool) school else home, enabled = editable)
                 }
@@ -199,6 +199,13 @@ fun TransitScreen(viewModel: TransitViewModel, onClose: (() -> Unit)? = null) {
                     modifier = Modifier.padding(start = 4.dp))
             } }
             if (state.failed) item { Text("Nie udało się odczytać ustawień Przejazdów.", color = MaterialTheme.colorScheme.error) }
+            // Bez wybranego przystanku przy szkole nic nie jest pobierane - prośba o wybór (także "Szkoła").
+            if (state.ready && !state.failed && state.preferences.destination != null && !state.preferences.schoolStopChosen) item(key = "choose_school") {
+                ElektronCard(onClick = { viewModel.query.value = ""; picker = 2 }, onClickLabel = "Wybierz przystanek przy szkole") {
+                    Text("Wybierz przystanek przy szkole - ten, na który dojeżdżasz i z którego wracasz. " +
+                        "„Szkoła” to wszystkie przystanki najbliżej szkoły.", Modifier.padding(16.dp))
+                }
+            }
             settingsError?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
             if (loading && !pulled) item(key = "loading") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

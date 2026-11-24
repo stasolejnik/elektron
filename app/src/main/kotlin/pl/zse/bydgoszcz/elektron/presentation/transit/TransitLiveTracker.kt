@@ -36,6 +36,8 @@ internal class TransitLiveTracker(
     private val _live = MutableStateFlow<Map<String, LiveStatus>>(emptyMap())
     val live: StateFlow<Map<String, LiveStatus>> = _live
     private val seenAt = mutableMapOf<String, Long>()
+    /** Ostatnio pobrane tablice (stanowisko i linia) z chwilą pobrania - patrz [BOARD_FRESH_MS]. */
+    private val boardCache = mutableMapOf<Pair<String, String>, Pair<Long, List<pl.zse.bydgoszcz.elektron.domain.model.LiveDeparture>>>()
     private var job: Job? = null
 
     fun start() {
@@ -49,7 +51,7 @@ internal class TransitLiveTracker(
 
     fun stop() { job?.cancel(); job = null }
 
-    fun clear() { _live.value = emptyMap() }
+    fun clear() { _live.value = emptyMap(); boardCache.clear() }
 
     private suspend fun refresh() {
         // Symulowany czas (tryb dewelopera) nie pasuje do pojazdów na ulicy.
@@ -60,11 +62,20 @@ internal class TransitLiveTracker(
         val shown = TransitJourneys.upcoming(result.journeys, now, if (result.direction == TransitDirection.TO_SCHOOL) null else prefs.strictOrigin,
             prefs.allowTransfers, _live.value).let { if (prefs.strictOrigin == null) TransitJourneys.walkable(it, now, _live.value) else it }
         val boards = TransitLive.boards(shown, now)
-        val fetched = kotlinx.coroutines.coroutineScope {
-            boards.map { board -> async { board to runCatchingCancellable { repository.departures(board.first, board.second) }.getOrNull() } }
+        // Tablica pobrana przed chwilą - bez ponownego zapytania. Przy wczytywaniu lista kursów zmienia się kilka razy
+        // w ciągu sekund (kolejne strony planera), a każda zmiana zaczyna sprawdzanie od nowa - dawniej te same tablice
+        // szły dwa-trzy razy pod rząd. Odświeżenie co [REFRESH_MS] i tak pobiera je na nowo (są starsze niż [BOARD_FRESH_MS]).
+        val started = android.os.SystemClock.elapsedRealtime()
+        val reused = boards.mapNotNull { board -> boardCache[board]?.takeIf { started - it.first < BOARD_FRESH_MS }?.let { board to it.second } }.toMap()
+        val downloaded = kotlinx.coroutines.coroutineScope {
+            boards.filter { it !in reused }
+                .map { board -> async { board to runCatchingCancellable { repository.departures(board.first, board.second) }.getOrNull() } }
                 .map { it.await() }
         }.filter { it.second != null }.associate { it.first to it.second!! }
         val elapsed = android.os.SystemClock.elapsedRealtime()
+        downloaded.forEach { (board, departures) -> boardCache[board] = elapsed to departures }
+        boardCache.keys.retainAll(boards.toSet())
+        val fetched = reused + downloaded
         val latest = current()?.first ?: return
         val next = mutableMapOf<String, LiveStatus>()
         latest.journeys.forEach { trip ->
@@ -87,5 +98,7 @@ internal class TransitLiveTracker(
 
     companion object {
         const val REFRESH_MS = 60_000L
+        /** Tablica młodsza niż tyle jest używana ponownie przy zmianie listy kursów. */
+        const val BOARD_FRESH_MS = 20_000L
     }
 }

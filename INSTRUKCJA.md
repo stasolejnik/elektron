@@ -53,16 +53,17 @@ w **Ustawieniach → Powiadomienia → Notatki do lekcji**. Wszystkie notatki zn
 
 ## Przejazdy
 
-Wybierz **Twój przystanek**, np. przy domu - w zakładce Przejazdy albo w **Ustawieniach → Przejazdy**.
-Tam też wyłączysz zakładkę i kartę na stronie głównej (każdą osobno).
+Wybierz **Twój przystanek**, np. przy domu, i **przystanek przy szkole** - w zakładce Przejazdy albo
+w **Ustawieniach → Przejazdy**. Dopóki oba nie są wybrane, Przejazdy niczego nie sprawdzają. Tam też
+wyłączysz zakładkę i kartę na stronie głównej (każdą osobno).
 
 - **Kierunek:** do połowy dnia lekcji aplikacja pokazuje dojazd do szkoły, potem powrót. Kierunek
   zmienisz ręcznie przełącznikiem „Do szkoły / Ze szkoły”.
 - **Do szkoły:** przy każdym kursie godzina przyjazdu na przystanek przy szkole i zapas do lekcji
   (z dojściem). Lista zaczyna się od najbliższego kursu; z opcją **Kursy na czas przed lekcją** - od
   kursu, który jest na miejscu wybrany czas przed lekcją.
-- **Ze szkoły:** przystanek przy szkole to domyślnie **„Szkoła”** - wszystkie przystanki najbliżej
-  szkoły (pokazywane są tylko kursy, do których zdążysz dojść). Możesz wybrać jeden konkretny przystanek.
+- **Przystanek przy szkole:** jeden konkretny przystanek albo **„Szkoła”** - wszystkie przystanki najbliżej
+  szkoły (ze szkoły pokazywane są wtedy tylko kursy, do których zdążysz dojść).
 - **Opóźnienia na żywo:** znaczek przy godzinie („+2 min”, „na czas”), gdy BUSearch śledzi pojazd.
   Spóźniony kurs zostaje na liście do faktycznego odjazdu, a nie do godziny z rozkładu.
 - **Gdzie jest pojazd:** **dotknij kursu**, aby zobaczyć autobus albo tramwaj na mapie, jego trasę
@@ -110,7 +111,7 @@ połączenia w ciągu dnia (od 6:00 do 21:00); ikona odświeżania sprawdza od r
 | **Klasa i grupy** (karta na górze) | Klasa i grupy zajęciowe; przy przedmiotach z trzema grupami i więcej można wybrać kilka. |
 | **Powiadomienia** | Zastępstwa, ogłoszenia, informacje szkoły, powiadomienia na żywo, ciche godziny, przypomnienia o lekcjach i notatkach. W wersji z GitHuba także powiadomienie o nowej wersji. |
 | **Strona główna** | Ekran startowy (automatycznie: w czasie lekcji plan, poza nimi strona główna) i karty: następna lekcja, kolejna lekcja, czas do końca lekcji, zastępstwa, ogłoszenia, informacje szkoły, Przejazdy. |
-| **Wygląd** | Motyw, kolor akcentu, kolor tła, kolory z tapety (Android 12+) i ikona aplikacji (granatowa albo cyjanowa). |
+| **Wygląd** | Motyw, kolor akcentu, kolor tła, kolory z tapety (Android 12+), kolor zastępstw (gotowy albo własny, z podglądem) i ikona aplikacji (granatowa albo cyjanowa). |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, sala i nauczyciel w planie. |
 | **Przejazdy** | Zakładka i karta, Twój przystanek, przystanek przy szkole, inne przystanki przy szkole (do 1 km), przesiadki, kursy na czas przed lekcją. |
 | **Pasek nawigacji** | Przycisk „Więcej” (przy nowej instalacji włączony) i widoczne zakładki. |

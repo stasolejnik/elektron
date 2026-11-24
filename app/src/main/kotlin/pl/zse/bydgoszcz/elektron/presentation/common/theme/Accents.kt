@@ -96,3 +96,17 @@ object Looks {
     }
 }
 
+
+/** Kolor zastępstw (Ustawienia -> Wygląd) na schemacie Material: tertiary i tertiaryContainer. */
+object SubstitutionTheme {
+    fun apply(base: ColorScheme, color: pl.zse.bydgoszcz.elektron.domain.model.SubstitutionColor, custom: Long, dark: Boolean): ColorScheme {
+        val tones = (if (dark) pl.zse.bydgoszcz.elektron.domain.model.SubstitutionColors.dark(color, custom)
+            else pl.zse.bydgoszcz.elektron.domain.model.SubstitutionColors.light(color, custom)) ?: return base
+        return base.copy(
+            tertiary = Color(tones.color),
+            onTertiary = Color(tones.onColor),
+            tertiaryContainer = Color(tones.container),
+            onTertiaryContainer = Color(tones.onContainer)
+        )
+    }
+}

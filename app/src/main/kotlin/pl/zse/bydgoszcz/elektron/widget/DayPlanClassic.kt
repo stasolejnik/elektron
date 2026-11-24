@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -76,10 +75,7 @@ internal object DayPlanClassic {
 
     private fun build(context: Context, id: Int, state: WidgetState, palette: WidgetPalette, manager: AppWidgetManager): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_day_plan_classic)
-        if (Build.VERSION.SDK_INT >= 31) {
-            val bg = palette.background.dayNight(context)
-            views.setColorStateList(R.id.day_plan_root, "setBackgroundTintList", ColorStateList.valueOf(bg.day), ColorStateList.valueOf(bg.night))
-        } else views.setInt(R.id.day_plan_root, "setBackgroundColor", palette.background.dayNight(context).day)
+        views.tintImage(R.id.day_plan_bg, palette.background.dayNight(context))
         val timetable = sectionIntent(context, id, "timetable")
         views.setOnClickPendingIntent(R.id.day_plan_root, timetable)
         views.setOnClickPendingIntent(R.id.day_plan_header, timetable)
@@ -236,10 +232,10 @@ internal object DayPlanClassic {
                 setInt(R.id.day_plan_user_note, "setMaxLines", row.userNoteLines)
                 color(R.id.day_plan_user_note, row.userNoteColor)
             } else setViewVisibility(R.id.day_plan_user_note, View.GONE)
-            if (Build.VERSION.SDK_INT >= 31) {
-                setColorStateList(R.id.day_plan_row_card, "setBackgroundTintList",
-                    ColorStateList.valueOf(row.background.day), ColorStateList.valueOf(row.background.night))
-            } else setInt(R.id.day_plan_row_card, "setBackgroundColor", row.background.day)
+            // Bez podświetlenia tło przezroczyste - obrazek ukryty.
+            if (android.graphics.Color.alpha(row.background.day) == 0 && android.graphics.Color.alpha(row.background.night) == 0)
+                setViewVisibility(R.id.day_plan_row_bg, View.GONE)
+            else { setViewVisibility(R.id.day_plan_row_bg, View.VISIBLE); tintImage(R.id.day_plan_row_bg, row.background) }
             setContentDescription(R.id.day_plan_row, row.description)
             setOnClickFillInIntent(R.id.day_plan_row, Intent().apply {
                 if (row.lessonUri != null && row.lessonLink != null) {
@@ -248,6 +244,19 @@ internal object DayPlanClassic {
                 } else putExtra(SHORTCUT_EXTRA, "timetable")
             })
         }
+
+    /**
+     * Kolor i przezroczystość obrazka tła: setColorFilter (bez kanału alfa) i setImageAlpha. Dawniej tint tła widoku
+     * (setBackgroundTintList) - launcher Xiaomi na Androidzie 17 go pomijał (biały widżet, bez przezroczystości
+     * i bez trybu ciemnego). Krycie bierzemy z koloru dziennego (Ustawienia -> Widżety, takie samo w obu trybach).
+     */
+    private fun RemoteViews.tintImage(viewId: Int, color: DayNight) {
+        val opaqueDay = color.day or (0xFF shl 24)
+        val opaqueNight = color.night or (0xFF shl 24)
+        if (Build.VERSION.SDK_INT >= 31) setColorInt(viewId, "setColorFilter", opaqueDay, opaqueNight)
+        else setInt(viewId, "setColorFilter", opaqueDay)
+        setInt(viewId, "setImageAlpha", maxOf(android.graphics.Color.alpha(color.day), android.graphics.Color.alpha(color.night)))
+    }
 
     private fun RemoteViews.color(viewId: Int, color: DayNight) {
         if (Build.VERSION.SDK_INT >= 31) setColorInt(viewId, "setTextColor", color.day, color.night)
