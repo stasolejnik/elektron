@@ -2,6 +2,7 @@ package pl.zse.bydgoszcz.elektron.presentation.transit
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +39,13 @@ internal class TransitLiveTracker(
     private val seenAt = mutableMapOf<String, Long>()
     /** Ostatnio pobrane tablice (stanowisko i linia) z chwilą pobrania - patrz [BOARD_FRESH_MS]. */
     private val boardCache = mutableMapOf<Pair<String, String>, Pair<Long, List<pl.zse.bydgoszcz.elektron.domain.model.LiveDeparture>>>()
+    /**
+     * Pobierane właśnie tablice. Pobranie żyje w [scope], nie w sprawdzeniu, które je zaczęło: przy wczytywaniu
+     * lista kursów zmienia się kilka razy na sekundę, a collectLatest przerywał sprawdzenie razem z zapytaniami -
+     * ta sama tablica szła po kilka razy (logi: kilkanaście przerwanych zapytań w sekundę). Teraz kolejne
+     * sprawdzenie czeka na to samo pobranie.
+     */
+    private val inFlight = mutableMapOf<Pair<String, String>, Deferred<List<pl.zse.bydgoszcz.elektron.domain.model.LiveDeparture>?>>()
     private var job: Job? = null
 
     fun start() {
@@ -51,7 +59,7 @@ internal class TransitLiveTracker(
 
     fun stop() { job?.cancel(); job = null }
 
-    fun clear() { _live.value = emptyMap(); boardCache.clear() }
+    fun clear() { _live.value = emptyMap(); boardCache.clear(); inFlight.values.forEach { it.cancel() }; inFlight.clear() }
 
     private suspend fun refresh() {
         // Symulowany czas (tryb dewelopera) nie pasuje do pojazdów na ulicy.
@@ -67,13 +75,11 @@ internal class TransitLiveTracker(
         // szły dwa-trzy razy pod rząd. Odświeżenie co [REFRESH_MS] i tak pobiera je na nowo (są starsze niż [BOARD_FRESH_MS]).
         val started = android.os.SystemClock.elapsedRealtime()
         val reused = boards.mapNotNull { board -> boardCache[board]?.takeIf { started - it.first < BOARD_FRESH_MS }?.let { board to it.second } }.toMap()
-        val downloaded = kotlinx.coroutines.coroutineScope {
-            boards.filter { it !in reused }
-                .map { board -> async { board to runCatchingCancellable { repository.departures(board.first, board.second) }.getOrNull() } }
-                .map { it.await() }
-        }.filter { it.second != null }.associate { it.first to it.second!! }
+        val downloaded = boards.filter { it !in reused }
+            .map { board -> board to (inFlight[board]?.takeIf { it.isActive } ?: download(board)) }
+            .mapNotNull { (board, pending) -> pending.await()?.let { board to it } }
+            .toMap()
         val elapsed = android.os.SystemClock.elapsedRealtime()
-        downloaded.forEach { (board, departures) -> boardCache[board] = elapsed to departures }
         boardCache.keys.retainAll(boards.toSet())
         val fetched = reused + downloaded
         val latest = current()?.first ?: return
@@ -95,6 +101,15 @@ internal class TransitLiveTracker(
         seenAt.keys.retainAll(next.keys)
         _live.value = next
     }
+
+    /** Pobranie tablicy w [scope]; wynik trafia do [boardCache] także wtedy, gdy sprawdzenie zostało przerwane. */
+    private fun download(board: Pair<String, String>) = scope.async {
+        runCatchingCancellable { repository.departures(board.first, board.second) }.getOrNull()
+            .also { departures ->
+                if (departures != null) boardCache[board] = android.os.SystemClock.elapsedRealtime() to departures
+                inFlight.remove(board)
+            }
+    }.also { inFlight[board] = it }
 
     companion object {
         const val REFRESH_MS = 60_000L

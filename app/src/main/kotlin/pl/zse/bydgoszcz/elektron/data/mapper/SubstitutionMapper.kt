@@ -28,7 +28,8 @@ object SubstitutionMapper {
             substituteTeacher = dto.substituteTeacher,
             notes = dto.notes,
             originalTeacher = dto.originalTeacher,
-            originalSubject = null
+            // Wpis bez przypisanej klasy: przedmiot ze strony ("Wychowanie fizyczne") - nie ma planu, z którego by go wziąć.
+            originalSubject = dto.subject?.takeIf { dto.classShortName.isBlank() }
         )
     }
 

@@ -75,6 +75,7 @@ class SettingsRepositoryImpl internal constructor(
         // była nieaktywna — podpięcie go zmieniłoby wszystkim wygląd bez pytania.
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color_v2")
         val NOTIF_SUBSTITUTIONS = booleanPreferencesKey("notif_substitutions")
+        val NOTIF_UNASSIGNED = booleanPreferencesKey("notif_unassigned")
         val NOTIF_ANNOUNCEMENTS = booleanPreferencesKey("notif_announcements")
         val SHOW_NEXT_LESSON = booleanPreferencesKey("show_next_lesson")
         val SHOW_SUBSTITUTIONS = booleanPreferencesKey("show_substitutions")
@@ -156,6 +157,11 @@ class SettingsRepositoryImpl internal constructor(
 
     override val notificationsSubstitutions: Flow<Boolean> =
         prefs.map { it[Keys.NOTIF_SUBSTITUTIONS] ?: true }.distinctUntilChanged()
+    override val notifyUnassigned: Flow<Boolean> =
+        prefs.map { it[Keys.NOTIF_UNASSIGNED] == true }.distinctUntilChanged()
+    override suspend fun setNotifyUnassigned(enabled: Boolean) {
+        safeEdit { it[Keys.NOTIF_UNASSIGNED] = enabled }
+    }
     override suspend fun setNotificationsSubstitutions(enabled: Boolean) {
         safeEdit { it[Keys.NOTIF_SUBSTITUTIONS] = enabled }
     }

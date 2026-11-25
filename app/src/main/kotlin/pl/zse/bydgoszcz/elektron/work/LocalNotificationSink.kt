@@ -109,7 +109,8 @@ class LocalNotificationSink @Inject constructor(
             .setContentText(content.text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content.expanded))
             .setContentIntent(pi)
-            .addAction(0, "Pokaż w planie", showInPlan)
+            // Zastępstwa bez klasy nie ma w planie - tylko w zakładce Zastępstwa.
+            .apply { if (sub.classShortName.isNotBlank()) addAction(0, "Pokaż w planie", showInPlan) }
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setAutoCancel(true)
             .setSilent(isQuietNow())

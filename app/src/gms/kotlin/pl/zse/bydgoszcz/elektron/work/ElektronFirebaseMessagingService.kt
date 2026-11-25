@@ -61,13 +61,19 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private suspend fun handleSubstitution(data: Map<String, String>) {
-        if (data["id"].isNullOrBlank() || data["classShortName"].isNullOrBlank()) return
+        // Wpis bez klasy (watcher od 1.0.5): "unassigned" = "1", klasa pusta albo pominięta.
+        val unassigned = data["unassigned"] == "1"
+        if (data["id"].isNullOrBlank() || (data["classShortName"].isNullOrBlank() && !unassigned)) return
         val date = runCatching { LocalDate.parse(data["date"]) }.getOrNull() ?: return
         if ((data["lessonNumber"]?.toIntOrNull() ?: return) !in 0..12) return
         if (date < LocalDate.now().minusDays(1)) return
         val selected = settings.selectedClassId.first() ?: return
         val short = timetableRepo.observeClasses().first().firstOrNull { it.id == selected }?.shortName ?: return
-        if (!data.getValue("classShortName").equals(short, ignoreCase = true)) return
+        if (unassigned) {
+            // Zajęcia łączone bez klasy na stronie: sprawdzenie przypisze je z planu (może to być Twoja klasa)
+            // albo zapisze w części "Bez przypisanej klasy". Bez żadnych powiadomień o zastępstwach - nic do roboty.
+            if (!settings.notificationsSubstitutions.first() && !settings.notifyUnassigned.first()) return
+        } else if (!data.getValue("classShortName").equals(short, ignoreCase = true)) return
         if (data.getValue("id") in notificationsRepo.getSeenSubstitutionIds()) return
         // FCM może dostarczyć stary wpis już usunięty ze strony. Payload jest sygnałem do
         // sprawdzenia, a nie źródłem prawdy; zapis, powiadomienia i alarmy wykonuje koordynator.

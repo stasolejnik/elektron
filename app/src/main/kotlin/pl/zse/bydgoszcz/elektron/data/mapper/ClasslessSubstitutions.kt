@@ -15,7 +15,7 @@ import java.util.Locale
  *  2. w lekcjach bez takiej grupy: grupa łączona bez nauczyciela w planie klasy ("wf-j2 #1AF") ze
  *     zgodnym przedmiotem - tylko gdy w tej lekcji klasy jest dokładnie jedna taka grupa I gdy zapisany
  *     plan klasy współdzielącej grupę (tu 1A) potwierdza nauczyciela tej samej grupy.
- * Bez dopasowania wpis nie dotyczy żadnej zapisanej klasy.
+ * Bez dopasowania wpis nie dotyczy żadnej zapisanej klasy - zostaje bez klasy ([unassigned]).
  */
 internal object ClasslessSubstitutions {
     /**
@@ -98,4 +98,14 @@ internal object ClasslessSubstitutions {
     private fun normalize(text: String): String =
         Normalizer.normalize(text.replace('ł', 'l').replace('Ł', 'L'), Normalizer.Form.NFD)
             .replace(Regex("\\p{M}+"), "").lowercase(Locale.ROOT).trim()
+
+    /**
+     * Wpisy bez klasy, których [resolve] nie przypisał żadnej lekcji z zapisanego planu - zostają bez klasy
+     * (classShortName ""). Ten sam wpis to ten sam dzień, lekcja i nieobecny nauczyciel.
+     */
+    fun unassigned(entries: List<SubstitutionDto>, resolved: List<SubstitutionDto>): List<SubstitutionDto> {
+        val assigned = resolved.mapTo(HashSet()) { Triple(it.dateRaw, it.lessonNumber, it.originalTeacher) }
+        return entries.filter { Triple(it.dateRaw, it.lessonNumber, it.originalTeacher) !in assigned }
+            .map { it.copy(classShortName = "", groupNumber = null) }
+    }
 }

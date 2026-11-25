@@ -169,6 +169,8 @@ ANDROID_HOME=$HOME/Android/Sdk ./gradlew :app:assembleFossRelease
 Tylko wariant `gms`. Push skraca czas, po którym telefon dowiaduje się o nowym zastępstwie albo
 ogłoszeniu (z ok. 15 minut do kilku). Push jest tylko **sygnałem** - aplikacja sama sprawdza stronę
 szkoły i decyduje, czy pokazać powiadomienie (klasa, grupy, ustawienia). Synchronizacja w tle działa dalej.
+Wpis bez klasy (zajęcia łączone) przychodzi z pustą klasą i `unassigned` = `1`; aplikacja sprawdza wtedy
+stronę, jeśli ma włączone powiadomienia o zastępstwach albo o zastępstwach bez przypisanej klasy.
 
 | Element | Gdzie | Rola |
 |---|---|---|

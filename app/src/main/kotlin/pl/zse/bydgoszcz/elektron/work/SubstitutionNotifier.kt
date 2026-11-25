@@ -31,8 +31,23 @@ class SubstitutionNotifier @Inject constructor(
      * Wołający trzyma NotificationsRepository.withNotifyLock i sam aktualizuje zbiór widzianych.
      */
     suspend fun notifyFresh(fresh: List<Substitution>) {
-        if (fresh.isEmpty() || !settings.notificationsSubstitutions.first()) return
-        relevant(fresh).forEach { (sub, subject) -> sink.postSubstitution(sub, subject) }
+        if (fresh.isEmpty()) return
+        if (settings.notificationsSubstitutions.first()) relevant(fresh).forEach { (sub, subject) -> sink.postSubstitution(sub, subject) }
+        // Bez przypisanej klasy (zajęcia łączone) - osobne ustawienie, domyślnie wyłączone.
+        if (settings.notifyUnassigned.first()) unassigned(fresh).forEach { sink.postSubstitution(it, it.originalSubject) }
+    }
+
+    /** Nowe zastępstwa bez klasy, których lekcja jeszcze się nie skończyła (dzwonki z planu klasy użytkownika). */
+    private suspend fun unassigned(subs: List<Substitution>): List<Substitution> {
+        val classless = subs.filter { it.classShortName.isBlank() }
+        if (classless.isEmpty()) return emptyList()
+        val classId = settings.selectedClassId.first()
+        val lessons = if (classId == null) emptyList() else runCatchingCancellable {
+            timetableRepo.getLessonsOnce(classId, classless.minOf { it.date }, classless.maxOf { it.date })
+        }.getOrDefault(emptyList())
+        val ends = SubstitutionRelevance.lessonEnds(lessons)
+        val now = LocalDateTime.now()
+        return classless.filter { it.date >= now.toLocalDate() }.filterNot { SubstitutionRelevance.isOver(it, now, ends) }
     }
 
     /** Zastępstwa z [subs] dotyczące użytkownika (klasa, grupy, lekcja jeszcze trwa) + przedmiot. */

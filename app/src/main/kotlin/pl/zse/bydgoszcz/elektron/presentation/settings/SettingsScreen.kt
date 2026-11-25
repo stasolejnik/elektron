@@ -127,7 +127,8 @@ fun SettingsScreen(
                             live = state.liveNotifications, onLive = { viewModel.setLiveNotifications(it) },
                             onLiveResume = { viewModel.refreshLiveNotifications() },
                             notices = state.notifyNotices, onNotices = viewModel::setNotifNotices,
-                            updates = state.notifyUpdates, onUpdates = viewModel::setNotifyUpdates)
+                            updates = state.notifyUpdates, onUpdates = viewModel::setNotifyUpdates,
+                            unassigned = state.notifUnassigned, onUnassigned = viewModel::setNotifUnassigned)
                     }
                     item(key = "reminders") {
                         val reminderStatus by viewModel.reminderStatus.collectAsStateWithLifecycle()

@@ -8,6 +8,7 @@ import androidx.compose.material3.IconButtonDefaults
 import pl.zse.bydgoszcz.elektron.domain.model.SubstitutionsShare
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.TextButton
 import pl.zse.bydgoszcz.elektron.presentation.common.DelayedLoading
@@ -196,6 +197,23 @@ fun SubstitutionsScreen(
                     items(group.items, key = { it.id }) {
                         SubstitutionRow(it, onOpenLesson, { share(listOf(it)) }, Modifier.animateItem(placementSpec = null).semantics(mergeDescendants = true) {})
                     }
+                    // Zajęcia łączone, dla których szkoła nie podała klasy - pod zastępstwami klasy, z wyjaśnieniem.
+                    if (group.unassigned.isNotEmpty()) {
+                        item(key = "unassigned_${group.date}") {
+                            Column(Modifier.padding(start = 4.dp, top = 10.dp, bottom = 2.dp).animateItem(placementSpec = null)) {
+                                Text("Bez przypisanej klasy", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.semantics { heading() })
+                                Text("Szkoła nie podała klasy. Sprawdź, czy te zastępstwa Cię nie dotyczą.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        items(group.unassigned, key = { "unassigned_${it.id}" }) {
+                            // Bez otwierania lekcji: tej lekcji nie ma w planie klasy.
+                            SubstitutionRow(it, null, { share(listOf(it)) }, Modifier.animateItem(placementSpec = null).semantics(mergeDescendants = true) {
+                                contentDescription = "Zastępstwo bez przypisanej klasy"
+                            })
+                        }
+                    }
                 }
                 // Zastępstwa innych grup klasy: domyślnie ukryte, na żądanie przygaszone.
                 if (otherGroups.isNotEmpty()) {
@@ -229,14 +247,15 @@ fun SubstitutionsScreen(
 @Composable
 private fun SubstitutionRow(
     s: Substitution,
-    onOpenLesson: (LessonTarget) -> Unit,
+    /** null - bez otwierania lekcji (zastępstwo bez klasy, nie ma go w planie). */
+    onOpenLesson: ((LessonTarget) -> Unit)?,
     onShare: () -> Unit,
     modifier: Modifier = Modifier.semantics(mergeDescendants = true) {}
 ) {
     ElektronCard(
         modifier = modifier,
-        onClick = { onOpenLesson(LessonTarget(s.date, s.lessonNumber)) },
-        onClickLabel = "Otwórz szczegóły lekcji",
+        onClick = onOpenLesson?.let { open -> { open(LessonTarget(s.date, s.lessonNumber)) } },
+        onClickLabel = if (onOpenLesson != null) "Otwórz szczegóły lekcji" else null,
         onLongClick = onShare, onLongClickLabel = "Udostępnij zastępstwo"
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {

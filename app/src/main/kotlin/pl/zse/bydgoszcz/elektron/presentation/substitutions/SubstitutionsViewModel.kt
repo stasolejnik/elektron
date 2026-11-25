@@ -84,7 +84,9 @@ class SubstitutionsViewModel @Inject constructor(
         /** Ile zastępstw tego dnia już minęło (schowane, są w planie) - dzień z samą informacją szkoły nie pisze wtedy "Brak zastępstw". */
         val passed: Int = 0,
         /** Ile nadchodzących zastępstw tego dnia dotyczy innych grup klasy. */
-        val otherGroups: Int = 0) {
+        val otherGroups: Int = 0,
+        /** Zastępstwa bez przypisanej klasy (zajęcia łączone) - szkoła nie podała klasy, mogą dotyczyć ucznia. */
+        val unassigned: List<Substitution> = emptyList()) {
         /** Tekst karty dnia bez widocznych zastępstw (dzień jest na liście dzięki informacji szkoły). */
         val emptyText: String get() = emptyDayText(passed, otherGroups)
     }
@@ -141,12 +143,17 @@ class SubstitutionsViewModel @Inject constructor(
         val others = otherGroups.filterNot { SubstitutionRelevance.isOver(it, now, ends) }
             .sortedWith(compareBy({ it.date }, { it.lessonNumber }))
         val passedByDay = over.groupingBy { it.date }.eachCount()
+        // Bez klasy: do końca swojej lekcji (dzwonki z planu klasy), jak zastępstwa klasy.
+        val unassignedByDay = subs.filter { it.classShortName.isBlank() && it.date >= today }
+            .filterNot { SubstitutionRelevance.isOver(it, now, ends) }
+            .groupBy { it.date }
         val othersByDay = others.groupingBy { it.date }.eachCount()
         Content(
             days = shown.groupBy { it.date }.toSortedMap().let { byDay ->
-                (byDay.keys + notices.filter { (d, n) -> d >= today && n.hasContent }.keys).toSortedSet().map { d ->
+                (byDay.keys + unassignedByDay.keys + notices.filter { (d, n) -> d >= today && n.hasContent }.keys).toSortedSet().map { d ->
                     DayGroup(d, dayLabel(d, today), byDay[d].orEmpty().sortedWith(compareBy({ it.lessonNumber })), notices[d],
-                        passed = passedByDay[d] ?: 0, otherGroups = othersByDay[d] ?: 0)
+                        passed = passedByDay[d] ?: 0, otherGroups = othersByDay[d] ?: 0,
+                        unassigned = unassignedByDay[d].orEmpty().sortedWith(compareBy({ it.lessonNumber }, { it.originalTeacher })))
                 }
             },
             todayHidden = over.any { it.date == today },

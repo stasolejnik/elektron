@@ -226,6 +226,23 @@ class SubstitutionsRepositoryImplTest {
         assertEquals(listOf("1D"), repo.getAllFrom(d).map { it.classShortName })
     }
 
+    @Test
+    fun unassignedJoinedLessonIsStoredWithoutClass() = runTest {
+        // Zajęcia łączone, których nie da się przypisać żadnej klasie: zapisane bez klasy (zakładka
+        // Zastępstwa pokazuje je osobno), z przedmiotem podanym przez szkołę.
+        val d = today.plusDays(1)
+        val joined = SubstitutionDto(d.format(fmt), "Sławomira Nowak", 4, "", null, "Zajęcia Świetlicowe", null, null,
+            subject = "Wychowanie fizyczne")
+        val pageSource = object : SubstitutionsSource {
+            override suspend fun fetchSubstitutions() = emptyList<SubstitutionDto>()
+            override suspend fun fetchPage() = SubstitutionsPage(setOf(d.format(fmt)), emptyList(), classless = listOf(joined))
+        }
+        assertTrue(SubstitutionsRepositoryImpl(pageSource, db.substitutionDao(), db).syncAll().isSuccess)
+        val stored = repo.getAllFrom(d).single()
+        assertEquals("", stored.classShortName)
+        assertEquals("Wychowanie fizyczne", stored.originalSubject)
+    }
+
     private fun watchWrites(table: String) {
         val sql = db.openHelper.writableDatabase
         sql.execSQL("CREATE TABLE IF NOT EXISTS audit_writes (value INTEGER)")

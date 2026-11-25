@@ -169,6 +169,7 @@ class SettingsViewModel @Inject constructor(
         val dynamicColor: Boolean = false,
         val selectedClassId: String? = null,
         val notifSubs: Boolean = true,
+        val notifUnassigned: Boolean = false,
         val notifAnn: Boolean = false,
         val showNextLesson: Boolean = true,
         val showSubstitutions: Boolean = true,
@@ -210,7 +211,8 @@ class SettingsViewModel @Inject constructor(
         settings.notifyUpdates,
         settings.notifyNotices,
         settings.showNotices,
-        settings.showFollowingLesson
+        settings.showFollowingLesson,
+        settings.notifyUnassigned
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         State(
@@ -237,7 +239,8 @@ class SettingsViewModel @Inject constructor(
             notifyUpdates = values[19] as Boolean,
             notifyNotices = values[20] as Boolean,
             showNotices = values[21] as Boolean,
-            showFollowingLesson = values[22] as Boolean
+            showFollowingLesson = values[22] as Boolean,
+            notifUnassigned = values[23] as Boolean
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -344,6 +347,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setNotifSubs(b: Boolean) = writeSetting { settings.setNotificationsSubstitutions(b) }
+    fun setNotifUnassigned(b: Boolean) = writeSetting { settings.setNotifyUnassigned(b) }
     fun setNotifNotices(b: Boolean) = writeSetting { settings.setNotifyNotices(b) }
     fun setShowNotices(b: Boolean) = writeSetting { settings.setShowNotices(b) }
     fun setNotifAnn(b: Boolean) = writeSetting { settings.setNotificationsAnnouncements(b) }

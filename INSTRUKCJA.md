@@ -22,6 +22,8 @@ Zakładki przełączasz dolnym paskiem albo przesuwając ekran palcem w bok.
 - **Zastępstwa:** zmiany dla Twojej klasy i grup na kolejne dni oraz informacje szkoły dopisane
   pod datą. Dotknięcie zastępstwa otwiera tę lekcję w planie. Zastępstwo znika z zakładki po swojej
   lekcji, ale zostaje w planie. Nieobsadzony etat (w systemie szkoły „Vacat”) widać jako „wakat”.
+  Pod spodem, w części **Bez przypisanej klasy**, są zastępstwa zajęć łączonych (np. WF), przy których
+  szkoła nie podała klasy - sprawdź, czy nie dotyczą Ciebie. Nie ma ich w planie ani w widżetach.
 - **Przejazdy:** autobusy i tramwaje - patrz [Przejazdy](#przejazdy).
 - **Ogłoszenia:** wpisy ze strony szkoły, wyszukiwanie i **ulubione** (ikona zakładki), które działają
   bez internetu. Na górze listy są informacje szkoły na dziś i kolejne dni.
@@ -79,6 +81,7 @@ Przejazdy wymagają internetu i nie korzystają z lokalizacji telefonu.
 W **Ustawieniach → Powiadomienia** włączysz:
 
 - **Nowe zastępstwa** (domyślnie włączone) i **nowe ogłoszenia**;
+- **Zastępstwa bez przypisanej klasy** (domyślnie wyłączone) - zajęcia łączone, przy których szkoła nie podała klasy;
 - **Informacje szkoły** dopisane na stronie zastępstw, np. skrócone lekcje;
 - **Powiadomienia na żywo** - w dni lekcyjne od kwadransa przed pierwszą lekcją do końca ostatniej:
   co trwa, ile zostało i co dalej. Na Androidzie 16 odliczanie widać też na pasku stanu (trzeba na to

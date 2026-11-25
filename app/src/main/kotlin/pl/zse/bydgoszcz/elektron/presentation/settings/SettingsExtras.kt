@@ -185,7 +185,8 @@ internal fun NotificationsSection(
     onSubs: (Boolean) -> Unit, onAnnouncements: (Boolean) -> Unit, onQuiet: (QuietHours) -> Unit,
     live: Boolean = false, onLive: (Boolean) -> Unit = {}, onLiveResume: () -> Unit = {},
     notices: Boolean = false, onNotices: (Boolean) -> Unit = {},
-    updates: Boolean = false, onUpdates: (Boolean) -> Unit = {}
+    updates: Boolean = false, onUpdates: (Boolean) -> Unit = {},
+    unassigned: Boolean = false, onUnassigned: (Boolean) -> Unit = {}
 ) {
     var picking by rememberSaveable { mutableStateOf<Boolean?>(null) }   // true = od, false = do
     val ctx = LocalContext.current
@@ -215,6 +216,9 @@ internal fun NotificationsSection(
     GroupedSection("Powiadomienia", icon = Icons.Outlined.Notifications) {
         SystemNotificationStatus()
         SwitchRow("Nowe zastępstwa", substitutions, supporting = "Zmiany w planie Twojej klasy", onChange = onSubs)
+        RowDivider()
+        SwitchRow("Zastępstwa bez przypisanej klasy", unassigned,
+            supporting = "Zajęcia łączone kilku klas, np. WF. Szkoła nie podaje klasy, więc mogą Cię nie dotyczyć", onChange = onUnassigned)
         RowDivider()
         SwitchRow("Nowe ogłoszenia", announcements, supporting = "Wpisy na stronie szkoły", onChange = onAnnouncements)
         RowDivider()

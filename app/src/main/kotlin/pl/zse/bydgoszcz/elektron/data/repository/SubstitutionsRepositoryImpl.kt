@@ -1,5 +1,6 @@
 package pl.zse.bydgoszcz.elektron.data.repository
 
+import pl.zse.bydgoszcz.elektron.data.mapper.ClasslessSubstitutions
 import pl.zse.bydgoszcz.elektron.domain.util.runCatchingCancellable
 import android.util.Log
 import androidx.room.withTransaction
@@ -30,7 +31,9 @@ class SubstitutionsRepositoryImpl @Inject constructor(
     override suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
         runCatchingCancellable {
             val page = source.fetchPage()
-            // Zajęcia łączone (wpis bez klasy) - klasa i grupa z zapisanego planu; bez dopasowania pomijane.
+            // Zajęcia łączone (wpis bez klasy) - klasa i grupa z zapisanego planu. Bez dopasowania zapisywane
+            // bez klasy (classShortName "") - zakładka Zastępstwa pokazuje je osobno ("Bez przypisanej klasy");
+            // dawniej przepadały, choć bywa ich kilka dziennie (np. WF - zajęcia świetlicowe).
             var classlessFailed = false
             // Dni wpisów bez klasy, dla których nie ma zapisanego planu (np. plan jeszcze się nie pobrał po
             // wyczyszczeniu danych) - nie da się ich przypisać, więc te dni traktujemy jak niekompletne.
@@ -39,7 +42,7 @@ class SubstitutionsRepositoryImpl @Inject constructor(
             val joined = if (page.classless.isEmpty()) emptyList() else runCatchingCancellable {
                 val (resolved, noPlan) = resolveClassless(page.classless)
                 classlessNoPlan = noPlan
-                resolved
+                resolved + ClasslessSubstitutions.unassigned(page.classless, resolved)
             }.onFailure { classlessFailed = true; Log.w(TAG, "Nie udało się przypisać zastępstw bez klasy", it) }.getOrDefault(emptyList())
             val entities = (page.items + joined).mapNotNull(SubstitutionMapper::toEntity)
             // Dni pokazane na stronie (z nagłówków "Zastępstwa w dniu" - także dni bez wpisów).
@@ -90,9 +93,16 @@ class SubstitutionsRepositoryImpl @Inject constructor(
                         // lekcji - dawniej zostawały oba i plan mógł pokazać starą salę.
                         val freshIds = fresh.mapTo(HashSet()) { it.id }
                         val freshSlots = fresh.mapTo(HashSet(), ::slot)
-                        val replaced = old.filter { it.id !in freshIds && slot(it) in freshSlots }
+                        // Wpis bez klasy, który teraz udało się przypisać (np. plan pobrał się później), też
+                        // znika - inaczej zostałby obok przypisanego.
+                        val freshLessons = fresh.mapTo(HashSet()) { it.lessonNumber to it.originalTeacher }
+                        val replaced = old.filter { it.id !in freshIds && (slot(it) in freshSlots ||
+                            (it.classShortName.isEmpty() && (it.lessonNumber to it.originalTeacher) in freshLessons)) }
                         if (replaced.isNotEmpty()) dao.deleteByIds(replaced.map { it.id })
-                        dao.upsertAll(fresh.filter { oldById[it.id] != it })
+                        // Bez planu wpis bez klasy nie dostał klasy, ale wcześniej przypisany zostaje - bez drugiej kopii bez klasy.
+                        val oldAssigned = old.filter { it.classShortName.isNotEmpty() }.mapTo(HashSet()) { it.lessonNumber to it.originalTeacher }
+                        dao.upsertAll(fresh.filter { oldById[it.id] != it &&
+                            !(it.classShortName.isEmpty() && (it.lessonNumber to it.originalTeacher) in oldAssigned) })
                     } else if (old.toSet() != fresh.toSet()) {
                         dao.deleteForDay(day)
                         dao.upsertAll(fresh)

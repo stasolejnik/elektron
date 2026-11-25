@@ -33,7 +33,8 @@ object SubstitutionNotice {
      */
     fun content(sub: Substitution, subject: String?, today: LocalDate): Content {
         val day = dayLabel(sub.date, today)
-        val group = sub.groupNumber?.let { " (grupa $it)" } ?: ""
+        // Zastępstwo bez przypisanej klasy (zajęcia łączone) - zaznaczone w tytule, bo może nie dotyczyć ucznia.
+        val group = if (sub.classShortName.isBlank()) " (bez klasy)" else sub.groupNumber?.let { " (grupa $it)" } ?: ""
         val place = SubstitutionDisplay.place(sub)
         val forWhom = listOfNotNull(subject?.takeIf { it.isNotBlank() }, TeacherNames.display(sub.originalTeacher).takeIf { it.isNotEmpty() })
             .takeIf { it.isNotEmpty() }?.joinToString(" · ", prefix = "Za: ")

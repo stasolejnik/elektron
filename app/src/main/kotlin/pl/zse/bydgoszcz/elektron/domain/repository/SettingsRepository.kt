@@ -36,6 +36,9 @@ interface SettingsRepository {
 
     val notificationsSubstitutions: Flow<Boolean>
     suspend fun setNotificationsSubstitutions(enabled: Boolean)
+    /** Powiadomienia o zastępstwach bez przypisanej klasy (zajęcia łączone) - domyślnie wyłączone. */
+    val notifyUnassigned: Flow<Boolean> get() = flowOf(false)
+    suspend fun setNotifyUnassigned(enabled: Boolean) {}
 
     val notificationsAnnouncements: Flow<Boolean>
     suspend fun setNotificationsAnnouncements(enabled: Boolean)

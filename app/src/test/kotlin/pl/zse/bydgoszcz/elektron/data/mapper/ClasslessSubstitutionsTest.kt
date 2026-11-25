@@ -83,4 +83,16 @@ class ClasslessSubstitutionsTest {
         assertFalse(ClasslessSubstitutions.subjectMatches("Matematyka", "wf-j2"))
         assertFalse(ClasslessSubstitutions.subjectMatches(null, "wf"))
     }
+
+    @Test fun unresolvedEntriesStayWithoutClassAndKeepSubject() {
+        val other = entry.copy(originalTeacher = "Anna Nowak", lessonNumber = 4)
+        val resolved = listOf(entry.copy(classShortName = "1A", groupNumber = 2))
+        val left = ClasslessSubstitutions.unassigned(listOf(entry, other), resolved)
+        org.junit.Assert.assertEquals(listOf(other.copy(classShortName = "", groupNumber = null)), left)
+        val stored = SubstitutionMapper.toEntity(left.single())!!
+        org.junit.Assert.assertEquals("", stored.classShortName)
+        org.junit.Assert.assertEquals("Wychowanie fizyczne", stored.originalSubject)
+        // Wpis z klasą nie bierze przedmiotu ze strony.
+        org.junit.Assert.assertNull(SubstitutionMapper.toEntity(resolved.single())!!.originalSubject)
+    }
 }
