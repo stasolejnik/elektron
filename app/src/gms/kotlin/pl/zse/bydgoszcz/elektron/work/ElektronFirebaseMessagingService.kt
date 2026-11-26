@@ -40,6 +40,16 @@ class ElektronFirebaseMessagingService : FirebaseMessagingService() {
     @Inject lateinit var announcementsRepo: AnnouncementsRepository
     @Inject lateinit var notificationsRepo: NotificationsRepository
     @Inject lateinit var sink: NotificationSink
+    @Inject lateinit var pushTopics: PushTopics
+
+    /**
+     * Nowy token (np. po przywróceniu kopii zapasowej albo odświeżeniu przez Google): subskrypcje tematów są
+     * przypisane do tokenu. Dawniej odnawiane dopiero przy następnym starcie aplikacji, a proces potrafi żyć
+     * tygodniami - do tego czasu telefon nie dostawał pushy.
+     */
+    override fun onNewToken(token: String) {
+        pushTopics.start()
+    }
 
     // Odbiornik działa na wątku biblioteki FCM. Sprawdzenie zastępstw ma limit 8 s;
     // przy braku połączenia lub przekroczeniu limitu WorkManager kontynuuje później.

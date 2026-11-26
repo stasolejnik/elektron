@@ -22,8 +22,8 @@ internal fun NoteRemindersSection(enabled: Boolean, ready: Boolean, timing: Note
     var choosingMinutes by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     fun canNotify() = NotificationManagerCompat.from(context).areNotificationsEnabled() &&
-        (Build.VERSION.SDK_INT < 26 || context.getSystemService(NotificationManager::class.java)
-            ?.getNotificationChannel(LocalNotificationSink.CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE)
+        context.getSystemService(NotificationManager::class.java)
+            ?.getNotificationChannel(LocalNotificationSink.CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE
     var allowed by remember { mutableStateOf(canNotify()) }
     OnResume { allowed = canNotify(); onResume() }
     GroupedSection("Notatki do lekcji", icon = androidx.compose.material.icons.Icons.Outlined.EditNote,

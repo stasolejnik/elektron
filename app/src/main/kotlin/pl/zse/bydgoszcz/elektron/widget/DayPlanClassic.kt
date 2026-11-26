@@ -264,8 +264,27 @@ internal object DayPlanClassic {
     }
 
     /** Kolor w jasnym i ciemnym motywie (publiczne getColor z kontekstem w danym trybie - launcher wybiera sam). */
-    private fun ColorProvider.dayNight(context: Context): DayNight =
-        DayNight(getColor(modeContext(context, night = false)).toArgb(), getColor(modeContext(context, night = true)).toArgb())
+    private fun ColorProvider.dayNight(context: Context): DayNight {
+        val (day, night) = modeContexts(context)
+        return DayNight(getColor(day).toArgb(), getColor(night).toArgb())
+    }
+
+    /**
+     * Konteksty trybu jasnego i ciemnego dla bieżącej konfiguracji, tworzone raz. Dawniej przy każdym kolorze
+     * dwa nowe createConfigurationContext (nowe zasoby) - ok. 100 na jedno odświeżenie, a odświeżenie jest
+     * co minutę w czasie lekcji.
+     */
+    @Volatile private var modeCache: Triple<android.content.res.Configuration, Context, Context>? = null
+
+    private fun modeContexts(context: Context): Pair<Context, Context> {
+        val config = context.resources.configuration
+        modeCache?.let { (cached, day, night) -> if (cached == config) return day to night }
+        val app = context.applicationContext ?: context
+        val day = modeContext(app, night = false)
+        val night = modeContext(app, night = true)
+        modeCache = Triple(android.content.res.Configuration(config), day, night)
+        return day to night
+    }
 
     private fun modeContext(context: Context, night: Boolean): Context {
         val config = android.content.res.Configuration(context.resources.configuration)

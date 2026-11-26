@@ -34,7 +34,6 @@ class LocalNotificationSink @Inject constructor(
     init { ensureChannels() }
 
     private fun ensureChannels() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val mgr = context.getSystemService(NotificationManager::class.java) ?: return
 
         mgr.createNotificationChannelGroup(
@@ -191,8 +190,8 @@ class LocalNotificationSink @Inject constructor(
         safeNotify(NOTICE_ID_BASE + (date.toEpochDay() % 1000).toInt(), n)
     }
 
-    fun canPostNotes(): Boolean = canNotify() && NotificationManagerCompat.from(context).areNotificationsEnabled() && (Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-        context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE)
+    fun canPostNotes(): Boolean = canNotify() && NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+        context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CHANNEL_NOTES)?.importance != NotificationManager.IMPORTANCE_NONE
 
     suspend fun postNote(note: pl.zse.bydgoszcz.elektron.domain.model.LessonNote, subject: String, changed: Boolean = false): Boolean {
         if (!canPostNotes()) return false

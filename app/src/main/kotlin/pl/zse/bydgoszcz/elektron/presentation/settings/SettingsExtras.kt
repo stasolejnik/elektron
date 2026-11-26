@@ -417,7 +417,7 @@ internal fun WidgetsSection(current: WidgetLook, onChange: (WidgetLook) -> Unit)
 private fun AddWidgetsSection() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val manager = remember(context) { context.getSystemService(android.appwidget.AppWidgetManager::class.java) }
-    val supported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+    val supported =
         runCatching { manager?.isRequestPinAppWidgetSupported == true }.getOrDefault(false)
     if (!supported) return
     val widgets = listOf(

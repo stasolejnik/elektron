@@ -70,7 +70,6 @@ class UpdateNotifier @Inject constructor(
 
     /** Kanał tylko w wersji z GitHuba i dopiero przy pierwszym powiadomieniu. */
     private fun createChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
             NotificationChannel(CHANNEL_UPDATES, "Aktualizacje", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Nowa wersja aplikacji (Ustawienia → Powiadomienia)."

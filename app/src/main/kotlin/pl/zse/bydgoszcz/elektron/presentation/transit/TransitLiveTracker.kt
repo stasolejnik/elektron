@@ -3,6 +3,7 @@ package pl.zse.bydgoszcz.elektron.presentation.transit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -77,7 +78,8 @@ internal class TransitLiveTracker(
         val reused = boards.mapNotNull { board -> boardCache[board]?.takeIf { started - it.first < BOARD_FRESH_MS }?.let { board to it.second } }.toMap()
         val downloaded = boards.filter { it !in reused }
             .map { board -> board to (inFlight[board]?.takeIf { it.isActive } ?: download(board)) }
-            .mapNotNull { (board, pending) -> pending.await()?.let { board to it } }
+            // Pobranie anulowane przez clear() (zmiana celu) to brak wyniku, a nie koniec pętli odświeżania.
+            .mapNotNull { (board, pending) -> awaitOrNull(pending)?.let { board to it } }
             .toMap()
         val elapsed = android.os.SystemClock.elapsedRealtime()
         boardCache.keys.retainAll(boards.toSet())
@@ -100,6 +102,10 @@ internal class TransitLiveTracker(
         }
         seenAt.keys.retainAll(next.keys)
         _live.value = next
+    }
+
+    private suspend fun <T> awaitOrNull(pending: Deferred<T?>): T? = try { pending.await() } catch (e: kotlinx.coroutines.CancellationException) {
+        kotlinx.coroutines.currentCoroutineContext().ensureActive(); null
     }
 
     /** Pobranie tablicy w [scope]; wynik trafia do [boardCache] także wtedy, gdy sprawdzenie zostało przerwane. */

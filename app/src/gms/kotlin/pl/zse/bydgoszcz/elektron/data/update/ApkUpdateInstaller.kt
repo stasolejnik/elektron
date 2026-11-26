@@ -154,7 +154,7 @@ class ApkUpdateInstaller @Inject constructor(
             return
         }
         // Android 8+: zgoda "Instalowanie nieznanych aplikacji" dla eLektronu (raz).
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+        if (!context.packageManager.canRequestPackageInstalls()) {
             _state.value = InstallState.NeedsPermission(version)
             val settings = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -180,7 +180,7 @@ class ApkUpdateInstaller @Inject constructor(
     override fun resumeIfPermitted() {
         val st = _state.value
         if (st is InstallState.NeedsPermission &&
-            (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls())
+            context.packageManager.canRequestPackageInstalls()
         ) install()
     }
 

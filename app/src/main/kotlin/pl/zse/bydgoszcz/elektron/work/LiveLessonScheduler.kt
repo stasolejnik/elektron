@@ -314,8 +314,7 @@ class LiveLessonScheduler @Inject constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
             if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
-            return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-                context.getSystemService(NotificationManager::class.java)
+            return context.getSystemService(NotificationManager::class.java)
                     ?.getNotificationChannel(LocalNotificationSink.CHANNEL_LIVE)?.importance != NotificationManager.IMPORTANCE_NONE
         }
     }

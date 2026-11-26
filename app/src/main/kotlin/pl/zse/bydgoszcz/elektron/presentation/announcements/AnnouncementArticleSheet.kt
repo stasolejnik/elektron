@@ -55,7 +55,7 @@ internal fun AnnouncementArticleSheet(
     }
     val blocks = parsed.value?.takeIf { it.isNotEmpty() }
     val images = remember(blocks) { blocks?.let(ArticleBlocks::images).orEmpty() }
-    var viewerIndex by rememberSaveable(article.id) { mutableStateOf(-1) }
+    var viewerIndex by rememberSaveable(article.id) { androidx.compose.runtime.mutableIntStateOf(-1) }
     if (viewerIndex in images.indices) ArticleImageViewer(images, viewerIndex) { viewerIndex = -1 }
 
     ModalBottomSheet(

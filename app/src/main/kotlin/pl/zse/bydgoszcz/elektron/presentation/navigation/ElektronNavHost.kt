@@ -213,7 +213,7 @@ fun ElektronNavHost(
             transitVisible = navPrefs.visible, onBar = { it in barRoutes })
     }
     // Krok przewodnika przetrwa obrót ekranu (-1 - przewodnik nie trwa).
-    var savedTourStep by rememberSaveable { mutableStateOf(-1) }
+    var savedTourStep by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(-1) }
     // Przewodnik przewija zakładki (bez przenikania dalszych - pod przyciemnieniem wyglądało jak mignięcie).
     val slideTo: (String) -> Unit = { route ->
         val index = bottomDestinations.indexOfFirst { it.route == route }
