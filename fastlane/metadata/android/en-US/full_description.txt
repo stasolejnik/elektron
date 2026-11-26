@@ -4,7 +4,7 @@ Unofficial app for students of the Zespół Szkół Elektronicznych (school of e
 <ul>
 <li>Daily and weekly timetable with substitutions applied; the current lesson shows the time left</li>
 <li>Class groups: only the lessons you attend (languages, workshops, PE, religion), including several groups of one subject</li>
-<li>Substitutions for your class and group, including cancelled lessons, plus notices the school adds under a date (e.g. blood donation)</li>
+<li>Substitutions for your class and group, including cancelled lessons, notices the school adds under a date (e.g. blood donation) and substitutions for joint classes the school lists without a class</li>
 <li>Notifications about new substitutions (day, lesson, subject and teacher), news and school notices, quiet hours</li>
 <li>Days off: no reminders or live notification on holidays, breaks and winter break</li>
 <li>Live notification on school days: countdown to the break or the next lesson, what is on now and next, when lessons end (optional)</li>
@@ -12,9 +12,9 @@ Unofficial app for students of the Zespół Szkół Elektronicznych (school of e
 <li>Lesson reminders with the room number</li>
 <li>School news read in the app, with photos, search and favourites available offline</li>
 <li>Home screen with the current or next lesson, breaks, substitutions and time left until lessons end</li>
-<li>Widgets: Day plan, Next lesson, Substitutions, Transit, plus a quick settings tile</li>
-<li>Commute: in the morning buses and trams to your next lesson (time to spare, last one that makes it), after lessons the way home (when to leave), live delays, without GPS (optional)</li>
-<li>Custom subject names and colours, light and dark theme, accent colour, ready-made or custom background colour, wallpaper colours, app icon choice</li>
+<li>Widgets: Day plan, Next lesson, Substitutions, Commute, plus a quick settings tile</li>
+<li>Commute: in the morning buses and trams to your next lesson (time to spare before it), after lessons the way home, live delays and the bus or tram on a map, without GPS (optional)</li>
+<li>Custom subject names and colours, light and dark theme, accent, background and substitution colours (ready-made or custom), wallpaper colours, app icon choice</li>
 </ul>
 
 The app's interface is in Polish. Not affiliated with the school or VULCAN. Inspired by Atom (iOS) by Kacper Górka. Free software under GNU GPL v3 or later.

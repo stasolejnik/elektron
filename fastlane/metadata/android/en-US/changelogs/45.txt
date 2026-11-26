@@ -1,0 +1,8 @@
+Substitutions without an assigned class in the Substitutions tab; notifications for them in Settings.
+School notices always shown in full, with images.
+Choose the substitution colour, including a custom one.
+The Day plan widget works on Android 17.
+Widgets: "X min left" accurate to the minute, content right after a phone restart.
+Commute: a late ride stays until it leaves, less data used.
+From 16 December: why eLektron will not register with Google.
+A vacant post shows as "vacancy".

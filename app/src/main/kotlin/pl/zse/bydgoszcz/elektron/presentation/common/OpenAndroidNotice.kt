@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -19,21 +21,21 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
 /**
- * Jednorazowy komunikat o weryfikacji deweloperów Androida (Google, od 2027 roku): na 14 dni przed
- * [DEADLINE] i później, przy pierwszym otwarciu aplikacji od tego dnia. Data według [pl.zse.bydgoszcz.elektron.domain.util.AppClock],
+ * Jednorazowy komunikat o weryfikacji deweloperów Androida (Google, od 2027 roku) i o tym, że eLektron nie będzie
+ * rejestrowany: na 16 dni przed [DEADLINE] i później, przy pierwszym otwarciu aplikacji od tego dnia. Data według [pl.zse.bydgoszcz.elektron.domain.util.AppClock],
  * więc symulowany czas z trybu dewelopera też go wywoła. Tryb dewelopera może też wymusić pokazanie
  * przy następnym otwarciu ([simulate]) niezależnie od daty.
  */
 object OpenAndroidNotice {
     val DEADLINE: LocalDate = LocalDate.of(2027, 1, 1)
-    const val DAYS_BEFORE = 14L
+    const val DAYS_BEFORE = 16L
     const val URL = "https://keepandroidopen.org/"
 
     private const val PREFS = "open_android_notice"
     private const val KEY_SHOWN = "shown"
     private const val KEY_SIMULATE = "simulate"
 
-    /** Od tego dnia (18 grudnia 2026) komunikat czeka na pierwsze otwarcie aplikacji. */
+    /** Od tego dnia (16 grudnia 2026) komunikat czeka na pierwsze otwarcie aplikacji. */
     val firstDay: LocalDate get() = DEADLINE.minusDays(DAYS_BEFORE)
 
     fun isDue(today: LocalDate, shown: Boolean, simulate: Boolean): Boolean =
@@ -56,36 +58,56 @@ object OpenAndroidNotice {
     }
 }
 
-/** Okno komunikatu: co planuje Google, co to znaczy dla eLektronu i odnośnik do keepandroidopen.org. */
+/**
+ * Okno komunikatu: co planuje Google, że twórca eLektronu nie zamierza się do tego stosować (i dlaczego), co to znaczy
+ * dla użytkownika i odnośnik do keepandroidopen.org.
+ */
 @Composable
 fun OpenAndroidDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val body = MaterialTheme.typography.bodyMedium
+    // Polski skład: jednoliterowe spójniki i przyimki ("z", "a", "i", "o", "w") nie zostają same na końcu linii.
+    fun glue(text: String) = text.replace(Regex("(?<=\\s|^)([aiouwzAIOUWZ]) "), "$1\u00A0")
+    @Composable fun Heading(text: String) =
+        Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    @Composable fun Point(text: String) = Row {
+        Text("•", style = body, modifier = Modifier.padding(end = 8.dp))
+        Text(glue(text), style = body)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Google ogranicza otwartość Androida") },
         text = {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
+                Text(glue(
                     "Od 2027 roku Google stopniowo wprowadza na telefonach z usługami Google wymóg weryfikacji: " +
                         "aplikację da się zwyczajnie zainstalować tylko wtedy, gdy jej twórca zarejestruje się " +
-                        "w Google, także jeśli aplikacja nie pochodzi ze Sklepu Play.",
-                    style = MaterialTheme.typography.bodyMedium
+                        "w Google, także jeśli aplikacja nie pochodzi ze Sklepu Play."),
+                    style = body
                 )
-                Text("Co to znaczy dla eLektronu", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "eLektron jest dostępny tylko z GitHuba i z F-Droid, poza Sklepem Play. Gdy wymóg obejmie " +
-                        "Polskę, a aplikacja nie będzie zarejestrowana w Google, instalacja i aktualizacje mogą " +
-                        "wymagać dodatkowych kroków: włączenia opcji programisty, ponownego uruchomienia telefonu " +
-                        "i odczekania doby albo instalacji z komputera przez ADB.",
-                    style = MaterialTheme.typography.bodyMedium
+                Heading("eLektron nie będzie zarejestrowany")
+                Text(glue("Twórca eLektronu nie zamierza stosować się do tych zasad ani rejestrować aplikacji w Google. Dlaczego:"),
+                    style = body)
+                Point("eLektron to wolne oprogramowanie z publicznym kodem - każdy może sprawdzić, co robi aplikacja, " +
+                    "bez pośrednictwa Google.")
+                Point("Rejestracja wymaga przekazania Google danych osobowych twórcy, a o tym, jakie aplikacje można " +
+                    "zainstalować na własnym telefonie, decydowałaby jedna firma.")
+                Point("eLektron jest dostępny z GitHuba i z F-Droid, poza Sklepem Play, i tak ma zostać.")
+                Heading("Co to znaczy dla Ciebie")
+                Text(glue(
+                    "Do czasu, gdy wymóg obejmie Polskę, nic się nie zmienia. Potem instalacja i aktualizacje eLektronu " +
+                        "będą wymagały jednorazowego włączenia instalowania aplikacji od niezweryfikowanych twórców " +
+                        "w opcjach programisty (z ponownym uruchomieniem telefonu i dobą oczekiwania) albo instalacji " +
+                        "z komputera przez ADB."),
+                    style = body
                 )
-                Text(
+                Text(glue(
                     "Więcej o zmianie i o tym, jak możesz pomóc zachować otwartego Androida, przeczytasz na " +
-                        "keepandroidopen.org.",
-                    style = MaterialTheme.typography.bodyMedium
+                        "keepandroidopen.org."),
+                    style = body
                 )
             }
         },

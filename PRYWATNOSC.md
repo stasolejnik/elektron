@@ -57,11 +57,12 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   to samo sprawdzenie odbywa się także w tle, przy synchronizacji, najwyżej co 12 godzin.
   Zasady GitHuba: https://docs.github.com/site-policy/privacy-policies
 
-- **Obrazki w informacjach szkoły:** gdy szkoła doda obrazek do informacji na stronie zastępstw (np. skrócony plan zajęć), aplikacja pobiera go po rozwinięciu karty, wyłącznie z serwerów szkoły.
+- **Obrazki w informacjach szkoły:** gdy szkoła doda obrazek do informacji na stronie zastępstw (np. skrócony plan zajęć), aplikacja pobiera go przy wyświetleniu karty (strona główna, Zastępstwa, Ogłoszenia), wyłącznie z serwerów szkoły.
 - **Zdjęcia w ogłoszeniach:** po otwarciu ogłoszenia pobierane są zdjęcia umieszczone w jego treści, wyłącznie z serwerów szkoły (obrazy z innych stron nie są pobierane - zostaje opis i link). Zdjęcia korzystają z pamięci podręcznej. Pełny tekst jest pobierany ze strony ogłoszenia przy pierwszym otwarciu (i ponownie, gdy zapisała go starsza wersja aplikacji).
 
 - **BUSearch (Przejazdy - dojazd do szkoły i powrót):** dopóki nie wybierzesz przystanku, Przejazdy
-  nie łączą się z BUSearch. Po otwarciu wyboru przystanku aplikacja
+  nie łączą się z BUSearch, a połączenia wyszukują dopiero po wyborze Twojego przystanku i przystanku
+  przy szkole. Po otwarciu wyboru przystanku aplikacja
   pobiera publiczny katalog z api.busearch.pl. Katalog jest zapisywany w pamięci podręcznej;
   wyszukiwanie nazw i wybór celu odbywają się lokalnie. Przy samym wyborze celu nie są
   przesyłane wpisywane frazy, wybrany przystanek ani lokalizacja telefonu. Serwer widzi adres IP i wersję aplikacji.
@@ -99,6 +100,9 @@ wykluczona. Odinstalowanie aplikacji usuwa wszystkie te dane.
   Serwer widzi adres IP, wersję aplikacji i oglądany obszar mapy. GPS, klasa, notatki i
   nazwa wybranego celu nie są do niego wysyłane. Fragmenty mapy są przechowywane lokalnie
   w pamięci podręcznej. Zasady prywatności: https://osmfoundation.org/wiki/Privacy_Policy
+- **Odnośniki** (np. do strony ogłoszenia albo do keepandroidopen.org w jednorazowym komunikacie
+  o weryfikacji twórców Androida) otwierają się w przeglądarce dopiero po dotknięciu - aplikacja sama
+  nie łączy się z tymi stronami.
 
 **Wersja z F-Droid** łączy się ze stronami szkoły i, po otwarciu wyboru przystanku,
 również z katalogiem i planerem BUSearch oraz, po otwarciu mapy, z OpenStreetMap. Nie zawiera Firebase ani sprawdzania aktualizacji z GitHuba.

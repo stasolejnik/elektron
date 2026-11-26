@@ -226,7 +226,7 @@ internal fun DevSection(viewModel: SettingsViewModel) {
         footer = "Symulacje są widoczne tylko na tym telefonie. Zastępstwo (własne albo wzorowane na zapisanym, " +
             "także minionym) trafia na najbliższą lekcję - do planu, zastępstw, strony głównej i widżetów - " +
             "i wysyła powiadomienie; tak samo ogłoszenie. Znikają po „Usuń symulacje” albo przy synchronizacji. " +
-            "Komunikat o Androidzie: wyjdź z aplikacji i otwórz ją ponownie, jak po nadejściu 18 grudnia 2026. " +
+            "Komunikat o Androidzie: wyjdź z aplikacji i otwórz ją ponownie, jak po nadejściu 16 grudnia 2026. " +
             "Symulowany czas dalej płynie; synchronizacja, przypomnienia i powiadomienia zostają w prawdziwym czasie."
     ) {
         DevTimeRows(offset, onSimulate = viewModel::simulateTime, onReset = viewModel::resetSimulatedTime)

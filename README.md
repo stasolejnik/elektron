@@ -11,7 +11,7 @@
 [![Licencja: GPL v3+](https://img.shields.io/badge/licencja-GPL--3.0--or--later-blue)](LICENSE)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
-### [Pobierz eLektron 1.0.4 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.4/eLektron-1.0.4.apk)
+### [Pobierz eLektron 1.0.5 (.apk)](https://github.com/stasolejnik/elektron/releases/download/v1.0.5/eLektron-1.0.5.apk)
 
 Zalecane, z powiadomieniami push.
 
@@ -49,7 +49,8 @@ Kod tworzą Claude (Anthropic) i ChatGPT (OpenAI); ja wybieram funkcje i testuj�
 ## Funkcje
 
 - **Plan lekcji:** dzień i tydzień z zastępstwami, Twoje grupy zajęciowe, notatki do lekcji z przypomnieniem.
-- **Zastępstwa:** zmiany dla Twojej klasy i grup oraz informacje szkoły (np. skrócone lekcje).
+- **Zastępstwa:** zmiany dla Twojej klasy i grup, informacje szkoły (np. skrócone lekcje) i zastępstwa
+  zajęć łączonych, przy których szkoła nie podała klasy.
 - **Ogłoszenia:** wyszukiwanie, czytanie w aplikacji i ulubione do odczytu bez internetu.
 - **Przejazdy:** autobusy i tramwaje rano do szkoły (ile zapasu do lekcji) i po lekcjach ze szkoły,
   opóźnienia na żywo i pozycja pojazdu na mapie. Bez GPS.
@@ -66,7 +67,7 @@ Jak korzystać z aplikacji i co zrobić, gdy coś nie działa: **[INSTRUKCJA.md]
 
 ## Instalacja
 
-**Z GitHuba (zalecane):** pobierz [eLektron-1.0.4.apk](https://github.com/stasolejnik/elektron/releases/download/v1.0.4/eLektron-1.0.4.apk)
+**Z GitHuba (zalecane):** pobierz [eLektron-1.0.5.apk](https://github.com/stasolejnik/elektron/releases/download/v1.0.5/eLektron-1.0.5.apk)
 ([wszystkie wydania](https://github.com/stasolejnik/elektron/releases)), otwórz plik na telefonie
 i zezwól na instalację z tego źródła. Ta wersja ma powiadomienia push o zastępstwach i aktualizacje w aplikacji.
 
@@ -76,6 +77,15 @@ Google - o zastępstwach dowiaduje się z okresowego sprawdzania w tle; aktualiz
 Wymaga **Androida 8.0 lub nowszego**. Nowe wersje instaluj na wierzch poprzedniej - ustawienia,
 notatki i ulubione zostają. Wersji z GitHuba i z F-Droid nie da się zainstalować jedna na drugą
 (inne podpisy); zmiana źródła wymaga odinstalowania.
+
+**Weryfikacja twórców aplikacji przez Google:** od 2027 roku Google stopniowo wymaga, żeby aplikacje
+instalowane spoza Sklepu Play pochodziły od twórcy zarejestrowanego w Google. **eLektron nie będzie
+zarejestrowany** - twórca nie zamierza stosować się do tych zasad: eLektron to wolne oprogramowanie
+z publicznym kodem, rejestracja wymaga przekazania Google danych osobowych twórcy, a o tym, jakie aplikacje
+można zainstalować na własnym telefonie, nie powinna decydować jedna firma. Do czasu, gdy wymóg obejmie
+Polskę, nic się nie zmienia. Potem instalacja i aktualizacje będą wymagały jednorazowego włączenia
+instalowania aplikacji od niezweryfikowanych twórców w opcjach programisty (z ponownym uruchomieniem
+telefonu i dobą oczekiwania) albo instalacji z komputera przez ADB. Więcej: [keepandroidopen.org](https://keepandroidopen.org/).
 
 **Oficjalne źródła to tylko [wydania na GitHubie](https://github.com/stasolejnik/elektron/releases)
 i [F-Droid](https://f-droid.org/pl/packages/pl.zse.bydgoszcz.elektron/).** Inne strony z plikami APK

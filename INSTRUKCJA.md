@@ -20,7 +20,7 @@ Zakładki przełączasz dolnym paskiem albo przesuwając ekran palcem w bok.
 - **Plan:** widok **Dzień** albo **Tydzień**. Dotknięcie lekcji pokazuje szczegóły (sala, nauczyciel, grupy,
   zastępstwo, notatka). Przy zajęciach łączonych z inną klasą zamiast nauczyciela widać, z którą klasą są. Przycisk udostępniania wysyła dzień albo tydzień jako tekst.
 - **Zastępstwa:** zmiany dla Twojej klasy i grup na kolejne dni oraz informacje szkoły dopisane
-  pod datą. Dotknięcie zastępstwa otwiera tę lekcję w planie. Zastępstwo znika z zakładki po swojej
+  pod datą (zawsze w całości, z obrazkami). Dotknięcie zastępstwa otwiera tę lekcję w planie. Zastępstwo znika z zakładki po swojej
   lekcji, ale zostaje w planie. Nieobsadzony etat (w systemie szkoły „Vacat”) widać jako „wakat”.
   Pod spodem, w części **Bez przypisanej klasy**, są zastępstwa zajęć łączonych (np. WF), przy których
   szkoła nie podała klasy - sprawdź, czy nie dotyczą Ciebie. Nie ma ich w planie ani w widżetach.
@@ -112,7 +112,7 @@ połączenia w ciągu dnia (od 6:00 do 21:00); ikona odświeżania sprawdza od r
 | Kategoria | Co ustawisz |
 |---|---|
 | **Klasa i grupy** (karta na górze) | Klasa i grupy zajęciowe; przy przedmiotach z trzema grupami i więcej można wybrać kilka. |
-| **Powiadomienia** | Zastępstwa, ogłoszenia, informacje szkoły, powiadomienia na żywo, ciche godziny, przypomnienia o lekcjach i notatkach. W wersji z GitHuba także powiadomienie o nowej wersji. |
+| **Powiadomienia** | Zastępstwa (osobno te bez przypisanej klasy), ogłoszenia, informacje szkoły, powiadomienia na żywo, ciche godziny, przypomnienia o lekcjach i notatkach. W wersji z GitHuba także powiadomienie o nowej wersji. |
 | **Strona główna** | Ekran startowy (automatycznie: w czasie lekcji plan, poza nimi strona główna) i karty: następna lekcja, kolejna lekcja, czas do końca lekcji, zastępstwa, ogłoszenia, informacje szkoły, Przejazdy. |
 | **Wygląd** | Motyw, kolor akcentu, kolor tła, kolory z tapety (Android 12+), kolor zastępstw (gotowy albo własny, z podglądem) i ikona aplikacji (granatowa albo cyjanowa). |
 | **Plan lekcji** | Własne nazwy i kolory przedmiotów, sala i nauczyciel w planie. |
@@ -153,6 +153,11 @@ inna, aplikacja poprosi o ponowny wybór klasy (grupy i notatki zostają).
 - **Plan albo zastępstwa wyglądają na nieaktualne:** przeciągnij ekran w dół. Gdy to nie pomaga,
   **Ustawienia → Dane → wyczyść dane podręczne**.
 - **„Strona szkoły zmieniła wygląd”:** aplikacja pokazuje ostatni zapisany plan, a poprawka pojawi się w aktualizacji.
+- **Okno „Google ogranicza otwartość Androida”** (raz, od 16 grudnia 2026): od 2027 roku Google stopniowo
+  wymaga, żeby twórcy aplikacji instalowanych spoza Sklepu Play rejestrowali się w Google. Twórca eLektronu
+  nie zamierza się rejestrować, więc gdy wymóg obejmie Polskę, instalacja i aktualizacje będą wymagały
+  dodatkowych kroków w ustawieniach telefonu. Powody i szczegóły: [README](README.md#instalacja)
+  i [keepandroidopen.org](https://keepandroidopen.org/).
 - **Zmiana wersji z GitHuba na F-Droid (lub odwrotnie):** trzeba odinstalować aplikację, co usuwa ustawienia, notatki i ulubione.
 
 ## Polecanie aplikacji

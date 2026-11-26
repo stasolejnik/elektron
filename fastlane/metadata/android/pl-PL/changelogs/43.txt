@@ -1,6 +1,0 @@
-Widżet Plan dnia na Androidzie 17: nowa lista lekcji, przewijana palcem.
-Widżety po restarcie telefonu od razu z treścią, bez jasnego prostokąta.
-Przejazdy: spóźniony kurs nie znika z listy tuż przed przyjazdem.
-Przejazdy pobierają mniej danych.
-Zastępstwa: bez „Brak zastępstw”, gdy dzisiejsze już minęły.
-Nieobsadzony etat widać jako „wakat”.

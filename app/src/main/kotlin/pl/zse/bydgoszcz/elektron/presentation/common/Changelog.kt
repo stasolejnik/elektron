@@ -5,24 +5,19 @@ object Changelog {
     data class Entry(val versionCode: Int, val versionName: String, val items: List<String>)
 
     val entries: List<Entry> = listOf(
-        Entry(44, "1.0.5-beta3", listOf(
+        Entry(45, "1.0.5", listOf(
+            "Zastępstwa bez przypisanej klasy (np. WF łączony) w zakładce Zastępstwa; powiadomienia o nich włączysz w Ustawieniach",
+            "Informacja szkoły zawsze w całości, razem z obrazkami",
             "Kolor zastępstw do wyboru, także własny, z podglądem (Ustawienia → Wygląd)",
+            "Widżet Plan dnia na Androidzie 17: widać lekcje, lista się przewija, działa ciemny motyw i przezroczystość",
             "Widżety: „Zostało X min” co do minuty, jak w powiadomieniu na żywo",
-            "Widżet Plan dnia na Androidzie 17: ciemny motyw i przezroczystość działają",
-            "Przejazdy: przystanek przy szkole wybierasz sam (także „Szkoła”)",
-            "Przejazdy pobierają mniej danych o opóźnieniach",
-            "Nieobsadzony etat widać jako „wakat”, szerszy numer lekcji w widżetach"
-        )),
-        Entry(43, "1.0.5-beta2", listOf(
-            "Widżet Plan dnia na Androidzie 17: nowa lista lekcji, która przewija się palcem (w beta1 nadal była pusta)"
-        )),
-        Entry(42, "1.0.5-beta1", listOf(
-            "Widżet Plan dnia: poprawka dla Androida 17, na którym lekcje się nie pokazywały",
-            "Widżety po restarcie telefonu od razu z treścią, bez jasnego prostokąta",
-            "Przejazdy: spóźniony autobus albo tramwaj nie znika z listy tuż przed przyjazdem",
-            "Przejazdy pobierają mniej danych",
+            "Widżety po restarcie telefonu od razu z treścią",
+            "Przejazdy: spóźniony autobus albo tramwaj zostaje na liście do faktycznego odjazdu",
+            "Od 16 grudnia: nowe zasady Google dotyczące instalowania aplikacji i dlaczego eLektron nie będzie w nich rejestrowany",
             "Zastępstwa: bez „Brak zastępstw”, gdy dzisiejsze zastępstwa już minęły",
-            "Nieobsadzony etat („Vacat”) widać jako „wakat”"
+            "Nieobsadzony etat widać jako „wakat”",
+            "Widżet Plan dnia pierwszy na liście widżetów",
+            "Przejazdy pobierają mniej danych"
         )),
         Entry(41, "1.0.4", listOf(
             "Przejazdy: dotknij kursu, aby zobaczyć, gdzie jest teraz autobus albo tramwaj",

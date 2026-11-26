@@ -109,10 +109,13 @@ aplikacji odrzuca plik z tym samym kodem, a okno „Co nowego” pokazuje wpisy 
      wpis miał `versionCode` z builda);
    - `fastlane/metadata/android/{pl-PL,en-US}/changelogs/<versionCode>.txt` - **najwyżej 500 znaków**
      (F-Droid).
+   Wydanie stabilne po becie: sekcje bet w `CHANGELOG.md` łączą się w jedną sekcję wersji, wpisy bet
+   znikają z `Changelog.kt` i z `fastlane/.../changelogs/<kod bety>.txt`, a teksty nie wspominają o becie.
    Podgląd okna „Co nowego”: tryb dewelopera (Ustawienia → O aplikacji, 5 dotknięć logo) →
   „Podgląd „Co nowego””. Tam też podgląd jednorazowego komunikatu o weryfikacji deweloperów Androida
-  (`OpenAndroidNotice`, od 18.12.2026) i jego symulacja przy następnym otwarciu.
-3. **Sprawdzenie:** testy obu wariantów, lint, build `foss` i `gms`.
+  (`OpenAndroidNotice`, od 16.12.2026) i jego symulacja przy następnym otwarciu.
+3. **Sprawdzenie:** testy obu wariantów, lint, build `foss` i `gms`. Przed wydaniem stabilnym także aktualizacja
+   z poprzedniej wersji stabilnej na emulatorze (dane, ustawienia, widżety) i symulacja F-Droid (niżej).
 4. **Commit** `Release <wersja>` z datą w CHANGELOG, **push** na `main`.
 5. **APK:** `./gradlew :app:assembleGmsRelease`, sprawdź podpis
    (`apksigner verify app/build/outputs/apk/gms/release/app-gms-release.apk`) i skopiuj jako
@@ -139,6 +142,19 @@ cp keystore.properties.example keystore.properties   # uzupełnij hasła
 ```
 
 Kopię klucza i haseł trzymaj poza komputerem (np. w menedżerze haseł).
+
+### Zrzuty ekranu
+
+- **README (GitHub):** `docs/screenshots/*.png` w ramce telefonu - zawsze tyle samo zrzutów co dotąd (8).
+  Ramka: `python3 docs/screenshots/ramka.py surowy.png wynik.png` (Pillow).
+- **F-Droid:** `fastlane/metadata/android/en-US/images/phoneScreenshots/<n>.png` - sam ekran 1080x2400, bez ramki;
+  tu mogą być dodatkowe ekrany (tydzień, szczegóły lekcji, mapa pojazdu, wygląd).
+- **Emulator:** Android 16, 1080x2400, ciemny motyw, ta sama data i godzina na wszystkich zrzutach:
+  `adb root`, `adb shell settings put global auto_time 0`, przed każdym zrzutem `adb shell date MMDDhhmmYYYY.ss`.
+  Pasek stanu w trybie demo: `adb shell settings put global sysui_demo_allowed 1`, potem
+  `adb shell am broadcast -a com.android.systemui.demo -e command <enter|clock -e hhmm 1215|notifications -e visible false>`.
+  Widżet Przejazdy odśwież chwilę przed ustawioną godziną - po cofnięciu zegara uznaje wynik za nieaktualny.
+  Mapa pojazdu tylko przy prawdziwym czasie (dane na żywo). Na koniec: `-e command exit`, `auto_time 1`, `adb unroot`.
 
 ## F-Droid
 

@@ -1,6 +1,0 @@
-Choose the substitution colour, including your own, with a preview.
-Widgets: remaining time accurate to the minute.
-Day plan widget on Android 17: scrolling list, dark theme and transparency.
-Commute: you choose the stop at school; late rides stay until they arrive; less data.
-Widgets show content right after a restart.
-A vacant teaching post is shown as "wakat".

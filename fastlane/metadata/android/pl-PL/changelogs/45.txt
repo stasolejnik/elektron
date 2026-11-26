@@ -1,0 +1,8 @@
+Zastępstwa bez przypisanej klasy w zakładce Zastępstwa; powiadomienia o nich w Ustawieniach.
+Informacja szkoły zawsze w całości, z obrazkami.
+Kolor zastępstw do wyboru, także własny.
+Widżet Plan dnia działa na Androidzie 17.
+Widżety: „Zostało X min” co do minuty, po restarcie telefonu od razu z treścią.
+Przejazdy: spóźniony kurs zostaje do odjazdu, mniej pobieranych danych.
+Od 16 grudnia: dlaczego eLektron nie zarejestruje się w Google.
+Nieobsadzony etat jako „wakat”.
