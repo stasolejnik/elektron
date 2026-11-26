@@ -625,6 +625,9 @@ Pierwsza wersja beta: zestaw funkcji zamrożony do wydania 1.0, dalsze wersje 0.
 
 Starsze wersje (0.1.0 - 0.3.1-alpha) nie są opisane w tym pliku.
 
+[Niewydane]: https://github.com/stasolejnik/elektron/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.5
+[1.0.4]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.4
 [1.0.3]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.3
 [1.0.2]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.2
 [1.0.1]: https://github.com/stasolejnik/elektron/releases/tag/v1.0.1

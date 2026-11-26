@@ -103,7 +103,8 @@ aplikacji odrzuca plik z tym samym kodem, a okno „Co nowego” pokazuje wpisy 
 
 1. **Wersja:** podnieś `versionCode` (o 1) i ustaw `versionName` (`1.0.5`, `1.0.5-beta1`).
 2. **Zmiany, od najważniejszych:**
-   - `CHANGELOG.md` - sekcja `## [wersja] - RRRR-MM-DD (versionCode)` (do wydania: `niewydane`);
+   - `CHANGELOG.md` - sekcja `## [wersja] - RRRR-MM-DD (versionCode)` (do wydania: `niewydane`) i odnośnik
+     `[wersja]: https://github.com/stasolejnik/elektron/releases/tag/v<wersja>` na końcu pliku (bez niego wersja nie jest klikalna);
    - `release-notes/<wersja>.md` - krótki opis dla użytkowników (treść wydania na GitHubie);
    - `presentation/common/Changelog.kt` - wpis „Co nowego” w aplikacji (test pilnuje, by najnowszy
      wpis miał `versionCode` z builda);
